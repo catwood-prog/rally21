@@ -1,27 +1,76 @@
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Platform,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 import { MessageDialog } from '@/components/MessageDialog';
 import { colors } from '@/constants/theme';
+import { getMyPrimaryCircle } from '@/lib/circle';
+import { useAuth } from '@/lib/auth-context';
 
 export default function Invite() {
   const router = useRouter();
-  const { inviteCode } = useLocalSearchParams<{ circleId: string; inviteCode: string }>();
+  const { session } = useAuth();
+  const { inviteCode: inviteCodeParam } = useLocalSearchParams<{
+    circleId: string;
+    inviteCode: string;
+  }>();
+  const [inviteCode, setInviteCode] = useState<string | null>(inviteCodeParam ?? null);
+  const [isLoadingCode, setIsLoadingCode] = useState(!inviteCodeParam);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (inviteCodeParam || !session?.user) return;
+    // the route param can be missing after a page refresh (web) — fetch
+    // the code straight from the user's circle instead of trusting it.
+    getMyPrimaryCircle(session.user.id)
+      .then((circle) => setInviteCode(circle?.inviteCode ?? null))
+      .finally(() => setIsLoadingCode(false));
+  }, [inviteCodeParam, session?.user?.id]);
 
   const shareMessage = `Join my Rally21 circle! Sign in at https://rally21.vercel.app and enter code ${inviteCode} to hop in.`;
 
   const handleShare = async () => {
+    if (!inviteCode) return;
+
+    if (Platform.OS === 'web') {
+      // navigator.share is unreliable across browsers here, and awaiting it
+      // before falling back to a clipboard write loses the user-gesture
+      // context Safari/Chrome require to allow that write — copy directly.
+      await Clipboard.setStringAsync(shareMessage);
+      setNotice('copied — paste it to your people');
+      return;
+    }
+
     try {
       await Share.share({ message: shareMessage });
     } catch {
-      // no native share sheet available (e.g. desktop browser) — copy instead
       await Clipboard.setStringAsync(shareMessage);
       setNotice('copied — paste it to your people');
     }
   };
+
+  const handleCopyCode = async () => {
+    if (!inviteCode) return;
+    await Clipboard.setStringAsync(inviteCode);
+    setNotice('code copied');
+  };
+
+  if (isLoadingCode) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color={colors.green} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -29,11 +78,19 @@ export default function Invite() {
       <Text style={styles.subtitle}>share this code — anyone can use it to hop in</Text>
 
       <View style={styles.codeCard}>
-        <Text style={styles.code}>{inviteCode}</Text>
+        <Text style={styles.code}>{inviteCode ?? '——————'}</Text>
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleShare}>
+      <TouchableOpacity style={styles.button} onPress={handleShare} disabled={!inviteCode}>
         <Text style={styles.buttonText}>Share invite</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.copyCodeButton}
+        onPress={handleCopyCode}
+        disabled={!inviteCode}
+      >
+        <Text style={styles.copyCodeText}>Copy code only</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace('/')}>
@@ -57,6 +114,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bg,
   },
   title: {
     fontSize: 24,
@@ -93,11 +156,26 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   buttonText: {
     fontWeight: '700',
     fontSize: 14,
+    color: colors.ink,
+  },
+  copyCodeButton: {
+    width: '100%',
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: 14,
+    paddingVertical: 11,
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  copyCodeText: {
+    fontWeight: '700',
+    fontSize: 12.5,
     color: colors.ink,
   },
   secondaryButton: {
