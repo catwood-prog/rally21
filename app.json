@@ -33,7 +33,13 @@
           "backgroundColor": "#F2F1EC"
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Rally21 uses your photos to let you set a profile picture."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

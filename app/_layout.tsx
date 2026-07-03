@@ -16,6 +16,7 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="sign-in" />
         <Stack.Screen name="auth/callback" />
+        <Stack.Screen name="onboarding" />
         <Stack.Screen name="(app)" />
         <Stack.Screen name="+not-found" options={{ headerShown: true, title: 'Oops!' }} />
       </Stack>

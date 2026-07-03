@@ -15,7 +15,8 @@ export default function AuthCallback() {
   }, []);
 
   if (session) {
-    return <Redirect href="/(app)/today" />;
+    // "/" carries the new-vs-returning-user routing logic
+    return <Redirect href="/" />;
   }
 
   if (timedOut && !isLoading) {
