@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -9,11 +9,20 @@ import {
   View,
 } from 'react-native';
 
+import { SignalMeter } from '@/components/SignalMeter';
 import { colors } from '@/constants/theme';
-import { CircleMember, getCircleMembers, getCirclePresence, getMyPrimaryCircle, MyCircle } from '@/lib/circle';
 import { useAuth } from '@/lib/auth-context';
+import {
+  CircleMember,
+  getCircleMembers,
+  getCirclePresence,
+  getMyPrimaryCircle,
+  MyCircle,
+  subscribeToCirclePresence,
+} from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 import { getMyProfile } from '@/lib/profile';
+import { computeSignal, PresenceRow } from '@/lib/signal';
 
 function greeting(name: string | null) {
   const hour = new Date().getHours();
@@ -26,7 +35,7 @@ export default function Today() {
   const { session, signOut } = useAuth();
   const [circle, setCircle] = useState<MyCircle | null>(null);
   const [members, setMembers] = useState<CircleMember[]>([]);
-  const [inTodayUserIds, setInTodayUserIds] = useState<Set<string>>(new Set());
+  const [presence, setPresence] = useState<PresenceRow[]>([]);
   const [myName, setMyName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +45,6 @@ export default function Today() {
     setIsLoading(true);
     setError(null);
     try {
-      const today = getLocalDateString();
       const [profile, myCircle] = await Promise.all([
         getMyProfile(session.user.id),
         getMyPrimaryCircle(session.user.id),
@@ -45,12 +53,12 @@ export default function Today() {
       setCircle(myCircle);
 
       if (myCircle) {
-        const [circleMembers, presence] = await Promise.all([
+        const [circleMembers, circlePresence] = await Promise.all([
           getCircleMembers(myCircle.id),
           getCirclePresence(myCircle.id),
         ]);
         setMembers(circleMembers);
-        setInTodayUserIds(new Set(presence.filter((p) => p.localDate === today).map((p) => p.userId)));
+        setPresence(circlePresence);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your circle');
@@ -66,6 +74,15 @@ export default function Today() {
     }, [load])
   );
 
+  // live updates whenever anyone in the circle checks in
+  useEffect(() => {
+    if (!circle) return;
+    const unsubscribe = subscribeToCirclePresence(circle.id, () => {
+      getCirclePresence(circle.id).then(setPresence);
+    });
+    return unsubscribe;
+  }, [circle?.id]);
+
   if (isLoading) {
     return (
       <View style={styles.loading}>
@@ -74,8 +91,20 @@ export default function Today() {
     );
   }
 
+  const today = getLocalDateString();
+  const inTodayUserIds = new Set(
+    presence.filter((p) => p.localDate === today).map((p) => p.userId)
+  );
   const iAmCheckedInToday = !!session?.user && inTodayUserIds.has(session.user.id);
   const inCount = inTodayUserIds.size;
+  const signal = circle
+    ? computeSignal({
+        presence,
+        memberCount: members.length,
+        today,
+        circleStartDate: circle.startDate,
+      })
+    : null;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -97,11 +126,10 @@ export default function Today() {
             {'\n'}with your circle
           </Text>
 
-          <View style={styles.card}>
-            <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>{inCount} of {members.length} in today</Text>
-            </View>
-          </View>
+          <TouchableOpacity style={styles.card} onPress={() => router.push('/circle')}>
+            {signal && <SignalMeter state={signal.state} dailyRates={signal.dailyRates} />}
+            <Text style={styles.cardLink}>{inCount} of {members.length} in today · view circle →</Text>
+          </TouchableOpacity>
 
           <View style={styles.membersRow}>
             {members.map((member) => {
@@ -202,15 +230,10 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 16,
   },
-  cardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.ink,
+  cardLink: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.muted,
   },
   membersRow: {
     flexDirection: 'row',
