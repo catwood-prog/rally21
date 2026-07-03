@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   StyleSheet,
   Text,
@@ -41,7 +42,8 @@ export default function ProfileSetup() {
     setIsSaving(true);
     setError('');
     try {
-      await saveProfile(session.user.id, { name, avatarUri: photoUri });
+      const { avatarWarning } = await saveProfile(session.user.id, { name, avatarUri: photoUri });
+      if (avatarWarning) Alert.alert('almost there', avatarWarning);
       router.replace('/onboarding/circle-setup');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'something went wrong — try again');

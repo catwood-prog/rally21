@@ -38,8 +38,18 @@ async function uploadAvatar(userId: string, imageUri: string): Promise<string> {
 export async function saveProfile(
   userId: string,
   { name, avatarUri }: { name: string; avatarUri?: string | null }
-) {
-  const avatarUrl = avatarUri ? await uploadAvatar(userId, avatarUri) : undefined;
+): Promise<{ avatarWarning: string | null }> {
+  let avatarUrl: string | undefined;
+  let avatarWarning: string | null = null;
+
+  if (avatarUri) {
+    try {
+      avatarUrl = await uploadAvatar(userId, avatarUri);
+    } catch {
+      // photo is optional — never let a failed upload block saving the name
+      avatarWarning = "your photo didn't upload, but your name is saved — try again later from settings";
+    }
+  }
 
   const { error } = await supabase
     .from('users')
@@ -50,4 +60,6 @@ export async function saveProfile(
     .eq('id', userId);
 
   if (error) throw error;
+
+  return { avatarWarning };
 }
