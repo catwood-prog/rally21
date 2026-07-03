@@ -1,14 +1,11 @@
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { colors } from '@/constants/theme';
 
-// The two paths here (start / join) get wired up to real circle creation
-// next — this screen just needs to exist as somewhere for a fresh profile
-// to land.
-const comingSoon = () =>
-  Alert.alert('almost there', "circle creation is next — you'll be able to do this very soon");
-
 export default function CircleSetup() {
+  const router = useRouter();
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>
@@ -16,15 +13,18 @@ export default function CircleSetup() {
       </Text>
       <Text style={styles.subtitle}>you can always add more circles later</Text>
 
-      <TouchableOpacity style={[styles.card, styles.cardHighlighted]} onPress={comingSoon}>
+      <TouchableOpacity
+        style={[styles.card, styles.cardHighlighted]}
+        onPress={() => router.push('/onboarding/create-circle')}
+      >
         <Text style={styles.cardEmoji}>✨</Text>
         <Text style={styles.cardTitle}>Start a circle</Text>
         <Text style={styles.cardBody}>
-          Pick a practice, set the commitment, and invite your people.
+          Pick a practice, set the time, and invite your people.
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.card} onPress={comingSoon}>
+      <TouchableOpacity style={styles.card} onPress={() => router.push('/onboarding/join-circle')}>
         <Text style={styles.cardEmoji}>🤝</Text>
         <Text style={styles.cardTitle}>Join a circle</Text>
         <Text style={styles.cardBody}>

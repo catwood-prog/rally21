@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   StyleSheet,
   Text,
@@ -12,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { MessageDialog } from '@/components/MessageDialog';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { saveProfile } from '@/lib/profile';
@@ -23,6 +23,7 @@ export default function ProfileSetup() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  const [avatarWarning, setAvatarWarning] = useState<string | null>(null);
 
   const pickPhoto = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -42,9 +43,15 @@ export default function ProfileSetup() {
     setIsSaving(true);
     setError('');
     try {
-      const { avatarWarning } = await saveProfile(session.user.id, { name, avatarUri: photoUri });
-      if (avatarWarning) Alert.alert('almost there', avatarWarning);
-      router.replace('/onboarding/circle-setup');
+      const { avatarWarning: warning } = await saveProfile(session.user.id, {
+        name,
+        avatarUri: photoUri,
+      });
+      if (warning) {
+        setAvatarWarning(warning);
+      } else {
+        router.replace('/onboarding/circle-setup');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'something went wrong — try again');
     } finally {
@@ -96,6 +103,16 @@ export default function ProfileSetup() {
           <Text style={styles.buttonText}>Continue</Text>
         )}
       </TouchableOpacity>
+
+      <MessageDialog
+        visible={!!avatarWarning}
+        title="almost there"
+        message={avatarWarning ?? ''}
+        onDismiss={() => {
+          setAvatarWarning(null);
+          router.replace('/onboarding/circle-setup');
+        }}
+      />
     </View>
   );
 }
