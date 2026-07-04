@@ -13,7 +13,7 @@ import {
 import { AccentedText } from '@/components/AccentedText';
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
-import { FONT_HEADER } from '@/constants/fonts';
+import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { MOOD_EMOJI, MOOD_VALUES } from '@/constants/mood';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
@@ -25,8 +25,9 @@ import {
   saveCompletion,
   saveReflection,
 } from '@/lib/checkin';
-import { getCirclePresence } from '@/lib/circle';
+import { getCircleById, getCirclePresence } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
+import { deriveCheckinAccent } from '@/lib/practice-accent';
 
 export default function CheckIn() {
   const router = useRouter();
@@ -45,6 +46,7 @@ export default function CheckIn() {
   const [question, setQuestion] = useState<DailyQuestion | null>(null);
   const [questionAnswer, setQuestionAnswer] = useState('');
   const [questionSkipped, setQuestionSkipped] = useState(false);
+  const [accent, setAccent] = useState('practice');
 
   useEffect(() => {
     if (!circleId || !session?.user) return;
@@ -52,10 +54,12 @@ export default function CheckIn() {
       try {
         // reflection is per-person-per-day, not per-circle — if today's
         // already been done (from any circle), edit that same entry
-        const [existing, presence] = await Promise.all([
+        const [existing, presence, circle] = await Promise.all([
           getTodayReflection(today),
           getCirclePresence(circleId),
+          getCircleById(circleId),
         ]);
+        setAccent(deriveCheckinAccent(circle?.practiceName));
         const alreadyCompletedThisCircle = presence.some(
           (p) => p.userId === session.user.id && p.localDate === today
         );
@@ -131,7 +135,9 @@ export default function CheckIn() {
         <Text style={styles.back}>← Today</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>how&apos;d it go?</Text>
+      <Text style={styles.title}>
+        close your <Text style={styles.titleAccent}>{accent}</Text>
+      </Text>
 
       <Text style={styles.label}>your mood</Text>
       <View style={styles.moodRow}>
@@ -311,6 +317,11 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: colors.ink,
     marginBottom: 20,
+  },
+  titleAccent: {
+    fontFamily: FONT_SERIF_ITALIC,
+    color: colors.green,
+    fontSize: 25,
   },
   label: {
     fontSize: 11,
