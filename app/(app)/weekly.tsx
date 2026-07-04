@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { getMyPrimaryCircle } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 import { computeWeeklyLookback, getMyCheckins, WeeklyLookback } from '@/lib/reflections';
 
@@ -21,8 +22,13 @@ export default function WeeklyLookBack() {
     setIsLoading(true);
     setError(null);
     try {
-      const checkins = await getMyCheckins(session.user.id);
-      setLookback(computeWeeklyLookback(checkins, getLocalDateString()));
+      const [checkins, circle] = await Promise.all([
+        getMyCheckins(session.user.id),
+        getMyPrimaryCircle(session.user.id),
+      ]);
+      setLookback(
+        computeWeeklyLookback(checkins, getLocalDateString(), circle?.startDate ?? getLocalDateString())
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your week');
     } finally {
@@ -58,13 +64,27 @@ export default function WeeklyLookBack() {
         <Text style={styles.back}>← Today</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>
-        you showed up{' '}
-        <Text style={styles.titleAccent}>
-          {lookback.daysShowedUp} of {lookback.totalDays}
-        </Text>{' '}
-        days
-      </Text>
+      {lookback.totalDays === 1 ? (
+        <Text style={styles.title}>
+          {lookback.daysShowedUp === 1 ? (
+            <>
+              you showed up <Text style={styles.titleAccent}>on day one</Text>
+            </>
+          ) : (
+            <>
+              your circle just started <Text style={styles.titleAccent}>— plenty of time</Text>
+            </>
+          )}
+        </Text>
+      ) : (
+        <Text style={styles.title}>
+          you showed up{' '}
+          <Text style={styles.titleAccent}>
+            {lookback.daysShowedUp} of {lookback.totalDays}
+          </Text>{' '}
+          days
+        </Text>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.cardLabel}>Daily check-ins</Text>

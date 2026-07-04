@@ -1,4 +1,4 @@
-import { getTrailingLocalDates } from './signal';
+import { daysBetween, getTrailingLocalDates } from './signal';
 import { supabase } from './supabase';
 
 export type Checkin = {
@@ -58,8 +58,19 @@ export type WeeklyLookback = {
   standout: { text: string; label: 'grateful' | 'learned'; date: string } | null;
 };
 
-export function computeWeeklyLookback(checkins: Checkin[], today: string): WeeklyLookback {
-  const dates = getTrailingLocalDates(today, 7);
+/**
+ * The window is min(7, days since the circle started) — same reasoning as
+ * the signal: a day-1 circle reads "1 of 1", not "1 of 7" with six empty
+ * bars for days before it existed.
+ */
+export function computeWeeklyLookback(
+  checkins: Checkin[],
+  today: string,
+  circleStartDate: string
+): WeeklyLookback {
+  const dayNumber = Math.max(1, daysBetween(circleStartDate, today) + 1);
+  const windowSize = Math.min(7, dayNumber);
+  const dates = getTrailingLocalDates(today, windowSize);
   const byDate = new Map<string, Checkin>();
   for (const c of checkins) {
     if (dates.includes(c.localDate) && !byDate.has(c.localDate)) {

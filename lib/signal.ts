@@ -17,7 +17,7 @@ export function getTrailingLocalDates(today: string, days: number): string[] {
   return dates;
 }
 
-function daysBetween(startDate: string, endDate: string): number {
+export function daysBetween(startDate: string, endDate: string): number {
   const [sy, sm, sd] = startDate.split('-').map(Number);
   const [ey, em, ed] = endDate.split('-').map(Number);
   const start = new Date(sy, sm - 1, sd);
