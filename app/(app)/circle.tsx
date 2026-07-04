@@ -110,6 +110,10 @@ export default function YourCircle() {
         />
       </View>
 
+      <TouchableOpacity style={styles.wallButton} onPress={() => router.push('/wall')}>
+        <Text style={styles.wallButtonText}>💬 Circle wall</Text>
+      </TouchableOpacity>
+
       <Text style={styles.sectionLabel}>who&apos;s here</Text>
       {members.map((member) => {
         const isMe = member.userId === session?.user.id;
@@ -173,6 +177,18 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 18,
     marginBottom: 24,
+  },
+  wallButton: {
+    backgroundColor: colors.gold,
+    borderRadius: 16,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  wallButtonText: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: colors.ink,
   },
   sectionLabel: {
     fontSize: 11,
