@@ -84,7 +84,7 @@ export default function Reflection() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => router.push('/(app)/today')}>
+      <TouchableOpacity onPress={() => router.push('/today')}>
         <Text style={styles.back}>← Today</Text>
       </TouchableOpacity>
 

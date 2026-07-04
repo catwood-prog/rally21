@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 
+import { Avatar } from '@/components/Avatar';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
@@ -93,6 +94,8 @@ export default function CircleWall() {
     if (userId === session?.user.id) return 'You';
     return members.find((m) => m.userId === userId)?.name ?? 'circle-mate';
   };
+
+  const memberAvatar = (userId: string) => members.find((m) => m.userId === userId)?.avatarUrl ?? null;
 
   const handleSend = async () => {
     if (!circle || !session?.user || !draft.trim()) return;
@@ -188,7 +191,12 @@ export default function CircleWall() {
                 key={item.id}
                 style={[styles.messageRow, isMe && styles.messageRowMe]}
               >
-                {!isMe && <Text style={styles.senderName}>{memberName(item.userId)}</Text>}
+                {!isMe && (
+                  <View style={styles.senderRow}>
+                    <Avatar name={memberName(item.userId)} avatarUrl={memberAvatar(item.userId)} size={16} />
+                    <Text style={styles.senderName}>{memberName(item.userId)}</Text>
+                  </View>
+                )}
                 <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
                   <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>{item.body}</Text>
                 </View>
@@ -204,9 +212,12 @@ export default function CircleWall() {
 
           return (
             <View key={item.key} style={styles.checkinRow}>
-              <Text style={styles.checkinText}>
-                <Text style={styles.checkinName}>{memberName(item.userId)}</Text> checked in
-              </Text>
+              <View style={styles.checkinHeader}>
+                <Avatar name={memberName(item.userId)} avatarUrl={memberAvatar(item.userId)} size={22} />
+                <Text style={styles.checkinText}>
+                  <Text style={styles.checkinName}>{memberName(item.userId)}</Text> checked in
+                </Text>
+              </View>
               <View style={styles.reactionRow}>
                 {QUICK_REACTIONS.map((emoji) => (
                   <TouchableOpacity
@@ -312,11 +323,16 @@ const styles = StyleSheet.create({
   messageRowMe: {
     alignSelf: 'flex-end',
   },
+  senderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+    marginLeft: 4,
+  },
   senderName: {
     fontSize: 9,
     color: colors.muted,
-    marginBottom: 2,
-    marginLeft: 4,
   },
   bubble: {
     borderRadius: 14,
@@ -343,10 +359,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 10,
   },
+  checkinHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
   checkinText: {
     fontSize: 11,
     color: colors.muted,
-    marginBottom: 6,
   },
   checkinName: {
     fontWeight: '700',

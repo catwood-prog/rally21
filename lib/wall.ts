@@ -100,11 +100,17 @@ export async function setCheckinReaction(params: {
   if (error) throw error;
 }
 
+let wallChannelSeq = 0;
+
 /** Live updates whenever anyone posts a message or reacts. Returns an
- * unsubscribe function. */
+ * unsubscribe function.
+ *
+ * Topic includes a per-call sequence number — see subscribeToCirclePresence
+ * in lib/circle.ts for why a shared topic string is unsafe across
+ * concurrently mounted screens. */
 export function subscribeToWall(circleId: string, onChange: () => void): () => void {
   const channel = supabase
-    .channel(`circle-wall-${circleId}`)
+    .channel(`circle-wall-${circleId}-${++wallChannelSeq}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'wall_messages', filter: `circle_id=eq.${circleId}` },

@@ -87,11 +87,22 @@ export async function getCirclePresence(
   return (data ?? []).map((row) => ({ userId: row.user_id, localDate: row.local_date }));
 }
 
+let presenceChannelSeq = 0;
+
 /** Live updates whenever anyone in the circle completes. Returns an
- * unsubscribe function. */
+ * unsubscribe function.
+ *
+ * The topic includes a per-call sequence number: supabase-js reuses any
+ * existing channel with the same topic instead of creating a new one, so
+ * two screens (e.g. Today and Circle, both kept mounted by the tab bar)
+ * subscribing to the same circleId would otherwise hand back the same
+ * already-subscribed channel — and calling `.on()` on it a second time
+ * throws. A unique topic per call keeps each screen's subscription
+ * independent. */
 export function subscribeToCirclePresence(circleId: string, onInsert: () => void): () => void {
+  const topic = `circle-presence-${circleId}-${++presenceChannelSeq}`;
   const channel = supabase
-    .channel(`circle-presence-${circleId}`)
+    .channel(topic)
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'completions', filter: `circle_id=eq.${circleId}` },

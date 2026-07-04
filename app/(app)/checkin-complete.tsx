@@ -68,7 +68,7 @@ export default function CheckInComplete() {
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity style={styles.button} onPress={() => router.replace('/(app)/today')}>
+      <TouchableOpacity style={styles.button} onPress={() => router.replace('/today')}>
         <Text style={styles.buttonText}>Back to Today</Text>
       </TouchableOpacity>
     </View>

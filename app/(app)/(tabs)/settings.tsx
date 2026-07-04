@@ -1,3 +1,4 @@
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
@@ -10,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { Avatar } from '@/components/Avatar';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
@@ -21,6 +23,8 @@ export default function Settings() {
   const router = useRouter();
   const { session, signOut } = useAuth();
   const [name, setName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [newPhotoUri, setNewPhotoUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
@@ -34,6 +38,7 @@ export default function Settings() {
     try {
       const profile = await getMyProfile(session.user.id);
       setName(profile?.name ?? '');
+      setAvatarUrl(profile?.avatar_url ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your profile');
     } finally {
@@ -47,12 +52,31 @@ export default function Settings() {
     }, [load])
   );
 
+  const pickPhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      setNewPhotoUri(result.assets[0].uri);
+    }
+  };
+
   const handleSaveName = async () => {
     if (!session?.user || !name.trim()) return;
     setIsSaving(true);
     try {
-      await saveProfile(session.user.id, { name, avatarUri: null });
-      setSavedNotice(true);
+      const { avatarWarning } = await saveProfile(session.user.id, { name, avatarUri: newPhotoUri });
+      if (avatarWarning) {
+        setError(avatarWarning);
+      } else {
+        setSavedNotice(true);
+      }
+      setNewPhotoUri(null);
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not save that — try again');
     } finally {
@@ -82,11 +106,19 @@ export default function Settings() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => router.push('/(app)/today')}>
+      <TouchableOpacity onPress={() => router.push('/today')}>
         <Text style={styles.back}>← Today</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>Settings</Text>
+
+      <TouchableOpacity style={styles.photoWrap} onPress={pickPhoto}>
+        <Avatar name={name} avatarUrl={newPhotoUri ?? avatarUrl} size={84} />
+        <View style={styles.photoBadge}>
+          <Text style={styles.photoBadgeText}>+</Text>
+        </View>
+      </TouchableOpacity>
+      <Text style={styles.photoHint}>tap to change your photo</Text>
 
       <Text style={styles.label}>your name</Text>
       <TextInput
@@ -184,7 +216,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 48,
+    paddingBottom: 64,
   },
   back: {
     fontSize: 13,
@@ -205,6 +237,37 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: colors.green,
     marginBottom: 8,
+  },
+  photoWrap: {
+    alignSelf: 'center',
+    width: 84,
+    height: 84,
+    marginBottom: 8,
+  },
+  photoBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.gold,
+    borderWidth: 3,
+    borderColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoBadgeText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.ink,
+    lineHeight: 16,
+  },
+  photoHint: {
+    fontSize: 11.5,
+    color: colors.muted,
+    textAlign: 'center',
+    marginBottom: 20,
   },
   sectionSpacing: {
     marginTop: 28,

@@ -59,7 +59,7 @@ export default function Journal() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => router.push('/(app)/today')}>
+      <TouchableOpacity onPress={() => router.push('/today')}>
         <Text style={styles.back}>← Today</Text>
       </TouchableOpacity>
 
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 48,
+    paddingBottom: 64,
   },
   back: {
     fontSize: 13,

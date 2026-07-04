@@ -23,6 +23,14 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
         <ScrollViewStyleReset />
+
+        {/* iOS Safari's 100vh includes the area behind the address bar,
+            cutting off the bottom of the screen (and the tab bar under it).
+            100dvh tracks the real visible viewport; 100% (set above by
+            ScrollViewStyleReset) is the fallback for browsers without it. */}
+        <style id="dynamic-viewport-height">{`
+          html, body, #root { height: 100dvh; }
+        `}</style>
       </head>
       <body>{children}</body>
     </html>

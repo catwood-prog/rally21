@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { Avatar } from '@/components/Avatar';
 import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
@@ -92,7 +93,7 @@ export default function YourCircle() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => router.push('/(app)/today')}>
+      <TouchableOpacity onPress={() => router.push('/today')}>
         <Text style={styles.back}>← Today</Text>
       </TouchableOpacity>
 
@@ -138,11 +139,12 @@ export default function YourCircle() {
         const checkedIn = inTodayUserIds.has(member.userId);
         return (
           <View key={member.userId} style={styles.memberRow}>
-            <View style={[styles.avatar, checkedIn ? styles.avatarDone : styles.avatarPending]}>
-              <Text style={styles.avatarInitial}>
-                {(member.name ?? '?').charAt(0).toUpperCase()}
-              </Text>
-            </View>
+            <Avatar
+              name={member.name}
+              avatarUrl={member.avatarUrl}
+              size={40}
+              ring={checkedIn ? 'done' : 'pending'}
+            />
             <View style={styles.memberInfo}>
               <Text style={styles.memberName}>{isMe ? 'You' : member.name ?? 'circle-mate'}</Text>
               <Text style={styles.memberStatus}>
@@ -171,7 +173,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 48,
+    paddingBottom: 64,
   },
   back: {
     fontSize: 13,
@@ -245,27 +247,6 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
     gap: 12,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarDone: {
-    backgroundColor: '#ddd',
-  },
-  avatarPending: {
-    backgroundColor: colors.bg,
-    borderWidth: 2,
-    borderColor: colors.line,
-    borderStyle: 'dashed',
-  },
-  avatarInitial: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.muted,
   },
   memberInfo: {
     flex: 1,

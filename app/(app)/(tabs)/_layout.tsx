@@ -1,9 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/theme';
 
 export default function TabsLayout() {
+  // On iOS Safari (and standalone/home-screen mode) this resolves the CSS
+  // env(safe-area-inset-bottom) value, so the bar clears the home
+  // indicator / Safari's bottom chrome instead of sitting under it.
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
@@ -14,9 +20,9 @@ export default function TabsLayout() {
           backgroundColor: colors.card,
           borderTopColor: colors.line,
           borderTopWidth: 1,
-          height: 62,
+          height: 52 + insets.bottom,
           paddingTop: 8,
-          paddingBottom: 10,
+          paddingBottom: 10 + insets.bottom,
         },
         tabBarLabelStyle: {
           fontSize: 10.5,

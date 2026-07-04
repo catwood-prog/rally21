@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 
+import { Avatar } from '@/components/Avatar';
 import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
@@ -158,15 +159,13 @@ export default function Today() {
               const checkedIn = inTodayUserIds.has(member.userId);
               return (
                 <View key={member.userId} style={styles.memberItem}>
-                  <View
-                    style={[
-                      styles.avatar,
-                      checkedIn ? styles.avatarDone : styles.avatarPending,
-                    ]}
-                  >
-                    <Text style={styles.avatarInitial}>
-                      {(member.name ?? '?').charAt(0).toUpperCase()}
-                    </Text>
+                  <View style={styles.avatarWrap}>
+                    <Avatar
+                      name={member.name}
+                      avatarUrl={member.avatarUrl}
+                      size={42}
+                      ring={checkedIn ? 'done' : 'pending'}
+                    />
                     {checkedIn && <Text style={styles.avatarCheck}>✓</Text>}
                   </View>
                   <Text style={styles.memberName} numberOfLines={1}>
@@ -232,7 +231,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 48,
+    paddingBottom: 64,
   },
   topbar: {
     flexDirection: 'row',
@@ -294,27 +293,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 56,
   },
-  avatar: {
+  avatarWrap: {
     width: 42,
     height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
     position: 'relative',
-  },
-  avatarDone: {
-    backgroundColor: '#ddd',
-  },
-  avatarPending: {
-    backgroundColor: colors.card,
-    borderWidth: 2,
-    borderColor: colors.line,
-    borderStyle: 'dashed',
-  },
-  avatarInitial: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.muted,
   },
   avatarCheck: {
     position: 'absolute',
