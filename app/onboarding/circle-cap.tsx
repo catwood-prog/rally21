@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 
@@ -9,6 +10,7 @@ export default function CircleCap() {
 
   return (
     <View style={styles.container}>
+      <Brandmark style={styles.brandmark} />
       <Text style={styles.emoji}>🌱</Text>
       <Text style={styles.title}>
         three circles is <Text style={styles.titleAccent}>a full life</Text>
@@ -32,6 +34,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 26,
+  },
+  brandmark: {
+    position: 'absolute',
+    top: 20,
+    left: 24,
   },
   emoji: {
     fontSize: 32,

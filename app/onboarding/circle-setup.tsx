@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 
@@ -10,6 +11,7 @@ export default function CircleSetup() {
 
   return (
     <View style={styles.container}>
+      <Brandmark style={styles.brandmark} />
       <TouchableOpacity
         style={styles.back}
         onPress={() => router.push(fromToday === 'true' ? '/today' : '/onboarding/profile')}
@@ -78,6 +80,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  brandmark: {
+    marginBottom: 18,
   },
   back: {
     marginBottom: 20,

@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
@@ -62,6 +63,7 @@ export default function JoinCircle() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Brandmark style={styles.brandmark} />
       <TouchableOpacity onPress={() => router.push(isFromToday ? '/today' : '/onboarding/circle-setup')}>
         <Text style={styles.back}>{isFromToday ? '← Today' : '← Back'}</Text>
       </TouchableOpacity>
@@ -143,6 +145,9 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
     paddingBottom: 40,
+  },
+  brandmark: {
+    marginBottom: 14,
   },
   back: {
     fontSize: 13,

@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
@@ -64,6 +65,7 @@ export default function ProfileSetup() {
 
   return (
     <View style={styles.container}>
+      <Brandmark style={styles.brandmark} />
       <TouchableOpacity style={styles.back} onPress={signOut}>
         <Text style={styles.backText}>← Sign out</Text>
       </TouchableOpacity>
@@ -130,9 +132,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
-  back: {
+  brandmark: {
     position: 'absolute',
     top: 20,
+    left: 24,
+  },
+  back: {
+    position: 'absolute',
+    top: 52,
     left: 24,
   },
   backText: {

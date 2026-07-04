@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 
+import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
@@ -57,6 +58,7 @@ export default function PracticeCircles() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Brandmark style={styles.brandmark} />
       <TouchableOpacity onPress={() => (isFromToday ? router.push('/today') : router.back())}>
         <Text style={styles.back}>{isFromToday ? '← Today' : '← Find a practice'}</Text>
       </TouchableOpacity>
@@ -122,6 +124,9 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 40,
+  },
+  brandmark: {
+    marginBottom: 14,
   },
   back: {
     fontSize: 13,

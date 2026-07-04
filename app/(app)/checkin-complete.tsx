@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
@@ -43,6 +44,7 @@ export default function CheckInComplete() {
   if (wasSkipped) {
     return (
       <View style={styles.container}>
+        <Brandmark style={styles.brandmark} />
         <Text style={styles.confetti}>🎉</Text>
         <Text style={styles.title}>nice — that&apos;s done</Text>
 
@@ -71,6 +73,7 @@ export default function CheckInComplete() {
 
   return (
     <View style={styles.container}>
+      <Brandmark style={styles.brandmark} />
       <Text style={styles.confetti}>🎉✨🎉</Text>
       <View style={styles.checkCircle}>
         <Text style={styles.checkMark}>✓</Text>
@@ -115,6 +118,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  brandmark: {
+    position: 'absolute',
+    top: 20,
+    left: 24,
   },
   confetti: {
     fontSize: 34,

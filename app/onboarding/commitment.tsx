@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
@@ -66,6 +67,7 @@ export default function TheCommitment() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Brandmark style={styles.brandmark} />
       <View style={styles.topbar}>
         <TouchableOpacity onPress={() => (isFromToday ? router.push('/today') : router.back())}>
           <Text style={styles.back}>{isFromToday ? '← Today' : '← Back'}</Text>
@@ -165,6 +167,9 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
     paddingBottom: 40,
+  },
+  brandmark: {
+    marginBottom: 14,
   },
   topbar: {
     flexDirection: 'row',

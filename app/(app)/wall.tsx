@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
+import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
@@ -168,9 +169,12 @@ export default function CircleWall() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <TouchableOpacity onPress={() => router.push('/circle')} style={styles.backWrap}>
-        <Text style={styles.back}>← Your Circle</Text>
-      </TouchableOpacity>
+      <View style={styles.backWrap}>
+        <Brandmark style={styles.brandmark} />
+        <TouchableOpacity onPress={() => router.push('/circle')}>
+          <Text style={styles.back}>← Your Circle</Text>
+        </TouchableOpacity>
+      </View>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{circle.name}</Text>
         <Text style={styles.headerSubtitle}>
@@ -281,6 +285,9 @@ const styles = StyleSheet.create({
   backWrap: {
     paddingHorizontal: 20,
     paddingTop: 16,
+  },
+  brandmark: {
+    marginBottom: 10,
   },
   back: {
     fontSize: 13,

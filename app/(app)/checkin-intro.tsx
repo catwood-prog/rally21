@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
@@ -43,6 +44,7 @@ export default function CheckinIntro() {
 
   return (
     <View style={styles.container}>
+      <Brandmark style={styles.brandmark} />
       <View style={styles.lock}>
         <Text style={styles.lockText}>🔒 private</Text>
       </View>
@@ -74,6 +76,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 28,
+  },
+  brandmark: {
+    position: 'absolute',
+    top: 20,
+    left: 24,
   },
   lock: {
     backgroundColor: '#EAF3EA',

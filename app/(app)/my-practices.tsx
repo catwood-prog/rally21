@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { CATEGORIES } from '@/constants/practices';
 import { FONT_HEADER } from '@/constants/fonts';
@@ -125,6 +126,7 @@ export default function MyPractices() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Brandmark style={styles.brandmark} />
       <TouchableOpacity onPress={() => router.push('/settings')}>
         <Text style={styles.back}>← Settings</Text>
       </TouchableOpacity>
@@ -275,6 +277,9 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 64,
+  },
+  brandmark: {
+    marginBottom: 14,
   },
   back: {
     fontSize: 13,

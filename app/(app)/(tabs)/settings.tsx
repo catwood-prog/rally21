@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
+import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
@@ -106,6 +107,7 @@ export default function Settings() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Brandmark style={styles.brandmark} />
       <TouchableOpacity onPress={() => router.push('/today')}>
         <Text style={styles.back}>← Today</Text>
       </TouchableOpacity>
@@ -224,6 +226,9 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 64,
+  },
+  brandmark: {
+    marginBottom: 14,
   },
   back: {
     fontSize: 13,

@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { MOOD_EMOJI } from '@/constants/mood';
@@ -59,6 +60,7 @@ export default function Journal() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Brandmark style={styles.brandmark} />
       <TouchableOpacity onPress={() => router.push('/today')}>
         <Text style={styles.back}>← Today</Text>
       </TouchableOpacity>
@@ -118,6 +120,9 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 64,
+  },
+  brandmark: {
+    marginBottom: 14,
   },
   back: {
     fontSize: 13,

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
+import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { useAuth } from '@/lib/auth-context';
 import { playChime, vibrateOnCompletion } from '@/lib/chime';
@@ -128,6 +129,7 @@ export default function CheckinTimer() {
 
   return (
     <View style={styles.container}>
+      <Brandmark light size={15} style={styles.brandmark} />
       <View style={styles.topbar}>
         <TouchableOpacity onPress={() => router.replace('/today')}>
           <Text style={styles.backChevron}>⌄</Text>
@@ -195,8 +197,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#16332a',
-    paddingTop: 22,
+    paddingTop: 16,
     paddingBottom: 16,
+  },
+  brandmark: {
+    paddingHorizontal: 20,
+    marginBottom: 10,
   },
   doneContainer: {
     alignItems: 'center',

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
+import { Brandmark } from '@/components/Brandmark';
 import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
@@ -188,7 +189,7 @@ export default function Today() {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.topbar}>
-          <Text style={styles.brand}>Rally21</Text>
+          <Brandmark />
           <TouchableOpacity onPress={() => router.push('/settings')}>
             <Text style={styles.signOut}>Settings</Text>
           </TouchableOpacity>
@@ -221,7 +222,7 @@ export default function Today() {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.topbar}>
-          <Text style={styles.brand}>Rally21</Text>
+          <Brandmark />
           <TouchableOpacity onPress={() => router.push('/settings')}>
             <Text style={styles.signOut}>Settings</Text>
           </TouchableOpacity>
@@ -335,7 +336,7 @@ export default function Today() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.topbar}>
-        <Text style={styles.brand}>Rally21</Text>
+        <Brandmark />
         <TouchableOpacity onPress={() => router.push('/settings')}>
           <Text style={styles.signOut}>Settings</Text>
         </TouchableOpacity>
@@ -481,11 +482,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
-  },
-  brand: {
-    fontFamily: FONT_HEADER,
-    fontSize: 16,
-    color: colors.ink,
   },
   signOut: {
     fontSize: 12,

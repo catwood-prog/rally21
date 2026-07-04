@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { AccentedText } from '@/components/AccentedText';
+import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { MOOD_EMOJI, MOOD_VALUES } from '@/constants/mood';
@@ -125,6 +126,7 @@ export default function CheckIn() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Brandmark style={styles.brandmark} />
       <TouchableOpacity onPress={() => router.push('/today')}>
         <Text style={styles.back}>← Today</Text>
       </TouchableOpacity>
@@ -294,6 +296,9 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 48,
+  },
+  brandmark: {
+    marginBottom: 14,
   },
   back: {
     fontSize: 13,
