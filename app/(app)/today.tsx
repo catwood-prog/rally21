@@ -127,7 +127,14 @@ export default function Today() {
           </Text>
 
           <TouchableOpacity style={styles.card} onPress={() => router.push('/circle')}>
-            {signal && <SignalMeter state={signal.state} dailyRates={signal.dailyRates} />}
+            {signal && (
+              <SignalMeter
+                state={signal.state}
+                dailyRates={signal.dailyRates}
+                dayNumber={signal.dayNumber}
+                durationDays={circle.durationDays}
+              />
+            )}
             <Text style={styles.cardLink}>{inCount} of {members.length} in today · view circle →</Text>
           </TouchableOpacity>
 

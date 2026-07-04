@@ -101,7 +101,13 @@ export default function YourCircle() {
       </Text>
 
       <View style={styles.signalCard}>
-        <SignalMeter state={signal.state} dailyRates={signal.dailyRates} size="large" />
+        <SignalMeter
+          state={signal.state}
+          dailyRates={signal.dailyRates}
+          dayNumber={signal.dayNumber}
+          durationDays={circle.durationDays}
+          size="large"
+        />
       </View>
 
       <Text style={styles.sectionLabel}>who&apos;s here</Text>
