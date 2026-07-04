@@ -18,31 +18,20 @@ export type CircleMember = {
   role: string;
 };
 
-export async function getMyPrimaryCircle(userId: string): Promise<MyCircle | null> {
-  const { data, error } = await supabase
-    .from('memberships')
-    .select(
-      'circles(id, name, time_of_day, start_date, duration_days, invite_code, practices(name, duration_minutes))'
-    )
-    .eq('user_id', userId)
-    .order('joined_at', { ascending: true })
-    .limit(1)
-    .maybeSingle<{
-      circles: {
-        id: string;
-        name: string;
-        time_of_day: string | null;
-        start_date: string;
-        duration_days: number;
-        invite_code: string;
-        practices: { name: string; duration_minutes: number | null } | null;
-      };
-    }>();
+type CircleRow = {
+  id: string;
+  name: string;
+  time_of_day: string | null;
+  start_date: string;
+  duration_days: number;
+  invite_code: string;
+  practices: { name: string; duration_minutes: number | null } | null;
+};
 
-  if (error) throw error;
-  if (!data?.circles) return null;
+const CIRCLE_SELECT =
+  'circles(id, name, time_of_day, start_date, duration_days, invite_code, practices(name, duration_minutes))';
 
-  const c = data.circles;
+function mapCircleRow(c: CircleRow): MyCircle {
   return {
     id: c.id,
     name: c.name,
@@ -53,6 +42,58 @@ export async function getMyPrimaryCircle(userId: string): Promise<MyCircle | nul
     practiceDurationMinutes: c.practices?.duration_minutes ?? null,
     inviteCode: c.invite_code,
   };
+}
+
+export async function getMyPrimaryCircle(userId: string): Promise<MyCircle | null> {
+  const { data, error } = await supabase
+    .from('memberships')
+    .select(CIRCLE_SELECT)
+    .eq('user_id', userId)
+    .order('joined_at', { ascending: true })
+    .limit(1)
+    .maybeSingle<{ circles: CircleRow }>();
+
+  if (error) throw error;
+  if (!data?.circles) return null;
+
+  return mapCircleRow(data.circles);
+}
+
+/** Every circle the user belongs to, ordered by earliest committed time
+ * of day (circles with no set time sort last) — the order Today's stack
+ * renders cards in. */
+export async function listMyCircles(userId: string): Promise<MyCircle[]> {
+  const { data, error } = await supabase
+    .from('memberships')
+    .select(CIRCLE_SELECT)
+    .eq('user_id', userId)
+    .order('joined_at', { ascending: true })
+    .returns<{ circles: CircleRow }[]>();
+
+  if (error) throw error;
+
+  return (data ?? [])
+    .filter((row) => !!row.circles)
+    .map((row) => mapCircleRow(row.circles))
+    .sort((a, b) => {
+      if (a.timeOfDay === b.timeOfDay) return 0;
+      if (a.timeOfDay === null) return 1;
+      if (b.timeOfDay === null) return -1;
+      return a.timeOfDay.localeCompare(b.timeOfDay);
+    });
+}
+
+export async function getCircleById(circleId: string): Promise<MyCircle | null> {
+  const { data, error } = await supabase
+    .from('circles')
+    .select('id, name, time_of_day, start_date, duration_days, invite_code, practices(name, duration_minutes)')
+    .eq('id', circleId)
+    .maybeSingle<CircleRow>();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  return mapCircleRow(data);
 }
 
 export async function getCircleMembers(circleId: string): Promise<CircleMember[]> {

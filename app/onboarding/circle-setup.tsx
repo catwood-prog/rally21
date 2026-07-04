@@ -24,7 +24,12 @@ export default function CircleSetup() {
 
       <TouchableOpacity
         style={[styles.card, styles.cardHighlighted]}
-        onPress={() => router.push('/onboarding/create-circle')}
+        onPress={() =>
+          router.push({
+            pathname: '/onboarding/create-circle',
+            params: fromToday === 'true' ? { fromToday: 'true' } : {},
+          })
+        }
       >
         <Text style={styles.cardEmoji}>✨</Text>
         <Text style={styles.cardTitle}>Start or join a circle</Text>
@@ -33,7 +38,15 @@ export default function CircleSetup() {
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.card} onPress={() => router.push('/onboarding/join-circle')}>
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() =>
+          router.push({
+            pathname: '/onboarding/join-circle',
+            params: fromToday === 'true' ? { fromToday: 'true' } : {},
+          })
+        }
+      >
         <Text style={styles.cardEmoji}>🤝</Text>
         <Text style={styles.cardTitle}>Use an invite code</Text>
         <Text style={styles.cardBody}>
@@ -43,7 +56,12 @@ export default function CircleSetup() {
 
       <TouchableOpacity
         style={styles.soloCard}
-        onPress={() => router.push({ pathname: '/onboarding/create-circle', params: { solo: 'true' } })}
+        onPress={() =>
+          router.push({
+            pathname: '/onboarding/create-circle',
+            params: fromToday === 'true' ? { solo: 'true', fromToday: 'true' } : { solo: 'true' },
+          })
+        }
       >
         <Text style={styles.soloCardTitle}>Go solo</Text>
         <Text style={styles.soloCardBody}>

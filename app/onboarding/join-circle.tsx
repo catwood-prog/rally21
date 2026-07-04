@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +17,8 @@ import { joinCircleByCode, joinPublicCircle, listPublicCircles, PublicCircle } f
 
 export default function JoinCircle() {
   const router = useRouter();
+  const { fromToday } = useLocalSearchParams<{ fromToday?: string }>();
+  const isFromToday = fromToday === 'true';
   const [code, setCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,8 +62,8 @@ export default function JoinCircle() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => router.push('/onboarding/circle-setup')}>
-        <Text style={styles.back}>← Back</Text>
+      <TouchableOpacity onPress={() => router.push(isFromToday ? '/today' : '/onboarding/circle-setup')}>
+        <Text style={styles.back}>{isFromToday ? '← Today' : '← Back'}</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>got a code?</Text>

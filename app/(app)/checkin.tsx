@@ -24,6 +24,7 @@ import {
   saveCompletion,
   saveReflection,
 } from '@/lib/checkin';
+import { getCirclePresence } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 
 export default function CheckIn() {
@@ -33,6 +34,7 @@ export default function CheckIn() {
   const today = getLocalDateString();
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,12 +46,31 @@ export default function CheckIn() {
   const [questionSkipped, setQuestionSkipped] = useState(false);
 
   useEffect(() => {
-    if (!circleId) return;
+    if (!circleId || !session?.user) return;
     (async () => {
       try {
         // reflection is per-person-per-day, not per-circle — if today's
         // already been done (from any circle), edit that same entry
-        const existing = await getTodayReflection(today);
+        const [existing, presence] = await Promise.all([
+          getTodayReflection(today),
+          getCirclePresence(circleId),
+        ]);
+        const alreadyCompletedThisCircle = presence.some(
+          (p) => p.userId === session.user.id && p.localDate === today
+        );
+
+        if (existing && !alreadyCompletedThisCircle) {
+          // a different circle already triggered today's one reflection —
+          // this one just needs its own completion marked, no form, ever
+          setIsRedirecting(true);
+          await saveCompletion({ userId: session.user.id, circleId, localDate: today });
+          router.replace({
+            pathname: '/checkin-complete',
+            params: { circleId, reflectionSkipped: 'true' },
+          });
+          return;
+        }
+
         if (existing) {
           setMood(existing.mood);
           setLine(existing.line1 ?? '');
@@ -68,7 +89,7 @@ export default function CheckIn() {
         setIsLoading(false);
       }
     })();
-  }, [circleId, today]);
+  }, [circleId, today, session?.user?.id, router]);
 
   const canSave = !!session?.user && !!circleId && mood !== null && line.trim().length > 0;
 
@@ -94,7 +115,7 @@ export default function CheckIn() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isRedirecting) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.green} />

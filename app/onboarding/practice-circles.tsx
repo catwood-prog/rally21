@@ -16,11 +16,13 @@ import { joinPublicCircle, listPublicCircles, PublicCircle } from '@/lib/circles
 
 export default function PracticeCircles() {
   const router = useRouter();
-  const { practiceId, practiceKey, practiceName } = useLocalSearchParams<{
+  const { practiceId, practiceKey, practiceName, fromToday } = useLocalSearchParams<{
     practiceId: string;
     practiceKey: string;
     practiceName: string;
+    fromToday?: string;
   }>();
+  const isFromToday = fromToday === 'true';
 
   const [circles, setCircles] = useState<PublicCircle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,14 +51,14 @@ export default function PracticeCircles() {
   const handleStartOwn = () => {
     router.push({
       pathname: '/onboarding/commitment',
-      params: { practiceKey, practiceName },
+      params: { practiceKey, practiceName, ...(isFromToday ? { fromToday: 'true' } : {}) },
     });
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => router.back()}>
-        <Text style={styles.back}>← Find a practice</Text>
+      <TouchableOpacity onPress={() => (isFromToday ? router.push('/today') : router.back())}>
+        <Text style={styles.back}>{isFromToday ? '← Today' : '← Find a practice'}</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>{practiceName}</Text>

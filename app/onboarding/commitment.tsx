@@ -24,12 +24,14 @@ const TIME_OPTIONS = [
 
 export default function TheCommitment() {
   const router = useRouter();
-  const { practiceKey, practiceName, solo } = useLocalSearchParams<{
+  const { practiceKey, practiceName, solo, fromToday } = useLocalSearchParams<{
     practiceKey: string;
     practiceName: string;
     solo?: string;
+    fromToday?: string;
   }>();
   const isSolo = solo === 'true';
+  const isFromToday = fromToday === 'true';
 
   const [circleName, setCircleName] = useState(practiceName ?? '');
   const [selectedTime, setSelectedTime] = useState(TIME_OPTIONS[0].time);
@@ -53,7 +55,7 @@ export default function TheCommitment() {
       } else {
         router.replace({
           pathname: '/onboarding/invite',
-          params: { circleId, inviteCode },
+          params: { circleId, inviteCode, ...(isFromToday ? { fromToday: 'true' } : {}) },
         });
       }
     } catch (e) {
@@ -65,8 +67,8 @@ export default function TheCommitment() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.topbar}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>← Back</Text>
+        <TouchableOpacity onPress={() => (isFromToday ? router.push('/today') : router.back())}>
+          <Text style={styles.back}>{isFromToday ? '← Today' : '← Back'}</Text>
         </TouchableOpacity>
       </View>
 

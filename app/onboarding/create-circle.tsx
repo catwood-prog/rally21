@@ -26,8 +26,9 @@ import {
 export default function FindAPractice() {
   const router = useRouter();
   const { session } = useAuth();
-  const { solo } = useLocalSearchParams<{ solo?: string }>();
+  const { solo, fromToday } = useLocalSearchParams<{ solo?: string; fromToday?: string }>();
   const isSolo = solo === 'true';
+  const isFromToday = fromToday === 'true';
 
   const [selectedCategory, setSelectedCategory] = useState<PracticeCategory>('move');
   const [searchText, setSearchText] = useState('');
@@ -65,6 +66,7 @@ export default function FindAPractice() {
         practiceKey: practice.key,
         practiceName: practice.name,
         ...(isSolo ? { solo: 'true' } : {}),
+        ...(isFromToday ? { fromToday: 'true' } : {}),
       },
     });
   };
@@ -76,7 +78,12 @@ export default function FindAPractice() {
     } else {
       router.push({
         pathname: '/onboarding/practice-circles',
-        params: { practiceId: practice.id, practiceKey: practice.key, practiceName: practice.name },
+        params: {
+          practiceId: practice.id,
+          practiceKey: practice.key,
+          practiceName: practice.name,
+          ...(isFromToday ? { fromToday: 'true' } : {}),
+        },
       });
     }
   };
@@ -108,8 +115,8 @@ export default function FindAPractice() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => router.push('/onboarding/circle-setup')}>
-        <Text style={styles.back}>← Back</Text>
+      <TouchableOpacity onPress={() => router.push(isFromToday ? '/today' : '/onboarding/circle-setup')}>
+        <Text style={styles.back}>{isFromToday ? '← Today' : '← Back'}</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>{isSolo ? 'find your practice' : 'Start a circle'}</Text>
