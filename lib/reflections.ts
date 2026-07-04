@@ -1,0 +1,242 @@
+import { getTrailingLocalDates } from './signal';
+import { supabase } from './supabase';
+
+export type Checkin = {
+  id: string;
+  circleId: string;
+  localDate: string;
+  mood: number | null;
+  line: string | null;
+  line2: string | null;
+  questionPrompt: string | null;
+  questionAnswer: string | null;
+  createdAt: string;
+};
+
+type CheckinRow = {
+  id: string;
+  circle_id: string;
+  local_date: string;
+  mood: number | null;
+  line: string | null;
+  line2: string | null;
+  question_answer: string | null;
+  created_at: string;
+  questions: { prompt: string } | null;
+};
+
+export async function getMyCheckins(userId: string): Promise<Checkin[]> {
+  const { data, error } = await supabase
+    .from('checkins')
+    .select('id, circle_id, local_date, mood, line, line2, question_answer, created_at, questions(prompt)')
+    .eq('user_id', userId)
+    .order('local_date', { ascending: false })
+    .returns<CheckinRow[]>();
+
+  if (error) throw error;
+
+  return (data ?? []).map((c) => ({
+    id: c.id,
+    circleId: c.circle_id,
+    localDate: c.local_date,
+    mood: c.mood,
+    line: c.line,
+    line2: c.line2,
+    questionPrompt: c.questions?.prompt ?? null,
+    questionAnswer: c.question_answer,
+    createdAt: c.created_at,
+  }));
+}
+
+// ── weekly look-back ─────────────────────────────────────────────────────
+
+export type WeeklyLookback = {
+  daysShowedUp: number;
+  totalDays: number;
+  dailyMoods: (number | null)[]; // oldest to newest
+  dates: string[];
+  standout: { text: string; label: 'grateful' | 'learned'; date: string } | null;
+};
+
+export function computeWeeklyLookback(checkins: Checkin[], today: string): WeeklyLookback {
+  const dates = getTrailingLocalDates(today, 7);
+  const byDate = new Map<string, Checkin>();
+  for (const c of checkins) {
+    if (dates.includes(c.localDate) && !byDate.has(c.localDate)) {
+      byDate.set(c.localDate, c);
+    }
+  }
+
+  const dailyMoods = dates.map((d) => byDate.get(d)?.mood ?? null);
+
+  let bestMood = -1;
+  for (const c of byDate.values()) {
+    if (c.mood !== null && c.mood > bestMood) bestMood = c.mood;
+  }
+
+  let standout: WeeklyLookback['standout'] = null;
+  if (bestMood >= 0) {
+    let bestLen = -1;
+    for (const c of byDate.values()) {
+      if (c.mood !== bestMood) continue;
+      const candidates: { text: string; label: 'grateful' | 'learned' }[] = [];
+      if (c.line) candidates.push({ text: c.line, label: 'grateful' });
+      if (c.line2) candidates.push({ text: c.line2, label: 'learned' });
+      for (const cand of candidates) {
+        if (cand.text.length > bestLen) {
+          bestLen = cand.text.length;
+          standout = { text: cand.text, label: cand.label, date: c.localDate };
+        }
+      }
+    }
+  }
+
+  return { daysShowedUp: byDate.size, totalDays: dates.length, dailyMoods, dates, standout };
+}
+
+// ── day-14 reflected observation ────────────────────────────────────────
+
+export type ObservationDirection =
+  | 'before_noon_higher'
+  | 'after_noon_higher'
+  | 'weekday_higher'
+  | 'weekend_higher';
+
+export type DayObservation =
+  | { available: false; dataPoints: number }
+  | {
+      available: true;
+      type: 'time_of_day' | 'weekday';
+      direction: ObservationDirection;
+      agreementCount: number;
+      totalCount: number;
+    };
+
+function evaluateSplit(
+  points: { mood: number; inGroupA: boolean }[]
+): { aIsHigher: boolean; agreementCount: number; totalCount: number; agreementRate: number } | null {
+  if (points.length < 10) return null;
+
+  const groupA = points.filter((p) => p.inGroupA).map((p) => p.mood);
+  const groupB = points.filter((p) => !p.inGroupA).map((p) => p.mood);
+  if (groupA.length === 0 || groupB.length === 0) return null;
+
+  const sortedMoods = points.map((p) => p.mood).sort((a, b) => a - b);
+  const mid = Math.floor(sortedMoods.length / 2);
+  const median =
+    sortedMoods.length % 2 === 0
+      ? (sortedMoods[mid - 1] + sortedMoods[mid]) / 2
+      : sortedMoods[mid];
+
+  const avgA = groupA.reduce((s, m) => s + m, 0) / groupA.length;
+  const avgB = groupB.reduce((s, m) => s + m, 0) / groupB.length;
+  const aIsHigher = avgA >= avgB;
+
+  let agreementCount = 0;
+  for (const p of points) {
+    const shouldBeHigh = p.inGroupA === aIsHigher;
+    const isHigh = p.mood >= median;
+    if (shouldBeHigh === isHigh) agreementCount++;
+  }
+
+  return {
+    aIsHigher,
+    agreementCount,
+    totalCount: points.length,
+    agreementRate: agreementCount / points.length,
+  };
+}
+
+/**
+ * Deterministic pattern over the last 14 check-ins with mood recorded:
+ * mood vs check-in time (before/after noon) and mood vs weekday
+ * (weekday/weekend). Only surfaces a pattern that holds on >= 60% of days
+ * with >= 10 data points — otherwise the caller shows the "grows as you
+ * go" state instead of a shaky claim.
+ */
+export function computeDayObservation(checkins: Checkin[]): DayObservation {
+  const withMood = checkins
+    .filter((c) => c.mood !== null)
+    .slice(0, 14)
+    .map((c) => ({
+      mood: c.mood as number,
+      hour: new Date(c.createdAt).getHours(),
+      weekday: new Date(`${c.localDate}T00:00:00`).getDay(), // 0=Sun..6=Sat
+    }));
+
+  const timeResult = evaluateSplit(withMood.map((c) => ({ mood: c.mood, inGroupA: c.hour < 12 })));
+  const weekdayResult = evaluateSplit(
+    withMood.map((c) => ({ mood: c.mood, inGroupA: c.weekday >= 1 && c.weekday <= 5 }))
+  );
+
+  const candidates: {
+    type: 'time_of_day' | 'weekday';
+    result: NonNullable<typeof timeResult>;
+  }[] = [];
+  if (timeResult && timeResult.agreementRate >= 0.6) candidates.push({ type: 'time_of_day', result: timeResult });
+  if (weekdayResult && weekdayResult.agreementRate >= 0.6)
+    candidates.push({ type: 'weekday', result: weekdayResult });
+
+  if (candidates.length === 0) {
+    return { available: false, dataPoints: withMood.length };
+  }
+
+  candidates.sort((a, b) => b.result.agreementRate - a.result.agreementRate);
+  const best = candidates[0];
+
+  const direction: ObservationDirection =
+    best.type === 'time_of_day'
+      ? best.result.aIsHigher
+        ? 'before_noon_higher'
+        : 'after_noon_higher'
+      : best.result.aIsHigher
+        ? 'weekday_higher'
+        : 'weekend_higher';
+
+  return {
+    available: true,
+    type: best.type,
+    direction,
+    agreementCount: best.result.agreementCount,
+    totalCount: best.result.totalCount,
+  };
+}
+
+export async function getMyObservationResponse(
+  userId: string,
+  type: 'time_of_day' | 'weekday',
+  direction: ObservationDirection
+): Promise<'confirmed' | 'rejected' | null> {
+  const { data, error } = await supabase
+    .from('observation_responses')
+    .select('response')
+    .eq('user_id', userId)
+    .eq('pattern_type', type)
+    .eq('direction', direction)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data?.response as 'confirmed' | 'rejected' | undefined) ?? null;
+}
+
+export async function saveObservationResponse(params: {
+  userId: string;
+  type: 'time_of_day' | 'weekday';
+  direction: ObservationDirection;
+  agreementCount: number;
+  totalCount: number;
+  response: 'confirmed' | 'rejected';
+}): Promise<void> {
+  const { error } = await supabase.from('observation_responses').insert({
+    user_id: params.userId,
+    pattern_type: params.type,
+    direction: params.direction,
+    agreement_count: params.agreementCount,
+    total_count: params.totalCount,
+    response: params.response,
+  });
+
+  if (error) throw error;
+}

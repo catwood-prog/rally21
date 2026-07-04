@@ -173,6 +173,18 @@ export default function Today() {
               {iAmCheckedInToday ? "Edit today's check-in" : 'Check in'}
             </Text>
           </TouchableOpacity>
+
+          <View style={styles.reflectionsRow}>
+            <TouchableOpacity onPress={() => router.push('/weekly')}>
+              <Text style={styles.reflectionsLink}>This week</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/journal')}>
+              <Text style={styles.reflectionsLink}>Your journal</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/reflection')}>
+              <Text style={styles.reflectionsLink}>Something we noticed</Text>
+            </TouchableOpacity>
+          </View>
         </>
       )}
     </ScrollView>
@@ -304,5 +316,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
     color: colors.ink,
+  },
+  reflectionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 20,
+  },
+  reflectionsLink: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
   },
 });
