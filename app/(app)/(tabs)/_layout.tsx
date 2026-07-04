@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/theme';
@@ -17,7 +18,11 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.green,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
-          backgroundColor: colors.card,
+          // Web can render the glassy translucent bar from the mockup;
+          // native platforms don't support backdrop blur, so they get a
+          // solid bar instead of a see-through one with nothing behind it.
+          backgroundColor: Platform.OS === 'web' ? 'rgba(255, 255, 255, 0.55)' : colors.card,
+          ...(Platform.OS === 'web' ? { backdropFilter: 'blur(20px)' } : null),
           borderTopColor: colors.line,
           borderTopWidth: 1,
           height: 52 + insets.bottom,
