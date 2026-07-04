@@ -10,7 +10,13 @@ import { markCheckinConsentSeen } from '@/lib/profile';
 export default function CheckinIntro() {
   const router = useRouter();
   const { session } = useAuth();
-  const { circleId } = useLocalSearchParams<{ circleId: string }>();
+  const { circleId, startTimer, durationMinutes, circleName, dayNumber } = useLocalSearchParams<{
+    circleId: string;
+    startTimer?: string;
+    durationMinutes?: string;
+    circleName?: string;
+    dayNumber?: string;
+  }>();
   const [isSaving, setIsSaving] = useState(false);
 
   const handleContinue = async () => {
@@ -21,7 +27,14 @@ export default function CheckinIntro() {
     } catch {
       // non-blocking — worst case this intro shows once more than intended
     }
-    router.replace({ pathname: '/checkin', params: { circleId } });
+    if (startTimer === 'true' && durationMinutes) {
+      router.replace({
+        pathname: '/checkin-timer',
+        params: { circleId, durationMinutes, circleName, dayNumber },
+      });
+    } else {
+      router.replace({ pathname: '/checkin', params: { circleId } });
+    }
   };
 
   return (

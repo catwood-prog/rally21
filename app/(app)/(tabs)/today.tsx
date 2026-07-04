@@ -134,6 +134,30 @@ export default function Today() {
       })
     : null;
 
+  const goToCheckin = (wantsTimer: boolean) => {
+    if (!circle) return;
+    const wantsTimerWithDuration = wantsTimer && !!circle.practiceDurationMinutes;
+    const timerParams = wantsTimerWithDuration
+      ? {
+          startTimer: 'true',
+          durationMinutes: String(circle.practiceDurationMinutes),
+          circleName: circle.name,
+          dayNumber: String(Math.min(signal?.dayNumber ?? 1, circle.durationDays)),
+        }
+      : {};
+
+    if (!hasSeenCheckinConsent) {
+      router.push({ pathname: '/checkin-intro', params: { circleId: circle.id, ...timerParams } });
+    } else if (wantsTimerWithDuration) {
+      router.push({
+        pathname: '/checkin-timer',
+        params: { circleId: circle.id, ...timerParams },
+      });
+    } else {
+      router.push({ pathname: '/checkin', params: { circleId: circle.id } });
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.topbar}>
@@ -201,20 +225,22 @@ export default function Today() {
             })}
           </View>
 
-          <TouchableOpacity
-            style={styles.cta}
-            onPress={() =>
-              router.push(
-                hasSeenCheckinConsent
-                  ? { pathname: '/checkin', params: { circleId: circle.id } }
-                  : { pathname: '/checkin-intro', params: { circleId: circle.id } }
-              )
-            }
-          >
-            <Text style={styles.ctaText}>
-              {iAmCheckedInToday ? "Edit today's check-in" : 'Check in'}
-            </Text>
-          </TouchableOpacity>
+          {!iAmCheckedInToday && circle.practiceDurationMinutes ? (
+            <View style={styles.timerChoiceRow}>
+              <TouchableOpacity style={styles.markDoneButton} onPress={() => goToCheckin(false)}>
+                <Text style={styles.markDoneButtonText}>Just mark as done</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.startTimerButton} onPress={() => goToCheckin(true)}>
+                <Text style={styles.startTimerButtonText}>Start timer</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.cta} onPress={() => goToCheckin(false)}>
+              <Text style={styles.ctaText}>
+                {iAmCheckedInToday ? "Edit today's check-in" : 'Check in'}
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {isSolo && (
             <TouchableOpacity
@@ -356,6 +382,36 @@ const styles = StyleSheet.create({
   ctaText: {
     fontWeight: '700',
     fontSize: 14,
+    color: colors.ink,
+  },
+  timerChoiceRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  markDoneButton: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: 16,
+    padding: 14,
+    alignItems: 'center',
+  },
+  markDoneButtonText: {
+    fontWeight: '700',
+    fontSize: 13,
+    color: colors.ink,
+  },
+  startTimerButton: {
+    flex: 1,
+    backgroundColor: colors.gold,
+    borderRadius: 16,
+    padding: 14,
+    alignItems: 'center',
+  },
+  startTimerButtonText: {
+    fontWeight: '700',
+    fontSize: 13,
     color: colors.ink,
   },
   inviteHint: {

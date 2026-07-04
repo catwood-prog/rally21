@@ -7,6 +7,7 @@ export type MyCircle = {
   startDate: string;
   durationDays: number;
   practiceName: string | null;
+  practiceDurationMinutes: number | null;
   inviteCode: string;
 };
 
@@ -21,7 +22,7 @@ export async function getMyPrimaryCircle(userId: string): Promise<MyCircle | nul
   const { data, error } = await supabase
     .from('memberships')
     .select(
-      'circles(id, name, time_of_day, start_date, duration_days, invite_code, practices(name))'
+      'circles(id, name, time_of_day, start_date, duration_days, invite_code, practices(name, duration_minutes))'
     )
     .eq('user_id', userId)
     .order('joined_at', { ascending: true })
@@ -34,7 +35,7 @@ export async function getMyPrimaryCircle(userId: string): Promise<MyCircle | nul
         start_date: string;
         duration_days: number;
         invite_code: string;
-        practices: { name: string } | null;
+        practices: { name: string; duration_minutes: number | null } | null;
       };
     }>();
 
@@ -49,6 +50,7 @@ export async function getMyPrimaryCircle(userId: string): Promise<MyCircle | nul
     startDate: c.start_date,
     durationDays: c.duration_days,
     practiceName: c.practices?.name ?? null,
+    practiceDurationMinutes: c.practices?.duration_minutes ?? null,
     inviteCode: c.invite_code,
   };
 }
