@@ -22,7 +22,7 @@ import {
   MyCircle,
   subscribeToCirclePresence,
 } from '@/lib/circle';
-import { getLocalDateString } from '@/lib/date';
+import { daysBetween, getLocalDateString } from '@/lib/date';
 import { getMyProfile } from '@/lib/profile';
 import { computeSignal, PresenceRow } from '@/lib/signal';
 
@@ -39,7 +39,9 @@ export default function Today() {
   const [members, setMembers] = useState<CircleMember[]>([]);
   const [presence, setPresence] = useState<PresenceRow[]>([]);
   const [myName, setMyName] = useState<string | null>(null);
+  const [hasSeenCheckinConsent, setHasSeenCheckinConsent] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -52,6 +54,7 @@ export default function Today() {
         getMyPrimaryCircle(session.user.id),
       ]);
       setMyName(profile?.name ?? null);
+      setHasSeenCheckinConsent(profile?.has_seen_checkin_consent ?? false);
       setCircle(myCircle);
 
       if (myCircle) {
@@ -61,13 +64,35 @@ export default function Today() {
         ]);
         setMembers(circleMembers);
         setPresence(circlePresence);
+
+        // "welcome back" shows once per gap of 2+ missed days — never on a
+        // fresh circle with no completions yet, and never twice for the
+        // same gap once it's been acknowledged.
+        const myDates = circlePresence
+          .filter((p) => p.userId === session.user.id)
+          .map((p) => p.localDate)
+          .sort();
+        const lastCompletionDate = myDates[myDates.length - 1];
+        const today = getLocalDateString();
+        if (
+          lastCompletionDate &&
+          daysBetween(lastCompletionDate, today) >= 3 &&
+          profile?.last_reentry_ack_date !== lastCompletionDate
+        ) {
+          setIsRedirecting(true);
+          router.replace({
+            pathname: '/welcome-back',
+            params: { circleId: myCircle.id, lastCompletionDate },
+          });
+          return;
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your circle');
     } finally {
       setIsLoading(false);
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, router]);
 
   // refetch every time Today comes back into focus (e.g. returning from check-in)
   useFocusEffect(
@@ -85,7 +110,7 @@ export default function Today() {
     return unsubscribe;
   }, [circle?.id]);
 
-  if (isLoading) {
+  if (isLoading || isRedirecting) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.green} />
@@ -179,7 +204,11 @@ export default function Today() {
           <TouchableOpacity
             style={styles.cta}
             onPress={() =>
-              router.push({ pathname: '/checkin', params: { circleId: circle.id } })
+              router.push(
+                hasSeenCheckinConsent
+                  ? { pathname: '/checkin', params: { circleId: circle.id } }
+                  : { pathname: '/checkin-intro', params: { circleId: circle.id } }
+              )
             }
           >
             <Text style={styles.ctaText}>

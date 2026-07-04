@@ -14,3 +14,13 @@ export function getLocalDateString(date: Date = new Date()): string {
 export function getDeviceTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
+
+/** Calendar days between two local-date strings (YYYY-MM-DD), built from
+ * UTC(Y, M, D) so the subtraction is never skewed by DST. */
+export function daysBetween(fromLocalDate: string, toLocalDate: string): number {
+  const [fy, fm, fd] = fromLocalDate.split('-').map(Number);
+  const [ty, tm, td] = toLocalDate.split('-').map(Number);
+  const from = Date.UTC(fy, fm - 1, fd);
+  const to = Date.UTC(ty, tm - 1, td);
+  return Math.round((to - from) / 86400000);
+}

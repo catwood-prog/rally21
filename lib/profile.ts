@@ -4,17 +4,42 @@ export type Profile = {
   id: string;
   name: string | null;
   avatar_url: string | null;
+  has_seen_checkin_consent: boolean;
+  last_reentry_ack_date: string | null;
 };
 
 export async function getMyProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('users')
-    .select('id, name, avatar_url')
+    .select('id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date')
     .eq('id', userId)
     .maybeSingle();
 
   if (error) throw error;
   return data;
+}
+
+/** First-ever check-in only shows the "this builds your private picture"
+ * intro once — this flips the flag for good. */
+export async function markCheckinConsentSeen(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({ has_seen_checkin_consent: true })
+    .eq('id', userId);
+
+  if (error) throw error;
+}
+
+/** Records which gap (identified by the completion date right before it)
+ * the re-entry screen has been acknowledged for, so it shows once per gap
+ * rather than every time Today loads until the next check-in. */
+export async function markReentryAcknowledged(userId: string, lastCompletionDate: string): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({ last_reentry_ack_date: lastCompletionDate })
+    .eq('id', userId);
+
+  if (error) throw error;
 }
 
 async function uploadAvatar(userId: string, imageUri: string): Promise<string> {
