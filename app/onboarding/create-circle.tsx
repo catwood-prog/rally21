@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -11,142 +11,183 @@ import {
 } from 'react-native';
 
 import { MessageDialog } from '@/components/MessageDialog';
+import { CATEGORIES } from '@/constants/practices';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
-import { createCircle, listPractices, Practice } from '@/lib/circles';
+import { useAuth } from '@/lib/auth-context';
+import { createPractice, listPracticesByCategory, Practice, PracticeCategory } from '@/lib/circles';
 
-const TIME_OPTIONS = [
-  { label: 'Morning', time: '08:00:00' },
-  { label: 'Midday', time: '12:00:00' },
-  { label: 'Evening', time: '18:00:00' },
-  { label: 'Night', time: '21:00:00' },
-];
-
-export default function CreateCircle() {
+export default function FindAPractice() {
   const router = useRouter();
+  const { session } = useAuth();
+
+  const [selectedCategory, setSelectedCategory] = useState<PracticeCategory | null>(null);
   const [practices, setPractices] = useState<Practice[]>([]);
-  const [selectedPracticeKey, setSelectedPracticeKey] = useState<string | null>(null);
-  const [circleName, setCircleName] = useState('');
-  const [nameEdited, setNameEdited] = useState(false);
-  const [selectedTime, setSelectedTime] = useState(TIME_OPTIONS[0].time);
-  const [isLoadingPractices, setIsLoadingPractices] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
+  const [isLoadingPractices, setIsLoadingPractices] = useState(false);
+  const [selectedPractice, setSelectedPractice] = useState<Practice | null>(null);
+
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customDuration, setCustomDuration] = useState('');
+  const [isCreatingPractice, setIsCreatingPractice] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    listPractices()
-      .then((data) => setPractices(data))
-      .catch((e) => setError(e instanceof Error ? e.message : 'could not load practices'))
-      .finally(() => setIsLoadingPractices(false));
-  }, []);
-
-  const handleSelectPractice = (practice: Practice) => {
-    setSelectedPracticeKey(practice.key);
-    // pre-fill with the practice name, but never clobber a name the
-    // person already typed themselves
-    if (!nameEdited) setCircleName(practice.name);
-  };
-
-  const handleNameChange = (text: string) => {
-    setCircleName(text);
-    setNameEdited(true);
-  };
-
-  const handleContinue = async () => {
-    if (!selectedPracticeKey) return;
-    setIsCreating(true);
+  const handleSelectCategory = async (category: PracticeCategory) => {
+    setSelectedCategory(category);
+    setSelectedPractice(null);
+    setShowCustomForm(false);
+    setIsLoadingPractices(true);
     try {
-      const { circleId, inviteCode } = await createCircle(
-        selectedPracticeKey,
-        selectedTime,
-        circleName
-      );
-      router.replace({
-        pathname: '/onboarding/invite',
-        params: { circleId, inviteCode },
-      });
+      setPractices(await listPracticesByCategory(category));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'something went wrong — try again');
-      setIsCreating(false);
+      setError(e instanceof Error ? e.message : 'could not load practices');
+    } finally {
+      setIsLoadingPractices(false);
     }
   };
 
-  if (isLoadingPractices) {
+  const handleCreatePractice = async () => {
+    if (!session?.user || !selectedCategory || !customName.trim()) return;
+    setIsCreatingPractice(true);
+    try {
+      const durationMinutes = customDuration.trim() ? parseInt(customDuration.trim(), 10) : null;
+      const practice = await createPractice({
+        name: customName.trim(),
+        category: selectedCategory,
+        durationMinutes: durationMinutes && durationMinutes > 0 ? durationMinutes : null,
+        createdBy: session.user.id,
+      });
+      setPractices((prev) => [practice, ...prev]);
+      setSelectedPractice(practice);
+      setShowCustomForm(false);
+      setCustomName('');
+      setCustomDuration('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not save that — try again');
+    } finally {
+      setIsCreatingPractice(false);
+    }
+  };
+
+  const handleContinue = () => {
+    if (!selectedPractice) return;
+    router.push({
+      pathname: '/onboarding/commitment',
+      params: { practiceKey: selectedPractice.key, practiceName: selectedPractice.name },
+    });
+  };
+
+  if (!selectedCategory) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={colors.green} />
-      </View>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <TouchableOpacity onPress={() => router.push('/onboarding/circle-setup')}>
+          <Text style={styles.back}>← Back</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.title}>find a practice</Text>
+        <Text style={styles.subtitle}>what kind of daily thing do you want to build?</Text>
+
+        <View style={styles.categoryGrid}>
+          {CATEGORIES.map((category) => (
+            <TouchableOpacity
+              key={category.key}
+              style={styles.categoryTile}
+              onPress={() => handleSelectCategory(category.key)}
+            >
+              <Text style={styles.categoryEmoji}>{category.emoji}</Text>
+              <Text style={styles.categoryLabel}>{category.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <MessageDialog
+          visible={!!error}
+          title="hmm"
+          message={error ?? ''}
+          onDismiss={() => setError(null)}
+        />
+      </ScrollView>
     );
   }
 
+  const category = CATEGORIES.find((c) => c.key === selectedCategory)!;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => router.push('/onboarding/circle-setup')}>
-        <Text style={styles.back}>← Back</Text>
+      <TouchableOpacity onPress={() => setSelectedCategory(null)}>
+        <Text style={styles.back}>← Categories</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>pick a practice</Text>
+      <Text style={styles.title}>
+        {category.emoji} {category.label}
+      </Text>
 
-      {practices.map((practice) => {
-        const selected = practice.key === selectedPracticeKey;
-        return (
-          <TouchableOpacity
-            key={practice.id}
-            style={[styles.card, selected && styles.cardSelected]}
-            onPress={() => handleSelectPractice(practice)}
-          >
-            <Text style={styles.cardTitle}>{practice.name}</Text>
-            {!!practice.description && (
-              <Text style={styles.cardBody}>{practice.description}</Text>
-            )}
-          </TouchableOpacity>
-        );
-      })}
-
-      {!!selectedPracticeKey && (
+      {isLoadingPractices ? (
+        <ActivityIndicator color={colors.green} style={styles.loadingSpinner} />
+      ) : (
         <>
-          <Text style={[styles.title, styles.sectionSpacing]}>name your circle</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="your circle's name"
-            placeholderTextColor={colors.muted}
-            value={circleName}
-            onChangeText={handleNameChange}
-            autoCorrect={false}
-          />
+          {practices.map((practice) => {
+            const selected = practice.id === selectedPractice?.id;
+            return (
+              <TouchableOpacity
+                key={practice.id}
+                style={[styles.card, selected && styles.cardSelected]}
+                onPress={() => setSelectedPractice(practice)}
+              >
+                <Text style={styles.cardTitle}>{practice.name}</Text>
+                {!!practice.description && <Text style={styles.cardBody}>{practice.description}</Text>}
+                {!practice.description && !!practice.durationMinutes && (
+                  <Text style={styles.cardBody}>{practice.durationMinutes} minutes</Text>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+
+          {!showCustomForm ? (
+            <TouchableOpacity style={styles.customButton} onPress={() => setShowCustomForm(true)}>
+              <Text style={styles.customButtonText}>+ create your own</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.customForm}>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Walk 20 minutes"
+                placeholderTextColor={colors.muted}
+                value={customName}
+                onChangeText={setCustomName}
+                autoCorrect={false}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="duration in minutes (optional)"
+                placeholderTextColor={colors.muted}
+                value={customDuration}
+                onChangeText={(text) => setCustomDuration(text.replace(/[^0-9]/g, ''))}
+                keyboardType="number-pad"
+              />
+              <TouchableOpacity
+                style={[styles.addButton, !customName.trim() && styles.buttonDisabled]}
+                onPress={handleCreatePractice}
+                disabled={!customName.trim() || isCreatingPractice}
+              >
+                {isCreatingPractice ? (
+                  <ActivityIndicator color={colors.ink} />
+                ) : (
+                  <Text style={styles.addButtonText}>Add practice</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </>
       )}
 
-      <Text style={[styles.title, styles.sectionSpacing]}>what time of day?</Text>
-      <View style={styles.chipRow}>
-        {TIME_OPTIONS.map((option) => {
-          const selected = option.time === selectedTime;
-          return (
-            <TouchableOpacity
-              key={option.time}
-              style={[styles.chip, selected && styles.chipSelected]}
-              onPress={() => setSelectedTime(option.time)}
-            >
-              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                {option.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <Text style={styles.hint}>daily, for 21 days — a couple lines a day, that&apos;s it</Text>
-
       <TouchableOpacity
-        style={[styles.button, !selectedPracticeKey && styles.buttonDisabled]}
+        style={[styles.button, !selectedPractice && styles.buttonDisabled]}
         onPress={handleContinue}
-        disabled={!selectedPracticeKey || isCreating}
+        disabled={!selectedPractice}
       >
-        {isCreating ? (
-          <ActivityIndicator color={colors.ink} />
-        ) : (
-          <Text style={styles.buttonText}>Continue</Text>
-        )}
+        <Text style={styles.buttonText}>Continue</Text>
       </TouchableOpacity>
 
       <MessageDialog
@@ -164,12 +205,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bg,
-  },
   content: {
     padding: 24,
     paddingBottom: 40,
@@ -184,10 +219,38 @@ const styles = StyleSheet.create({
     fontFamily: FONT_HEADER,
     fontSize: 20,
     color: colors.ink,
-    marginBottom: 14,
+    marginBottom: 8,
   },
-  sectionSpacing: {
-    marginTop: 28,
+  subtitle: {
+    fontSize: 13,
+    color: colors.muted,
+    marginBottom: 20,
+    lineHeight: 19,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  categoryTile: {
+    width: '47%',
+    aspectRatio: 1.2,
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryEmoji: {
+    fontSize: 30,
+    marginBottom: 8,
+  },
+  categoryLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  loadingSpinner: {
+    marginTop: 20,
   },
   card: {
     backgroundColor: colors.card,
@@ -211,51 +274,49 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: 4,
   },
-  input: {
+  customButton: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  customButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.green,
+  },
+  customForm: {
     backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  input: {
+    backgroundColor: colors.bg,
     borderWidth: 1.5,
     borderColor: colors.line,
     borderRadius: 14,
-    padding: 14,
-    fontSize: 15,
+    padding: 13,
+    fontSize: 14,
     color: colors.ink,
+    marginBottom: 10,
   },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 99,
-    backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-  },
-  chipSelected: {
+  addButton: {
     backgroundColor: colors.green,
-    borderColor: colors.green,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
   },
-  chipText: {
-    fontSize: 13,
+  addButtonText: {
     fontWeight: '700',
-    color: colors.ink,
-  },
-  chipTextSelected: {
+    fontSize: 13,
     color: '#fff',
-  },
-  hint: {
-    fontSize: 12,
-    color: colors.muted,
-    marginTop: 18,
-    marginBottom: 20,
   },
   button: {
     backgroundColor: colors.gold,
     borderRadius: 16,
     padding: 14,
     alignItems: 'center',
+    marginTop: 20,
   },
   buttonDisabled: {
     opacity: 0.5,

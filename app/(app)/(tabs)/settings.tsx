@@ -140,6 +140,13 @@ export default function Settings() {
         )}
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={[styles.signOutButton, styles.sectionSpacing]}
+        onPress={() => router.push('/my-practices')}
+      >
+        <Text style={styles.signOutText}>My practices</Text>
+      </TouchableOpacity>
+
       <Text style={[styles.label, styles.sectionSpacing]}>reminders</Text>
       <View style={styles.noteCard}>
         <Text style={styles.noteText}>
