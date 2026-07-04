@@ -14,7 +14,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { CATEGORIES } from '@/constants/practices';
 import { FONT_HEADER } from '@/constants/fonts';
-import { cardShadow, colors } from '@/constants/theme';
+import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   countOpenCirclesByPractice,
@@ -284,9 +284,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 99,
+    ...chipShape,
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: colors.green,
@@ -296,8 +294,7 @@ const styles = StyleSheet.create({
     borderColor: colors.green,
   },
   chipText: {
-    fontSize: 12.5,
-    fontWeight: '700',
+    ...chipTextShape,
     color: colors.green,
   },
   chipTextActive: {

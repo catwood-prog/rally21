@@ -15,7 +15,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { MOOD_EMOJI, MOOD_VALUES } from '@/constants/mood';
-import { cardShadow, colors } from '@/constants/theme';
+import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   DailyQuestion,
@@ -413,9 +413,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 99,
+    ...chipShape,
     backgroundColor: colors.bg,
     borderWidth: 1,
     borderColor: colors.line,
@@ -425,8 +423,7 @@ const styles = StyleSheet.create({
     borderColor: colors.green,
   },
   chipText: {
-    fontSize: 12,
-    fontWeight: '700',
+    ...chipTextShape,
     color: colors.ink,
   },
   chipTextSelected: {

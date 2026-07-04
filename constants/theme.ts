@@ -21,3 +21,18 @@ export const cardShadow = {
   shadowRadius: 16,
   elevation: 3,
 } as const;
+
+// The mockup's chip/pill sizing — spread into any selectable option chip's
+// container/text styles so the geometry stops drifting per screen. Colors
+// (background, border, selected state) stay per-screen since those vary by
+// context.
+export const chipShape = {
+  paddingVertical: 6,
+  paddingHorizontal: 13,
+  borderRadius: 99,
+} as const;
+
+export const chipTextShape = {
+  fontSize: 11.5,
+  fontWeight: '700',
+} as const;

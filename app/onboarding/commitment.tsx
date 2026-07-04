@@ -13,7 +13,7 @@ import {
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
-import { cardShadow, colors } from '@/constants/theme';
+import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { createCircle } from '@/lib/circles';
 
 const TIME_OPTIONS = [
@@ -220,9 +220,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 99,
+    ...chipShape,
     backgroundColor: colors.card,
     borderWidth: 1.5,
     borderColor: colors.line,
@@ -232,8 +230,7 @@ const styles = StyleSheet.create({
     borderColor: colors.green,
   },
   chipText: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...chipTextShape,
     color: colors.ink,
   },
   chipTextSelected: {

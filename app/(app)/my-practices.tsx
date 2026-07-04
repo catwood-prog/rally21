@@ -14,7 +14,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { CATEGORIES } from '@/constants/practices';
 import { FONT_HEADER } from '@/constants/fonts';
-import { cardShadow, colors } from '@/constants/theme';
+import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   archivePractice,
@@ -377,9 +377,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 99,
+    ...chipShape,
     backgroundColor: colors.bg,
     borderWidth: 1.5,
     borderColor: colors.line,
@@ -389,8 +387,7 @@ const styles = StyleSheet.create({
     borderColor: colors.green,
   },
   chipText: {
-    fontSize: 12,
-    fontWeight: '700',
+    ...chipTextShape,
     color: colors.ink,
   },
   chipTextSelected: {
