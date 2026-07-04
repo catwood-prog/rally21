@@ -98,6 +98,7 @@ export default function Today() {
   );
   const iAmCheckedInToday = !!session?.user && inTodayUserIds.has(session.user.id);
   const inCount = inTodayUserIds.size;
+  const isSolo = members.length === 1;
   const signal = circle
     ? computeSignal({
         presence,
@@ -123,8 +124,17 @@ export default function Today() {
       ) : (
         <>
           <Text style={styles.headline}>
-            today you <Text style={styles.headlineAccent}>{circle.practiceName?.toLowerCase()}</Text>
-            {'\n'}with <Text style={styles.headlineAccent}>your circle</Text>
+            {isSolo ? (
+              <>
+                today you <Text style={styles.headlineAccent}>{circle.practiceName?.toLowerCase()}</Text>
+              </>
+            ) : (
+              <>
+                today you{' '}
+                <Text style={styles.headlineAccent}>{circle.practiceName?.toLowerCase()}</Text>
+                {'\n'}with <Text style={styles.headlineAccent}>your circle</Text>
+              </>
+            )}
           </Text>
 
           <TouchableOpacity style={styles.card} onPress={() => router.push('/circle')}>
@@ -134,9 +144,12 @@ export default function Today() {
                 dailyRates={signal.dailyRates}
                 dayNumber={signal.dayNumber}
                 durationDays={circle.durationDays}
+                isSolo={isSolo}
               />
             )}
-            <Text style={styles.cardLink}>{inCount} of {members.length} in today · view circle →</Text>
+            <Text style={styles.cardLink}>
+              {isSolo ? 'view your practice →' : `${inCount} of ${members.length} in today · view circle →`}
+            </Text>
           </TouchableOpacity>
 
           <View style={styles.membersRow}>
@@ -174,6 +187,20 @@ export default function Today() {
               {iAmCheckedInToday ? "Edit today's check-in" : 'Check in'}
             </Text>
           </TouchableOpacity>
+
+          {isSolo && (
+            <TouchableOpacity
+              style={styles.inviteHint}
+              onPress={() =>
+                router.push({
+                  pathname: '/onboarding/invite',
+                  params: { circleId: circle.id, inviteCode: circle.inviteCode },
+                })
+              }
+            >
+              <Text style={styles.inviteHintText}>even better with your people →</Text>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.reflectionsRow}>
             <TouchableOpacity onPress={() => router.push('/weekly')}>
@@ -319,6 +346,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
     color: colors.ink,
+  },
+  inviteHint: {
+    marginTop: 14,
+    alignItems: 'center',
+  },
+  inviteHintText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: colors.green,
   },
   reflectionsRow: {
     flexDirection: 'row',

@@ -4,26 +4,37 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'rea
 
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
-import { getCirclePresence } from '@/lib/circle';
+import { useAuth } from '@/lib/auth-context';
+import { getCircleMembers, getCirclePresence, getMyPrimaryCircle } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 
 export default function CheckInComplete() {
   const router = useRouter();
+  const { session } = useAuth();
   const { circleId } = useLocalSearchParams<{ circleId: string }>();
   const [inCount, setInCount] = useState<number | null>(null);
+  const [isSolo, setIsSolo] = useState<boolean | null>(null);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!circleId) return;
+    if (!circleId || !session?.user) return;
     const today = getLocalDateString();
-    getCirclePresence(circleId)
-      .then((presence) => {
+
+    Promise.all([
+      getCirclePresence(circleId),
+      getCircleMembers(circleId),
+      getMyPrimaryCircle(session.user.id),
+    ])
+      .then(([presence, members, circle]) => {
         const uniqueToday = new Set(
           presence.filter((p) => p.localDate === today).map((p) => p.userId)
         );
         setInCount(uniqueToday.size);
+        setIsSolo(members.length === 1);
+        setInviteCode(circle?.inviteCode ?? null);
       })
       .catch(() => setInCount(null));
-  }, [circleId]);
+  }, [circleId, session?.user?.id]);
 
   return (
     <View style={styles.container}>
@@ -33,12 +44,28 @@ export default function CheckInComplete() {
       </View>
       <Text style={styles.title}>you&apos;re in</Text>
 
-      {inCount === null ? (
+      {inCount === null || isSolo === null ? (
         <ActivityIndicator color={colors.green} style={styles.spinner} />
       ) : (
         <Text style={styles.subtitle}>
-          {inCount} {inCount === 1 ? 'person has' : 'people have'} checked in today
+          {isSolo
+            ? 'you showed up for yourself today'
+            : `${inCount} ${inCount === 1 ? 'person has' : 'people have'} checked in today`}
         </Text>
+      )}
+
+      {isSolo && inviteCode && (
+        <TouchableOpacity
+          style={styles.inviteHint}
+          onPress={() =>
+            router.push({
+              pathname: '/onboarding/invite',
+              params: { circleId, inviteCode },
+            })
+          }
+        >
+          <Text style={styles.inviteHintText}>even better with your people →</Text>
+        </TouchableOpacity>
       )}
 
       <TouchableOpacity style={styles.button} onPress={() => router.replace('/(app)/today')}>
@@ -88,6 +115,14 @@ const styles = StyleSheet.create({
   },
   spinner: {
     marginBottom: 28,
+  },
+  inviteHint: {
+    marginBottom: 28,
+  },
+  inviteHintText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: colors.green,
   },
   button: {
     width: '100%',

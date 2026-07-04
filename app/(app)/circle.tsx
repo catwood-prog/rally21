@@ -82,6 +82,7 @@ export default function YourCircle() {
   const inTodayUserIds = new Set(
     presence.filter((p) => p.localDate === today).map((p) => p.userId)
   );
+  const isSolo = members.length === 1;
   const signal = computeSignal({
     presence,
     memberCount: members.length,
@@ -97,8 +98,9 @@ export default function YourCircle() {
 
       <Text style={styles.title}>{circle.name}</Text>
       <Text style={styles.subtitle}>
-        {circle.practiceName?.toLowerCase()} · {members.length}{' '}
-        {members.length === 1 ? 'member' : 'members'}
+        {isSolo
+          ? circle.practiceName?.toLowerCase()
+          : `${circle.practiceName?.toLowerCase()} · ${members.length} members`}
       </Text>
 
       <View style={styles.signalCard}>
@@ -107,9 +109,12 @@ export default function YourCircle() {
           dailyRates={signal.dailyRates}
           dayNumber={signal.dayNumber}
           durationDays={circle.durationDays}
+          isSolo={isSolo}
           size="large"
         />
       </View>
+
+      {isSolo && <Text style={styles.inviteHint}>even better with your people</Text>}
 
       <TouchableOpacity
         style={styles.inviteButton}
@@ -190,6 +195,13 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 18,
     marginBottom: 24,
+  },
+  inviteHint: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: colors.green,
+    textAlign: 'center',
+    marginBottom: 10,
   },
   inviteButton: {
     backgroundColor: colors.card,

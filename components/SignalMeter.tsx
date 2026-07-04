@@ -20,12 +20,14 @@ export function SignalMeter({
   dailyRates,
   dayNumber,
   durationDays,
+  isSolo = false,
   size = 'default',
 }: {
   state: SignalState;
   dailyRates: number[];
   dayNumber?: number;
   durationDays?: number;
+  isSolo?: boolean;
   size?: 'default' | 'large';
 }) {
   const barHeight = size === 'large' ? 46 : 28;
@@ -34,7 +36,7 @@ export function SignalMeter({
     <View>
       <View style={styles.headerRow}>
         <Text style={styles.label}>
-          Your circle is{' '}
+          {isSolo ? 'Your practice is' : 'Your circle is'}{' '}
           <Text style={[styles.labelState, { color: STATE_COLOR[state] }]}>
             {STATE_LABEL[state]}
           </Text>
@@ -55,7 +57,9 @@ export function SignalMeter({
         ))}
       </View>
       <Text style={styles.caption}>
-        kept warm together — it can&apos;t break, only glow brighter
+        {isSolo
+          ? "kept warm — it can't break, only glow brighter"
+          : "kept warm together — it can't break, only glow brighter"}
       </Text>
     </View>
   );
