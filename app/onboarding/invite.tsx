@@ -75,6 +75,10 @@ export default function Invite() {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.back} onPress={() => router.push('/circle')}>
+        <Text style={styles.backText}>← Your Circle</Text>
+      </TouchableOpacity>
+
       <Text style={styles.title}>invite your people</Text>
       <Text style={styles.subtitle}>share this code — anyone can use it to hop in</Text>
 
@@ -115,6 +119,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  back: {
+    position: 'absolute',
+    top: 20,
+    left: 24,
+  },
+  backText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.muted,
   },
   loading: {
     flex: 1,

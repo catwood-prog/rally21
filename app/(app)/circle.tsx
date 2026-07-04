@@ -111,6 +111,18 @@ export default function YourCircle() {
         />
       </View>
 
+      <TouchableOpacity
+        style={styles.inviteButton}
+        onPress={() =>
+          router.push({
+            pathname: '/onboarding/invite',
+            params: { circleId: circle.id, inviteCode: circle.inviteCode },
+          })
+        }
+      >
+        <Text style={styles.inviteButtonText}>✨ Invite someone</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.wallButton} onPress={() => router.push('/wall')}>
         <Text style={styles.wallButtonText}>💬 Circle wall</Text>
       </TouchableOpacity>
@@ -178,6 +190,20 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 18,
     marginBottom: 24,
+  },
+  inviteButton: {
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.green,
+    borderRadius: 16,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  inviteButtonText: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: colors.green,
   },
   wallButton: {
     backgroundColor: colors.gold,
