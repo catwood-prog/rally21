@@ -49,13 +49,13 @@ export async function postWallMessage(
   if (error) throw error;
 }
 
-/** Every check-in in the circle (from the content-free presence table),
+/** Every completion in the circle (content-free — no mood/line/answer),
  * with whatever reactions have been left on each one. */
 export async function getCheckinFeed(circleId: string): Promise<CheckinFeedEntry[]> {
   const [{ data: presence, error: presenceError }, { data: reactions, error: reactionsError }] =
     await Promise.all([
       supabase
-        .from('checkin_presence')
+        .from('completions')
         .select('user_id, local_date, created_at')
         .eq('circle_id', circleId),
       supabase

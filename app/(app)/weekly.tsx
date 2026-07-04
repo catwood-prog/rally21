@@ -7,7 +7,7 @@ import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { getMyPrimaryCircle } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
-import { computeWeeklyLookback, getMyCheckins, WeeklyLookback } from '@/lib/reflections';
+import { computeWeeklyLookback, getMyReflections, WeeklyLookback } from '@/lib/reflections';
 
 const WEEKDAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -23,12 +23,12 @@ export default function WeeklyLookBack() {
     setIsLoading(true);
     setError(null);
     try {
-      const [checkins, circle] = await Promise.all([
-        getMyCheckins(session.user.id),
+      const [reflections, circle] = await Promise.all([
+        getMyReflections(session.user.id),
         getMyPrimaryCircle(session.user.id),
       ]);
       setLookback(
-        computeWeeklyLookback(checkins, getLocalDateString(), circle?.startDate ?? getLocalDateString())
+        computeWeeklyLookback(reflections, getLocalDateString(), circle?.startDate ?? getLocalDateString())
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your week');

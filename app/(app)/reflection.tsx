@@ -8,8 +8,8 @@ import { useAuth } from '@/lib/auth-context';
 import {
   computeDayObservation,
   DayObservation,
-  getMyCheckins,
   getMyObservationResponse,
+  getMyReflections,
   ObservationDirection,
   saveObservationResponse,
 } from '@/lib/reflections';
@@ -35,8 +35,8 @@ export default function Reflection() {
     setIsLoading(true);
     setError(null);
     try {
-      const checkins = await getMyCheckins(session.user.id);
-      const result = computeDayObservation(checkins);
+      const reflections = await getMyReflections(session.user.id);
+      const result = computeDayObservation(reflections);
       setObservation(result);
       if (result.available) {
         setResponse(await getMyObservationResponse(session.user.id, result.type, result.direction));

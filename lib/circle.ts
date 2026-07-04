@@ -70,15 +70,16 @@ export async function getCircleMembers(circleId: string): Promise<CircleMember[]
   }));
 }
 
-/** Every (user_id, local_date) a circle has ever checked in on — used both
- * for "who's in today" and the trailing-7-day glow math. Reads directly
- * from checkin_presence (content-free by design) rather than checkins
- * itself, since checkins' RLS is owner-only. */
+/** Every (user_id, local_date) a circle has completed — used both for
+ * "who's in today" and the trailing-7-day glow math. Reads directly from
+ * completions, which is content-free by design (no mood/line/answer), so
+ * it's safe to expose to every circle member unlike the owner-only
+ * reflections table. */
 export async function getCirclePresence(
   circleId: string
 ): Promise<{ userId: string; localDate: string }[]> {
   const { data, error } = await supabase
-    .from('checkin_presence')
+    .from('completions')
     .select('user_id, local_date')
     .eq('circle_id', circleId);
 
@@ -86,14 +87,14 @@ export async function getCirclePresence(
   return (data ?? []).map((row) => ({ userId: row.user_id, localDate: row.local_date }));
 }
 
-/** Live updates whenever anyone in the circle checks in. Returns an
+/** Live updates whenever anyone in the circle completes. Returns an
  * unsubscribe function. */
 export function subscribeToCirclePresence(circleId: string, onInsert: () => void): () => void {
   const channel = supabase
     .channel(`circle-presence-${circleId}`)
     .on(
       'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'checkin_presence', filter: `circle_id=eq.${circleId}` },
+      { event: 'INSERT', schema: 'public', table: 'completions', filter: `circle_id=eq.${circleId}` },
       onInsert
     )
     .subscribe();

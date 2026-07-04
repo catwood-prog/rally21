@@ -1,50 +1,49 @@
 import { daysBetween, getTrailingLocalDates } from './signal';
 import { supabase } from './supabase';
 
-export type Checkin = {
+// Reflections are per-person-per-day, not per-circle — there's no
+// circleId here by design (see Rally21_MultiCircle_Spec).
+export type Reflection = {
   id: string;
-  circleId: string;
   localDate: string;
   mood: number | null;
-  line: string | null;
+  line1: string | null;
   line2: string | null;
   questionPrompt: string | null;
   questionAnswer: string | null;
   createdAt: string;
 };
 
-type CheckinRow = {
+type ReflectionRow = {
   id: string;
-  circle_id: string;
   local_date: string;
   mood: number | null;
-  line: string | null;
+  line1: string | null;
   line2: string | null;
   question_answer: string | null;
   created_at: string;
   questions: { prompt: string } | null;
 };
 
-export async function getMyCheckins(userId: string): Promise<Checkin[]> {
+export async function getMyReflections(userId: string): Promise<Reflection[]> {
   const { data, error } = await supabase
-    .from('checkins')
-    .select('id, circle_id, local_date, mood, line, line2, question_answer, created_at, questions(prompt)')
+    .from('reflections')
+    .select('id, local_date, mood, line1, line2, question_answer, created_at, questions(prompt)')
     .eq('user_id', userId)
     .order('local_date', { ascending: false })
-    .returns<CheckinRow[]>();
+    .returns<ReflectionRow[]>();
 
   if (error) throw error;
 
-  return (data ?? []).map((c) => ({
-    id: c.id,
-    circleId: c.circle_id,
-    localDate: c.local_date,
-    mood: c.mood,
-    line: c.line,
-    line2: c.line2,
-    questionPrompt: c.questions?.prompt ?? null,
-    questionAnswer: c.question_answer,
-    createdAt: c.created_at,
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    localDate: r.local_date,
+    mood: r.mood,
+    line1: r.line1,
+    line2: r.line2,
+    questionPrompt: r.questions?.prompt ?? null,
+    questionAnswer: r.question_answer,
+    createdAt: r.created_at,
   }));
 }
 
@@ -64,39 +63,39 @@ export type WeeklyLookback = {
  * bars for days before it existed.
  */
 export function computeWeeklyLookback(
-  checkins: Checkin[],
+  reflections: Reflection[],
   today: string,
   circleStartDate: string
 ): WeeklyLookback {
   const dayNumber = Math.max(1, daysBetween(circleStartDate, today) + 1);
   const windowSize = Math.min(7, dayNumber);
   const dates = getTrailingLocalDates(today, windowSize);
-  const byDate = new Map<string, Checkin>();
-  for (const c of checkins) {
-    if (dates.includes(c.localDate) && !byDate.has(c.localDate)) {
-      byDate.set(c.localDate, c);
+  const byDate = new Map<string, Reflection>();
+  for (const r of reflections) {
+    if (dates.includes(r.localDate) && !byDate.has(r.localDate)) {
+      byDate.set(r.localDate, r);
     }
   }
 
   const dailyMoods = dates.map((d) => byDate.get(d)?.mood ?? null);
 
   let bestMood = -1;
-  for (const c of byDate.values()) {
-    if (c.mood !== null && c.mood > bestMood) bestMood = c.mood;
+  for (const r of byDate.values()) {
+    if (r.mood !== null && r.mood > bestMood) bestMood = r.mood;
   }
 
   let standout: WeeklyLookback['standout'] = null;
   if (bestMood >= 0) {
     let bestLen = -1;
-    for (const c of byDate.values()) {
-      if (c.mood !== bestMood) continue;
+    for (const r of byDate.values()) {
+      if (r.mood !== bestMood) continue;
       const candidates: { text: string; label: 'grateful' | 'learned' }[] = [];
-      if (c.line) candidates.push({ text: c.line, label: 'grateful' });
-      if (c.line2) candidates.push({ text: c.line2, label: 'learned' });
+      if (r.line1) candidates.push({ text: r.line1, label: 'grateful' });
+      if (r.line2) candidates.push({ text: r.line2, label: 'learned' });
       for (const cand of candidates) {
         if (cand.text.length > bestLen) {
           bestLen = cand.text.length;
-          standout = { text: cand.text, label: cand.label, date: c.localDate };
+          standout = { text: cand.text, label: cand.label, date: r.localDate };
         }
       }
     }
@@ -165,14 +164,14 @@ function evaluateSplit(
  * with >= 10 data points — otherwise the caller shows the "grows as you
  * go" state instead of a shaky claim.
  */
-export function computeDayObservation(checkins: Checkin[]): DayObservation {
-  const withMood = checkins
-    .filter((c) => c.mood !== null)
+export function computeDayObservation(reflections: Reflection[]): DayObservation {
+  const withMood = reflections
+    .filter((r) => r.mood !== null)
     .slice(0, 14)
-    .map((c) => ({
-      mood: c.mood as number,
-      hour: new Date(c.createdAt).getHours(),
-      weekday: new Date(`${c.localDate}T00:00:00`).getDay(), // 0=Sun..6=Sat
+    .map((r) => ({
+      mood: r.mood as number,
+      hour: new Date(r.createdAt).getHours(),
+      weekday: new Date(`${r.localDate}T00:00:00`).getDay(), // 0=Sun..6=Sat
     }));
 
   const timeResult = evaluateSplit(withMood.map((c) => ({ mood: c.mood, inGroupA: c.hour < 12 })));

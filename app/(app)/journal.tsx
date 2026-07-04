@@ -7,7 +7,7 @@ import { colors } from '@/constants/theme';
 import { MOOD_EMOJI } from '@/constants/mood';
 import { useAuth } from '@/lib/auth-context';
 import { getLocalDateString } from '@/lib/date';
-import { Checkin, getMyCheckins } from '@/lib/reflections';
+import { getMyReflections, Reflection } from '@/lib/reflections';
 
 function dateHeader(localDate: string, today: string): string {
   if (localDate === today) return 'TODAY';
@@ -24,7 +24,7 @@ function dateHeader(localDate: string, today: string): string {
 export default function Journal() {
   const router = useRouter();
   const { session } = useAuth();
-  const [checkins, setCheckins] = useState<Checkin[]>([]);
+  const [reflections, setReflections] = useState<Reflection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +33,7 @@ export default function Journal() {
     setIsLoading(true);
     setError(null);
     try {
-      setCheckins(await getMyCheckins(session.user.id));
+      setReflections(await getMyReflections(session.user.id));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your journal');
     } finally {
@@ -70,30 +70,30 @@ export default function Journal() {
 
       {error && <Text style={styles.subtitle}>{error}</Text>}
 
-      {!error && checkins.length === 0 && (
+      {!error && reflections.length === 0 && (
         <Text style={styles.subtitle}>your reflections will show up here as you check in</Text>
       )}
 
-      {checkins.map((c, i) => {
-        const showHeader = i === 0 || checkins[i - 1].localDate !== c.localDate;
+      {reflections.map((r, i) => {
+        const showHeader = i === 0 || reflections[i - 1].localDate !== r.localDate;
         return (
-          <View key={c.id}>
-            {showHeader && <Text style={styles.dateHeader}>{dateHeader(c.localDate, today)}</Text>}
+          <View key={r.id}>
+            {showHeader && <Text style={styles.dateHeader}>{dateHeader(r.localDate, today)}</Text>}
             <View style={styles.card}>
-              {c.mood !== null && <Text style={styles.moodBadge}>{MOOD_EMOJI[c.mood]}</Text>}
-              {!!c.line && (
+              {r.mood !== null && <Text style={styles.moodBadge}>{MOOD_EMOJI[r.mood]}</Text>}
+              {!!r.line1 && (
                 <Text style={styles.line}>
-                  <Text style={styles.lineLabel}>grateful</Text> · {c.line}
+                  <Text style={styles.lineLabel}>grateful</Text> · {r.line1}
                 </Text>
               )}
-              {!!c.line2 && (
+              {!!r.line2 && (
                 <Text style={styles.line}>
-                  <Text style={styles.lineLabel}>learned</Text> · {c.line2}
+                  <Text style={styles.lineLabel}>learned</Text> · {r.line2}
                 </Text>
               )}
-              {!!c.questionAnswer && !!c.questionPrompt && (
+              {!!r.questionAnswer && !!r.questionPrompt && (
                 <Text style={styles.line}>
-                  <Text style={styles.lineLabel}>{c.questionPrompt}</Text> · {c.questionAnswer}
+                  <Text style={styles.lineLabel}>{r.questionPrompt}</Text> · {r.questionAnswer}
                 </Text>
               )}
             </View>

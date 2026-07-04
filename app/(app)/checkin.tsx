@@ -20,8 +20,9 @@ import {
   DailyQuestion,
   getDailyQuestion,
   getQuestionById,
-  getTodayCheckin,
-  saveCheckin,
+  getTodayReflection,
+  saveCompletion,
+  saveReflection,
 } from '@/lib/checkin';
 import { getLocalDateString } from '@/lib/date';
 
@@ -46,10 +47,12 @@ export default function CheckIn() {
     if (!circleId) return;
     (async () => {
       try {
-        const existing = await getTodayCheckin(circleId, today);
+        // reflection is per-person-per-day, not per-circle — if today's
+        // already been done (from any circle), edit that same entry
+        const existing = await getTodayReflection(today);
         if (existing) {
           setMood(existing.mood);
-          setLine(existing.line ?? '');
+          setLine(existing.line1 ?? '');
           setLine2(existing.line2 ?? '');
           setQuestionAnswer(existing.questionAnswer ?? '');
           setQuestionSkipped(existing.questionSkipped);
@@ -73,12 +76,12 @@ export default function CheckIn() {
     if (!canSave || !session?.user || !circleId || mood === null) return;
     setIsSaving(true);
     try {
-      await saveCheckin({
+      await saveCompletion({ userId: session.user.id, circleId, localDate: today });
+      await saveReflection({
         userId: session.user.id,
-        circleId,
         localDate: today,
         mood,
-        line: line.trim(),
+        line1: line.trim(),
         line2: line2.trim() || null,
         questionId: question?.id ?? null,
         questionAnswer: questionSkipped ? null : questionAnswer.trim() || null,
