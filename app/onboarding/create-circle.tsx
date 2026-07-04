@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -26,13 +26,14 @@ import {
 export default function FindAPractice() {
   const router = useRouter();
   const { session } = useAuth();
+  const { solo } = useLocalSearchParams<{ solo?: string }>();
+  const isSolo = solo === 'true';
 
   const [selectedCategory, setSelectedCategory] = useState<PracticeCategory>('move');
   const [searchText, setSearchText] = useState('');
   const [practices, setPractices] = useState<Practice[]>([]);
   const [openCounts, setOpenCounts] = useState<Record<string, number>>({});
   const [isLoadingPractices, setIsLoadingPractices] = useState(true);
-  const [selectedPractice, setSelectedPractice] = useState<Practice | null>(null);
 
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customName, setCustomName] = useState('');
@@ -42,15 +43,13 @@ export default function FindAPractice() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // open-circle counts span every practice, not just the active category
-    // — fetch once and reuse as the category tabs are switched.
+    if (isSolo) return; // solo circles never show open-circle counts to join
     countOpenCirclesByPractice().catch(() => {
       // the picker still works perfectly well without the count line
     }).then((counts) => counts && setOpenCounts(counts));
-  }, []);
+  }, [isSolo]);
 
   useEffect(() => {
-    setSelectedPractice(null);
     setShowCustomForm(false);
     setIsLoadingPractices(true);
     listPracticesByCategory(selectedCategory)
@@ -58,6 +57,29 @@ export default function FindAPractice() {
       .catch((e) => setError(e instanceof Error ? e.message : 'could not load practices'))
       .finally(() => setIsLoadingPractices(false));
   }, [selectedCategory]);
+
+  const goToCommitment = (practice: Practice) => {
+    router.push({
+      pathname: '/onboarding/commitment',
+      params: {
+        practiceKey: practice.key,
+        practiceName: practice.name,
+        ...(isSolo ? { solo: 'true' } : {}),
+      },
+    });
+  };
+
+  const handleSelectPractice = (practice: Practice) => {
+    if (isSolo) {
+      // solo mode never shows other people's circles to join
+      goToCommitment(practice);
+    } else {
+      router.push({
+        pathname: '/onboarding/practice-circles',
+        params: { practiceId: practice.id, practiceKey: practice.key, practiceName: practice.name },
+      });
+    }
+  };
 
   const handleCreatePractice = async () => {
     if (!session?.user || !customName.trim()) return;
@@ -70,24 +92,14 @@ export default function FindAPractice() {
         durationMinutes: durationMinutes && durationMinutes > 0 ? durationMinutes : null,
         createdBy: session.user.id,
       });
-      setPractices((prev) => [practice, ...prev]);
-      setSelectedPractice(practice);
-      setShowCustomForm(false);
-      setCustomName('');
-      setCustomDuration('');
+      // a practice that was just created can't have any open circles yet
+      // — go straight to setting up the first one rather than showing an
+      // empty-state screen just to click through it.
+      goToCommitment(practice);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not save that — try again');
-    } finally {
       setIsCreatingPractice(false);
     }
-  };
-
-  const handleContinue = () => {
-    if (!selectedPractice) return;
-    router.push({
-      pathname: '/onboarding/commitment',
-      params: { practiceKey: selectedPractice.key, practiceName: selectedPractice.name },
-    });
   };
 
   const visiblePractices = practices.filter((p) =>
@@ -100,7 +112,7 @@ export default function FindAPractice() {
         <Text style={styles.back}>← Back</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>Start a circle</Text>
+      <Text style={styles.title}>{isSolo ? 'find your practice' : 'Start a circle'}</Text>
 
       <View style={styles.searchBar}>
         <Text style={styles.searchIcon}>🔍</Text>
@@ -134,14 +146,13 @@ export default function FindAPractice() {
       ) : (
         <View style={styles.grid}>
           {visiblePractices.map((practice) => {
-            const selected = practice.id === selectedPractice?.id;
             const count = openCounts[practice.id];
             const category = CATEGORIES.find((c) => c.key === practice.category);
             return (
               <TouchableOpacity
                 key={practice.id}
-                style={[styles.card, selected && styles.cardSelected]}
-                onPress={() => setSelectedPractice(practice)}
+                style={styles.card}
+                onPress={() => handleSelectPractice(practice)}
               >
                 <View style={styles.cardImage}>
                   <Text style={styles.cardImageEmoji}>{category?.emoji ?? '✨'}</Text>
@@ -150,7 +161,9 @@ export default function FindAPractice() {
                   <Text style={styles.cardName} numberOfLines={1}>
                     {practice.name}
                   </Text>
-                  <Text style={styles.cardCount}>{count ? `${count} open circles` : ' '}</Text>
+                  <Text style={styles.cardCount}>
+                    {!isSolo && count ? `${count} open circles` : ' '}
+                  </Text>
                 </View>
               </TouchableOpacity>
             );
@@ -199,14 +212,6 @@ export default function FindAPractice() {
           </TouchableOpacity>
         </View>
       )}
-
-      <TouchableOpacity
-        style={[styles.button, !selectedPractice && styles.buttonDisabled]}
-        onPress={handleContinue}
-        disabled={!selectedPractice}
-      >
-        <Text style={styles.buttonText}>Choose this</Text>
-      </TouchableOpacity>
 
       <MessageDialog
         visible={!!error}
@@ -299,11 +304,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-  },
-  cardSelected: {
-    borderColor: colors.green,
   },
   cardImage: {
     height: 74,
@@ -363,19 +363,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#fff',
   },
-  button: {
-    backgroundColor: colors.gold,
-    borderRadius: 16,
-    padding: 14,
-    alignItems: 'center',
-    marginTop: 20,
-  },
   buttonDisabled: {
     opacity: 0.5,
-  },
-  buttonText: {
-    fontWeight: '700',
-    fontSize: 14,
-    color: colors.ink,
   },
 });

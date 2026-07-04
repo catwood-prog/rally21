@@ -133,18 +133,24 @@ export async function joinCircleByCode(code: string): Promise<string> {
   return data as string;
 }
 
+// Mirrors the cap enforced server-side in join_circle_by_code and
+// join_public_circle — used here only to derive "spots left" for display.
+export const CIRCLE_MEMBER_CAP = 12;
+
 export type PublicCircle = {
   circleId: string;
   name: string;
   practiceName: string;
   memberCount: number;
+  spotsLeft: number;
   dayNumber: number;
   durationDays: number;
 };
 
-/** Public circles the caller hasn't joined yet, newest first. */
-export async function listPublicCircles(): Promise<PublicCircle[]> {
-  const { data, error } = await supabase.rpc('list_public_circles');
+/** Public circles the caller hasn't joined yet, newest first. Pass a
+ * practiceId to see only circles running that specific practice. */
+export async function listPublicCircles(practiceId?: string): Promise<PublicCircle[]> {
+  const { data, error } = await supabase.rpc('list_public_circles', { p_practice_id: practiceId ?? null });
   if (error) throw error;
 
   return (
@@ -161,6 +167,7 @@ export async function listPublicCircles(): Promise<PublicCircle[]> {
     name: row.name,
     practiceName: row.practice_name,
     memberCount: Number(row.member_count),
+    spotsLeft: Math.max(0, CIRCLE_MEMBER_CAP - Number(row.member_count)),
     dayNumber: row.day_number,
     durationDays: row.duration_days,
   }));

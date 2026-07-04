@@ -24,10 +24,12 @@ const TIME_OPTIONS = [
 
 export default function TheCommitment() {
   const router = useRouter();
-  const { practiceKey, practiceName } = useLocalSearchParams<{
+  const { practiceKey, practiceName, solo } = useLocalSearchParams<{
     practiceKey: string;
     practiceName: string;
+    solo?: string;
   }>();
+  const isSolo = solo === 'true';
 
   const [circleName, setCircleName] = useState(practiceName ?? '');
   const [selectedTime, setSelectedTime] = useState(TIME_OPTIONS[0].time);
@@ -39,11 +41,21 @@ export default function TheCommitment() {
     if (!practiceKey) return;
     setIsCreating(true);
     try {
-      const { circleId, inviteCode } = await createCircle(practiceKey, selectedTime, circleName, isPublic);
-      router.replace({
-        pathname: '/onboarding/invite',
-        params: { circleId, inviteCode },
-      });
+      const { circleId, inviteCode } = await createCircle(
+        practiceKey,
+        selectedTime,
+        circleName,
+        isSolo ? false : isPublic
+      );
+      if (isSolo) {
+        // "/" re-checks profile + membership and lands on Today
+        router.replace('/');
+      } else {
+        router.replace({
+          pathname: '/onboarding/invite',
+          params: { circleId, inviteCode },
+        });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'something went wrong — try again');
       setIsCreating(false);
@@ -56,11 +68,17 @@ export default function TheCommitment() {
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.back}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.step}>2 of 3</Text>
       </View>
 
       <Text style={styles.title}>
-        {(practiceName ?? 'your practice').toLowerCase()}, <Text style={styles.titleAccent}>together</Text>
+        {isSolo ? (
+          (practiceName ?? 'your practice').toLowerCase()
+        ) : (
+          <>
+            {(practiceName ?? 'your practice').toLowerCase()},{' '}
+            <Text style={styles.titleAccent}>together</Text>
+          </>
+        )}
       </Text>
 
       <Text style={styles.label}>name your circle</Text>
@@ -91,23 +109,29 @@ export default function TheCommitment() {
 
       <Text style={styles.hint}>daily, for 21 days — a couple lines a day, that&apos;s it</Text>
 
-      <Text style={[styles.label, styles.sectionSpacing]}>who can join</Text>
+      {!isSolo && (
+        <>
+          <Text style={[styles.label, styles.sectionSpacing]}>who can join</Text>
 
-      <TouchableOpacity
-        style={[styles.visibilityCard, !isPublic && styles.visibilityCardSelected]}
-        onPress={() => setIsPublic(false)}
-      >
-        <Text style={styles.visibilityTitle}>🔒 Private</Text>
-        <Text style={styles.visibilityBody}>Only people you invite can join — share a code to bring them in.</Text>
-      </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.visibilityCard, !isPublic && styles.visibilityCardSelected]}
+            onPress={() => setIsPublic(false)}
+          >
+            <Text style={styles.visibilityTitle}>🔒 Private</Text>
+            <Text style={styles.visibilityBody}>
+              Only people you invite can join — share a code to bring them in.
+            </Text>
+          </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.visibilityCard, isPublic && styles.visibilityCardSelected]}
-        onPress={() => setIsPublic(true)}
-      >
-        <Text style={styles.visibilityTitle}>🌍 Public</Text>
-        <Text style={styles.visibilityBody}>Anyone on Rally21 can find and join this circle.</Text>
-      </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.visibilityCard, isPublic && styles.visibilityCardSelected]}
+            onPress={() => setIsPublic(true)}
+          >
+            <Text style={styles.visibilityTitle}>🌍 Public</Text>
+            <Text style={styles.visibilityBody}>Anyone on Rally21 can find and join this circle.</Text>
+          </TouchableOpacity>
+        </>
+      )}
 
       <TouchableOpacity
         style={[styles.button, !circleName.trim() && styles.buttonDisabled]}
@@ -149,10 +173,6 @@ const styles = StyleSheet.create({
   back: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.muted,
-  },
-  step: {
-    fontSize: 12,
     color: colors.muted,
   },
   title: {

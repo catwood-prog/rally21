@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { FONT_HEADER } from '@/constants/fonts';
@@ -6,11 +6,15 @@ import { colors } from '@/constants/theme';
 
 export default function CircleSetup() {
   const router = useRouter();
+  const { fromToday } = useLocalSearchParams<{ fromToday?: string }>();
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.back} onPress={() => router.push('/onboarding/profile')}>
-        <Text style={styles.backText}>← Back</Text>
+      <TouchableOpacity
+        style={styles.back}
+        onPress={() => router.push(fromToday === 'true' ? '/today' : '/onboarding/profile')}
+      >
+        <Text style={styles.backText}>{fromToday === 'true' ? '← Today' : '← Back'}</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>
@@ -23,17 +27,27 @@ export default function CircleSetup() {
         onPress={() => router.push('/onboarding/create-circle')}
       >
         <Text style={styles.cardEmoji}>✨</Text>
-        <Text style={styles.cardTitle}>Start a circle</Text>
+        <Text style={styles.cardTitle}>Start or join a circle</Text>
         <Text style={styles.cardBody}>
-          Pick a practice, set the time, and invite your people.
+          Find a practice, then start your own or hop into one that&apos;s already running.
         </Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.card} onPress={() => router.push('/onboarding/join-circle')}>
         <Text style={styles.cardEmoji}>🤝</Text>
-        <Text style={styles.cardTitle}>Join a circle</Text>
+        <Text style={styles.cardTitle}>Use an invite code</Text>
         <Text style={styles.cardBody}>
-          Got an invite code? Hop into a circle that&apos;s already running.
+          Got a code from a friend? Hop straight into their circle.
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.soloCard}
+        onPress={() => router.push({ pathname: '/onboarding/create-circle', params: { solo: 'true' } })}
+      >
+        <Text style={styles.soloCardTitle}>Go solo</Text>
+        <Text style={styles.soloCardBody}>
+          just you, for now — your circle can grow later
         </Text>
       </TouchableOpacity>
     </View>
@@ -91,5 +105,19 @@ const styles = StyleSheet.create({
     color: colors.muted,
     lineHeight: 16,
     marginTop: 4,
+  },
+  soloCard: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  soloCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.muted,
+  },
+  soloCardBody: {
+    fontSize: 11,
+    color: colors.muted,
+    marginTop: 2,
   },
 });

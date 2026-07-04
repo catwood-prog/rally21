@@ -274,6 +274,15 @@ export default function Today() {
               <Text style={styles.reflectionsLink}>Something we noticed</Text>
             </TouchableOpacity>
           </View>
+
+          <TouchableOpacity
+            style={styles.addCircleLink}
+            onPress={() =>
+              router.push({ pathname: '/onboarding/circle-setup', params: { fromToday: 'true' } })
+            }
+          >
+            <Text style={styles.addCircleLinkText}>+ add a circle</Text>
+          </TouchableOpacity>
         </>
       )}
     </ScrollView>
@@ -441,5 +450,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.muted,
+  },
+  addCircleLink: {
+    marginTop: 22,
+    alignItems: 'center',
+  },
+  addCircleLinkText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.green,
   },
 });
