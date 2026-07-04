@@ -16,6 +16,9 @@
     "preset": "jest-expo"
   },
   "dependencies": {
+    "@expo-google-fonts/bricolage-grotesque": "^0.4.1",
+    "@expo-google-fonts/instrument-serif": "^0.4.1",
+    "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@expo/vector-icons": "~14.0.4",
     "@opentelemetry/api": "^1.9.1",
     "@react-native-async-storage/async-storage": "1.23.1",

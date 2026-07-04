@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 
 export default function CircleSetup() {
@@ -8,6 +9,10 @@ export default function CircleSetup() {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.back} onPress={() => router.push('/onboarding/profile')}>
+        <Text style={styles.backText}>← Back</Text>
+      </TouchableOpacity>
+
       <Text style={styles.title}>
         how do you{'\n'}want to begin?
       </Text>
@@ -42,10 +47,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
+  back: {
+    marginBottom: 20,
+  },
+  backText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.muted,
+  },
   title: {
+    fontFamily: FONT_HEADER,
     fontSize: 25,
     lineHeight: 30,
-    fontWeight: '800',
     color: colors.ink,
   },
   subtitle: {

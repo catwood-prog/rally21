@@ -10,9 +10,11 @@ import {
   View,
 } from 'react-native';
 
+import { AccentedText } from '@/components/AccentedText';
 import { MessageDialog } from '@/components/MessageDialog';
-import { colors } from '@/constants/theme';
+import { FONT_HEADER } from '@/constants/fonts';
 import { MOOD_EMOJI, MOOD_VALUES } from '@/constants/mood';
+import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   DailyQuestion,
@@ -99,6 +101,10 @@ export default function CheckIn() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <TouchableOpacity onPress={() => router.push('/(app)/today')}>
+        <Text style={styles.back}>← Today</Text>
+      </TouchableOpacity>
+
       <Text style={styles.title}>how&apos;d it go?</Text>
 
       <Text style={styles.label}>your mood</Text>
@@ -142,7 +148,7 @@ export default function CheckIn() {
               <Text style={styles.skipText}>{questionSkipped ? 'answer instead' : 'skip'}</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.questionPrompt}>{question.prompt}</Text>
+          <AccentedText text={question.prompt} style={styles.questionPrompt} />
 
           {!questionSkipped && (
             <QuestionInput
@@ -265,9 +271,15 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 48,
   },
+  back: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.muted,
+    marginBottom: 16,
+  },
   title: {
+    fontFamily: FONT_HEADER,
     fontSize: 22,
-    fontWeight: '800',
     color: colors.ink,
     marginBottom: 20,
   },

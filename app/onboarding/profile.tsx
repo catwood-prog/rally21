@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 
 import { MessageDialog } from '@/components/MessageDialog';
+import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { saveProfile } from '@/lib/profile';
 
 export default function ProfileSetup() {
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, signOut } = useAuth();
   const [name, setName] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -63,6 +64,10 @@ export default function ProfileSetup() {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.back} onPress={signOut}>
+        <Text style={styles.backText}>← Sign out</Text>
+      </TouchableOpacity>
+
       <Text style={styles.title}>your profile</Text>
 
       <TouchableOpacity style={styles.photoWrap} onPress={pickPhoto}>
@@ -125,9 +130,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
+  back: {
+    position: 'absolute',
+    top: 20,
+    left: 24,
+  },
+  backText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.muted,
+  },
   title: {
+    fontFamily: FONT_HEADER,
     fontSize: 24,
-    fontWeight: '800',
     color: colors.ink,
     marginBottom: 20,
   },

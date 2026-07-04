@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { MessageDialog } from '@/components/MessageDialog';
+import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { joinCircleByCode } from '@/lib/circles';
 
@@ -34,6 +35,10 @@ export default function JoinCircle() {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity onPress={() => router.push('/onboarding/circle-setup')}>
+        <Text style={styles.back}>← Back</Text>
+      </TouchableOpacity>
+
       <Text style={styles.title}>got a code?</Text>
       <Text style={styles.subtitle}>enter the 6-character code your friend sent you</Text>
 
@@ -78,9 +83,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
+  back: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.muted,
+    marginBottom: 16,
+  },
   title: {
+    fontFamily: FONT_HEADER,
     fontSize: 25,
-    fontWeight: '800',
     color: colors.ink,
     marginBottom: 8,
   },

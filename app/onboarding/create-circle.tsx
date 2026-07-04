@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { MessageDialog } from '@/components/MessageDialog';
+import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { createCircle, listPractices, Practice } from '@/lib/circles';
 
@@ -61,6 +62,10 @@ export default function CreateCircle() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <TouchableOpacity onPress={() => router.push('/onboarding/circle-setup')}>
+        <Text style={styles.back}>← Back</Text>
+      </TouchableOpacity>
+
       <Text style={styles.title}>pick a practice</Text>
 
       {practices.map((practice) => {
@@ -136,9 +141,15 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 40,
   },
+  back: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.muted,
+    marginBottom: 16,
+  },
   title: {
+    fontFamily: FONT_HEADER,
     fontSize: 20,
-    fontWeight: '800',
     color: colors.ink,
     marginBottom: 14,
   },

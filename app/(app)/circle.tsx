@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { SignalMeter } from '@/components/SignalMeter';
+import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -162,8 +163,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
+    fontFamily: FONT_HEADER,
     fontSize: 24,
-    fontWeight: '800',
     color: colors.ink,
   },
   subtitle: {

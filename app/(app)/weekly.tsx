@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { getMyPrimaryCircle } from '@/lib/circle';
@@ -155,13 +156,15 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   title: {
+    fontFamily: FONT_HEADER,
     fontSize: 21,
-    fontWeight: '800',
     color: colors.ink,
     lineHeight: 27,
     marginBottom: 18,
   },
   titleAccent: {
+    fontFamily: FONT_SERIF_ITALIC,
+    fontSize: 24,
     color: colors.green,
   },
   card: {
@@ -217,8 +220,8 @@ const styles = StyleSheet.create({
     marginBottom: 26,
   },
   standoutText: {
-    fontStyle: 'italic',
-    fontSize: 15,
+    fontFamily: FONT_SERIF_ITALIC,
+    fontSize: 17,
     color: colors.ink,
     lineHeight: 21,
   },

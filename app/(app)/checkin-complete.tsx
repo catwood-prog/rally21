@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { getCirclePresence } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
@@ -75,8 +76,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   title: {
+    fontFamily: FONT_HEADER,
     fontSize: 26,
-    fontWeight: '800',
     color: colors.ink,
     marginBottom: 8,
   },

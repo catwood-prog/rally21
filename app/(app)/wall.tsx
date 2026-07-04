@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 
+import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { CircleMember, getCircleMembers, getMyPrimaryCircle, MyCircle } from '@/lib/circle';
@@ -282,8 +283,8 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.line,
   },
   headerTitle: {
+    fontFamily: FONT_HEADER,
     fontSize: 15,
-    fontWeight: '800',
     color: colors.ink,
   },
   headerSubtitle: {

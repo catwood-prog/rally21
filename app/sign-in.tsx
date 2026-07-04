@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 
@@ -85,8 +86,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   title: {
+    fontFamily: FONT_HEADER,
     fontSize: 26,
-    fontWeight: '800',
     color: colors.ink,
     marginBottom: 8,
   },

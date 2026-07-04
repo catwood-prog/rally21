@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { SignalMeter } from '@/components/SignalMeter';
+import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -32,7 +33,7 @@ function greeting(name: string | null) {
 
 export default function Today() {
   const router = useRouter();
-  const { session, signOut } = useAuth();
+  const { session } = useAuth();
   const [circle, setCircle] = useState<MyCircle | null>(null);
   const [members, setMembers] = useState<CircleMember[]>([]);
   const [presence, setPresence] = useState<PresenceRow[]>([]);
@@ -110,8 +111,8 @@ export default function Today() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.topbar}>
         <Text style={styles.brand}>Rally21</Text>
-        <TouchableOpacity onPress={signOut}>
-          <Text style={styles.signOut}>Sign out</Text>
+        <TouchableOpacity onPress={() => router.push('/settings')}>
+          <Text style={styles.signOut}>Settings</Text>
         </TouchableOpacity>
       </View>
 
@@ -123,7 +124,7 @@ export default function Today() {
         <>
           <Text style={styles.headline}>
             today you <Text style={styles.headlineAccent}>{circle.practiceName?.toLowerCase()}</Text>
-            {'\n'}with your circle
+            {'\n'}with <Text style={styles.headlineAccent}>your circle</Text>
           </Text>
 
           <TouchableOpacity style={styles.card} onPress={() => router.push('/circle')}>
@@ -213,8 +214,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   brand: {
+    fontFamily: FONT_HEADER,
     fontSize: 16,
-    fontWeight: '800',
     color: colors.ink,
   },
   signOut: {
@@ -229,13 +230,15 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   headline: {
+    fontFamily: FONT_HEADER,
     fontSize: 24,
-    fontWeight: '800',
     color: colors.ink,
     lineHeight: 29,
     marginBottom: 16,
   },
   headlineAccent: {
+    fontFamily: FONT_SERIF_ITALIC,
+    fontSize: 28,
     color: colors.green,
   },
   subtitle: {

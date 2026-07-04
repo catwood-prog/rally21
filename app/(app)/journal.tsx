@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { MOOD_EMOJI } from '@/constants/mood';
 import { useAuth } from '@/lib/auth-context';
@@ -125,8 +126,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
+    fontFamily: FONT_HEADER,
     fontSize: 24,
-    fontWeight: '800',
     color: colors.ink,
     marginBottom: 10,
   },
@@ -171,7 +172,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   lineLabel: {
+    fontFamily: FONT_SERIF_ITALIC,
     color: colors.green,
-    fontStyle: 'italic',
   },
 });

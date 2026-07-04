@@ -1,0 +1,24 @@
+{
+  "name": "Rally21",
+  "short_name": "Rally21",
+  "description": "A light daily habit with your circle of friends.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F2F1EC",
+  "theme_color": "#F2F1EC",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

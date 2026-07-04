@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { MessageDialog } from '@/components/MessageDialog';
+import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { getMyPrimaryCircle } from '@/lib/circle';
 import { useAuth } from '@/lib/auth-context';
@@ -122,8 +123,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   title: {
+    fontFamily: FONT_HEADER,
     fontSize: 24,
-    fontWeight: '800',
     color: colors.ink,
     marginBottom: 8,
     textAlign: 'center',
