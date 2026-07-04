@@ -5,6 +5,7 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { unlockAudioContext } from '@/lib/chime';
 import { markCheckinConsentSeen } from '@/lib/profile';
 
 export default function CheckinIntro() {
@@ -21,6 +22,9 @@ export default function CheckinIntro() {
 
   const handleContinue = async () => {
     if (!session?.user) return;
+    // Must happen synchronously inside this tap, before any await — see
+    // lib/chime.ts for why.
+    if (startTimer === 'true' && durationMinutes) unlockAudioContext();
     setIsSaving(true);
     try {
       await markCheckinConsentSeen(session.user.id);

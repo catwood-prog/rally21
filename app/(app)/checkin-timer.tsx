@@ -4,6 +4,9 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
+import { useAuth } from '@/lib/auth-context';
+import { playChime, vibrateOnCompletion } from '@/lib/chime';
+import { getMyProfile, setTimerSoundMuted } from '@/lib/profile';
 import { useWakeLock } from '@/lib/wakeLock';
 
 const RADIUS = 80;
@@ -21,6 +24,7 @@ type Phase = 'running' | 'paused' | 'done';
 
 export default function CheckinTimer() {
   const router = useRouter();
+  const { session } = useAuth();
   const { circleId, circleName, dayNumber, durationMinutes } = useLocalSearchParams<{
     circleId: string;
     circleName: string;
@@ -38,8 +42,28 @@ export default function CheckinTimer() {
   const [startedAt, setStartedAt] = useState<number | null>(Date.now());
   const [pausedRemaining, setPausedRemaining] = useState<number | null>(null);
   const [, setTick] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
 
   useWakeLock(phase === 'running');
+
+  useEffect(() => {
+    if (!session?.user) return;
+    getMyProfile(session.user.id)
+      .then((profile) => setIsMuted(profile?.timer_sound_muted ?? false))
+      .catch(() => {
+        // preference just falls back to sound-on for this session
+      });
+  }, [session?.user?.id]);
+
+  const handleToggleMute = () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    if (session?.user) {
+      setTimerSoundMuted(session.user.id, next).catch(() => {
+        // non-blocking — worst case the preference doesn't stick this time
+      });
+    }
+  };
 
   useEffect(() => {
     if (phase !== 'running') return;
@@ -59,6 +83,15 @@ export default function CheckinTimer() {
       setPhase('done');
     }
   }, [remaining, phase]);
+
+  useEffect(() => {
+    if (phase !== 'done') return;
+    // The chime is best-effort — if audio was never unlocked, or playback
+    // is blocked because the tab finished this while backgrounded, both
+    // helpers just no-op. The end-state screen below is the real signal.
+    if (!isMuted) playChime();
+    vibrateOnCompletion();
+  }, [phase, isMuted]);
 
   useEffect(() => {
     if (phase !== 'done') return;
@@ -100,7 +133,12 @@ export default function CheckinTimer() {
           <Text style={styles.backChevron}>⌄</Text>
         </TouchableOpacity>
         <Text style={styles.circleName}>{circleName || 'Your circle'}</Text>
-        <Text style={styles.dayLabel}>{dayNumber ? `Day ${dayNumber}` : ''}</Text>
+        <View style={styles.topbarRight}>
+          {dayNumber ? <Text style={styles.dayLabel}>Day {dayNumber}</Text> : null}
+          <TouchableOpacity onPress={handleToggleMute} hitSlop={8}>
+            <Text style={styles.muteIcon}>{isMuted ? '🔇' : '🔊'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.center}>
@@ -190,12 +228,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
   },
+  topbarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   dayLabel: {
     fontSize: 11,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.6)',
-    width: 50,
-    textAlign: 'right',
+  },
+  muteIcon: {
+    fontSize: 16,
   },
   center: {
     flex: 1,

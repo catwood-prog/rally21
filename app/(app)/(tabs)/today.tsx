@@ -14,6 +14,7 @@ import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { unlockAudioContext } from '@/lib/chime';
 import {
   CircleMember,
   getCircleMembers,
@@ -137,6 +138,12 @@ export default function Today() {
   const goToCheckin = (wantsTimer: boolean) => {
     if (!circle) return;
     const wantsTimerWithDuration = wantsTimer && !!circle.practiceDurationMinutes;
+
+    // Must happen synchronously inside this tap — iOS Safari only unlocks
+    // audio playback for an AudioContext created/resumed directly inside a
+    // user gesture, not after any awaited work.
+    if (wantsTimerWithDuration) unlockAudioContext();
+
     const timerParams = wantsTimerWithDuration
       ? {
           startTimer: 'true',
