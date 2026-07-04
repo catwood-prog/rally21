@@ -19,10 +19,15 @@ export async function listPractices(): Promise<Practice[]> {
 
 export async function createCircle(
   practiceKey: string,
-  timeOfDay: string
+  timeOfDay: string,
+  circleName: string
 ): Promise<{ circleId: string; inviteCode: string }> {
   const { data, error } = await supabase
-    .rpc('create_circle', { p_practice_key: practiceKey, p_time_of_day: timeOfDay })
+    .rpc('create_circle', {
+      p_practice_key: practiceKey,
+      p_time_of_day: timeOfDay,
+      p_circle_name: circleName,
+    })
     .single<{ circle_id: string; invite_code: string }>();
 
   if (error) throw error;

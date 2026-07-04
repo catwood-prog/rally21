@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -25,6 +26,8 @@ export default function CreateCircle() {
   const router = useRouter();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [selectedPracticeKey, setSelectedPracticeKey] = useState<string | null>(null);
+  const [circleName, setCircleName] = useState('');
+  const [nameEdited, setNameEdited] = useState(false);
   const [selectedTime, setSelectedTime] = useState(TIME_OPTIONS[0].time);
   const [isLoadingPractices, setIsLoadingPractices] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -37,11 +40,27 @@ export default function CreateCircle() {
       .finally(() => setIsLoadingPractices(false));
   }, []);
 
+  const handleSelectPractice = (practice: Practice) => {
+    setSelectedPracticeKey(practice.key);
+    // pre-fill with the practice name, but never clobber a name the
+    // person already typed themselves
+    if (!nameEdited) setCircleName(practice.name);
+  };
+
+  const handleNameChange = (text: string) => {
+    setCircleName(text);
+    setNameEdited(true);
+  };
+
   const handleContinue = async () => {
     if (!selectedPracticeKey) return;
     setIsCreating(true);
     try {
-      const { circleId, inviteCode } = await createCircle(selectedPracticeKey, selectedTime);
+      const { circleId, inviteCode } = await createCircle(
+        selectedPracticeKey,
+        selectedTime,
+        circleName
+      );
       router.replace({
         pathname: '/onboarding/invite',
         params: { circleId, inviteCode },
@@ -74,7 +93,7 @@ export default function CreateCircle() {
           <TouchableOpacity
             key={practice.id}
             style={[styles.card, selected && styles.cardSelected]}
-            onPress={() => setSelectedPracticeKey(practice.key)}
+            onPress={() => handleSelectPractice(practice)}
           >
             <Text style={styles.cardTitle}>{practice.name}</Text>
             {!!practice.description && (
@@ -83,6 +102,20 @@ export default function CreateCircle() {
           </TouchableOpacity>
         );
       })}
+
+      {!!selectedPracticeKey && (
+        <>
+          <Text style={[styles.title, styles.sectionSpacing]}>name your circle</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="your circle's name"
+            placeholderTextColor={colors.muted}
+            value={circleName}
+            onChangeText={handleNameChange}
+            autoCorrect={false}
+          />
+        </>
+      )}
 
       <Text style={[styles.title, styles.sectionSpacing]}>what time of day?</Text>
       <View style={styles.chipRow}>
@@ -177,6 +210,15 @@ const styles = StyleSheet.create({
     color: colors.muted,
     lineHeight: 16,
     marginTop: 4,
+  },
+  input: {
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: 14,
+    padding: 14,
+    fontSize: 15,
+    color: colors.ink,
   },
   chipRow: {
     flexDirection: 'row',
