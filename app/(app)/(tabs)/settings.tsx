@@ -15,7 +15,7 @@ import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { deleteMyAccount } from '@/lib/account';
 import { useAuth } from '@/lib/auth-context';
 import { getMyProfile, saveProfile } from '@/lib/profile';
@@ -312,6 +312,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 14,
     padding: 14,
+    ...cardShadow,
   },
   noteText: {
     fontSize: 12,
@@ -351,6 +352,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1.5,
     borderColor: '#B3261E',
+    ...cardShadow,
   },
   confirmText: {
     fontSize: 12.5,

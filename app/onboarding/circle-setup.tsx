@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 
 export default function CircleSetup() {
   const router = useRouter();
@@ -109,6 +109,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     marginBottom: 14,
+    ...cardShadow,
   },
   cardHighlighted: {
     borderWidth: 1.5,

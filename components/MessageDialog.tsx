@@ -1,6 +1,6 @@
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 
 type Props = {
   visible: boolean;
@@ -41,6 +41,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 20,
     padding: 22,
+    ...cardShadow,
   },
   title: {
     fontSize: 17,

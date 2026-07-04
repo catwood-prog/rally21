@@ -13,7 +13,7 @@ import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
 import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { unlockAudioContext } from '@/lib/chime';
 import {
@@ -517,12 +517,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 15,
     marginBottom: 16,
+    ...cardShadow,
   },
   stackCard: {
     backgroundColor: colors.card,
     borderRadius: 18,
     padding: 16,
     marginBottom: 16,
+    ...cardShadow,
   },
   stackCardName: {
     fontFamily: FONT_HEADER,

@@ -12,7 +12,7 @@ import {
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { joinPublicCircle, listPublicCircles, PublicCircle } from '@/lib/circles';
 
 export default function PracticeCircles() {
@@ -149,6 +149,7 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
     marginBottom: 16,
+    ...cardShadow,
   },
   emptyStateText: {
     fontSize: 13,
@@ -169,6 +170,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
     gap: 10,
+    ...cardShadow,
   },
   circleCardInfo: {
     flex: 1,

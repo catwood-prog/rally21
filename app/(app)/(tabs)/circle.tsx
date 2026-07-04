@@ -6,7 +6,7 @@ import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
 import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   CircleMember,
@@ -202,6 +202,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 18,
     marginBottom: 24,
+    ...cardShadow,
   },
   inviteHint: {
     fontSize: 12.5,
@@ -252,6 +253,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
     gap: 12,
+    ...cardShadow,
   },
   memberInfo: {
     flex: 1,

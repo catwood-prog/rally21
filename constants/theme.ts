@@ -9,3 +9,15 @@ export const colors = {
   muted: 'rgba(38, 38, 38, 0.5)',
   line: 'rgba(0, 0, 0, 0.09)',
 };
+
+// The mockup's ".card" box-shadow: 0 6px 16px rgba(0,0,0,0.05) — spread
+// this into any card-like container's style so it's defined once.
+// react-native-web translates these standard RN shadow properties into
+// a real CSS box-shadow; elevation covers Android.
+export const cardShadow = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.05,
+  shadowRadius: 16,
+  elevation: 3,
+} as const;

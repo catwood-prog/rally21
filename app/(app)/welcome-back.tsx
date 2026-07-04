@@ -5,7 +5,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import { Brandmark } from '@/components/Brandmark';
 import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { CircleMember, getCircleMembers, getCirclePresence, getMyPrimaryCircle, MyCircle } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
@@ -187,6 +187,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 18,
     marginBottom: 26,
+    ...cardShadow,
   },
   sectionLabel: {
     fontSize: 11,
@@ -206,6 +207,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
+    ...cardShadow,
   },
   messageSender: {
     fontSize: 11,

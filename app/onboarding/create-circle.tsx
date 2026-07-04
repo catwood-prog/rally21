@@ -14,7 +14,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { CATEGORIES } from '@/constants/practices';
 import { FONT_HEADER } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   countOpenCirclesByPractice,
@@ -316,6 +316,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: colors.card,
+    ...cardShadow,
   },
   cardImage: {
     height: 74,
@@ -353,6 +354,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginTop: 14,
+    ...cardShadow,
   },
   input: {
     backgroundColor: colors.bg,

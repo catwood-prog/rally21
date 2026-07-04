@@ -15,7 +15,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { MOOD_EMOJI, MOOD_VALUES } from '@/constants/mood';
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   DailyQuestion,
@@ -361,6 +361,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     padding: 16,
     marginBottom: 24,
+    ...cardShadow,
   },
   questionHeader: {
     flexDirection: 'row',

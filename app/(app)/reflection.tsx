@@ -4,7 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   computeDayObservation,
@@ -211,6 +211,7 @@ const styles = StyleSheet.create({
     borderColor: colors.green,
     padding: 18,
     marginBottom: 16,
+    ...cardShadow,
   },
   patternLabel: {
     fontSize: 11,

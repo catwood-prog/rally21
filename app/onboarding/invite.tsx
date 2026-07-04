@@ -14,7 +14,7 @@ import {
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { getMyPrimaryCircle } from '@/lib/circle';
 import { useAuth } from '@/lib/auth-context';
 
@@ -170,6 +170,7 @@ const styles = StyleSheet.create({
     marginBottom: 26,
     borderWidth: 1.5,
     borderColor: colors.green,
+    ...cardShadow,
   },
   code: {
     fontSize: 34,

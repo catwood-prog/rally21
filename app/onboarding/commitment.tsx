@@ -13,7 +13,7 @@ import {
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { createCircle } from '@/lib/circles';
 
 const TIME_OPTIONS = [
@@ -252,6 +252,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     padding: 15,
     marginBottom: 10,
+    ...cardShadow,
   },
   visibilityCardSelected: {
     borderColor: colors.green,

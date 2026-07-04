@@ -4,7 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { MOOD_EMOJI } from '@/constants/mood';
 import { useAuth } from '@/lib/auth-context';
 import { getLocalDateString } from '@/lib/date';
@@ -165,6 +165,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     marginBottom: 14,
+    ...cardShadow,
   },
   moodBadge: {
     fontSize: 18,

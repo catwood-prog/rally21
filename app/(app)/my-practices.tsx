@@ -14,7 +14,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { CATEGORIES } from '@/constants/practices';
 import { FONT_HEADER } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   archivePractice,
@@ -312,6 +312,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
     gap: 10,
+    ...cardShadow,
   },
   cardArchived: {
     opacity: 0.55,
@@ -357,6 +358,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
+    ...cardShadow,
   },
   input: {
     backgroundColor: colors.bg,
