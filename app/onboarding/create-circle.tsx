@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -15,15 +15,23 @@ import { CATEGORIES } from '@/constants/practices';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { createPractice, listPracticesByCategory, Practice, PracticeCategory } from '@/lib/circles';
+import {
+  countOpenCirclesByPractice,
+  createPractice,
+  listPracticesByCategory,
+  Practice,
+  PracticeCategory,
+} from '@/lib/circles';
 
 export default function FindAPractice() {
   const router = useRouter();
   const { session } = useAuth();
 
-  const [selectedCategory, setSelectedCategory] = useState<PracticeCategory | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<PracticeCategory>('move');
+  const [searchText, setSearchText] = useState('');
   const [practices, setPractices] = useState<Practice[]>([]);
-  const [isLoadingPractices, setIsLoadingPractices] = useState(false);
+  const [openCounts, setOpenCounts] = useState<Record<string, number>>({});
+  const [isLoadingPractices, setIsLoadingPractices] = useState(true);
   const [selectedPractice, setSelectedPractice] = useState<Practice | null>(null);
 
   const [showCustomForm, setShowCustomForm] = useState(false);
@@ -33,22 +41,26 @@ export default function FindAPractice() {
 
   const [error, setError] = useState<string | null>(null);
 
-  const handleSelectCategory = async (category: PracticeCategory) => {
-    setSelectedCategory(category);
+  useEffect(() => {
+    // open-circle counts span every practice, not just the active category
+    // — fetch once and reuse as the category tabs are switched.
+    countOpenCirclesByPractice().catch(() => {
+      // the picker still works perfectly well without the count line
+    }).then((counts) => counts && setOpenCounts(counts));
+  }, []);
+
+  useEffect(() => {
     setSelectedPractice(null);
     setShowCustomForm(false);
     setIsLoadingPractices(true);
-    try {
-      setPractices(await listPracticesByCategory(category));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not load practices');
-    } finally {
-      setIsLoadingPractices(false);
-    }
-  };
+    listPracticesByCategory(selectedCategory)
+      .then(setPractices)
+      .catch((e) => setError(e instanceof Error ? e.message : 'could not load practices'))
+      .finally(() => setIsLoadingPractices(false));
+  }, [selectedCategory]);
 
   const handleCreatePractice = async () => {
-    if (!session?.user || !selectedCategory || !customName.trim()) return;
+    if (!session?.user || !customName.trim()) return;
     setIsCreatingPractice(true);
     try {
       const durationMinutes = customDuration.trim() ? parseInt(customDuration.trim(), 10) : null;
@@ -78,108 +90,114 @@ export default function FindAPractice() {
     });
   };
 
-  if (!selectedCategory) {
-    return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <TouchableOpacity onPress={() => router.push('/onboarding/circle-setup')}>
-          <Text style={styles.back}>← Back</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.title}>find a practice</Text>
-        <Text style={styles.subtitle}>what kind of daily thing do you want to build?</Text>
-
-        <View style={styles.categoryGrid}>
-          {CATEGORIES.map((category) => (
-            <TouchableOpacity
-              key={category.key}
-              style={styles.categoryTile}
-              onPress={() => handleSelectCategory(category.key)}
-            >
-              <Text style={styles.categoryEmoji}>{category.emoji}</Text>
-              <Text style={styles.categoryLabel}>{category.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <MessageDialog
-          visible={!!error}
-          title="hmm"
-          message={error ?? ''}
-          onDismiss={() => setError(null)}
-        />
-      </ScrollView>
-    );
-  }
-
-  const category = CATEGORIES.find((c) => c.key === selectedCategory)!;
+  const visiblePractices = practices.filter((p) =>
+    p.name.toLowerCase().includes(searchText.trim().toLowerCase())
+  );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => setSelectedCategory(null)}>
-        <Text style={styles.back}>← Categories</Text>
+      <TouchableOpacity onPress={() => router.push('/onboarding/circle-setup')}>
+        <Text style={styles.back}>← Back</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>
-        {category.emoji} {category.label}
-      </Text>
+      <Text style={styles.title}>Start a circle</Text>
+
+      <View style={styles.searchBar}>
+        <Text style={styles.searchIcon}>🔍</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Find a practice"
+          placeholderTextColor={colors.muted}
+          value={searchText}
+          onChangeText={setSearchText}
+          autoCorrect={false}
+        />
+      </View>
+
+      <View style={styles.chipRow}>
+        {CATEGORIES.map((category) => {
+          const active = category.key === selectedCategory;
+          return (
+            <TouchableOpacity
+              key={category.key}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => setSelectedCategory(category.key)}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{category.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       {isLoadingPractices ? (
         <ActivityIndicator color={colors.green} style={styles.loadingSpinner} />
       ) : (
-        <>
-          {practices.map((practice) => {
+        <View style={styles.grid}>
+          {visiblePractices.map((practice) => {
             const selected = practice.id === selectedPractice?.id;
+            const count = openCounts[practice.id];
+            const category = CATEGORIES.find((c) => c.key === practice.category);
             return (
               <TouchableOpacity
                 key={practice.id}
                 style={[styles.card, selected && styles.cardSelected]}
                 onPress={() => setSelectedPractice(practice)}
               >
-                <Text style={styles.cardTitle}>{practice.name}</Text>
-                {!!practice.description && <Text style={styles.cardBody}>{practice.description}</Text>}
-                {!practice.description && !!practice.durationMinutes && (
-                  <Text style={styles.cardBody}>{practice.durationMinutes} minutes</Text>
-                )}
+                <View style={styles.cardImage}>
+                  <Text style={styles.cardImageEmoji}>{category?.emoji ?? '✨'}</Text>
+                </View>
+                <View style={styles.cardBody}>
+                  <Text style={styles.cardName} numberOfLines={1}>
+                    {practice.name}
+                  </Text>
+                  <Text style={styles.cardCount}>{count ? `${count} open circles` : ' '}</Text>
+                </View>
               </TouchableOpacity>
             );
           })}
 
-          {!showCustomForm ? (
-            <TouchableOpacity style={styles.customButton} onPress={() => setShowCustomForm(true)}>
-              <Text style={styles.customButtonText}>+ create your own</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.customForm}>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. Walk 20 minutes"
-                placeholderTextColor={colors.muted}
-                value={customName}
-                onChangeText={setCustomName}
-                autoCorrect={false}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="duration in minutes (optional)"
-                placeholderTextColor={colors.muted}
-                value={customDuration}
-                onChangeText={(text) => setCustomDuration(text.replace(/[^0-9]/g, ''))}
-                keyboardType="number-pad"
-              />
-              <TouchableOpacity
-                style={[styles.addButton, !customName.trim() && styles.buttonDisabled]}
-                onPress={handleCreatePractice}
-                disabled={!customName.trim() || isCreatingPractice}
-              >
-                {isCreatingPractice ? (
-                  <ActivityIndicator color={colors.ink} />
-                ) : (
-                  <Text style={styles.addButtonText}>Add practice</Text>
-                )}
-              </TouchableOpacity>
+          <TouchableOpacity style={styles.card} onPress={() => setShowCustomForm(true)}>
+            <View style={[styles.cardImage, styles.customCardImage]}>
+              <Text style={styles.customCardPlus}>+</Text>
             </View>
-          )}
-        </>
+            <View style={styles.cardBody}>
+              <Text style={styles.cardName}>create your own</Text>
+              <Text style={styles.cardCount}> </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {showCustomForm && (
+        <View style={styles.customForm}>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Walk 20 minutes"
+            placeholderTextColor={colors.muted}
+            value={customName}
+            onChangeText={setCustomName}
+            autoCorrect={false}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="duration in minutes (optional)"
+            placeholderTextColor={colors.muted}
+            value={customDuration}
+            onChangeText={(text) => setCustomDuration(text.replace(/[^0-9]/g, ''))}
+            keyboardType="number-pad"
+          />
+          <TouchableOpacity
+            style={[styles.addButton, !customName.trim() && styles.buttonDisabled]}
+            onPress={handleCreatePractice}
+            disabled={!customName.trim() || isCreatingPractice}
+          >
+            {isCreatingPractice ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.addButtonText}>Add practice</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       )}
 
       <TouchableOpacity
@@ -187,7 +205,7 @@ export default function FindAPractice() {
         onPress={handleContinue}
         disabled={!selectedPractice}
       >
-        <Text style={styles.buttonText}>Continue</Text>
+        <Text style={styles.buttonText}>Choose this</Text>
       </TouchableOpacity>
 
       <MessageDialog
@@ -206,7 +224,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   content: {
-    padding: 24,
+    padding: 20,
     paddingBottom: 40,
   },
   back: {
@@ -219,76 +237,110 @@ const styles = StyleSheet.create({
     fontFamily: FONT_HEADER,
     fontSize: 20,
     color: colors.ink,
-    marginBottom: 8,
+    marginBottom: 14,
   },
-  subtitle: {
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  searchIcon: {
+    fontSize: 12,
+  },
+  searchInput: {
+    flex: 1,
     fontSize: 13,
-    color: colors.muted,
-    marginBottom: 20,
-    lineHeight: 19,
+    color: colors.ink,
+    padding: 0,
   },
-  categoryGrid: {
+  chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 7,
+    marginBottom: 16,
   },
-  categoryTile: {
-    width: '47%',
-    aspectRatio: 1.2,
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+  chip: {
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 99,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: colors.green,
   },
-  categoryEmoji: {
-    fontSize: 30,
-    marginBottom: 8,
+  chipActive: {
+    backgroundColor: colors.green,
+    borderColor: colors.green,
   },
-  categoryLabel: {
-    fontSize: 14,
+  chipText: {
+    fontSize: 12.5,
     fontWeight: '700',
-    color: colors.ink,
+    color: colors.green,
+  },
+  chipTextActive: {
+    color: '#fff',
   },
   loadingSpinner: {
     marginTop: 20,
   },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
   card: {
-    backgroundColor: colors.card,
+    width: '47%',
     borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: colors.card,
     borderWidth: 1.5,
     borderColor: 'transparent',
-    padding: 16,
-    marginBottom: 10,
   },
   cardSelected: {
     borderColor: colors.green,
   },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.ink,
+  cardImage: {
+    height: 74,
+    backgroundColor: '#EAF3EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardImageEmoji: {
+    fontSize: 28,
+  },
+  customCardImage: {
+    backgroundColor: colors.bg,
+  },
+  customCardPlus: {
+    fontSize: 28,
+    fontWeight: '300',
+    color: colors.muted,
   },
   cardBody: {
+    padding: 10,
+  },
+  cardName: {
+    fontWeight: '700',
     fontSize: 12,
-    color: colors.muted,
-    lineHeight: 16,
-    marginTop: 4,
+    color: colors.ink,
   },
-  customButton: {
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  customButtonText: {
-    fontSize: 13,
+  cardCount: {
+    fontSize: 10,
     fontWeight: '700',
     color: colors.green,
+    marginTop: 3,
   },
   customForm: {
     backgroundColor: colors.card,
     borderRadius: 16,
     padding: 16,
-    marginTop: 4,
-    marginBottom: 10,
+    marginTop: 14,
   },
   input: {
     backgroundColor: colors.bg,

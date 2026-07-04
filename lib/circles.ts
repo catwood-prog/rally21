@@ -171,3 +171,17 @@ export async function joinPublicCircle(circleId: string): Promise<string> {
   if (error) throw error;
   return data as string;
 }
+
+/** Practice id -> count of public circles for it still open to join (under
+ * the 12-member cap). A practice with no open circles has no entry at all
+ * — callers should treat a missing key as "show nothing", never as 0. */
+export async function countOpenCirclesByPractice(): Promise<Record<string, number>> {
+  const { data, error } = await supabase.rpc('count_open_circles_by_practice');
+  if (error) throw error;
+
+  const counts: Record<string, number> = {};
+  for (const row of (data as { practice_id: string; open_circles: number }[]) ?? []) {
+    counts[row.practice_id] = Number(row.open_circles);
+  }
+  return counts;
+}

@@ -31,6 +31,16 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <style id="dynamic-viewport-height">{`
           html, body, #root { height: 100dvh; }
         `}</style>
+
+        {/* The app is phone-designed and stretches edge-to-edge on desktop
+            otherwise, breaking every layout built for a ~390px screen.
+            Capping #root and centering it has no effect below 480px (a
+            phone viewport is already narrower), so this needs no media
+            query — it only ever engages once there's spare width. */}
+        <style id="desktop-width-constraint">{`
+          body { background: #F2F1EC; }
+          #root { max-width: 480px; margin: 0 auto; }
+        `}</style>
       </head>
       <body>{children}</body>
     </html>
