@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
@@ -35,6 +36,7 @@ export default function SignIn() {
   if (status === 'sent') {
     return (
       <View style={styles.container}>
+        <Brandmark style={styles.brandmark} />
         <Text style={styles.title}>check your email</Text>
         <Text style={styles.subtitle}>
           we sent a link to{'\n'}
@@ -50,6 +52,7 @@ export default function SignIn() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <Brandmark style={styles.brandmark} />
       <Text style={styles.title}>let&apos;s get your circle going</Text>
       <Text style={styles.subtitle}>no password — just a link to your email</Text>
 
@@ -84,6 +87,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  brandmark: {
+    position: 'absolute',
+    top: 20,
+    left: 24,
   },
   title: {
     fontFamily: FONT_HEADER,

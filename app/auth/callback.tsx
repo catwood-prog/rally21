@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+import { Brandmark } from '@/components/Brandmark';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 
@@ -25,6 +26,7 @@ export default function AuthCallback() {
 
   return (
     <View style={styles.container}>
+      <Brandmark size={22} style={styles.brandmark} />
       <ActivityIndicator color={colors.green} />
       <Text style={styles.text}>signing you in…</Text>
     </View>
@@ -38,6 +40,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.bg,
     gap: 12,
+  },
+  brandmark: {
+    marginBottom: 8,
   },
   text: {
     color: colors.muted,

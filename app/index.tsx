@@ -1,6 +1,7 @@
 import { Redirect } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
+import { Brandmark } from '@/components/Brandmark';
 import { colors } from '@/constants/theme';
 import { useOnboardingStatus } from '@/hooks/use-onboarding-status';
 import { useAuth } from '@/lib/auth-context';
@@ -12,6 +13,7 @@ export default function Index() {
   if (isAuthLoading || (session && status === 'loading')) {
     return (
       <View style={styles.container}>
+        <Brandmark size={22} style={styles.brandmark} />
         <ActivityIndicator color={colors.green} />
       </View>
     );
@@ -29,5 +31,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.bg,
+  },
+  brandmark: {
+    marginBottom: 20,
   },
 });
