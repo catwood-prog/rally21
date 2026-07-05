@@ -14,6 +14,10 @@ export const STRINGS = {
   emptyGroupCta: 'Join the huddle',
 
   chatTabLabel: 'Chat',
-  chatEmptyIntro: "Hi! I'm here if you need a hand.",
+  chatIntroMessage:
+    "Hi there, feel free to come chat anytime you want to talk something through, about your practice or from life in general. The more time we spend together, and the more detailed your daily reflections, the more insightful I'll become.\n\n" +
+    "This is a totally safe place, our chats are completely private and never shared.\n\n" +
+    "One thing to be clear about: I'm a companion, not a therapist. If things feel heavy, please talk to someone qualified — and in a crisis, contact emergency services or a crisis line right away.",
+  chatComingSoonPill: 'Coming soon',
   chatPlaceholderReply: "I'm not quite ready yet — coming soon.",
 } as const;
