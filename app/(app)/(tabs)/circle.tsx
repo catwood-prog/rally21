@@ -27,25 +27,28 @@ function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 }
 
+type ListCircleData = { members: CircleMember[]; presence: PresenceRow[] };
+
 export default function YourCircle() {
   const router = useRouter();
   const { session } = useAuth();
-  const { circleId } = useLocalSearchParams<{ circleId?: string }>();
+  const { circleId, fromTab } = useLocalSearchParams<{ circleId?: string; fromTab?: string }>();
   const [circle, setCircle] = useState<MyCircle | null>(null);
   const [members, setMembers] = useState<CircleMember[]>([]);
   const [presence, setPresence] = useState<PresenceRow[]>([]);
   const [wallPreview, setWallPreview] = useState<WallPreviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Non-null only when there's no circleId param AND the user is in more
-  // than one circle, so we can't tell which one they meant.
-  const [pickerCircles, setPickerCircles] = useState<MyCircle[] | null>(null);
+  // Non-empty only when there's no circleId param AND the user is in more
+  // than one circle — the tab's own root: a card per circle, tap through.
+  const [listCircles, setListCircles] = useState<MyCircle[]>([]);
+  const [listData, setListData] = useState<Record<string, ListCircleData>>({});
 
   const load = useCallback(async () => {
     if (!session?.user) return;
     setIsLoading(true);
     setError(null);
-    setPickerCircles(null);
+    setListCircles([]);
     try {
       let myCircle: MyCircle | null;
       if (circleId) {
@@ -53,7 +56,17 @@ export default function YourCircle() {
       } else {
         const myCircles = await listMyCircles(session.user.id);
         if (myCircles.length > 1) {
-          setPickerCircles(myCircles);
+          const entries = await Promise.all(
+            myCircles.map(async (c): Promise<[string, ListCircleData]> => {
+              const [circleMembers, circlePresence] = await Promise.all([
+                getCircleMembers(c.id),
+                getCirclePresence(c.id),
+              ]);
+              return [c.id, { members: circleMembers, presence: circlePresence }];
+            })
+          );
+          setListCircles(myCircles);
+          setListData(Object.fromEntries(entries));
           setCircle(null);
           return;
         }
@@ -107,20 +120,68 @@ export default function YourCircle() {
     );
   }
 
-  if (pickerCircles) {
+  if (listCircles.length > 0) {
+    const today = getLocalDateString();
     return (
-      <View style={styles.loading}>
-        <Text style={styles.pickerTitle}>which circle?</Text>
-        {pickerCircles.map((c) => (
-          <TouchableOpacity
-            key={c.id}
-            style={styles.pickerRow}
-            onPress={() => router.setParams({ circleId: c.id })}
-          >
-            <Text style={styles.pickerRowText}>{c.name}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <Brandmark style={styles.brandmark} />
+        <Text style={styles.title}>your circles</Text>
+        <Text style={styles.subtitle}>tap one to see how it&apos;s going</Text>
+
+        {listCircles.map((c) => {
+          const data = listData[c.id] ?? { members: [], presence: [] };
+          const isSolo = data.members.length === 1;
+          const signal = computeSignal({
+            presence: data.presence,
+            memberCount: data.members.length,
+            today,
+            circleStartDate: c.startDate,
+          });
+          const shown = data.members.slice(0, MAX_AVATARS_SHOWN);
+          const overflow = data.members.length - shown.length;
+          const inTodayIds = new Set(
+            data.presence.filter((p) => p.localDate === today).map((p) => p.userId)
+          );
+
+          return (
+            <TouchableOpacity
+              key={c.id}
+              style={styles.listCard}
+              onPress={() => router.setParams({ circleId: c.id, fromTab: 'true' })}
+            >
+              <Text style={styles.listCardName}>{c.name}</Text>
+              <SignalMeter
+                state={signal.state}
+                dailyRates={signal.dailyRates}
+                dayNumber={signal.dayNumber}
+                durationDays={c.durationDays}
+                isSolo={isSolo}
+              />
+              <View style={[styles.avatarRow, styles.listCardAvatarRow]}>
+                {shown.map((member) => {
+                  const checkedIn = inTodayIds.has(member.userId);
+                  return (
+                    <View key={member.userId} style={styles.avatarRowItem}>
+                      <Avatar
+                        name={member.name}
+                        avatarUrl={member.avatarUrl}
+                        size={34}
+                        ring={checkedIn ? 'done' : 'pending'}
+                      />
+                      {checkedIn && <Text style={styles.avatarCheck}>✓</Text>}
+                    </View>
+                  );
+                })}
+                {overflow > 0 && (
+                  <View style={[styles.avatarOverflow, styles.avatarOverflowSmall]}>
+                    <Text style={styles.avatarOverflowText}>+{overflow}</Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
     );
   }
 
@@ -155,8 +216,14 @@ export default function YourCircle() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Brandmark style={styles.brandmark} />
-      <TouchableOpacity onPress={() => router.push('/today')}>
-        <Text style={styles.back}>← Today</Text>
+      <TouchableOpacity
+        onPress={() =>
+          fromTab === 'true'
+            ? router.replace('/circle')
+            : router.push('/today')
+        }
+      >
+        <Text style={styles.back}>{fromTab === 'true' ? '← Your Circles' : '← Today'}</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>{circle.name}</Text>
@@ -259,27 +326,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
     padding: 24,
   },
-  pickerTitle: {
-    fontFamily: FONT_HEADER,
-    fontSize: 18,
-    color: colors.ink,
-    marginBottom: 16,
-  },
-  pickerRow: {
-    width: '100%',
+  listCard: {
     backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 10,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
     ...cardShadow,
   },
-  pickerRowText: {
-    fontWeight: '700',
-    fontSize: 14,
+  listCardName: {
+    fontFamily: FONT_HEADER,
+    fontSize: 15,
     color: colors.ink,
+    marginBottom: 8,
   },
   content: {
     padding: 20,
@@ -369,6 +427,10 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 24,
   },
+  listCardAvatarRow: {
+    marginTop: 10,
+    marginBottom: 0,
+  },
   avatarRowItem: {
     width: 40,
     height: 40,
@@ -400,6 +462,11 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarOverflowSmall: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
   },
   avatarOverflowText: {
     fontSize: 12,
