@@ -1,3 +1,4 @@
+import { MyCircle } from './circle';
 import { daysBetween, getTrailingLocalDates } from './signal';
 import { supabase } from './supabase';
 
@@ -102,6 +103,48 @@ export function computeWeeklyLookback(
   }
 
   return { daysShowedUp: byDate.size, totalDays: dates.length, dailyMoods, dates, standout };
+}
+
+// ── by-circle show-up (multi-circle weekly) ─────────────────────────────
+
+export type CircleShowUp = {
+  circleId: string;
+  name: string;
+  daysShowedUp: number;
+  totalDays: number;
+  isHot: boolean;
+};
+
+/**
+ * One row per circle for the week — same trailing-window rule as the
+ * overall look-back (min(7, days since that circle started), so a circle
+ * that started this week doesn't read as an incomplete "2 of 7"). isHot
+ * mirrors the signal's "glowing" threshold (>= 70%).
+ */
+export function computeByCircleShowUp(
+  circles: MyCircle[],
+  completions: { circleId: string; localDate: string }[],
+  today: string
+): CircleShowUp[] {
+  return circles.map((circle) => {
+    const dayNumber = Math.max(1, daysBetween(circle.startDate, today) + 1);
+    const windowSize = Math.min(7, dayNumber);
+    const dates = new Set(getTrailingLocalDates(today, windowSize));
+
+    const daysShowedUp = new Set(
+      completions
+        .filter((c) => c.circleId === circle.id && dates.has(c.localDate))
+        .map((c) => c.localDate)
+    ).size;
+
+    return {
+      circleId: circle.id,
+      name: circle.name,
+      daysShowedUp,
+      totalDays: windowSize,
+      isHot: daysShowedUp / windowSize >= 0.7,
+    };
+  });
 }
 
 // ── day-14 reflected observation ────────────────────────────────────────

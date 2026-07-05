@@ -130,6 +130,24 @@ export async function getCirclePresence(
   return (data ?? []).map((row) => ({ userId: row.user_id, localDate: row.local_date }));
 }
 
+/** The signed-in user's own completions across a set of circles — powers
+ * the weekly look-back's per-circle show-up rows. */
+export async function getMyCompletions(
+  userId: string,
+  circleIds: string[]
+): Promise<{ circleId: string; localDate: string }[]> {
+  if (circleIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('completions')
+    .select('circle_id, local_date')
+    .eq('user_id', userId)
+    .in('circle_id', circleIds);
+
+  if (error) throw error;
+  return (data ?? []).map((row) => ({ circleId: row.circle_id, localDate: row.local_date }));
+}
+
 let presenceChannelSeq = 0;
 
 /** Live updates whenever anyone in the circle completes. Returns an

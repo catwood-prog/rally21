@@ -6,9 +6,15 @@ import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { getMyPrimaryCircle } from '@/lib/circle';
+import { getMyCompletions, getMyPrimaryCircle, listMyCircles } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
-import { computeWeeklyLookback, getMyReflections, WeeklyLookback } from '@/lib/reflections';
+import {
+  CircleShowUp,
+  computeByCircleShowUp,
+  computeWeeklyLookback,
+  getMyReflections,
+  WeeklyLookback,
+} from '@/lib/reflections';
 
 const WEEKDAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -16,6 +22,7 @@ export default function WeeklyLookBack() {
   const router = useRouter();
   const { session } = useAuth();
   const [lookback, setLookback] = useState<WeeklyLookback | null>(null);
+  const [byCircle, setByCircle] = useState<CircleShowUp[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,13 +31,19 @@ export default function WeeklyLookBack() {
     setIsLoading(true);
     setError(null);
     try {
-      const [reflections, circle] = await Promise.all([
+      const today = getLocalDateString();
+      const [reflections, circle, circles] = await Promise.all([
         getMyReflections(session.user.id),
         getMyPrimaryCircle(session.user.id),
+        listMyCircles(session.user.id),
       ]);
-      setLookback(
-        computeWeeklyLookback(reflections, getLocalDateString(), circle?.startDate ?? getLocalDateString())
+      setLookback(computeWeeklyLookback(reflections, today, circle?.startDate ?? today));
+
+      const completions = await getMyCompletions(
+        session.user.id,
+        circles.map((c) => c.id)
       );
+      setByCircle(computeByCircleShowUp(circles, completions, today));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your week');
     } finally {
@@ -109,6 +122,21 @@ export default function WeeklyLookBack() {
         </View>
       </View>
 
+      {byCircle.length > 1 && (
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>By circle</Text>
+          {byCircle.map((c) => (
+            <View key={c.circleId} style={styles.circleRow}>
+              <Text style={styles.circleRowName}>{c.name}</Text>
+              <Text style={styles.circleRowCount}>
+                {c.daysShowedUp} of {c.totalDays}
+                {c.isHot ? ' 🔥' : ''}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+
       {lookback.standout && (
         <>
           <Text style={styles.sectionLabel}>A line that stood out</Text>
@@ -183,6 +211,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.muted,
     marginBottom: 10,
+  },
+  circleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  circleRowName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  circleRowCount: {
+    fontSize: 11,
+    color: colors.muted,
   },
   bars: {
     flexDirection: 'row',
