@@ -13,7 +13,7 @@ export default function Index() {
   if (isAuthLoading || (session && status === 'loading')) {
     return (
       <View style={styles.container}>
-        <Brandmark size={22} style={styles.brandmark} />
+        <Brandmark size={33} style={styles.brandmark} />
         <ActivityIndicator color={colors.green} />
       </View>
     );

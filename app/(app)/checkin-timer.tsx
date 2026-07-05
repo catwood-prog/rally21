@@ -129,7 +129,7 @@ export default function CheckinTimer() {
 
   return (
     <View style={styles.container}>
-      <Brandmark light size={15} style={styles.brandmark} />
+      <Brandmark light size={22.5} style={styles.brandmark} />
       <View style={styles.topbar}>
         <TouchableOpacity onPress={() => router.replace('/today')}>
           <Text style={styles.backChevron}>⌄</Text>
