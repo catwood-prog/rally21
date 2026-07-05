@@ -2,6 +2,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,10 +11,12 @@ import {
   View,
 } from 'react-native';
 
+import { MASCOT } from '@/assets/mascot';
 import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
 import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -280,6 +283,14 @@ export default function YourCircle() {
         <Text style={styles.back}>{fromTab === 'true' ? '← Your Circles' : '← Today'}</Text>
       </TouchableOpacity>
 
+      <Image
+        source={MASCOT.huddle}
+        style={styles.headerImage}
+        resizeMode="contain"
+        accessible={false}
+        alt=""
+      />
+
       {isEditingName ? (
         <View style={styles.nameEditRow}>
           <TextInput
@@ -307,10 +318,8 @@ export default function YourCircle() {
           )}
         </View>
       )}
-      <Text style={styles.subtitle}>
-        {isSolo
-          ? circle.practiceName?.toLowerCase()
-          : `${circle.practiceName?.toLowerCase()} · ${members.length} members`}
+      <Text style={styles.headerStatus}>
+        {STRINGS.groupHeaderStatus(signal.dayNumber, inTodayUserIds.size, members.length)}
       </Text>
 
       <View style={styles.signalCard}>
@@ -323,8 +332,6 @@ export default function YourCircle() {
           size="large"
         />
       </View>
-
-      {isSolo && <Text style={styles.inviteHint}>even better with your people</Text>}
 
       <TouchableOpacity
         style={styles.inviteButton}
@@ -368,28 +375,55 @@ export default function YourCircle() {
         )}
       </View>
 
-      <Text style={styles.sectionLabel}>who&apos;s here</Text>
-      <View style={styles.avatarRow}>
-        {shownMembers.map((member) => {
-          const checkedIn = inTodayUserIds.has(member.userId);
-          return (
-            <View key={member.userId} style={styles.avatarRowItem}>
-              <Avatar
-                name={member.name}
-                avatarUrl={member.avatarUrl}
-                size={40}
-                ring={checkedIn ? 'done' : 'pending'}
-              />
-              {checkedIn && <Text style={styles.avatarCheck}>✓</Text>}
-            </View>
-          );
-        })}
-        {overflowCount > 0 && (
-          <View style={styles.avatarOverflow}>
-            <Text style={styles.avatarOverflowText}>+{overflowCount}</Text>
+      {members.length <= 1 ? (
+        <View style={styles.emptyGroupCard}>
+          <Image
+            source={MASCOT.waving}
+            style={styles.emptyGroupImage}
+            resizeMode="contain"
+            accessible={false}
+            alt=""
+          />
+          <Text style={styles.emptyGroupTitle}>{STRINGS.emptyGroupTitle}</Text>
+          <Text style={styles.emptyGroupBody}>{STRINGS.emptyGroupBody}</Text>
+          <TouchableOpacity
+            style={styles.emptyGroupButton}
+            onPress={() =>
+              router.push({
+                pathname: '/onboarding/invite',
+                params: { circleId: circle.id, inviteCode: circle.inviteCode },
+              })
+            }
+          >
+            <Text style={styles.emptyGroupButtonText}>{STRINGS.emptyGroupCta}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          <Text style={styles.sectionLabel}>who&apos;s here</Text>
+          <View style={styles.avatarRow}>
+            {shownMembers.map((member) => {
+              const checkedIn = inTodayUserIds.has(member.userId);
+              return (
+                <View key={member.userId} style={styles.avatarRowItem}>
+                  <Avatar
+                    name={member.name}
+                    avatarUrl={member.avatarUrl}
+                    size={40}
+                    ring={checkedIn ? 'done' : 'pending'}
+                  />
+                  {checkedIn && <Text style={styles.avatarCheck}>✓</Text>}
+                </View>
+              );
+            })}
+            {overflowCount > 0 && (
+              <View style={styles.avatarOverflow}>
+                <Text style={styles.avatarOverflowText}>+{overflowCount}</Text>
+              </View>
+            )}
           </View>
-        )}
-      </View>
+        </>
+      )}
 
       {isConfirmingLeave ? (
         <View style={styles.leaveConfirmCard}>
@@ -470,9 +504,16 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: colors.ink,
   },
+  headerImage: {
+    width: 160,
+    height: 134,
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
   },
   editPencil: {
@@ -506,6 +547,13 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     color: colors.muted,
+    marginTop: 4,
+    marginBottom: 18,
+  },
+  headerStatus: {
+    fontSize: 13,
+    color: colors.muted,
+    textAlign: 'center',
     marginTop: 4,
     marginBottom: 18,
   },
@@ -618,6 +666,44 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.muted,
+  },
+  emptyGroupCard: {
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    padding: 24,
+    marginBottom: 24,
+    ...cardShadow,
+  },
+  emptyGroupImage: {
+    width: 110,
+    height: 129,
+    marginBottom: 14,
+  },
+  emptyGroupTitle: {
+    fontFamily: FONT_HEADER,
+    fontSize: 17,
+    color: colors.ink,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  emptyGroupBody: {
+    fontSize: 13,
+    color: colors.muted,
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  emptyGroupButton: {
+    width: '100%',
+    backgroundColor: colors.gold,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  emptyGroupButtonText: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: colors.ink,
   },
   leaveLink: {
     marginTop: 32,

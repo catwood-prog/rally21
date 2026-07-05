@@ -3,6 +3,8 @@ import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ChatQuestionIcon } from '@/components/ChatQuestionIcon';
+import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 
 export default function TabsLayout() {
@@ -57,10 +59,11 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="chat"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
+          title: STRINGS.chatTabLabel,
+          tabBarAccessibilityLabel: STRINGS.chatTabLabel,
+          tabBarIcon: ({ color, size }) => <ChatQuestionIcon size={size} color={color} />,
         }}
       />
     </Tabs>

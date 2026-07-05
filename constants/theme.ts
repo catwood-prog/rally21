@@ -8,6 +8,10 @@ export const colors = {
   card: '#FFFFFF',
   muted: 'rgba(38, 38, 38, 0.5)',
   line: 'rgba(0, 0, 0, 0.09)',
+  // The mascot spec's slightly warmer/lighter cream — distinct from `bg`,
+  // used only on the surfaces that spec called out explicitly (check-in
+  // success, chat) rather than a blanket app-wide rebrand.
+  cream: '#F7F5F0',
 };
 
 // The mockup's ".card" box-shadow: 0 6px 16px rgba(0,0,0,0.05) — spread

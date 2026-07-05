@@ -1,112 +1,242 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { Brandmark } from '@/components/Brandmark';
+import { MASCOT } from '@/assets/mascot';
+import { STRINGS } from '@/constants/strings';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
-import { useAuth } from '@/lib/auth-context';
-import { getCircleById, getCircleMembers, getCirclePresence } from '@/lib/circle';
-import { getLocalDateString } from '@/lib/date';
+import { getCircleById } from '@/lib/circle';
+import { daysBetween, getLocalDateString } from '@/lib/date';
+
+const CONFETTI_COUNT = 25;
+const CONFETTI_COLORS = [colors.gold, colors.green, '#7FBF7F'];
+const CONFETTI_LIFETIME_MS = 4000;
+const CONFETTI_FADE_MS = 700;
+
+type ConfettiSpec = {
+  left: `${number}%`;
+  size: number;
+  color: string;
+  fallDuration: number;
+  fallDelay: number;
+  swayAmplitude: number;
+  swayDuration: number;
+  rotateDuration: number;
+};
+
+function makeConfettiSpecs(): ConfettiSpec[] {
+  return Array.from({ length: CONFETTI_COUNT }, () => ({
+    left: `${Math.random() * 100}%`,
+    size: 4 + Math.random() * 5,
+    color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+    fallDuration: 2600 + Math.random() * 1800,
+    fallDelay: Math.random() * 1200,
+    swayAmplitude: 8 + Math.random() * 14,
+    swayDuration: 900 + Math.random() * 700,
+    rotateDuration: 1600 + Math.random() * 1600,
+  }));
+}
+
+function ConfettiPiece({ spec, fallDistance }: { spec: ConfettiSpec; fallDistance: number }) {
+  const translateY = useSharedValue(-20);
+  const translateX = useSharedValue(0);
+  const rotate = useSharedValue(0);
+  const opacity = useSharedValue(1);
+
+  useEffect(() => {
+    translateY.value = withDelay(
+      spec.fallDelay,
+      withRepeat(withTiming(fallDistance, { duration: spec.fallDuration, easing: Easing.linear }), -1, false)
+    );
+    translateX.value = withRepeat(
+      withSequence(
+        withTiming(spec.swayAmplitude, { duration: spec.swayDuration, easing: Easing.inOut(Easing.ease) }),
+        withTiming(-spec.swayAmplitude, { duration: spec.swayDuration, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    rotate.value = withRepeat(
+      withTiming(360, { duration: spec.rotateDuration, easing: Easing.linear }),
+      -1,
+      false
+    );
+
+    // Confetti is a one-shot celebration, not ambient decor — fade it out
+    // and stop driving the falling/sway/rotate loops rather than let them
+    // run invisibly forever.
+    const fadeTimer = setTimeout(() => {
+      opacity.value = withTiming(0, { duration: CONFETTI_FADE_MS }, (finished) => {
+        if (finished) {
+          cancelAnimation(translateY);
+          cancelAnimation(translateX);
+          cancelAnimation(rotate);
+        }
+      });
+    }, CONFETTI_LIFETIME_MS);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      cancelAnimation(translateY);
+      cancelAnimation(translateX);
+      cancelAnimation(rotate);
+      cancelAnimation(opacity);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    position: 'absolute' as const,
+    top: 0,
+    left: spec.left,
+    width: spec.size,
+    height: spec.size * 0.65,
+    borderRadius: 2,
+    backgroundColor: spec.color,
+    opacity: opacity.value,
+    transform: [
+      { translateY: translateY.value },
+      { translateX: translateX.value },
+      { rotate: `${rotate.value}deg` },
+    ],
+  }));
+
+  return <Animated.View style={style} />;
+}
 
 export default function CheckInComplete() {
   const router = useRouter();
-  const { session } = useAuth();
-  const { circleId, reflectionSkipped } = useLocalSearchParams<{
-    circleId: string;
-    reflectionSkipped?: string;
-  }>();
-  const wasSkipped = reflectionSkipped === 'true';
-  const [circleName, setCircleName] = useState<string | null>(null);
-  const [inCount, setInCount] = useState<number | null>(null);
-  const [memberCount, setMemberCount] = useState<number | null>(null);
-  const [isSolo, setIsSolo] = useState<boolean | null>(null);
-  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const { circleId } = useLocalSearchParams<{ circleId: string }>();
+  const { height: windowHeight } = useWindowDimensions();
+  const reduceMotion = useReducedMotion();
+
+  // Assumption: day count comes from this circle's own start date (the
+  // same calc SignalMeter/Today use elsewhere), capped at its 21-day
+  // duration. Falls back to day 1 if the circle fetch fails or circleId is
+  // somehow missing, rather than showing broken text.
+  const [dayNumber, setDayNumber] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!circleId || !session?.user) return;
-    const today = getLocalDateString();
-
-    Promise.all([getCirclePresence(circleId), getCircleMembers(circleId), getCircleById(circleId)])
-      .then(([presence, members, circle]) => {
-        const uniqueToday = new Set(
-          presence.filter((p) => p.localDate === today).map((p) => p.userId)
-        );
-        setInCount(uniqueToday.size);
-        setMemberCount(members.length);
-        setIsSolo(members.length === 1);
-        setInviteCode(circle?.inviteCode ?? null);
-        setCircleName(circle?.name ?? null);
+    if (!circleId) return;
+    getCircleById(circleId)
+      .then((circle) => {
+        if (!circle) return;
+        const raw = Math.max(1, daysBetween(circle.startDate, getLocalDateString()) + 1);
+        setDayNumber(Math.min(raw, circle.durationDays));
       })
-      .catch(() => setInCount(null));
-  }, [circleId, session?.user?.id]);
+      .catch(() => {});
+  }, [circleId]);
 
-  if (wasSkipped) {
-    return (
-      <View style={styles.container}>
-        <Brandmark style={styles.brandmark} />
-        <Text style={styles.confetti}>🎉</Text>
-        <Text style={styles.title}>nice — that&apos;s done</Text>
+  const [confettiSpecs] = useState<ConfettiSpec[]>(() => (reduceMotion ? [] : makeConfettiSpecs()));
 
-        {inCount === null || memberCount === null ? (
-          <ActivityIndicator color={colors.green} style={styles.spinner} />
-        ) : (
-          <Text style={styles.subtitle}>
-            {circleName ?? 'your circle'} marked done.{'\n'}
-            {inCount} of {memberCount} in today
-          </Text>
-        )}
+  const scale = useSharedValue(reduceMotion ? 1 : 0);
+  const rockPhase = useSharedValue(0);
+  const headingOpacity = useSharedValue(0);
+  const headingY = useSharedValue(8);
+  const bodyOpacity = useSharedValue(0);
+  const bodyY = useSharedValue(8);
+  const buttonOpacity = useSharedValue(0);
+  const buttonY = useSharedValue(8);
 
-        <View style={styles.reflectionDoneBadge}>
-          <Text style={styles.reflectionDoneBadgeText}>✓ reflection already done today</Text>
-        </View>
-        <Text style={styles.reflectionDoneNote}>
-          no second questionnaire — one reflection a day, always
-        </Text>
+  useEffect(() => {
+    if (reduceMotion) {
+      scale.value = withTiming(1, { duration: 300 });
+    } else {
+      scale.value = withSpring(1, { damping: 10, stiffness: 120 }, (finished) => {
+        'worklet';
+        if (finished) {
+          rockPhase.value = withRepeat(
+            withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
+            -1,
+            true
+          );
+        }
+      });
+    }
 
-        <TouchableOpacity style={styles.button} onPress={() => router.replace('/today')}>
-          <Text style={styles.buttonText}>Back to Today</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+    headingOpacity.value = withDelay(450, withTiming(1, { duration: 400 }));
+    headingY.value = withDelay(450, withTiming(0, { duration: 400 }));
+    bodyOpacity.value = withDelay(650, withTiming(1, { duration: 400 }));
+    bodyY.value = withDelay(650, withTiming(0, { duration: 400 }));
+    buttonOpacity.value = withDelay(850, withTiming(1, { duration: 400 }));
+    buttonY.value = withDelay(850, withTiming(0, { duration: 400 }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const penguinStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: scale.value },
+      { rotate: `${reduceMotion ? 0 : interpolate(rockPhase.value, [0, 1], [-3, 3])}deg` },
+    ],
+  }));
+  const headingStyle = useAnimatedStyle(() => ({
+    opacity: headingOpacity.value,
+    transform: [{ translateY: headingY.value }],
+  }));
+  const bodyStyle = useAnimatedStyle(() => ({
+    opacity: bodyOpacity.value,
+    transform: [{ translateY: bodyY.value }],
+  }));
+  const buttonStyle = useAnimatedStyle(() => ({
+    opacity: buttonOpacity.value,
+    transform: [{ translateY: buttonY.value }],
+  }));
+
+  const handleDismiss = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/today');
+    }
+  };
 
   return (
     <View style={styles.container}>
       <Brandmark style={styles.brandmark} />
-      <Text style={styles.confetti}>🎉✨🎉</Text>
-      <View style={styles.checkCircle}>
-        <Text style={styles.checkMark}>✓</Text>
-      </View>
-      <Text style={styles.title}>you&apos;re in</Text>
 
-      {inCount === null || isSolo === null ? (
-        <ActivityIndicator color={colors.green} style={styles.spinner} />
-      ) : (
-        <Text style={styles.subtitle}>
-          {isSolo
-            ? 'you showed up for yourself today'
-            : `${inCount} ${inCount === 1 ? 'person has' : 'people have'} checked in today`}
-        </Text>
+      {confettiSpecs.length > 0 && (
+        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+          {confettiSpecs.map((spec, i) => (
+            <ConfettiPiece key={i} spec={spec} fallDistance={windowHeight} />
+          ))}
+        </View>
       )}
 
-      {isSolo && inviteCode && (
-        <TouchableOpacity
-          style={styles.inviteHint}
-          onPress={() =>
-            router.push({
-              pathname: '/onboarding/invite',
-              params: { circleId, inviteCode },
-            })
-          }
-        >
-          <Text style={styles.inviteHintText}>even better with your people →</Text>
+      <Animated.View style={penguinStyle}>
+        <Image
+          source={MASCOT.confettiBody}
+          style={styles.penguin}
+          resizeMode="contain"
+          accessible={false}
+          alt=""
+        />
+      </Animated.View>
+
+      <Animated.Text style={[styles.title, headingStyle]}>
+        {STRINGS.checkinSuccessTitle(dayNumber ?? 1)}
+      </Animated.Text>
+      <Animated.Text style={[styles.subtitle, bodyStyle]}>{STRINGS.checkinSuccessBody}</Animated.Text>
+
+      <Animated.View style={[styles.buttonWrap, buttonStyle]}>
+        <TouchableOpacity style={styles.button} onPress={handleDismiss}>
+          <Text style={styles.buttonText}>{STRINGS.checkinSuccessCta}</Text>
         </TouchableOpacity>
-      )}
-
-      <TouchableOpacity style={styles.button} onPress={() => router.replace('/today')}>
-        <Text style={styles.buttonText}>Back to Today</Text>
-      </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 }
@@ -114,7 +244,7 @@ export default function CheckInComplete() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.cream,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
@@ -124,78 +254,37 @@ const styles = StyleSheet.create({
     top: 20,
     left: 24,
   },
-  confetti: {
-    fontSize: 34,
-    letterSpacing: 6,
-    marginBottom: 10,
-  },
-  checkCircle: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    backgroundColor: colors.green,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  checkMark: {
-    fontSize: 40,
-    color: '#fff',
-    fontWeight: '700',
+  penguin: {
+    width: 130,
+    height: 134,
+    marginBottom: 20,
   },
   title: {
     fontFamily: FONT_HEADER,
     fontSize: 26,
     color: colors.ink,
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.muted,
     textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 28,
+    marginBottom: 32,
   },
-  spinner: {
-    marginBottom: 28,
-  },
-  inviteHint: {
-    marginBottom: 28,
-  },
-  inviteHintText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: colors.green,
-  },
-  reflectionDoneBadge: {
-    backgroundColor: '#EAF3EA',
-    borderRadius: 99,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    marginTop: -14,
-    marginBottom: 8,
-  },
-  reflectionDoneBadgeText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: colors.green,
-  },
-  reflectionDoneNote: {
-    fontSize: 10.5,
-    color: colors.muted,
-    textAlign: 'center',
-    marginBottom: 28,
+  buttonWrap: {
+    width: '100%',
   },
   button: {
     width: '100%',
-    backgroundColor: colors.gold,
-    borderRadius: 16,
-    padding: 14,
+    backgroundColor: colors.green,
+    borderRadius: 12,
+    paddingVertical: 15,
     alignItems: 'center',
   },
   buttonText: {
     fontWeight: '700',
-    fontSize: 14,
-    color: colors.ink,
+    fontSize: 15,
+    color: '#fff',
   },
 });
