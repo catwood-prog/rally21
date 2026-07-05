@@ -96,6 +96,18 @@ export async function renameCircle(circleId: string, name: string): Promise<void
   if (error) throw error;
 }
 
+/** Deletes the caller's own membership — their completions and
+ * reflections are untouched (history belongs to the member, not the
+ * circle). If that was the circle's last member, the RPC marks it
+ * inactive rather than deleting it, so its history and invite code
+ * survive for anyone who wants to come back. No host handover: if the
+ * creator leaves and others remain, the circle just keeps running
+ * creator-less (see CLAUDE.md). */
+export async function leaveCircle(circleId: string): Promise<void> {
+  const { error } = await supabase.rpc('leave_circle', { p_circle_id: circleId });
+  if (error) throw error;
+}
+
 export async function getCircleMembers(circleId: string): Promise<CircleMember[]> {
   const { data, error } = await supabase
     .from('memberships')

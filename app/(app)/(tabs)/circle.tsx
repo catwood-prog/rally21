@@ -21,6 +21,7 @@ import {
   getCircleById,
   getCircleMembers,
   getCirclePresence,
+  leaveCircle,
   listMyCircles,
   MyCircle,
   renameCircle,
@@ -57,6 +58,8 @@ export default function YourCircle() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
+  const [isConfirmingLeave, setIsConfirmingLeave] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -251,6 +254,19 @@ export default function YourCircle() {
     }
   };
 
+  const handleLeave = async () => {
+    if (!session?.user) return;
+    setIsLeaving(true);
+    try {
+      await leaveCircle(circle.id);
+      const remaining = await listMyCircles(session.user.id);
+      router.replace(remaining.length === 0 ? '/onboarding/circle-setup' : '/today');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not leave — try again');
+      setIsLeaving(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Brandmark style={styles.brandmark} />
@@ -374,6 +390,39 @@ export default function YourCircle() {
           </View>
         )}
       </View>
+
+      {isConfirmingLeave ? (
+        <View style={styles.leaveConfirmCard}>
+          <Text style={styles.leaveConfirmText}>
+            Leave {circle.name}? Your check-ins stay yours, and you can always come back with an
+            invite.
+          </Text>
+          <View style={styles.leaveConfirmRow}>
+            <TouchableOpacity
+              style={styles.leaveCancelButton}
+              onPress={() => setIsConfirmingLeave(false)}
+              disabled={isLeaving}
+            >
+              <Text style={styles.leaveCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.leaveConfirmButton}
+              onPress={handleLeave}
+              disabled={isLeaving}
+            >
+              {isLeaving ? (
+                <ActivityIndicator size="small" color={colors.ink} />
+              ) : (
+                <Text style={styles.leaveConfirmButtonText}>Leave circle</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.leaveLink} onPress={() => setIsConfirmingLeave(true)}>
+          <Text style={styles.leaveLinkText}>Leave this circle</Text>
+        </TouchableOpacity>
+      )}
     </ScrollView>
   );
 }
@@ -569,5 +618,56 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.muted,
+  },
+  leaveLink: {
+    marginTop: 32,
+    alignItems: 'center',
+  },
+  leaveLinkText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  leaveConfirmCard: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 32,
+    ...cardShadow,
+  },
+  leaveConfirmText: {
+    fontSize: 12.5,
+    color: colors.ink,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  leaveConfirmRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  leaveCancelButton: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    alignItems: 'center',
+  },
+  leaveCancelText: {
+    fontWeight: '700',
+    fontSize: 13,
+    color: colors.ink,
+  },
+  leaveConfirmButton: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: colors.gold,
+    alignItems: 'center',
+  },
+  leaveConfirmButtonText: {
+    fontWeight: '700',
+    fontSize: 13,
+    color: colors.ink,
   },
 });

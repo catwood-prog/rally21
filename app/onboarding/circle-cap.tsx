@@ -17,11 +17,15 @@ export default function CircleCap() {
       </Text>
       <Text style={styles.body}>
         You&apos;re showing up in three places already — that&apos;s the whole point. To join
-        another, finish a 21-day arc or leave a circle first. Nothing is ever lost.
+        another, finish a 21-day arc, or leave one from its circle screen — your check-ins stay
+        yours either way.
       </Text>
 
       <TouchableOpacity style={styles.button} onPress={() => router.replace('/today')}>
         <Text style={styles.buttonText}>Back to Today</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.secondaryLink} onPress={() => router.replace('/circle')}>
+        <Text style={styles.secondaryLinkText}>Manage my circles</Text>
       </TouchableOpacity>
     </View>
   );
@@ -77,5 +81,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
     color: colors.ink,
+  },
+  secondaryLink: {
+    marginTop: 14,
+  },
+  secondaryLinkText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.muted,
   },
 });
