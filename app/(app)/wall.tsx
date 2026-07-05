@@ -15,9 +15,9 @@ import {
 import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { CircleMember, getCircleById, getCircleMembers, getMyPrimaryCircle, MyCircle } from '@/lib/circle';
+import { CircleMember, getCircleById, getCircleMembers, listMyCircles, MyCircle } from '@/lib/circle';
 import {
   CheckinFeedEntry,
   getCheckinFeed,
@@ -53,6 +53,9 @@ export default function CircleWall() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Non-null only when there's no circleId param AND the user is in more
+  // than one circle, so we can't tell which wall they meant.
+  const [pickerCircles, setPickerCircles] = useState<MyCircle[] | null>(null);
 
   const loadFeed = useCallback(async (circleId: string) => {
     const [wallMessages, checkinFeed] = await Promise.all([
@@ -67,10 +70,20 @@ export default function CircleWall() {
     if (!session?.user) return;
     setIsLoading(true);
     setError(null);
+    setPickerCircles(null);
     try {
-      const myCircle = circleId
-        ? await getCircleById(circleId)
-        : await getMyPrimaryCircle(session.user.id);
+      let myCircle: MyCircle | null;
+      if (circleId) {
+        myCircle = await getCircleById(circleId);
+      } else {
+        const myCircles = await listMyCircles(session.user.id);
+        if (myCircles.length > 1) {
+          setPickerCircles(myCircles);
+          setCircle(null);
+          return;
+        }
+        myCircle = myCircles[0] ?? null;
+      }
       setCircle(myCircle);
       if (myCircle) {
         await Promise.all([getCircleMembers(myCircle.id).then(setMembers), loadFeed(myCircle.id)]);
@@ -135,6 +148,23 @@ export default function CircleWall() {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.green} />
+      </View>
+    );
+  }
+
+  if (pickerCircles) {
+    return (
+      <View style={styles.loading}>
+        <Text style={styles.pickerTitle}>which circle&apos;s wall?</Text>
+        {pickerCircles.map((c) => (
+          <TouchableOpacity
+            key={c.id}
+            style={styles.pickerRow}
+            onPress={() => router.replace({ pathname: '/wall', params: { circleId: c.id } })}
+          >
+            <Text style={styles.pickerRowText}>{c.name}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
     );
   }
@@ -286,6 +316,28 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     color: colors.muted,
+  },
+  pickerTitle: {
+    fontFamily: FONT_HEADER,
+    fontSize: 18,
+    color: colors.ink,
+    marginBottom: 16,
+  },
+  pickerRow: {
+    width: '100%',
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+    ...cardShadow,
+  },
+  pickerRowText: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: colors.ink,
   },
   backWrap: {
     paddingHorizontal: 20,

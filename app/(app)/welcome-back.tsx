@@ -7,51 +7,53 @@ import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { CircleMember, getCircleMembers, getCirclePresence, getMyPrimaryCircle, MyCircle } from '@/lib/circle';
+import { CircleMember, getCircleMembers, getCirclePresence, listMyCircles, MyCircle } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 import { markReentryAcknowledged } from '@/lib/profile';
 import { computeSignal, PresenceRow } from '@/lib/signal';
 import { getWallMessages, WallMessage } from '@/lib/wall';
 
+type CircleData = { members: CircleMember[]; presence: PresenceRow[]; awayMessages: WallMessage[] };
+
 export default function WelcomeBack() {
   const router = useRouter();
   const { session } = useAuth();
-  const { circleId, lastCompletionDate } = useLocalSearchParams<{
-    circleId: string;
-    lastCompletionDate: string;
-  }>();
+  const { lastCompletionDate } = useLocalSearchParams<{ lastCompletionDate: string }>();
 
-  const [circle, setCircle] = useState<MyCircle | null>(null);
-  const [members, setMembers] = useState<CircleMember[]>([]);
-  const [presence, setPresence] = useState<PresenceRow[]>([]);
-  const [awayMessages, setAwayMessages] = useState<WallMessage[]>([]);
+  const [circles, setCircles] = useState<MyCircle[]>([]);
+  const [circleData, setCircleData] = useState<Record<string, CircleData>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isNavigating, setIsNavigating] = useState(false);
 
+  // Re-entry is triggered off the user's most recent completion across
+  // EVERY circle (see Today), so "what did I miss" has to cover all of
+  // them too — not just whichever one happened to be first in the list.
   useEffect(() => {
-    if (!session?.user || !circleId) return;
+    if (!session?.user) return;
     (async () => {
       try {
-        const [myCircle, circleMembers, circlePresence, wallMessages] = await Promise.all([
-          getMyPrimaryCircle(session.user.id),
-          getCircleMembers(circleId),
-          getCirclePresence(circleId),
-          getWallMessages(circleId),
-        ]);
-        setCircle(myCircle);
-        setMembers(circleMembers);
-        setPresence(circlePresence);
-        setAwayMessages(wallMessages.filter((m) => m.createdAt.slice(0, 10) > (lastCompletionDate ?? '')));
+        const myCircles = await listMyCircles(session.user.id);
+        setCircles(myCircles);
+
+        const entries = await Promise.all(
+          myCircles.map(async (c): Promise<[string, CircleData]> => {
+            const [members, presence, wallMessages] = await Promise.all([
+              getCircleMembers(c.id),
+              getCirclePresence(c.id),
+              getWallMessages(c.id),
+            ]);
+            const awayMessages = wallMessages.filter(
+              (m) => m.createdAt.slice(0, 10) > (lastCompletionDate ?? '')
+            );
+            return [c.id, { members, presence, awayMessages }];
+          })
+        );
+        setCircleData(Object.fromEntries(entries));
       } finally {
         setIsLoading(false);
       }
     })();
-  }, [session?.user?.id, circleId, lastCompletionDate]);
-
-  const memberName = (userId: string) => {
-    if (userId === session?.user.id) return 'You';
-    return members.find((m) => m.userId === userId)?.name ?? 'circle-mate';
-  };
+  }, [session?.user?.id, lastCompletionDate]);
 
   const acknowledge = async () => {
     if (!session?.user || !lastCompletionDate) return;
@@ -62,7 +64,7 @@ export default function WelcomeBack() {
     }
   };
 
-  const handlePractice = async () => {
+  const handlePractice = async (circleId: string) => {
     setIsNavigating(true);
     await acknowledge();
     router.replace({ pathname: '/checkin', params: { circleId } });
@@ -82,16 +84,6 @@ export default function WelcomeBack() {
     );
   }
 
-  const isSolo = members.length === 1;
-  const signal = circle
-    ? computeSignal({
-        presence,
-        memberCount: members.length,
-        today: getLocalDateString(),
-        circleStartDate: circle.startDate,
-      })
-    : null;
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Brandmark style={styles.brandmark} />
@@ -100,37 +92,64 @@ export default function WelcomeBack() {
         you&apos;ve <Text style={styles.titleAccent}>missed nothing</Text>
       </Text>
       <Text style={styles.subtitle}>
-        no streak lost, no guilt — your circle&apos;s still glowing.
+        no streak lost, no guilt — {circles.length === 1 ? "your circle's" : 'your circles are'}{' '}
+        still glowing.
       </Text>
 
-      {signal && (
-        <View style={styles.signalCard}>
-          <SignalMeter
-            state={signal.state}
-            dailyRates={signal.dailyRates}
-            dayNumber={signal.dayNumber}
-            durationDays={circle?.durationDays}
-            isSolo={isSolo}
-            size="large"
-          />
-        </View>
-      )}
+      {circles.map((circle) => {
+        const data = circleData[circle.id] ?? { members: [], presence: [], awayMessages: [] };
+        const isSolo = data.members.length === 1;
+        const signal = computeSignal({
+          presence: data.presence,
+          memberCount: data.members.length,
+          today: getLocalDateString(),
+          circleStartDate: circle.startDate,
+        });
+        const memberName = (userId: string) => {
+          if (userId === session?.user.id) return 'You';
+          return data.members.find((m) => m.userId === userId)?.name ?? 'circle-mate';
+        };
 
-      <Text style={styles.sectionLabel}>while you were away</Text>
-      {awayMessages.length === 0 ? (
-        <Text style={styles.emptyAway}>it was quiet — nothing you missed</Text>
-      ) : (
-        awayMessages.map((m) => (
-          <View key={m.id} style={styles.messageCard}>
-            <Text style={styles.messageSender}>{memberName(m.userId)}</Text>
-            <Text style={styles.messageBody}>{m.body}</Text>
+        return (
+          <View key={circle.id} style={styles.circleBlock}>
+            {circles.length > 1 && <Text style={styles.circleName}>{circle.name}</Text>}
+
+            <View style={styles.signalCard}>
+              <SignalMeter
+                state={signal.state}
+                dailyRates={signal.dailyRates}
+                dayNumber={signal.dayNumber}
+                durationDays={circle.durationDays}
+                isSolo={isSolo}
+                size="large"
+              />
+            </View>
+
+            <Text style={styles.sectionLabel}>while you were away</Text>
+            {data.awayMessages.length === 0 ? (
+              <Text style={styles.emptyAway}>it was quiet — nothing you missed</Text>
+            ) : (
+              data.awayMessages.map((m) => (
+                <View key={m.id} style={styles.messageCard}>
+                  <Text style={styles.messageSender}>{memberName(m.userId)}</Text>
+                  <Text style={styles.messageBody}>{m.body}</Text>
+                </View>
+              ))
+            )}
+
+            {circles.length === 1 && (
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={() => handlePractice(circle.id)}
+                disabled={isNavigating}
+              >
+                <Text style={styles.primaryButtonText}>Do today&apos;s practice</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        ))
-      )}
+        );
+      })}
 
-      <TouchableOpacity style={styles.primaryButton} onPress={handlePractice} disabled={isNavigating}>
-        <Text style={styles.primaryButtonText}>Do today&apos;s practice</Text>
-      </TouchableOpacity>
       <TouchableOpacity style={styles.secondaryButton} onPress={handleBackToToday} disabled={isNavigating}>
         <Text style={styles.secondaryButtonText}>Back to today</Text>
       </TouchableOpacity>
@@ -181,6 +200,15 @@ const styles = StyleSheet.create({
     color: colors.muted,
     lineHeight: 19,
     marginBottom: 22,
+  },
+  circleBlock: {
+    marginBottom: 10,
+  },
+  circleName: {
+    fontFamily: FONT_HEADER,
+    fontSize: 16,
+    color: colors.ink,
+    marginBottom: 10,
   },
   signalCard: {
     backgroundColor: colors.card,
@@ -240,6 +268,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     alignItems: 'center',
+    marginTop: 6,
   },
   secondaryButtonText: {
     fontWeight: '700',

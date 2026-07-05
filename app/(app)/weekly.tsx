@@ -6,7 +6,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { getMyCompletions, getMyPrimaryCircle, listMyCircles } from '@/lib/circle';
+import { getMyCompletions, listMyCircles } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 import {
   CircleShowUp,
@@ -32,12 +32,18 @@ export default function WeeklyLookBack() {
     setError(null);
     try {
       const today = getLocalDateString();
-      const [reflections, circle, circles] = await Promise.all([
+      const [reflections, circles] = await Promise.all([
         getMyReflections(session.user.id),
-        getMyPrimaryCircle(session.user.id),
         listMyCircles(session.user.id),
       ]);
-      setLookback(computeWeeklyLookback(reflections, today, circle?.startDate ?? today));
+      // The reflection week's denominator is capped at days since the
+      // user's FIRST circle started — the earliest start date across
+      // every circle they're in, not any single "primary" one.
+      const earliestStartDate = circles.reduce(
+        (min: string | null, c) => (min === null || c.startDate < min ? c.startDate : min),
+        null as string | null
+      );
+      setLookback(computeWeeklyLookback(reflections, today, earliestStartDate ?? today));
 
       const completions = await getMyCompletions(
         session.user.id,

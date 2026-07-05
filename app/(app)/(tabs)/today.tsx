@@ -98,7 +98,7 @@ export default function Today() {
         setIsRedirecting(true);
         router.replace({
           pathname: '/welcome-back',
-          params: { circleId: myCircles[0].id, lastCompletionDate },
+          params: { lastCompletionDate },
         });
         return;
       }

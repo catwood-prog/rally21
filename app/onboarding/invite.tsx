@@ -15,7 +15,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { cardShadow, colors } from '@/constants/theme';
-import { getMyPrimaryCircle } from '@/lib/circle';
+import { getCircleById, listMyCircles, MyCircle } from '@/lib/circle';
 import { useAuth } from '@/lib/auth-context';
 
 export default function Invite() {
@@ -28,17 +28,46 @@ export default function Invite() {
   }>();
   const isFromToday = fromToday === 'true';
   const [inviteCode, setInviteCode] = useState<string | null>(inviteCodeParam ?? null);
+  const [resolvedCircleId, setResolvedCircleId] = useState<string | null>(circleId ?? null);
+  // Non-null once we've had to fall back to the user's circle list (no
+  // circleId param at all — stale link or direct nav) AND that list has
+  // more than one circle, so we can't just guess which one they meant.
+  const [pickerCircles, setPickerCircles] = useState<MyCircle[] | null>(null);
   const [isLoadingCode, setIsLoadingCode] = useState(!inviteCodeParam);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (inviteCodeParam || !session?.user) return;
-    // the route param can be missing after a page refresh (web) — fetch
-    // the code straight from the user's circle instead of trusting it.
-    getMyPrimaryCircle(session.user.id)
-      .then((circle) => setInviteCode(circle?.inviteCode ?? null))
-      .finally(() => setIsLoadingCode(false));
-  }, [inviteCodeParam, session?.user?.id]);
+    (async () => {
+      try {
+        if (circleId) {
+          // circleId is present but the code wasn't — refetch that exact
+          // circle, never a "primary" stand-in (see CLAUDE.md).
+          const circle = await getCircleById(circleId);
+          setInviteCode(circle?.inviteCode ?? null);
+          setResolvedCircleId(circle?.id ?? null);
+          return;
+        }
+        // No circleId at all — resolve from the user's own circles instead
+        // of guessing: one circle is unambiguous, more than one needs a pick.
+        const myCircles = await listMyCircles(session.user.id);
+        if (myCircles.length > 1) {
+          setPickerCircles(myCircles);
+        } else if (myCircles.length === 1) {
+          setInviteCode(myCircles[0].inviteCode);
+          setResolvedCircleId(myCircles[0].id);
+        }
+      } finally {
+        setIsLoadingCode(false);
+      }
+    })();
+  }, [inviteCodeParam, circleId, session?.user?.id]);
+
+  const handlePick = (circle: MyCircle) => {
+    setInviteCode(circle.inviteCode);
+    setResolvedCircleId(circle.id);
+    setPickerCircles(null);
+  };
 
   const shareMessage = `Join my Rally21 circle! Sign in at https://rally21.vercel.app and enter code ${inviteCode} to hop in.`;
 
@@ -76,6 +105,27 @@ export default function Invite() {
     );
   }
 
+  if (pickerCircles) {
+    return (
+      <View style={styles.container}>
+        <Brandmark style={styles.brandmark} />
+        <Text style={styles.title}>invite to which circle?</Text>
+        <Text style={styles.subtitle}>you're in a few — pick the one to invite someone into</Text>
+        <View style={styles.pickerList}>
+          {pickerCircles.map((circle) => (
+            <TouchableOpacity
+              key={circle.id}
+              style={styles.pickerRow}
+              onPress={() => handlePick(circle)}
+            >
+              <Text style={styles.pickerRowText}>{circle.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Brandmark style={styles.brandmark} />
@@ -84,7 +134,7 @@ export default function Invite() {
         onPress={() =>
           isFromToday
             ? router.push('/today')
-            : router.push({ pathname: '/circle', params: { circleId } })
+            : router.push({ pathname: '/circle', params: { circleId: resolvedCircleId } })
         }
       >
         <Text style={styles.backText}>{isFromToday ? '← Today' : '← Your Circle'}</Text>
@@ -135,6 +185,25 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     left: 24,
+  },
+  pickerList: {
+    width: '100%',
+  },
+  pickerRow: {
+    width: '100%',
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+    ...cardShadow,
+  },
+  pickerRowText: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: colors.ink,
   },
   back: {
     position: 'absolute',

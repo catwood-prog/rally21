@@ -44,21 +44,6 @@ function mapCircleRow(c: CircleRow): MyCircle {
   };
 }
 
-export async function getMyPrimaryCircle(userId: string): Promise<MyCircle | null> {
-  const { data, error } = await supabase
-    .from('memberships')
-    .select(CIRCLE_SELECT)
-    .eq('user_id', userId)
-    .order('joined_at', { ascending: true })
-    .limit(1)
-    .maybeSingle<{ circles: CircleRow }>();
-
-  if (error) throw error;
-  if (!data?.circles) return null;
-
-  return mapCircleRow(data.circles);
-}
-
 /** Every circle the user belongs to, ordered by earliest committed time
  * of day (circles with no set time sort last) — the order Today's stack
  * renders cards in. */
