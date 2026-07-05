@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -21,55 +21,63 @@ import { useAuth } from '@/lib/auth-context';
 export default function Invite() {
   const router = useRouter();
   const { session } = useAuth();
-  const { circleId, inviteCode: inviteCodeParam, fromToday } = useLocalSearchParams<{
-    circleId: string;
-    inviteCode: string;
+  const { circleId, fromToday } = useLocalSearchParams<{
+    circleId?: string;
     fromToday?: string;
   }>();
   const isFromToday = fromToday === 'true';
-  const [inviteCode, setInviteCode] = useState<string | null>(inviteCodeParam ?? null);
-  const [resolvedCircleId, setResolvedCircleId] = useState<string | null>(circleId ?? null);
-  // Non-null once we've had to fall back to the user's circle list (no
-  // circleId param at all — stale link or direct nav) AND that list has
-  // more than one circle, so we can't just guess which one they meant.
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [circleName, setCircleName] = useState<string | null>(null);
+  // Non-null only when there's no circleId param AND the user is in more
+  // than one circle, so we can't just guess which one they meant.
   const [pickerCircles, setPickerCircles] = useState<MyCircle[] | null>(null);
-  const [isLoadingCode, setIsLoadingCode] = useState(!inviteCodeParam);
+  const [isLoadingCode, setIsLoadingCode] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (inviteCodeParam || !session?.user) return;
-    (async () => {
-      try {
-        if (circleId) {
-          // circleId is present but the code wasn't — refetch that exact
-          // circle, never a "primary" stand-in (see CLAUDE.md).
-          const circle = await getCircleById(circleId);
-          setInviteCode(circle?.inviteCode ?? null);
-          setResolvedCircleId(circle?.id ?? null);
-          return;
-        }
-        // No circleId at all — resolve from the user's own circles instead
-        // of guessing: one circle is unambiguous, more than one needs a pick.
-        const myCircles = await listMyCircles(session.user.id);
-        if (myCircles.length > 1) {
-          setPickerCircles(myCircles);
-        } else if (myCircles.length === 1) {
-          setInviteCode(myCircles[0].inviteCode);
-          setResolvedCircleId(myCircles[0].id);
-        }
-      } finally {
-        setIsLoadingCode(false);
+  // Always refetches on focus (never trusts a cached name/code) — a
+  // rename made elsewhere must show up here without a hard refresh.
+  const load = useCallback(async () => {
+    if (!session?.user) return;
+    setIsLoadingCode(true);
+    try {
+      if (circleId) {
+        // circleId is present — refetch that exact circle, never a
+        // "primary" stand-in (see CLAUDE.md).
+        const circle = await getCircleById(circleId);
+        setInviteCode(circle?.inviteCode ?? null);
+        setCircleName(circle?.name ?? null);
+        setPickerCircles(null);
+        return;
       }
-    })();
-  }, [inviteCodeParam, circleId, session?.user?.id]);
+      // No circleId at all — resolve from the user's own circles instead
+      // of guessing: one circle is unambiguous, more than one needs a pick.
+      const myCircles = await listMyCircles(session.user.id);
+      if (myCircles.length > 1) {
+        setPickerCircles(myCircles);
+      } else if (myCircles.length === 1) {
+        setInviteCode(myCircles[0].inviteCode);
+        setCircleName(myCircles[0].name);
+      }
+    } finally {
+      setIsLoadingCode(false);
+    }
+  }, [circleId, session?.user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const handlePick = (circle: MyCircle) => {
-    setInviteCode(circle.inviteCode);
-    setResolvedCircleId(circle.id);
-    setPickerCircles(null);
+    // Pin the choice into the URL so subsequent focuses (and the back
+    // link) have a stable circleId instead of re-guessing every time.
+    router.setParams({ circleId: circle.id });
   };
 
-  const shareMessage = `Join my Rally21 circle! Sign in at https://rally21.vercel.app and enter code ${inviteCode} to hop in.`;
+  const shareMessage = circleName
+    ? `Join my "${circleName}" circle on Rally21! Sign in at https://rally21.vercel.app and enter code ${inviteCode} to hop in.`
+    : `Join my Rally21 circle! Sign in at https://rally21.vercel.app and enter code ${inviteCode} to hop in.`;
 
   const handleShare = async () => {
     if (!inviteCode) return;
@@ -134,14 +142,16 @@ export default function Invite() {
         onPress={() =>
           isFromToday
             ? router.push('/today')
-            : router.push({ pathname: '/circle', params: { circleId: resolvedCircleId } })
+            : router.push({ pathname: '/circle', params: { circleId } })
         }
       >
         <Text style={styles.backText}>{isFromToday ? '← Today' : '← Your Circle'}</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>invite your people</Text>
-      <Text style={styles.subtitle}>share this code — anyone can use it to hop in</Text>
+      <Text style={styles.subtitle}>
+        {circleName ? `share this code to join ${circleName}` : 'share this code — anyone can use it to hop in'}
+      </Text>
 
       <View style={styles.codeCard}>
         <Text style={styles.code}>{inviteCode ?? '——————'}</Text>

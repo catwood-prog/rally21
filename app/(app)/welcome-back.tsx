@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { Brandmark } from '@/components/Brandmark';
@@ -28,32 +28,36 @@ export default function WelcomeBack() {
   // Re-entry is triggered off the user's most recent completion across
   // EVERY circle (see Today), so "what did I miss" has to cover all of
   // them too — not just whichever one happened to be first in the list.
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!session?.user) return;
-    (async () => {
-      try {
-        const myCircles = await listMyCircles(session.user.id);
-        setCircles(myCircles);
+    try {
+      const myCircles = await listMyCircles(session.user.id);
+      setCircles(myCircles);
 
-        const entries = await Promise.all(
-          myCircles.map(async (c): Promise<[string, CircleData]> => {
-            const [members, presence, wallMessages] = await Promise.all([
-              getCircleMembers(c.id),
-              getCirclePresence(c.id),
-              getWallMessages(c.id),
-            ]);
-            const awayMessages = wallMessages.filter(
-              (m) => m.createdAt.slice(0, 10) > (lastCompletionDate ?? '')
-            );
-            return [c.id, { members, presence, awayMessages }];
-          })
-        );
-        setCircleData(Object.fromEntries(entries));
-      } finally {
-        setIsLoading(false);
-      }
-    })();
+      const entries = await Promise.all(
+        myCircles.map(async (c): Promise<[string, CircleData]> => {
+          const [members, presence, wallMessages] = await Promise.all([
+            getCircleMembers(c.id),
+            getCirclePresence(c.id),
+            getWallMessages(c.id),
+          ]);
+          const awayMessages = wallMessages.filter(
+            (m) => m.createdAt.slice(0, 10) > (lastCompletionDate ?? '')
+          );
+          return [c.id, { members, presence, awayMessages }];
+        })
+      );
+      setCircleData(Object.fromEntries(entries));
+    } finally {
+      setIsLoading(false);
+    }
   }, [session?.user?.id, lastCompletionDate]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const acknowledge = async () => {
     if (!session?.user || !lastCompletionDate) return;

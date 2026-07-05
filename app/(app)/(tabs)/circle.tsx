@@ -1,6 +1,14 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
@@ -15,11 +23,14 @@ import {
   getCirclePresence,
   listMyCircles,
   MyCircle,
+  renameCircle,
   subscribeToCirclePresence,
 } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 import { computeSignal, PresenceRow } from '@/lib/signal';
 import { getWallPreview, subscribeToWall, WallPreviewItem } from '@/lib/wall';
+
+const MAX_CIRCLE_NAME_LENGTH = 40;
 
 const MAX_AVATARS_SHOWN = 8;
 
@@ -43,6 +54,9 @@ export default function YourCircle() {
   // than one circle — the tab's own root: a card per circle, tap through.
   const [listCircles, setListCircles] = useState<MyCircle[]>([]);
   const [listData, setListData] = useState<Record<string, ListCircleData>>({});
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -212,6 +226,30 @@ export default function YourCircle() {
 
   const shownMembers = members.slice(0, MAX_AVATARS_SHOWN);
   const overflowCount = members.length - shownMembers.length;
+  const isCreator = circle.createdBy === session?.user?.id;
+
+  const startEditingName = () => {
+    setNameDraft(circle.name);
+    setIsEditingName(true);
+  };
+
+  const saveName = async () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed || trimmed === circle.name) {
+      setIsEditingName(false);
+      return;
+    }
+    setIsSavingName(true);
+    try {
+      await renameCircle(circle.id, trimmed);
+      setCircle({ ...circle, name: trimmed });
+      setIsEditingName(false);
+    } catch {
+      // leave editing open so they can retry
+    } finally {
+      setIsSavingName(false);
+    }
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -226,7 +264,33 @@ export default function YourCircle() {
         <Text style={styles.back}>{fromTab === 'true' ? '← Your Circles' : '← Today'}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>{circle.name}</Text>
+      {isEditingName ? (
+        <View style={styles.nameEditRow}>
+          <TextInput
+            style={styles.nameInput}
+            value={nameDraft}
+            onChangeText={setNameDraft}
+            maxLength={MAX_CIRCLE_NAME_LENGTH}
+            autoFocus
+            editable={!isSavingName}
+          />
+          <TouchableOpacity onPress={saveName} disabled={isSavingName}>
+            <Text style={styles.nameEditAction}>{isSavingName ? '…' : 'Save'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setIsEditingName(false)} disabled={isSavingName}>
+            <Text style={styles.nameEditActionMuted}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.nameRow}>
+          <Text style={styles.title}>{circle.name}</Text>
+          {isCreator && (
+            <TouchableOpacity onPress={startEditingName} hitSlop={10}>
+              <Text style={styles.editPencil}>✎</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
       <Text style={styles.subtitle}>
         {isSolo
           ? circle.practiceName?.toLowerCase()
@@ -356,6 +420,39 @@ const styles = StyleSheet.create({
     fontFamily: FONT_HEADER,
     fontSize: 24,
     color: colors.ink,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  editPencil: {
+    fontSize: 15,
+    color: colors.muted,
+  },
+  nameEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  nameInput: {
+    flex: 1,
+    fontFamily: FONT_HEADER,
+    fontSize: 20,
+    color: colors.ink,
+    borderBottomWidth: 1.5,
+    borderBottomColor: colors.green,
+    paddingVertical: 4,
+  },
+  nameEditAction: {
+    fontWeight: '700',
+    fontSize: 13,
+    color: colors.green,
+  },
+  nameEditActionMuted: {
+    fontWeight: '600',
+    fontSize: 13,
+    color: colors.muted,
   },
   subtitle: {
     fontSize: 13,

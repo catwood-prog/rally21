@@ -9,6 +9,7 @@ export type MyCircle = {
   practiceName: string | null;
   practiceDurationMinutes: number | null;
   inviteCode: string;
+  createdBy: string;
 };
 
 export type CircleMember = {
@@ -25,11 +26,12 @@ type CircleRow = {
   start_date: string;
   duration_days: number;
   invite_code: string;
+  created_by: string;
   practices: { name: string; duration_minutes: number | null } | null;
 };
 
 const CIRCLE_SELECT =
-  'circles(id, name, time_of_day, start_date, duration_days, invite_code, practices(name, duration_minutes))';
+  'circles(id, name, time_of_day, start_date, duration_days, invite_code, created_by, practices(name, duration_minutes))';
 
 function mapCircleRow(c: CircleRow): MyCircle {
   return {
@@ -41,6 +43,7 @@ function mapCircleRow(c: CircleRow): MyCircle {
     practiceName: c.practices?.name ?? null,
     practiceDurationMinutes: c.practices?.duration_minutes ?? null,
     inviteCode: c.invite_code,
+    createdBy: c.created_by,
   };
 }
 
@@ -71,7 +74,9 @@ export async function listMyCircles(userId: string): Promise<MyCircle[]> {
 export async function getCircleById(circleId: string): Promise<MyCircle | null> {
   const { data, error } = await supabase
     .from('circles')
-    .select('id, name, time_of_day, start_date, duration_days, invite_code, practices(name, duration_minutes)')
+    .select(
+      'id, name, time_of_day, start_date, duration_days, invite_code, created_by, practices(name, duration_minutes)'
+    )
     .eq('id', circleId)
     .maybeSingle<CircleRow>();
 
@@ -79,6 +84,16 @@ export async function getCircleById(circleId: string): Promise<MyCircle | null> 
   if (!data) return null;
 
   return mapCircleRow(data);
+}
+
+/** RLS restricts this to the circle's creator (created_by = auth.uid()) —
+ * there's no host-handover concept yet, so only the original creator can
+ * rename, even if they later leave (see CLAUDE.md). */
+export async function renameCircle(circleId: string, name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const { error } = await supabase.from('circles').update({ name: trimmed }).eq('id', circleId);
+  if (error) throw error;
 }
 
 export async function getCircleMembers(circleId: string): Promise<CircleMember[]> {
