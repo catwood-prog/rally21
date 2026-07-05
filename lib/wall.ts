@@ -19,6 +19,17 @@ export type CheckinFeedEntry = {
   reactions: CheckinReaction[];
 };
 
+export type WallPreviewItem =
+  | { kind: 'message'; id: string; userId: string; body: string; createdAt: string }
+  | {
+      kind: 'reaction';
+      id: string;
+      fromUserId: string;
+      targetUserId: string;
+      emoji: string;
+      createdAt: string;
+    };
+
 export async function getWallMessages(circleId: string): Promise<WallMessage[]> {
   const { data, error } = await supabase
     .from('wall_messages')
@@ -75,6 +86,57 @@ export async function getCheckinFeed(circleId: string): Promise<CheckinFeedEntry
       .filter((r) => r.target_user_id === p.user_id && r.target_local_date === p.local_date)
       .map((r) => ({ emoji: r.emoji, fromUserId: r.from_user_id })),
   }));
+}
+
+/** The last `limit` wall events — messages and check-in reactions merged
+ * into one chronological strip, oldest first (so the newest reads last,
+ * bottom of a preview card). Powers the circle screen's wall preview. */
+export async function getWallPreview(circleId: string, limit = 3): Promise<WallPreviewItem[]> {
+  const [{ data: messages, error: messagesError }, { data: reactions, error: reactionsError }] =
+    await Promise.all([
+      supabase
+        .from('wall_messages')
+        .select('id, user_id, body, created_at')
+        .eq('circle_id', circleId)
+        .order('created_at', { ascending: false })
+        .limit(limit),
+      supabase
+        .from('checkin_reactions')
+        .select('id, from_user_id, target_user_id, emoji, created_at')
+        .eq('circle_id', circleId)
+        .order('created_at', { ascending: false })
+        .limit(limit),
+    ]);
+
+  if (messagesError) throw messagesError;
+  if (reactionsError) throw reactionsError;
+
+  const items: WallPreviewItem[] = [
+    ...(messages ?? []).map(
+      (m): WallPreviewItem => ({
+        kind: 'message',
+        id: m.id,
+        userId: m.user_id,
+        body: m.body,
+        createdAt: m.created_at,
+      })
+    ),
+    ...(reactions ?? []).map(
+      (r): WallPreviewItem => ({
+        kind: 'reaction',
+        id: r.id,
+        fromUserId: r.from_user_id,
+        targetUserId: r.target_user_id,
+        emoji: r.emoji,
+        createdAt: r.created_at,
+      })
+    ),
+  ];
+
+  return items
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit)
+    .reverse();
 }
 
 /** One reaction per person per check-in — picking a different emoji

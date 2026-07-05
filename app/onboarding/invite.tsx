@@ -21,7 +21,7 @@ import { useAuth } from '@/lib/auth-context';
 export default function Invite() {
   const router = useRouter();
   const { session } = useAuth();
-  const { inviteCode: inviteCodeParam, fromToday } = useLocalSearchParams<{
+  const { circleId, inviteCode: inviteCodeParam, fromToday } = useLocalSearchParams<{
     circleId: string;
     inviteCode: string;
     fromToday?: string;
@@ -81,7 +81,11 @@ export default function Invite() {
       <Brandmark style={styles.brandmark} />
       <TouchableOpacity
         style={styles.back}
-        onPress={() => router.push(isFromToday ? '/today' : '/circle')}
+        onPress={() =>
+          isFromToday
+            ? router.push('/today')
+            : router.push({ pathname: '/circle', params: { circleId } })
+        }
       >
         <Text style={styles.backText}>{isFromToday ? '← Today' : '← Your Circle'}</Text>
       </TouchableOpacity>

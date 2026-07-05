@@ -244,7 +244,10 @@ export default function Today() {
           )}
         </Text>
 
-        <TouchableOpacity style={styles.card} onPress={() => router.push('/circle')}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
+        >
           <SignalMeter
             state={signal.state}
             dailyRates={signal.dailyRates}
@@ -367,7 +370,9 @@ export default function Today() {
 
         return (
           <View key={circle.id} style={styles.stackCard}>
-            <TouchableOpacity onPress={() => router.push('/circle')}>
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
+            >
               <Text style={styles.stackCardName}>{circle.name}</Text>
               <SignalMeter
                 state={signal.state}

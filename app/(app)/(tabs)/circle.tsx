@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -10,6 +10,7 @@ import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   CircleMember,
+  getCircleById,
   getCircleMembers,
   getCirclePresence,
   getMyPrimaryCircle,
@@ -18,13 +19,22 @@ import {
 } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 import { computeSignal, PresenceRow } from '@/lib/signal';
+import { getWallPreview, subscribeToWall, WallPreviewItem } from '@/lib/wall';
+
+const MAX_AVATARS_SHOWN = 8;
+
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
 
 export default function YourCircle() {
   const router = useRouter();
   const { session } = useAuth();
+  const { circleId } = useLocalSearchParams<{ circleId?: string }>();
   const [circle, setCircle] = useState<MyCircle | null>(null);
   const [members, setMembers] = useState<CircleMember[]>([]);
   const [presence, setPresence] = useState<PresenceRow[]>([]);
+  const [wallPreview, setWallPreview] = useState<WallPreviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,22 +43,26 @@ export default function YourCircle() {
     setIsLoading(true);
     setError(null);
     try {
-      const myCircle = await getMyPrimaryCircle(session.user.id);
+      const myCircle = circleId
+        ? await getCircleById(circleId)
+        : await getMyPrimaryCircle(session.user.id);
       setCircle(myCircle);
       if (myCircle) {
-        const [circleMembers, circlePresence] = await Promise.all([
+        const [circleMembers, circlePresence, preview] = await Promise.all([
           getCircleMembers(myCircle.id),
           getCirclePresence(myCircle.id),
+          getWallPreview(myCircle.id),
         ]);
         setMembers(circleMembers);
         setPresence(circlePresence);
+        setWallPreview(preview);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your circle');
     } finally {
       setIsLoading(false);
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, circleId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -60,6 +74,14 @@ export default function YourCircle() {
     if (!circle) return;
     const unsubscribe = subscribeToCirclePresence(circle.id, () => {
       getCirclePresence(circle.id).then(setPresence);
+    });
+    return unsubscribe;
+  }, [circle?.id]);
+
+  useEffect(() => {
+    if (!circle) return;
+    const unsubscribe = subscribeToWall(circle.id, () => {
+      getWallPreview(circle.id).then(setWallPreview);
     });
     return unsubscribe;
   }, [circle?.id]);
@@ -91,6 +113,14 @@ export default function YourCircle() {
     today,
     circleStartDate: circle.startDate,
   });
+
+  const memberName = (userId: string) => {
+    if (userId === session?.user.id) return 'You';
+    return members.find((m) => m.userId === userId)?.name ?? 'circle-mate';
+  };
+
+  const shownMembers = members.slice(0, MAX_AVATARS_SHOWN);
+  const overflowCount = members.length - shownMembers.length;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -131,32 +161,58 @@ export default function YourCircle() {
         <Text style={styles.inviteButtonText}>✨ Invite someone</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.wallButton} onPress={() => router.push('/wall')}>
-        <Text style={styles.wallButtonText}>💬 Circle wall</Text>
-      </TouchableOpacity>
+      <View style={styles.wallPreviewCard}>
+        <Text style={styles.sectionLabel}>circle wall</Text>
+        {wallPreview.length === 0 ? (
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/wall', params: { circleId: circle.id } })}
+          >
+            <Text style={styles.wallEmptyText}>the wall is quiet — say hi 👋</Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            {wallPreview.map((item) => (
+              <Text key={item.id} style={styles.wallPreviewLine} numberOfLines={1}>
+                {item.kind === 'message'
+                  ? `${memberName(item.userId)}: ${truncate(item.body, 50)}`
+                  : `${memberName(item.fromUserId)} reacted ${item.emoji} to ${
+                      item.targetUserId === session?.user.id
+                        ? 'your'
+                        : `${memberName(item.targetUserId)}'s`
+                    } check-in`}
+              </Text>
+            ))}
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: '/wall', params: { circleId: circle.id } })}
+            >
+              <Text style={styles.wallPreviewFooter}>open the circle wall →</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
 
       <Text style={styles.sectionLabel}>who&apos;s here</Text>
-      {members.map((member) => {
-        const isMe = member.userId === session?.user.id;
-        const checkedIn = inTodayUserIds.has(member.userId);
-        return (
-          <View key={member.userId} style={styles.memberRow}>
-            <Avatar
-              name={member.name}
-              avatarUrl={member.avatarUrl}
-              size={40}
-              ring={checkedIn ? 'done' : 'pending'}
-            />
-            <View style={styles.memberInfo}>
-              <Text style={styles.memberName}>{isMe ? 'You' : member.name ?? 'circle-mate'}</Text>
-              <Text style={styles.memberStatus}>
-                {checkedIn ? 'checked in today' : 'not yet today'}
-              </Text>
+      <View style={styles.avatarRow}>
+        {shownMembers.map((member) => {
+          const checkedIn = inTodayUserIds.has(member.userId);
+          return (
+            <View key={member.userId} style={styles.avatarRowItem}>
+              <Avatar
+                name={member.name}
+                avatarUrl={member.avatarUrl}
+                size={40}
+                ring={checkedIn ? 'done' : 'pending'}
+              />
+              {checkedIn && <Text style={styles.avatarCheck}>✓</Text>}
             </View>
-            {checkedIn && <Text style={styles.checkMark}>✓</Text>}
+          );
+        })}
+        {overflowCount > 0 && (
+          <View style={styles.avatarOverflow}>
+            <Text style={styles.avatarOverflowText}>+{overflowCount}</Text>
           </View>
-        );
-      })}
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -225,18 +281,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.green,
   },
-  wallButton: {
-    backgroundColor: colors.gold,
-    borderRadius: 16,
-    paddingVertical: 13,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  wallButtonText: {
-    fontWeight: '700',
-    fontSize: 14,
-    color: colors.ink,
-  },
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
@@ -245,32 +289,69 @@ const styles = StyleSheet.create({
     color: colors.green,
     marginBottom: 10,
   },
-  memberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  wallPreviewCard: {
     backgroundColor: colors.card,
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 8,
-    gap: 12,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
     ...cardShadow,
   },
-  memberInfo: {
-    flex: 1,
-  },
-  memberName: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  memberStatus: {
-    fontSize: 11,
+  wallEmptyText: {
+    fontSize: 13,
     color: colors.muted,
-    marginTop: 1,
   },
-  checkMark: {
-    fontSize: 14,
-    fontWeight: '800',
+  wallPreviewLine: {
+    fontSize: 12.5,
+    color: colors.ink,
+    marginBottom: 6,
+  },
+  wallPreviewFooter: {
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.green,
+    marginTop: 4,
+  },
+  avatarRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 24,
+  },
+  avatarRowItem: {
+    width: 40,
+    height: 40,
+    position: 'relative',
+  },
+  avatarCheck: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.bg,
+    backgroundColor: colors.green,
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 12,
+    overflow: 'hidden',
+  },
+  avatarOverflow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarOverflowText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.muted,
   },
 });

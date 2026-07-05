@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,7 +17,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { CircleMember, getCircleMembers, getMyPrimaryCircle, MyCircle } from '@/lib/circle';
+import { CircleMember, getCircleById, getCircleMembers, getMyPrimaryCircle, MyCircle } from '@/lib/circle';
 import {
   CheckinFeedEntry,
   getCheckinFeed,
@@ -44,6 +44,7 @@ type FeedItem =
 export default function CircleWall() {
   const router = useRouter();
   const { session } = useAuth();
+  const { circleId } = useLocalSearchParams<{ circleId?: string }>();
   const [circle, setCircle] = useState<MyCircle | null>(null);
   const [members, setMembers] = useState<CircleMember[]>([]);
   const [messages, setMessages] = useState<WallMessage[]>([]);
@@ -67,7 +68,9 @@ export default function CircleWall() {
     setIsLoading(true);
     setError(null);
     try {
-      const myCircle = await getMyPrimaryCircle(session.user.id);
+      const myCircle = circleId
+        ? await getCircleById(circleId)
+        : await getMyPrimaryCircle(session.user.id);
       setCircle(myCircle);
       if (myCircle) {
         await Promise.all([getCircleMembers(myCircle.id).then(setMembers), loadFeed(myCircle.id)]);
@@ -77,7 +80,7 @@ export default function CircleWall() {
     } finally {
       setIsLoading(false);
     }
-  }, [session?.user?.id, loadFeed]);
+  }, [session?.user?.id, circleId, loadFeed]);
 
   useFocusEffect(
     useCallback(() => {
@@ -171,7 +174,9 @@ export default function CircleWall() {
     >
       <View style={styles.backWrap}>
         <Brandmark style={styles.brandmark} />
-        <TouchableOpacity onPress={() => router.push('/circle')}>
+        <TouchableOpacity
+          onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
+        >
           <Text style={styles.back}>← Your Circle</Text>
         </TouchableOpacity>
       </View>
