@@ -15,10 +15,34 @@ import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
-import { cardShadow, colors } from '@/constants/theme';
+import { STRINGS } from '@/constants/strings';
+import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { deleteMyAccount } from '@/lib/account';
 import { useAuth } from '@/lib/auth-context';
+import { getMyNotificationPrefs, NotificationPrefs, updateNotificationPrefs } from '@/lib/notifications';
 import { getMyProfile, saveProfile } from '@/lib/profile';
+
+const NUDGE_TIME_OPTIONS: { label: string; time: string | null }[] = [
+  { label: STRINGS.nudgeTimeEarliest, time: null },
+  { label: 'Morning', time: '08:00:00' },
+  { label: 'Midday', time: '12:00:00' },
+  { label: 'Evening', time: '18:00:00' },
+  { label: 'Night', time: '21:00:00' },
+];
+
+const QUIET_START_OPTIONS = [
+  { label: '8pm', time: '20:00:00' },
+  { label: '9pm', time: '21:00:00' },
+  { label: '10pm', time: '22:00:00' },
+  { label: '11pm', time: '23:00:00' },
+];
+
+const QUIET_END_OPTIONS = [
+  { label: '6am', time: '06:00:00' },
+  { label: '7am', time: '07:00:00' },
+  { label: '8am', time: '08:00:00' },
+  { label: '9am', time: '09:00:00' },
+];
 
 export default function Settings() {
   const router = useRouter();
@@ -26,6 +50,7 @@ export default function Settings() {
   const [name, setName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [newPhotoUri, setNewPhotoUri] = useState<string | null>(null);
+  const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
@@ -37,9 +62,13 @@ export default function Settings() {
     if (!session?.user) return;
     setIsLoading(true);
     try {
-      const profile = await getMyProfile(session.user.id);
+      const [profile, notificationPrefs] = await Promise.all([
+        getMyProfile(session.user.id),
+        getMyNotificationPrefs(session.user.id),
+      ]);
       setName(profile?.name ?? '');
       setAvatarUrl(profile?.avatar_url ?? null);
+      setPrefs(notificationPrefs);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your profile');
     } finally {
@@ -82,6 +111,18 @@ export default function Settings() {
       setError(e instanceof Error ? e.message : 'could not save that — try again');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const savePrefs = async (patch: Partial<NotificationPrefs>) => {
+    if (!session?.user) return;
+    const previous = prefs;
+    setPrefs((p) => (p ? { ...p, ...patch } : p));
+    try {
+      await updateNotificationPrefs(session.user.id, patch);
+    } catch (e) {
+      setPrefs(previous);
+      setError(e instanceof Error ? e.message : 'could not save that — try again');
     }
   };
 
@@ -149,13 +190,102 @@ export default function Settings() {
         <Text style={styles.signOutText}>My practices</Text>
       </TouchableOpacity>
 
-      <Text style={[styles.label, styles.sectionSpacing]}>reminders</Text>
-      <View style={styles.noteCard}>
-        <Text style={styles.noteText}>
-          Rally21 doesn&apos;t send push notifications yet on the web. For now, a nudge in your
-          circle wall (or your own memory!) is today&apos;s reminder — real notifications are
-          coming when we go native.
-        </Text>
+      <Text style={[styles.label, styles.sectionSpacing]}>{STRINGS.notificationsSectionLabel}</Text>
+
+      <View style={styles.prefRow}>
+        <View style={styles.prefRowText}>
+          <Text style={styles.prefRowLabel}>{STRINGS.nudgeToggleLabel}</Text>
+          <Text style={styles.prefRowHelper}>{STRINGS.nudgeToggleHelper}</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.prefPill, prefs?.nudgeEnabled && styles.prefPillOn]}
+          onPress={() => savePrefs({ nudgeEnabled: !prefs?.nudgeEnabled })}
+        >
+          <Text style={[styles.prefPillText, prefs?.nudgeEnabled && styles.prefPillTextOn]}>
+            {prefs?.nudgeEnabled ? 'on' : 'off'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {prefs?.nudgeEnabled && (
+        <>
+          <Text style={styles.subLabel}>{STRINGS.nudgeTimeLabel}</Text>
+          <View style={styles.chipRow}>
+            {NUDGE_TIME_OPTIONS.map((option) => {
+              const selected = option.time === prefs.nudgeTime;
+              return (
+                <TouchableOpacity
+                  key={option.label}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                  onPress={() => savePrefs({ nudgeTime: option.time })}
+                >
+                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </>
+      )}
+
+      <View style={[styles.prefRow, styles.sectionSpacing]}>
+        <View style={styles.prefRowText}>
+          <Text style={styles.prefRowLabel}>{STRINGS.friendNudgeToggleLabel}</Text>
+          <Text style={styles.prefRowHelper}>{STRINGS.friendNudgeToggleHelper}</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.prefPill, prefs?.friendNudgeEnabled && styles.prefPillOn]}
+          onPress={() => savePrefs({ friendNudgeEnabled: !prefs?.friendNudgeEnabled })}
+        >
+          <Text style={[styles.prefPillText, prefs?.friendNudgeEnabled && styles.prefPillTextOn]}>
+            {prefs?.friendNudgeEnabled ? 'on' : 'off'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={[styles.prefRow, styles.sectionSpacing]}>
+        <View style={styles.prefRowText}>
+          <Text style={styles.prefRowLabel}>{STRINGS.digestToggleLabel}</Text>
+          <Text style={styles.prefRowHelper}>{STRINGS.digestToggleHelper}</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.prefPill, prefs?.digestEnabled && styles.prefPillOn]}
+          onPress={() => savePrefs({ digestEnabled: !prefs?.digestEnabled })}
+        >
+          <Text style={[styles.prefPillText, prefs?.digestEnabled && styles.prefPillTextOn]}>
+            {prefs?.digestEnabled ? 'on' : 'off'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={[styles.subLabel, styles.sectionSpacing]}>{STRINGS.quietHoursLabel}</Text>
+      <Text style={styles.prefRowHelper}>{STRINGS.quietHoursHelper}</Text>
+      <View style={styles.chipRow}>
+        {QUIET_START_OPTIONS.map((option) => {
+          const selected = option.time === prefs?.quietStart;
+          return (
+            <TouchableOpacity
+              key={option.label}
+              style={[styles.chip, selected && styles.chipSelected]}
+              onPress={() => savePrefs({ quietStart: option.time })}
+            >
+              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      <View style={styles.chipRow}>
+        {QUIET_END_OPTIONS.map((option) => {
+          const selected = option.time === prefs?.quietEnd;
+          return (
+            <TouchableOpacity
+              key={option.label}
+              style={[styles.chip, selected && styles.chipSelected]}
+              onPress={() => savePrefs({ quietEnd: option.time })}
+            >
+              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
@@ -308,16 +438,74 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.ink,
   },
-  noteCard: {
+  subLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.ink,
+    marginBottom: 6,
+  },
+  prefRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.card,
     borderRadius: 14,
     padding: 14,
+    gap: 12,
     ...cardShadow,
   },
-  noteText: {
-    fontSize: 12,
+  prefRowText: {
+    flex: 1,
+  },
+  prefRowLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  prefRowHelper: {
+    fontSize: 11.5,
     color: colors.muted,
-    lineHeight: 18,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  prefPill: {
+    ...chipShape,
+    backgroundColor: colors.bg,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+  },
+  prefPillOn: {
+    backgroundColor: colors.green,
+    borderColor: colors.green,
+  },
+  prefPillText: {
+    ...chipTextShape,
+    color: colors.muted,
+  },
+  prefPillTextOn: {
+    color: '#fff',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  chip: {
+    ...chipShape,
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+  },
+  chipSelected: {
+    backgroundColor: colors.greenSoft,
+    borderColor: colors.green,
+  },
+  chipText: {
+    ...chipTextShape,
+    color: colors.muted,
+  },
+  chipTextSelected: {
+    color: colors.green,
   },
   signOutButton: {
     marginTop: 28,

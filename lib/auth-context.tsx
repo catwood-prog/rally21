@@ -1,9 +1,10 @@
 import type { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { getDeviceTimeZone } from './date';
+import { markSeenNow } from './notifications';
 import { supabase } from './supabase';
 
 type AuthContextValue = {
@@ -48,6 +49,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
       .then(({ error }) => {
         if (error) console.warn('Could not save timezone:', error.message);
       });
+    markSeenNow(session.user.id);
+  }, [session?.user?.id]);
+
+  // The social digest's suppression check depends on last_seen_at staying
+  // fresh across the whole session, not just at sign-in — a user who signs
+  // in once and returns to the tab hours later should still count as
+  // "seen it" for anything queued in between (spec §2/§4).
+  useEffect(() => {
+    if (!session?.user) return;
+    const userId = session.user.id;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') markSeenNow(userId);
+    });
+    return () => subscription.remove();
   }, [session?.user?.id]);
 
   const signInWithEmail = async (email: string) => {

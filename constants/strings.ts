@@ -96,4 +96,18 @@ export const STRINGS = {
   circleYouCoveredCardBody: "The signal stays warm for everyone. That's the whole point.",
   circleCoveredYouCard: (covererName: string) => `${covererName} covered you today 💛`,
   circleCoveredYouCardBody: "No pressure, we've got you.",
+
+  // Notifications settings (Notifications spec §5) — an invitation, never
+  // an obligation. No streak/urgency language in any of these labels.
+  notificationsSectionLabel: 'notifications',
+  nudgeToggleLabel: 'daily nudge',
+  nudgeToggleHelper: "one small reminder when today's practice is still open — never if you've already shown up.",
+  nudgeTimeLabel: 'remind me',
+  nudgeTimeEarliest: "circle's usual time",
+  friendNudgeToggleLabel: 'nudges from circle-mates',
+  friendNudgeToggleHelper: "let someone in your circle send you a quiet wave if you've been quiet — never more than one a day.",
+  digestToggleLabel: 'evening digest',
+  digestToggleHelper: "a short recap if something warm happened and you haven't seen it yet.",
+  quietHoursLabel: 'quiet hours',
+  quietHoursHelper: 'no emails between these hours, your local time.',
 } as const;
