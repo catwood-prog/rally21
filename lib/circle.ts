@@ -13,6 +13,8 @@ export type MyCircle = {
   inviteCode: string;
   createdBy: string;
   resourceUrl: string | null;
+  isPublic: boolean;
+  closedToJoins: boolean;
 };
 
 export type CircleMember = {
@@ -38,11 +40,13 @@ type CircleRow = {
   invite_code: string;
   created_by: string;
   resource_url: string | null;
+  is_public: boolean;
+  closed_to_joins: boolean;
   practices: { name: string; duration_minutes: number | null } | null;
 };
 
 const CIRCLE_SELECT =
-  'circles(id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, practices(name, duration_minutes))';
+  'circles(id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, is_public, closed_to_joins, practices(name, duration_minutes))';
 
 function mapCircleRow(c: CircleRow): MyCircle {
   return {
@@ -56,6 +60,8 @@ function mapCircleRow(c: CircleRow): MyCircle {
     inviteCode: c.invite_code,
     createdBy: c.created_by,
     resourceUrl: c.resource_url,
+    isPublic: c.is_public,
+    closedToJoins: c.closed_to_joins,
   };
 }
 
@@ -127,7 +133,7 @@ export async function getCircleById(circleId: string): Promise<MyCircle | null> 
   const { data, error } = await supabase
     .from('circles')
     .select(
-      'id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, practices(name, duration_minutes)'
+      'id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, is_public, closed_to_joins, practices(name, duration_minutes)'
     )
     .eq('id', circleId)
     .maybeSingle<CircleRow>();
@@ -172,6 +178,56 @@ export async function leaveCircle(circleId: string): Promise<void> {
   const { error } = await supabase.rpc('leave_circle', { p_circle_id: circleId });
   if (error) {
     captureError(error, { rpc: 'leave_circle' });
+    throw error;
+  }
+}
+
+/** Host control (public circles): the creator removes a member — their
+ * completions/reflections are kept, same effect as the member leaving
+ * themselves, just host-initiated. Routed through a SECURITY DEFINER RPC
+ * that checks the caller is the circle's creator (see CLAUDE.md's
+ * no-host-handover note — only the original created_by can do this). */
+export async function removeMemberFromCircle(circleId: string, memberId: string): Promise<void> {
+  const { error } = await supabase.rpc('remove_member_from_circle', {
+    p_circle_id: circleId,
+    p_member_id: memberId,
+  });
+  if (error) {
+    captureError(error, { rpc: 'remove_member_from_circle' });
+    throw error;
+  }
+}
+
+/** Host control (public circles): stop new joins (browse discovery and
+ * invite-code joins alike) without kicking anyone already in. Uses the
+ * same creator-only RLS UPDATE policy as renameCircle/setCircleResourceUrl
+ * — no new policy needed for the write itself. */
+export async function setCircleClosedToJoins(circleId: string, closed: boolean): Promise<void> {
+  const { error } = await supabase.from('circles').update({ closed_to_joins: closed }).eq('id', circleId);
+  if (error) throw error;
+}
+
+/** Whether this member has already seen the one-time "7 days in — your
+ * voice is welcome on the wall" unlock celebration for this circle. */
+export async function hasSeenVoiceUnlockedHint(circleId: string, userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('memberships')
+    .select('has_seen_voice_unlocked_hint')
+    .eq('circle_id', circleId)
+    .eq('user_id', userId)
+    .maybeSingle<{ has_seen_voice_unlocked_hint: boolean }>();
+  if (error) throw error;
+  return data?.has_seen_voice_unlocked_hint ?? false;
+}
+
+/** Routed through a SECURITY DEFINER RPC rather than a plain client
+ * update — memberships has no general self-UPDATE RLS policy, since
+ * memberships.role includes an 'owner' value and an open policy would
+ * let a member self-promote. */
+export async function markVoiceUnlockedHintSeen(circleId: string): Promise<void> {
+  const { error } = await supabase.rpc('mark_voice_unlocked_hint_seen', { p_circle_id: circleId });
+  if (error) {
+    captureError(error, { rpc: 'mark_voice_unlocked_hint_seen' });
     throw error;
   }
 }

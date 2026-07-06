@@ -12,6 +12,8 @@ function fakeCircle(overrides: Partial<MyCircle> = {}): MyCircle {
     inviteCode: 'ABC123',
     createdBy: 'user-1',
     resourceUrl: null,
+    isPublic: false,
+    closedToJoins: false,
     ...overrides,
   };
 }

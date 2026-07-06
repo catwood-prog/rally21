@@ -126,6 +126,22 @@ export const STRINGS = {
   friendNudgeEmailBody: (waverName: string, message: string) =>
     `<p>${waverName}: "${message}"</p>`,
   alreadyNudgedError: (name: string) => `someone's already waved at ${name} today 💛`,
+
+  // Open circles — wall permissions + host controls (multi-circle spec,
+  // "Open circles" section). Members react until they've earned free-text
+  // posting (7 completions in that circle) or unless they're the creator;
+  // private circles are unchanged. Warm copy, no shaming (see CLAUDE.md).
+  openCircleReactOnlyHint: 'react now, write after 7 check-ins',
+  openCircleVoiceUnlockedTitle: '7 days in — your voice is welcome on the wall.',
+  joinDisclosure:
+    'others here will see your name, photo, and daily check-ins — your reflections stay private.',
+  hostRemoveMemberConfirm: (name: string) => `Remove ${name} from this circle?`,
+  hostRemoveMemberBody: 'They can rejoin later with the invite code — this just clears a spot for now.',
+  hostRemoveMemberCta: 'Remove',
+  hostCloseToJoinsLabel: 'closed to new joins',
+  hostCloseToJoinsHelperOpen: 'anyone with the code or browsing open circles can join',
+  hostCloseToJoinsHelperClosed: "you're not taking new members right now",
+  hostDeleteWallMessageConfirm: 'Remove this from the wall?',
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one

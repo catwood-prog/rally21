@@ -6,6 +6,7 @@ export type WallMessage = {
   userId: string;
   body: string;
   createdAt: string;
+  reactions: CheckinReaction[];
 };
 
 export type CheckinReaction = {
@@ -39,9 +40,18 @@ export type WallPreviewItem =
 export async function getWallMessages(circleId: string): Promise<WallMessage[]> {
   const { data, error } = await supabase
     .from('wall_messages')
-    .select('id, user_id, body, created_at')
+    .select('id, user_id, body, created_at, wall_message_reactions(from_user_id, emoji)')
     .eq('circle_id', circleId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: true })
+    .returns<
+      {
+        id: string;
+        user_id: string;
+        body: string;
+        created_at: string;
+        wall_message_reactions: { from_user_id: string; emoji: string }[];
+      }[]
+    >();
 
   if (error) throw error;
   return (data ?? []).map((m) => ({
@@ -49,7 +59,29 @@ export async function getWallMessages(circleId: string): Promise<WallMessage[]> 
     userId: m.user_id,
     body: m.body,
     createdAt: m.created_at,
+    reactions: (m.wall_message_reactions ?? []).map((r) => ({ emoji: r.emoji, fromUserId: r.from_user_id })),
   }));
+}
+
+/** One reaction per person per wall message — picking a different emoji
+ * replaces your previous one, mirroring setCheckinReaction. */
+export async function setWallMessageReaction(params: {
+  messageId: string;
+  fromUserId: string;
+  emoji: string;
+}): Promise<void> {
+  const { error } = await supabase.from('wall_message_reactions').upsert(
+    { message_id: params.messageId, from_user_id: params.fromUserId, emoji: params.emoji },
+    { onConflict: 'message_id,from_user_id' }
+  );
+  if (error) throw error;
+}
+
+/** Host content moderation (public circles): the circle's creator can
+ * delete any wall post — enforced by RLS, not here (see CLAUDE.md). */
+export async function deleteWallMessage(messageId: string): Promise<void> {
+  const { error } = await supabase.from('wall_messages').delete().eq('id', messageId);
+  if (error) throw error;
 }
 
 /** Whether a specific circle-mate currently accepts friend nudges —
@@ -234,6 +266,14 @@ export function subscribeToWall(circleId: string, onChange: () => void): () => v
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'checkin_reactions', filter: `circle_id=eq.${circleId}` },
+      onChange
+    )
+    .on(
+      // wall_message_reactions has no circle_id column to filter on (only
+      // message_id), so this fires for every circle's reactions — harmless,
+      // it just triggers an extra reload of this circle's own feed.
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'wall_message_reactions' },
       onChange
     )
     .subscribe((status) => {

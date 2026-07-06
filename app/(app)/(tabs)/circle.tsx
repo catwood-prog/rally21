@@ -30,8 +30,10 @@ import {
   leaveCircle,
   listMyCircles,
   MyCircle,
+  removeMemberFromCircle,
   renameCircle,
   resolveCircleSelection,
+  setCircleClosedToJoins,
   setCircleResourceUrl,
   subscribeToCirclePresence,
 } from '@/lib/circle';
@@ -73,6 +75,10 @@ export default function YourCircle() {
   const [linkDraft, setLinkDraft] = useState('');
   const [isSavingLink, setIsSavingLink] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [isManagingMembers, setIsManagingMembers] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [isRemovingMember, setIsRemovingMember] = useState(false);
+  const [isTogglingClosed, setIsTogglingClosed] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -325,6 +331,32 @@ export default function YourCircle() {
     }
   };
 
+  const handleToggleClosedToJoins = async () => {
+    setIsTogglingClosed(true);
+    try {
+      const next = !circle.closedToJoins;
+      await setCircleClosedToJoins(circle.id, next);
+      setCircle({ ...circle, closedToJoins: next });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not update — try again');
+    } finally {
+      setIsTogglingClosed(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    setIsRemovingMember(true);
+    try {
+      await removeMemberFromCircle(circle.id, memberId);
+      setMembers(members.filter((m) => m.userId !== memberId));
+      setRemovingMemberId(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not remove — try again');
+    } finally {
+      setIsRemovingMember(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Brandmark style={styles.brandmark} />
@@ -548,6 +580,83 @@ export default function YourCircle() {
             )}
           </View>
         </>
+      )}
+
+      {isCreator && circle.isPublic && (
+        <View style={styles.hostControlsCard}>
+          <Text style={styles.sectionLabel}>host controls</Text>
+
+          <TouchableOpacity
+            style={styles.hostToggleRow}
+            onPress={handleToggleClosedToJoins}
+            disabled={isTogglingClosed}
+          >
+            <View style={styles.hostToggleTextWrap}>
+              <Text style={styles.hostToggleLabel}>{STRINGS.hostCloseToJoinsLabel}</Text>
+              <Text style={styles.hostToggleHelper}>
+                {circle.closedToJoins
+                  ? STRINGS.hostCloseToJoinsHelperClosed
+                  : STRINGS.hostCloseToJoinsHelperOpen}
+              </Text>
+            </View>
+            {isTogglingClosed ? (
+              <ActivityIndicator size="small" color={colors.green} />
+            ) : (
+              <View style={[styles.toggleTrack, circle.closedToJoins && styles.toggleTrackOn]}>
+                <View style={[styles.toggleThumb, circle.closedToJoins && styles.toggleThumbOn]} />
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setIsManagingMembers(!isManagingMembers)}>
+            <Text style={styles.hostManageMembersLink}>
+              {isManagingMembers ? 'hide members' : 'manage members'}
+            </Text>
+          </TouchableOpacity>
+
+          {isManagingMembers &&
+            members
+              .filter((m) => m.userId !== session?.user?.id)
+              .map((member) => (
+                <View key={member.userId} style={styles.hostMemberRow}>
+                  <Avatar name={member.name} avatarUrl={member.avatarUrl} size={26} />
+                  <Text style={styles.hostMemberName}>{member.name ?? 'circle-mate'}</Text>
+                  {removingMemberId !== member.userId && (
+                    <TouchableOpacity onPress={() => setRemovingMemberId(member.userId)} hitSlop={6}>
+                      <Text style={styles.hostMemberRemoveLink}>remove</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+          {isManagingMembers &&
+            removingMemberId &&
+            members.some((m) => m.userId === removingMemberId) && (
+              <View style={styles.hostMemberConfirmCard}>
+                <Text style={styles.hostMemberConfirmTitle}>
+                  {STRINGS.hostRemoveMemberConfirm(
+                    members.find((m) => m.userId === removingMemberId)?.name ?? 'this member'
+                  )}
+                </Text>
+                <Text style={styles.hostMemberConfirmBody}>{STRINGS.hostRemoveMemberBody}</Text>
+                <View style={styles.hostMemberConfirmRow}>
+                  <TouchableOpacity
+                    onPress={() => setRemovingMemberId(null)}
+                    disabled={isRemovingMember}
+                  >
+                    <Text style={styles.hostMemberCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveMember(removingMemberId)}
+                    disabled={isRemovingMember}
+                  >
+                    <Text style={styles.hostDeleteConfirmText}>
+                      {isRemovingMember ? '…' : STRINGS.hostRemoveMemberCta}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+        </View>
       )}
 
       {iCoveredSomeoneToday ? (
@@ -836,6 +945,112 @@ const styles = StyleSheet.create({
     fontSize: 8.5,
     fontWeight: '700',
     color: colors.gold,
+  },
+  hostControlsCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    ...cardShadow,
+  },
+  hostToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    marginBottom: 6,
+  },
+  hostToggleTextWrap: {
+    flex: 1,
+    marginRight: 12,
+  },
+  hostToggleLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  hostToggleHelper: {
+    fontSize: 11,
+    color: colors.muted,
+    marginTop: 2,
+  },
+  toggleTrack: {
+    width: 42,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.line,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  toggleTrackOn: {
+    backgroundColor: colors.green,
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+  },
+  toggleThumbOn: {
+    alignSelf: 'flex-end',
+  },
+  hostManageMembersLink: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.green,
+    marginTop: 4,
+  },
+  hostMemberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    marginTop: 8,
+  },
+  hostMemberName: {
+    flex: 1,
+    fontSize: 12.5,
+    color: colors.ink,
+  },
+  hostMemberRemoveLink: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  hostMemberConfirmCard: {
+    backgroundColor: colors.bg,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+  },
+  hostMemberConfirmTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: colors.ink,
+    marginBottom: 4,
+  },
+  hostMemberConfirmBody: {
+    fontSize: 11.5,
+    color: colors.muted,
+    lineHeight: 16,
+    marginBottom: 10,
+  },
+  hostMemberConfirmRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 16,
+  },
+  hostMemberCancelText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  hostDeleteConfirmText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.errorRed,
   },
   coveredInfoCard: {
     backgroundColor: colors.card,

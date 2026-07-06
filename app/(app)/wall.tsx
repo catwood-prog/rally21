@@ -18,21 +18,34 @@ import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { CircleMember, getCircleMembers, MyCircle, resolveCircleSelection } from '@/lib/circle';
+import {
+  CircleMember,
+  getCircleMembers,
+  hasSeenVoiceUnlockedHint,
+  markVoiceUnlockedHintSeen,
+  MyCircle,
+  resolveCircleSelection,
+} from '@/lib/circle';
 import {
   CheckinFeedEntry,
+  deleteWallMessage,
   getCheckinFeed,
   getWallMessages,
   postWallMessage,
   setCheckinReaction,
+  setWallMessageReaction,
   subscribeToWall,
   WallMessage,
 } from '@/lib/wall';
 
 const QUICK_REACTIONS = ['🎉', '👏', '💛', '🔥'];
+// Open circles restrict reactions (and free-text posting) to this curated
+// set — see the "Open circles" section of the multi-circle spec.
+const OPEN_CIRCLE_REACTIONS = ['💛', '👏', '🔥', '👋'];
+const VOICE_UNLOCK_COMPLETIONS = 7;
 
 type FeedItem =
-  | { kind: 'message'; id: string; userId: string; body: string; createdAt: string }
+  | { kind: 'message'; id: string; userId: string; body: string; createdAt: string; reactions: CheckinFeedEntry['reactions'] }
   | {
       kind: 'checkin';
       key: string;
@@ -59,6 +72,11 @@ export default function CircleWall() {
   // Non-null only when there's no circleId param AND the user is in more
   // than one circle, so we can't tell which wall they meant.
   const [pickerCircles, setPickerCircles] = useState<MyCircle[] | null>(null);
+  // Defaults to true so the celebration banner never flashes before the
+  // real value loads — it only ever matters once it resolves to false.
+  const [hasSeenUnlockHint, setHasSeenUnlockHint] = useState(true);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadFeed = useCallback(async (circleId: string) => {
     const [wallMessages, checkinFeed] = await Promise.all([
@@ -84,7 +102,13 @@ export default function CircleWall() {
       const myCircle = selection.circle;
       setCircle(myCircle);
       if (myCircle) {
-        await Promise.all([getCircleMembers(myCircle.id).then(setMembers), loadFeed(myCircle.id)]);
+        await Promise.all([
+          getCircleMembers(myCircle.id).then(setMembers),
+          loadFeed(myCircle.id),
+          myCircle.isPublic && myCircle.createdBy !== session.user.id
+            ? hasSeenVoiceUnlockedHint(myCircle.id, session.user.id).then(setHasSeenUnlockHint)
+            : Promise.resolve(setHasSeenUnlockHint(true)),
+        ]);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your circle');
@@ -104,6 +128,18 @@ export default function CircleWall() {
     const unsubscribe = subscribeToWall(circle.id, () => loadFeed(circle.id));
     return unsubscribe;
   }, [circle?.id, loadFeed]);
+
+  const isCreator = circle?.createdBy === session?.user?.id;
+  const myCompletionCount = checkins.filter((c) => c.userId === session?.user?.id).length;
+  const isVoiceUnlocked = !circle?.isPublic || isCreator || myCompletionCount >= VOICE_UNLOCK_COMPLETIONS;
+  const showUnlockCelebration = !!circle?.isPublic && !isCreator && isVoiceUnlocked && !hasSeenUnlockHint;
+  const reactionSet = circle?.isPublic ? OPEN_CIRCLE_REACTIONS : QUICK_REACTIONS;
+
+  useEffect(() => {
+    if (!circle || !showUnlockCelebration) return;
+    setHasSeenUnlockHint(true);
+    markVoiceUnlockedHintSeen(circle.id).catch(() => {});
+  }, [showUnlockCelebration, circle?.id]);
 
   const memberName = (userId: string) => {
     if (userId === session?.user.id) return 'You';
@@ -139,6 +175,30 @@ export default function CircleWall() {
       await loadFeed(circle.id);
     } catch {
       // reactions are low-stakes — fail silently rather than interrupt
+    }
+  };
+
+  const handleReactToMessage = async (messageId: string, emoji: string) => {
+    if (!circle || !session?.user) return;
+    try {
+      await setWallMessageReaction({ messageId, fromUserId: session.user.id, emoji });
+      await loadFeed(circle.id);
+    } catch {
+      // reactions are low-stakes — fail silently rather than interrupt
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!circle) return;
+    setIsDeleting(true);
+    try {
+      await deleteWallMessage(messageId);
+      setConfirmingDeleteId(null);
+      await loadFeed(circle.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not remove that — try again');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -182,6 +242,7 @@ export default function CircleWall() {
       userId: m.userId,
       body: m.body,
       createdAt: m.createdAt,
+      reactions: m.reactions,
     })),
     ...checkins.map(
       (c): FeedItem => ({
@@ -217,6 +278,12 @@ export default function CircleWall() {
         </Text>
       </View>
 
+      {showUnlockCelebration && (
+        <View style={styles.unlockBanner}>
+          <Text style={styles.unlockBannerText}>{STRINGS.openCircleVoiceUnlockedTitle}</Text>
+        </View>
+      )}
+
       <ScrollView style={styles.feed} contentContainerStyle={styles.feedContent}>
         {feed.length === 0 && (
           <Text style={styles.emptyState}>nothing here yet — say hi to your circle</Text>
@@ -225,6 +292,12 @@ export default function CircleWall() {
         {feed.map((item) => {
           if (item.kind === 'message') {
             const isMe = item.userId === session?.user.id;
+            const messageReactionCounts = item.reactions.reduce<Record<string, number>>((acc, r) => {
+              acc[r.emoji] = (acc[r.emoji] ?? 0) + 1;
+              return acc;
+            }, {});
+            const myMessageReaction = item.reactions.find((r) => r.fromUserId === session?.user.id)?.emoji;
+            const isConfirmingThisDelete = confirmingDeleteId === item.id;
             return (
               <View
                 key={item.id}
@@ -238,6 +311,37 @@ export default function CircleWall() {
                 )}
                 <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
                   <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>{item.body}</Text>
+                </View>
+                <View style={[styles.reactionRow, isMe && styles.reactionRowMe]}>
+                  {reactionSet.map((emoji) => (
+                    <TouchableOpacity
+                      key={emoji}
+                      style={[styles.reactionChip, myMessageReaction === emoji && styles.reactionChipMine]}
+                      onPress={() => handleReactToMessage(item.id, emoji)}
+                    >
+                      <Text style={styles.reactionEmoji}>{emoji}</Text>
+                      {!!messageReactionCounts[emoji] && (
+                        <Text style={styles.reactionCount}>{messageReactionCounts[emoji]}</Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                  {isCreator &&
+                    (isConfirmingThisDelete ? (
+                      <>
+                        <TouchableOpacity onPress={() => handleDeleteMessage(item.id)} disabled={isDeleting}>
+                          <Text style={styles.hostDeleteConfirmText}>
+                            {isDeleting ? '…' : STRINGS.hostRemoveMemberCta}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setConfirmingDeleteId(null)} disabled={isDeleting}>
+                          <Text style={styles.hostDeleteCancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <TouchableOpacity onPress={() => setConfirmingDeleteId(item.id)} hitSlop={6}>
+                        <Text style={styles.hostDeleteLink}>remove</Text>
+                      </TouchableOpacity>
+                    ))}
                 </View>
               </View>
             );
@@ -264,7 +368,7 @@ export default function CircleWall() {
                 </Text>
               </View>
               <View style={styles.reactionRow}>
-                {QUICK_REACTIONS.map((emoji) => (
+                {reactionSet.map((emoji) => (
                   <TouchableOpacity
                     key={emoji}
                     style={[styles.reactionChip, myReaction === emoji && styles.reactionChipMine]}
@@ -282,27 +386,33 @@ export default function CircleWall() {
         })}
       </ScrollView>
 
-      <View style={styles.inputBar}>
-        <TextInput
-          style={styles.input}
-          placeholder="Message your circle…"
-          placeholderTextColor={colors.muted}
-          value={draft}
-          onChangeText={setDraft}
-          multiline
-        />
-        <TouchableOpacity
-          style={[styles.sendButton, !draft.trim() && styles.sendButtonDisabled]}
-          onPress={handleSend}
-          disabled={!draft.trim() || isSending}
-        >
-          {isSending ? (
-            <ActivityIndicator size="small" color={colors.ink} />
-          ) : (
-            <Text style={styles.sendIcon}>➤</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      {!isVoiceUnlocked && (
+        <Text style={styles.reactOnlyHint}>{STRINGS.openCircleReactOnlyHint}</Text>
+      )}
+
+      {isVoiceUnlocked && (
+        <View style={styles.inputBar}>
+          <TextInput
+            style={styles.input}
+            placeholder="Message your circle…"
+            placeholderTextColor={colors.muted}
+            value={draft}
+            onChangeText={setDraft}
+            multiline
+          />
+          <TouchableOpacity
+            style={[styles.sendButton, !draft.trim() && styles.sendButtonDisabled]}
+            onPress={handleSend}
+            disabled={!draft.trim() || isSending}
+          >
+            {isSending ? (
+              <ActivityIndicator size="small" color={colors.ink} />
+            ) : (
+              <Text style={styles.sendIcon}>➤</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -372,6 +482,27 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.muted,
     marginTop: 2,
+  },
+  unlockBanner: {
+    backgroundColor: 'rgba(244, 200, 75, 0.15)',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  unlockBannerText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: colors.ink,
+    textAlign: 'center',
+  },
+  reactOnlyHint: {
+    textAlign: 'center',
+    fontSize: 11.5,
+    color: colors.muted,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
   },
   feed: {
     flex: 1,
@@ -445,7 +576,12 @@ const styles = StyleSheet.create({
   },
   reactionRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
+    marginTop: 4,
+  },
+  reactionRowMe: {
+    justifyContent: 'flex-end',
   },
   reactionChip: {
     flexDirection: 'row',
@@ -469,6 +605,21 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: colors.ink,
+  },
+  hostDeleteLink: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  hostDeleteConfirmText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.errorRed,
+  },
+  hostDeleteCancelText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.muted,
   },
   inputBar: {
     flexDirection: 'row',

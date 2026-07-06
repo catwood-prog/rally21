@@ -13,6 +13,7 @@ import {
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { joinCircleByCode, joinPublicCircle, listPublicCircles, PublicCircle } from '@/lib/circle-setup';
 
@@ -96,6 +97,7 @@ export default function JoinCircle() {
       </TouchableOpacity>
 
       <Text style={styles.sectionLabel}>or browse open circles</Text>
+      <Text style={styles.disclosureText}>{STRINGS.joinDisclosure}</Text>
 
       {isLoadingPublic ? (
         <ActivityIndicator color={colors.green} />
@@ -206,6 +208,13 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 13,
     color: colors.muted,
+  },
+  disclosureText: {
+    fontSize: 11.5,
+    color: colors.muted,
+    lineHeight: 16,
+    marginBottom: 16,
+    marginTop: -6,
   },
   publicCard: {
     flexDirection: 'row',
