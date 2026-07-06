@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import { supabase } from './supabase';
 
 export type Profile = {
@@ -61,9 +63,55 @@ export async function markReentryAcknowledged(userId: string, lastCompletionDate
   if (error) throw error;
 }
 
+const AVATAR_MAX_DIMENSION = 512;
+
+/** Re-encodes any browser-decodable image blob into a square JPEG capped
+ * at AVATAR_MAX_DIMENSION px, center-cropped to a square first. This is
+ * what actually fixes HEIC photos (iPhone's default camera format):
+ * Safari can decode a HEIC blob into a canvas today, but no browser can
+ * ever *display* a stored .heic file directly — the uploader would see
+ * their own photo fine (their browser decodes it) while every other
+ * circle member saw a broken image, since re-uploading doesn't change
+ * what format is sitting in storage. Re-encoding once at upload time
+ * fixes it for every future viewer, not just the uploader.
+ *
+ * Web only — this app has no native build target yet; native
+ * re-encoding would use expo-image-manipulator instead (a go-native
+ * task, see DEFERRED.md). Falls back to the original blob on any
+ * failure (e.g. a browser that can't decode the source format either)
+ * rather than blocking the upload — callers already treat a failed
+ * avatar save as non-fatal. */
+async function reencodeAsJpeg(blob: Blob): Promise<Blob> {
+  if (Platform.OS !== 'web') return blob;
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const cropSize = Math.min(bitmap.width, bitmap.height);
+    const sx = (bitmap.width - cropSize) / 2;
+    const sy = (bitmap.height - cropSize) / 2;
+    const outputSize = Math.min(cropSize, AVATAR_MAX_DIMENSION);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = outputSize;
+    canvas.height = outputSize;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return blob;
+    ctx.drawImage(bitmap, sx, sy, cropSize, cropSize, 0, 0, outputSize, outputSize);
+
+    const jpeg = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+    return jpeg ?? blob;
+  } catch {
+    return blob;
+  }
+}
+
 async function uploadAvatar(userId: string, imageUri: string): Promise<string> {
   const response = await fetch(imageUri);
-  const blob = await response.blob();
+  const rawBlob = await response.blob();
+  const blob = await reencodeAsJpeg(rawBlob);
+  // Always the same path/extension now (re-encode always produces a JPEG,
+  // or falls back to whatever the source was) — upsert overwrites the
+  // same object on every re-upload instead of scattering avatar.heic,
+  // avatar.png, etc. next to each other in storage.
   const fileExt = blob.type.split('/')[1] ?? 'jpg';
   const path = `${userId}/avatar.${fileExt}`;
 
