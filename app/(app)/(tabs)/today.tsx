@@ -16,6 +16,7 @@ import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { MAX_CIRCLES } from '@/lib/caps';
 import { unlockAudioContext } from '@/lib/chime';
 import {
   CircleMember,
@@ -29,7 +30,6 @@ import { daysBetween, getLocalDateString } from '@/lib/date';
 import { getMyProfile } from '@/lib/profile';
 import { computeSignal, PresenceRow } from '@/lib/signal';
 
-const MAX_CIRCLES = 3;
 const CIRCLE_COUNT_WORD: Record<number, string> = { 1: 'one', 2: 'two', 3: 'three' };
 
 function greeting(name: string | null) {

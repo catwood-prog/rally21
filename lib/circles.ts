@@ -1,3 +1,4 @@
+import { CIRCLE_MEMBER_CAP } from './caps';
 import { supabase } from './supabase';
 
 export type PracticeCategory = 'move' | 'mind' | 'make' | 'learn';
@@ -132,10 +133,6 @@ export async function joinCircleByCode(code: string): Promise<string> {
   if (error) throw error;
   return data as string;
 }
-
-// Mirrors the cap enforced server-side in join_circle_by_code and
-// join_public_circle — used here only to derive "spots left" for display.
-export const CIRCLE_MEMBER_CAP = 12;
 
 export type PublicCircle = {
   circleId: string;
