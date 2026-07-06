@@ -40,6 +40,10 @@ function greeting(name: string | null) {
   return `Good ${timeOfDay}${name ? `, ${name}` : ''}`;
 }
 
+function memberFullName(members: CircleMember[], userId: string | null | undefined): string {
+  return members.find((m) => m.userId === userId)?.name ?? 'someone in your circle';
+}
+
 type CircleData = { members: CircleMember[]; presence: PresenceRow[] };
 
 export default function Today() {
@@ -220,6 +224,9 @@ export default function Today() {
       presence.filter((p) => p.localDate === today).map((p) => p.userId)
     );
     const iAmCheckedInToday = !!session?.user && inTodayUserIds.has(session.user.id);
+    const iWasCoveredToday = presence.find(
+      (p) => p.localDate === today && p.userId === session?.user?.id && p.kind === 'covered'
+    );
     const inCount = inTodayUserIds.size;
     const isSolo = isSoloCircle(members.length);
     const signal = computeSignal({
@@ -293,16 +300,15 @@ export default function Today() {
           {members.map((member) => {
             const isMe = member.userId === session?.user.id;
             const checkedIn = inTodayUserIds.has(member.userId);
+            const isCovered = presence.some(
+              (p) => p.localDate === today && p.userId === member.userId && p.kind === 'covered'
+            );
+            const state = isCovered ? 'covered' : checkedIn ? 'done' : 'pending';
             return (
               <View key={member.userId} style={styles.memberItem}>
                 <View style={styles.avatarWrap}>
-                  <Avatar
-                    name={member.name}
-                    avatarUrl={member.avatarUrl}
-                    size={42}
-                    ring={checkedIn ? 'done' : 'pending'}
-                  />
-                  <CheckedInBadge visible={checkedIn} />
+                  <Avatar name={member.name} avatarUrl={member.avatarUrl} size={42} ring={state} />
+                  <CheckedInBadge state={state} />
                 </View>
                 <Text style={styles.memberName} numberOfLines={1}>
                   {isMe ? 'You' : member.name ?? 'circle-mate'}
@@ -312,7 +318,13 @@ export default function Today() {
           })}
         </View>
 
-        {!iAmCheckedInToday && circle.practiceDurationMinutes && !circle.resourceUrl ? (
+        {iWasCoveredToday ? (
+          <View style={styles.coveredNoteCard}>
+            <Text style={styles.coveredNoteText}>
+              {STRINGS.coveredNoteToCoveredMember(memberFullName(members, iWasCoveredToday.coveredBy))}
+            </Text>
+          </View>
+        ) : !iAmCheckedInToday && circle.practiceDurationMinutes && !circle.resourceUrl ? (
           <View style={styles.timerChoiceRow}>
             <TouchableOpacity
               style={styles.markDoneButton}
@@ -388,6 +400,9 @@ export default function Today() {
           presence.filter((p) => p.localDate === today).map((p) => p.userId)
         );
         const iAmCheckedInToday = !!session?.user && inTodayUserIds.has(session.user.id);
+        const iWasCoveredToday = presence.find(
+          (p) => p.localDate === today && p.userId === session?.user?.id && p.kind === 'covered'
+        );
         const inCount = inTodayUserIds.size;
         const isSolo = isSoloCircle(members.length);
         const signal = computeSignal({
@@ -425,16 +440,15 @@ export default function Today() {
               {members.map((member) => {
                 const isMe = member.userId === session?.user.id;
                 const checkedIn = inTodayUserIds.has(member.userId);
+                const isCovered = presence.some(
+                  (p) => p.localDate === today && p.userId === member.userId && p.kind === 'covered'
+                );
+                const state = isCovered ? 'covered' : checkedIn ? 'done' : 'pending';
                 return (
                   <View key={member.userId} style={styles.memberItem}>
                     <View style={styles.avatarWrap}>
-                      <Avatar
-                        name={member.name}
-                        avatarUrl={member.avatarUrl}
-                        size={38}
-                        ring={checkedIn ? 'done' : 'pending'}
-                      />
-                      <CheckedInBadge visible={checkedIn} />
+                      <Avatar name={member.name} avatarUrl={member.avatarUrl} size={38} ring={state} />
+                      <CheckedInBadge state={state} />
                     </View>
                     <Text style={styles.memberName} numberOfLines={1}>
                       {isMe ? 'You' : member.name ?? 'circle-mate'}
@@ -444,7 +458,13 @@ export default function Today() {
               })}
             </View>
 
-            {!iAmCheckedInToday && circle.practiceDurationMinutes && !circle.resourceUrl ? (
+            {iWasCoveredToday ? (
+              <View style={styles.coveredNoteCard}>
+                <Text style={styles.coveredNoteText}>
+                  {STRINGS.coveredNoteToCoveredMember(memberFullName(members, iWasCoveredToday.coveredBy))}
+                </Text>
+              </View>
+            ) : !iAmCheckedInToday && circle.practiceDurationMinutes && !circle.resourceUrl ? (
               <View style={styles.timerChoiceRow}>
                 <TouchableOpacity
                   style={styles.markDoneButton}
@@ -603,6 +623,20 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     alignItems: 'center',
+  },
+  coveredNoteCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+    padding: 14,
+    ...cardShadow,
+  },
+  coveredNoteText: {
+    fontSize: 12.5,
+    color: colors.ink,
+    lineHeight: 18,
+    textAlign: 'center',
   },
   ctaText: {
     fontWeight: '700',

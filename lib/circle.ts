@@ -189,25 +189,42 @@ export async function getCircleMembers(circleId: string): Promise<CircleMember[]
   }));
 }
 
+export type PresenceKind = 'self' | 'covered';
+
 /** Every (user_id, local_date) a circle has completed — used both for
  * "who's in today" and the trailing-7-day glow math. Reads directly from
  * completions, which is content-free by design (no mood/line/answer), so
  * it's safe to expose to every circle member unlike the owner-only
- * reflections table. */
+ * reflections table.
+ *
+ * Includes covered days (kind='covered') — a covered day counts toward
+ * the circle's glow the same as a self check-in (see CLAUDE.md's
+ * cover-a-friend rule). `kind`/`coveredBy` let the UI render a distinct
+ * "covered 💛" state instead of a plain checkmark; computeSignal itself
+ * ignores them entirely, since the glow math only cares who showed up. */
 export async function getCirclePresence(
   circleId: string
-): Promise<{ userId: string; localDate: string }[]> {
+): Promise<{ userId: string; localDate: string; kind: PresenceKind; coveredBy: string | null }[]> {
   const { data, error } = await supabase
     .from('completions')
-    .select('user_id, local_date')
+    .select('user_id, local_date, kind, covered_by')
     .eq('circle_id', circleId);
 
   if (error) throw error;
-  return (data ?? []).map((row) => ({ userId: row.user_id, localDate: row.local_date }));
+  return (data ?? []).map((row) => ({
+    userId: row.user_id,
+    localDate: row.local_date,
+    kind: row.kind as PresenceKind,
+    coveredBy: row.covered_by,
+  }));
 }
 
-/** The signed-in user's own completions across a set of circles — powers
- * the weekly look-back's per-circle show-up rows. */
+/** The signed-in user's own SELF completions across a set of circles —
+ * powers the weekly look-back's per-circle show-up rows. Deliberately
+ * excludes covered days: being covered keeps the circle's glow warm, but
+ * never inflates the covered member's own personal show-up count (see
+ * CLAUDE.md's cover-a-friend rule) — that stays honest to what they
+ * actually did themselves. */
 export async function getMyCompletions(
   userId: string,
   circleIds: string[]
@@ -218,10 +235,32 @@ export async function getMyCompletions(
     .from('completions')
     .select('circle_id, local_date')
     .eq('user_id', userId)
+    .eq('kind', 'self')
     .in('circle_id', circleIds);
 
   if (error) throw error;
   return (data ?? []).map((row) => ({ circleId: row.circle_id, localDate: row.local_date }));
+}
+
+/** Covers another member's day for a circle — a gift, never a debt (see
+ * CLAUDE.md). All the rules (can't cover yourself, must be a member,
+ * covered person must be a member, covered person hasn't already
+ * completed today) are enforced by RLS itself, not here — this is a
+ * plain insert that either succeeds or throws the policy's rejection. */
+export async function coverMember(
+  circleId: string,
+  coveredUserId: string,
+  covererId: string,
+  localDate: string
+): Promise<void> {
+  const { error } = await supabase.from('completions').insert({
+    circle_id: circleId,
+    user_id: coveredUserId,
+    local_date: localDate,
+    kind: 'covered',
+    covered_by: covererId,
+  });
+  if (error) throw error;
 }
 
 let presenceChannelSeq = 0;

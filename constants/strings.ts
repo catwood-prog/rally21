@@ -71,4 +71,29 @@ export const STRINGS = {
   myPracticesSubtitle: 'your practice library — reuse them in new circles. Shared ones can be picked by others.',
   practicePillShared: 'shared',
   practicePillOnlyYou: 'only you',
+
+  // Cover a friend — covering is a celebrated gift, never a debt. No
+  // copy anywhere should read as a score, an "owed", or guilt (see
+  // CLAUDE.md's cover-a-friend rule).
+  coverAffordance: '💛 cover',
+  coverHeadline: (name: string) => `${name}'s been quiet`,
+  coverSubtitle: "cover today — it's a gift, not a debt 💛",
+  coverNotePreview: (covererName: string) =>
+    `They'll get a warm note: "${covererName} covered you today. No pressure, we've got you."`,
+  coverActionLabel: '💛 Cover & send love',
+  waveActionLabel: '👋 Just a wave hello',
+  coverCta: (name: string) => `Cover ${name} today`,
+  waveCta: (name: string) => `Wave hello to ${name}`,
+
+  coveredNoteToCoveredMember: (covererName: string) =>
+    `${covererName} covered you today. No pressure, we've got you.`,
+  wallCoveredEntry: (covererName: string, coveredName: string) =>
+    `${covererName} covered ${coveredName} today 💛`,
+  wallWaveEntry: (waverName: string, targetName: string) => `${waverName} waved at ${targetName} 👋`,
+
+  presenceCoveredLabel: 'covered 💛',
+  circleYouCoveredCard: (name: string) => `You covered ${name} today 💛`,
+  circleYouCoveredCardBody: "The signal stays warm for everyone. That's the whole point.",
+  circleCoveredYouCard: (covererName: string) => `${covererName} covered you today 💛`,
+  circleCoveredYouCardBody: "No pressure, we've got you.",
 } as const;

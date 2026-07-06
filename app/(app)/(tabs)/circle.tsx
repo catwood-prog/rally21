@@ -185,15 +185,14 @@ export default function YourCircle() {
               <View style={[styles.avatarRow, styles.listCardAvatarRow]}>
                 {shown.map((member) => {
                   const checkedIn = inTodayIds.has(member.userId);
+                  const isCovered = data.presence.some(
+                    (p) => p.localDate === today && p.userId === member.userId && p.kind === 'covered'
+                  );
+                  const state = isCovered ? 'covered' : checkedIn ? 'done' : 'pending';
                   return (
                     <View key={member.userId} style={styles.avatarRowItem}>
-                      <Avatar
-                        name={member.name}
-                        avatarUrl={member.avatarUrl}
-                        size={34}
-                        ring={checkedIn ? 'done' : 'pending'}
-                      />
-                      <CheckedInBadge visible={checkedIn} />
+                      <Avatar name={member.name} avatarUrl={member.avatarUrl} size={34} ring={state} />
+                      <CheckedInBadge state={state} />
                     </View>
                   );
                 })}
@@ -234,6 +233,16 @@ export default function YourCircle() {
     if (userId === session?.user.id) return 'You';
     return members.find((m) => m.userId === userId)?.name ?? 'circle-mate';
   };
+  const myName = members.find((m) => m.userId === session?.user?.id)?.name ?? 'someone in your circle';
+
+  // At most one of these shows at a time — a quiet, celebratory note,
+  // never a score (see CLAUDE.md's cover-a-friend rule).
+  const iWasCoveredToday = presence.find(
+    (p) => p.localDate === today && p.userId === session?.user?.id && p.kind === 'covered'
+  );
+  const iCoveredSomeoneToday = presence.find(
+    (p) => p.localDate === today && p.kind === 'covered' && p.coveredBy === session?.user?.id
+  );
 
   const shownMembers = members.slice(0, MAX_AVATARS_SHOWN);
   const overflowCount = members.length - shownMembers.length;
@@ -500,15 +509,35 @@ export default function YourCircle() {
           <View style={styles.avatarRow}>
             {shownMembers.map((member) => {
               const checkedIn = inTodayUserIds.has(member.userId);
+              const isCovered = presence.some(
+                (p) => p.localDate === today && p.userId === member.userId && p.kind === 'covered'
+              );
+              const state = isCovered ? 'covered' : checkedIn ? 'done' : 'pending';
+              const isMe = member.userId === session?.user?.id;
               return (
                 <View key={member.userId} style={styles.avatarRowItem}>
-                  <Avatar
-                    name={member.name}
-                    avatarUrl={member.avatarUrl}
-                    size={40}
-                    ring={checkedIn ? 'done' : 'pending'}
-                  />
-                  <CheckedInBadge visible={checkedIn} />
+                  <Avatar name={member.name} avatarUrl={member.avatarUrl} size={40} ring={state} />
+                  <CheckedInBadge state={state} />
+                  {!checkedIn && !isMe && (
+                    <TouchableOpacity
+                      style={styles.coverAffordance}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/cover',
+                          params: {
+                            circleId: circle.id,
+                            memberId: member.userId,
+                            memberName: member.name ?? 'your circle-mate',
+                            memberAvatarUrl: member.avatarUrl ?? '',
+                            myName,
+                          },
+                        })
+                      }
+                      hitSlop={6}
+                    >
+                      <Text style={styles.coverAffordanceText}>{STRINGS.coverAffordance}</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               );
             })}
@@ -520,6 +549,22 @@ export default function YourCircle() {
           </View>
         </>
       )}
+
+      {iCoveredSomeoneToday ? (
+        <View style={styles.coveredInfoCard}>
+          <Text style={styles.coveredInfoTitle}>
+            {STRINGS.circleYouCoveredCard(memberName(iCoveredSomeoneToday.userId))}
+          </Text>
+          <Text style={styles.coveredInfoBody}>{STRINGS.circleYouCoveredCardBody}</Text>
+        </View>
+      ) : iWasCoveredToday ? (
+        <View style={styles.coveredInfoCard}>
+          <Text style={styles.coveredInfoTitle}>
+            {STRINGS.circleCoveredYouCard(memberName(iWasCoveredToday.coveredBy ?? ''))}
+          </Text>
+          <Text style={styles.coveredInfoBody}>{STRINGS.circleCoveredYouCardBody}</Text>
+        </View>
+      ) : null}
 
       {isConfirmingLeave ? (
         <View style={styles.leaveConfirmCard}>
@@ -779,6 +824,36 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     position: 'relative',
+  },
+  coverAffordance: {
+    position: 'absolute',
+    top: 44,
+    left: -10,
+    right: -10,
+    alignItems: 'center',
+  },
+  coverAffordanceText: {
+    fontSize: 8.5,
+    fontWeight: '700',
+    color: colors.gold,
+  },
+  coveredInfoCard: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 13,
+    marginBottom: 24,
+    ...cardShadow,
+  },
+  coveredInfoTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.ink,
+    marginBottom: 4,
+  },
+  coveredInfoBody: {
+    fontSize: 11,
+    color: colors.muted,
+    lineHeight: 15,
   },
   avatarOverflow: {
     width: 40,

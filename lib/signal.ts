@@ -2,7 +2,16 @@ import { daysBetween, getLocalDateString } from './date';
 
 export type SignalState = 'glowing' | 'warm' | 'resting';
 
-export type PresenceRow = { userId: string; localDate: string };
+// kind/coveredBy are optional here since computeSignal itself never
+// reads them (the glow math only cares who showed up, self or covered) —
+// they're only present so screens rendering presence can tell a covered
+// day apart from a plain checkmark without a separate type.
+export type PresenceRow = {
+  userId: string;
+  localDate: string;
+  kind?: 'self' | 'covered';
+  coveredBy?: string | null;
+};
 
 /** `days` local date strings ending at `today`, oldest first. */
 export function getTrailingLocalDates(today: string, days: number): string[] {

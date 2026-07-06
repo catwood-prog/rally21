@@ -7,13 +7,22 @@ type AvatarProps = {
   avatarUrl?: string | null;
   size?: number;
   /** Mirrors the "checked in today" ring used on Today/Circle member rows;
-   * has no meaning outside that context. */
-  ring?: 'done' | 'pending' | 'none';
+   * has no meaning outside that context. 'covered' is a member whose day
+   * was covered by someone else (see CLAUDE.md's cover-a-friend rule) —
+   * visually distinct from 'done', never just reused as a quiet done. */
+  ring?: 'done' | 'covered' | 'pending' | 'none';
 };
 
 export function Avatar({ name, avatarUrl, size = 40, ring = 'none' }: AvatarProps) {
   const dimension = { width: size, height: size, borderRadius: size / 2 };
-  const ringStyle = ring === 'done' ? styles.ringDone : ring === 'pending' ? styles.ringPending : styles.ringNone;
+  const ringStyle =
+    ring === 'done'
+      ? styles.ringDone
+      : ring === 'covered'
+        ? styles.ringCovered
+        : ring === 'pending'
+          ? styles.ringPending
+          : styles.ringNone;
 
   return (
     <View style={[styles.base, dimension, ringStyle]}>
@@ -36,6 +45,11 @@ const styles = StyleSheet.create({
   },
   ringDone: {
     backgroundColor: '#ddd',
+  },
+  ringCovered: {
+    backgroundColor: 'rgba(244, 200, 75, 0.25)',
+    borderWidth: 2,
+    borderColor: colors.gold,
   },
   ringPending: {
     backgroundColor: colors.card,

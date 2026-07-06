@@ -17,6 +17,11 @@ export type CheckinFeedEntry = {
   localDate: string;
   createdAt: string;
   reactions: CheckinReaction[];
+  kind: 'self' | 'covered';
+  /** Only set when kind is 'covered' — who gave the gift, so the wall
+   * can render "{coveredBy} covered {userId} today 💛" instead of the
+   * plain "{userId} checked in" (see CLAUDE.md's cover-a-friend rule). */
+  coveredBy: string | null;
 };
 
 export type WallPreviewItem =
@@ -67,7 +72,7 @@ export async function getCheckinFeed(circleId: string): Promise<CheckinFeedEntry
     await Promise.all([
       supabase
         .from('completions')
-        .select('user_id, local_date, created_at')
+        .select('user_id, local_date, created_at, kind, covered_by')
         .eq('circle_id', circleId),
       supabase
         .from('checkin_reactions')
@@ -82,6 +87,8 @@ export async function getCheckinFeed(circleId: string): Promise<CheckinFeedEntry
     userId: p.user_id,
     localDate: p.local_date,
     createdAt: p.created_at,
+    kind: p.kind as 'self' | 'covered',
+    coveredBy: p.covered_by,
     reactions: (reactions ?? [])
       .filter((r) => r.target_user_id === p.user_id && r.target_local_date === p.local_date)
       .map((r) => ({ emoji: r.emoji, fromUserId: r.from_user_id })),

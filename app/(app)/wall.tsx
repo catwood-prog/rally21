@@ -40,6 +40,8 @@ type FeedItem =
       localDate: string;
       createdAt: string;
       reactions: CheckinFeedEntry['reactions'];
+      completionKind: CheckinFeedEntry['kind'];
+      coveredBy: CheckinFeedEntry['coveredBy'];
     };
 
 export default function CircleWall() {
@@ -189,6 +191,8 @@ export default function CircleWall() {
         localDate: c.localDate,
         createdAt: c.createdAt,
         reactions: c.reactions,
+        completionKind: c.kind,
+        coveredBy: c.coveredBy,
       })
     ),
   ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -250,7 +254,13 @@ export default function CircleWall() {
               <View style={styles.checkinHeader}>
                 <Avatar name={memberName(item.userId)} avatarUrl={memberAvatar(item.userId)} size={22} />
                 <Text style={styles.checkinText}>
-                  <Text style={styles.checkinName}>{memberName(item.userId)}</Text> checked in
+                  {item.completionKind === 'covered' ? (
+                    STRINGS.wallCoveredEntry(memberName(item.coveredBy ?? ''), memberName(item.userId))
+                  ) : (
+                    <>
+                      <Text style={styles.checkinName}>{memberName(item.userId)}</Text> checked in
+                    </>
+                  )}
                 </Text>
               </View>
               <View style={styles.reactionRow}>

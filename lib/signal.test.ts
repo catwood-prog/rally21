@@ -125,4 +125,25 @@ describe('computeSignal', () => {
     expect(signal.rate).toBeCloseTo(0.2);
     expect(signal.state).toBe('warm');
   });
+
+  test('a covered day counts toward circle glow the same as a self check-in', () => {
+    // Cover-a-friend rule: the circle stays warm together, so a covered
+    // completion must weigh the same as a self one here — only the
+    // covered member's own personal weekly count (getMyCompletions,
+    // filtered to kind='self') excludes it, not the circle-level signal.
+    const today = '2026-07-05';
+    const signal = computeSignal({
+      presence: [
+        { userId: 'u1', localDate: today },
+        { userId: 'u2', localDate: today, kind: 'covered', coveredBy: 'u1' },
+      ],
+      memberCount: 2,
+      today,
+      circleStartDate: today,
+    });
+
+    expect(signal.dailyRates).toEqual([1]);
+    expect(signal.rate).toBeCloseTo(1);
+    expect(signal.state).toBe('glowing');
+  });
 });
