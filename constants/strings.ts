@@ -8,6 +8,17 @@ export const STRINGS = {
   checkinSuccessCta: 'Nice',
 
   groupHeaderStatus: (n: number, x: number, y: number) => `Day ${n} of 21 · ${x} of ${y} checked in`,
+  cardLinkStatus: (x: number, y: number) => `${x} of ${y} in today`,
+  groupAllInCelebration: (count: number, circleName: string) => `that's all ${count} of ${circleName} in today 🔥`,
+
+  wallHeaderTitle: (circleName: string) => `the ${circleName} wall`,
+
+  reentryKeptLightOn: (circleName: string) => `${circleName} kept the light on for you`,
+
+  inviteShareMessage: (circleName: string | null, inviteCode: string) =>
+    circleName
+      ? `Join ${circleName} on Rally21! Sign in at https://rally21.vercel.app and enter code ${inviteCode} to hop in.`
+      : `Join my Rally21 circle! Sign in at https://rally21.vercel.app and enter code ${inviteCode} to hop in.`,
 
   emptyGroupTitle: 'Penguins huddle better together',
   emptyGroupBody: 'Invite a friend to start your rally.',

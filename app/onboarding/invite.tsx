@@ -14,6 +14,7 @@ import {
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { getCircleById, listMyCircles, MyCircle } from '@/lib/circle';
 import { useAuth } from '@/lib/auth-context';
@@ -75,9 +76,7 @@ export default function Invite() {
     router.setParams({ circleId: circle.id });
   };
 
-  const shareMessage = circleName
-    ? `Join my "${circleName}" circle on Rally21! Sign in at https://rally21.vercel.app and enter code ${inviteCode} to hop in.`
-    : `Join my Rally21 circle! Sign in at https://rally21.vercel.app and enter code ${inviteCode} to hop in.`;
+  const shareMessage = STRINGS.inviteShareMessage(circleName, inviteCode ?? '');
 
   const handleShare = async () => {
     if (!inviteCode) return;

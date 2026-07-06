@@ -368,7 +368,9 @@ export default function YourCircle() {
         </View>
       )}
       <Text style={styles.headerStatus}>
-        {STRINGS.groupHeaderStatus(signal.dayNumber, inTodayUserIds.size, members.length)}
+        {inTodayUserIds.size === members.length && members.length > 1
+          ? STRINGS.groupAllInCelebration(members.length, circle.name)
+          : STRINGS.groupHeaderStatus(signal.dayNumber, inTodayUserIds.size, members.length)}
       </Text>
 
       {isEditingLink ? (

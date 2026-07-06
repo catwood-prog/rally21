@@ -13,6 +13,7 @@ import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
 import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { unlockAudioContext } from '@/lib/chime';
@@ -263,7 +264,13 @@ export default function Today() {
             isSolo={isSolo}
           />
           <Text style={styles.cardLink}>
-            {isSolo ? 'view your practice →' : `${inCount} of ${members.length} in today · view circle →`}
+            {isSolo
+              ? 'view your practice →'
+              : `${
+                  inCount === members.length
+                    ? STRINGS.groupAllInCelebration(members.length, circle.name)
+                    : STRINGS.cardLinkStatus(inCount, members.length)
+                } · view circle →`}
           </Text>
         </TouchableOpacity>
 
@@ -389,7 +396,13 @@ export default function Today() {
                 isSolo={isSolo}
               />
               <Text style={styles.cardLink}>
-                {isSolo ? 'view your practice →' : `${inCount} of ${members.length} in today · view circle →`}
+                {isSolo
+              ? 'view your practice →'
+              : `${
+                  inCount === members.length
+                    ? STRINGS.groupAllInCelebration(members.length, circle.name)
+                    : STRINGS.cardLinkStatus(inCount, members.length)
+                } · view circle →`}
               </Text>
             </TouchableOpacity>
 

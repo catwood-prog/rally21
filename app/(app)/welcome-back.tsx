@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import { Brandmark } from '@/components/Brandmark';
 import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { CircleMember, getCircleMembers, getCirclePresence, listMyCircles, MyCircle } from '@/lib/circle';
@@ -116,7 +117,7 @@ export default function WelcomeBack() {
 
         return (
           <View key={circle.id} style={styles.circleBlock}>
-            {circles.length > 1 && <Text style={styles.circleName}>{circle.name}</Text>}
+            <Text style={styles.circleName}>{STRINGS.reentryKeptLightOn(circle.name)}</Text>
 
             <View style={styles.signalCard}>
               <SignalMeter

@@ -15,6 +15,7 @@ import {
 import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { CircleMember, getCircleById, getCircleMembers, listMyCircles, MyCircle } from '@/lib/circle';
@@ -211,7 +212,7 @@ export default function CircleWall() {
         </TouchableOpacity>
       </View>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{circle.name}</Text>
+        <Text style={styles.headerTitle}>{STRINGS.wallHeaderTitle(circle.name)}</Text>
         <Text style={styles.headerSubtitle}>
           {members.length} {members.length === 1 ? 'member' : 'members'}
         </Text>
