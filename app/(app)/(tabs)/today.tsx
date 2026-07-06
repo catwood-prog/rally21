@@ -144,25 +144,32 @@ export default function Today() {
 
   const goToCheckin = (circle: MyCircle, wantsTimer: boolean, dayNumber: number) => {
     const wantsTimerWithDuration = wantsTimer && !!circle.practiceDurationMinutes;
+    // A circle's resource link (video or otherwise) always routes through
+    // the activity screen — it's the hero of that screen regardless of
+    // whether the user tapped "start timer" or not (see checkin-timer.tsx).
+    const goesToActivityScreen = !!circle.resourceUrl || wantsTimerWithDuration;
 
     // Must happen synchronously inside this tap — iOS Safari only unlocks
     // audio playback for an AudioContext created/resumed directly inside a
     // user gesture, not after any awaited work.
-    if (wantsTimerWithDuration) unlockAudioContext();
+    if (goesToActivityScreen) unlockAudioContext();
 
-    const timerParams = wantsTimerWithDuration
+    const activityParams = goesToActivityScreen
       ? {
           startTimer: 'true',
-          durationMinutes: String(circle.practiceDurationMinutes),
+          ...(circle.practiceDurationMinutes
+            ? { durationMinutes: String(circle.practiceDurationMinutes) }
+            : {}),
           circleName: circle.name,
           dayNumber: String(Math.min(dayNumber, circle.durationDays)),
+          ...(circle.resourceUrl ? { resourceUrl: circle.resourceUrl } : {}),
         }
       : {};
 
     if (!hasSeenCheckinConsent) {
-      router.push({ pathname: '/checkin-intro', params: { circleId: circle.id, ...timerParams } });
-    } else if (wantsTimerWithDuration) {
-      router.push({ pathname: '/checkin-timer', params: { circleId: circle.id, ...timerParams } });
+      router.push({ pathname: '/checkin-intro', params: { circleId: circle.id, ...activityParams } });
+    } else if (goesToActivityScreen) {
+      router.push({ pathname: '/checkin-timer', params: { circleId: circle.id, ...activityParams } });
     } else {
       router.push({ pathname: '/checkin', params: { circleId: circle.id } });
     }
@@ -283,7 +290,7 @@ export default function Today() {
           })}
         </View>
 
-        {!iAmCheckedInToday && circle.practiceDurationMinutes ? (
+        {!iAmCheckedInToday && circle.practiceDurationMinutes && !circle.resourceUrl ? (
           <View style={styles.timerChoiceRow}>
             <TouchableOpacity
               style={styles.markDoneButton}
@@ -409,7 +416,7 @@ export default function Today() {
               })}
             </View>
 
-            {!iAmCheckedInToday && circle.practiceDurationMinutes ? (
+            {!iAmCheckedInToday && circle.practiceDurationMinutes && !circle.resourceUrl ? (
               <View style={styles.timerChoiceRow}>
                 <TouchableOpacity
                   style={styles.markDoneButton}

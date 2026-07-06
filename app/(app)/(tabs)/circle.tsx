@@ -14,7 +14,9 @@ import {
 import { MASCOT } from '@/assets/mascot';
 import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
+import { LinkCard } from '@/components/LinkCard';
 import { SignalMeter } from '@/components/SignalMeter';
+import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
@@ -28,9 +30,11 @@ import {
   listMyCircles,
   MyCircle,
   renameCircle,
+  setCircleResourceUrl,
   subscribeToCirclePresence,
 } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
+import { extractYouTubeId, isHttpUrl } from '@/lib/resourceLink';
 import { computeSignal, PresenceRow } from '@/lib/signal';
 import { getWallPreview, subscribeToWall, WallPreviewItem } from '@/lib/wall';
 
@@ -63,6 +67,10 @@ export default function YourCircle() {
   const [isSavingName, setIsSavingName] = useState(false);
   const [isConfirmingLeave, setIsConfirmingLeave] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [isEditingLink, setIsEditingLink] = useState(false);
+  const [linkDraft, setLinkDraft] = useState('');
+  const [isSavingLink, setIsSavingLink] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -233,6 +241,7 @@ export default function YourCircle() {
   const shownMembers = members.slice(0, MAX_AVATARS_SHOWN);
   const overflowCount = members.length - shownMembers.length;
   const isCreator = circle.createdBy === session?.user?.id;
+  const youtubeId = circle.resourceUrl ? extractYouTubeId(circle.resourceUrl) : null;
 
   const startEditingName = () => {
     setNameDraft(circle.name);
@@ -254,6 +263,46 @@ export default function YourCircle() {
       // leave editing open so they can retry
     } finally {
       setIsSavingName(false);
+    }
+  };
+
+  const startEditingLink = () => {
+    setLinkDraft(circle.resourceUrl ?? '');
+    setLinkError(null);
+    setIsEditingLink(true);
+  };
+
+  const saveLink = async () => {
+    const trimmed = linkDraft.trim();
+    if (trimmed && !isHttpUrl(trimmed)) {
+      setLinkError('that link needs to start with http:// or https://');
+      return;
+    }
+    setIsSavingLink(true);
+    setLinkError(null);
+    try {
+      await setCircleResourceUrl(circle.id, trimmed || null);
+      setCircle({ ...circle, resourceUrl: trimmed || null });
+      setIsEditingLink(false);
+    } catch (e) {
+      setLinkError(e instanceof Error ? e.message : 'could not save — try again');
+    } finally {
+      setIsSavingLink(false);
+    }
+  };
+
+  const removeLink = async () => {
+    setIsSavingLink(true);
+    setLinkError(null);
+    try {
+      await setCircleResourceUrl(circle.id, null);
+      setCircle({ ...circle, resourceUrl: null });
+      setLinkDraft('');
+      setIsEditingLink(false);
+    } catch (e) {
+      setLinkError(e instanceof Error ? e.message : 'could not remove — try again');
+    } finally {
+      setIsSavingLink(false);
     }
   };
 
@@ -321,6 +370,54 @@ export default function YourCircle() {
       <Text style={styles.headerStatus}>
         {STRINGS.groupHeaderStatus(signal.dayNumber, inTodayUserIds.size, members.length)}
       </Text>
+
+      {isEditingLink ? (
+        <View style={styles.linkEditCard}>
+          <TextInput
+            style={styles.linkInput}
+            value={linkDraft}
+            onChangeText={setLinkDraft}
+            placeholder="https://…"
+            placeholderTextColor={colors.muted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            editable={!isSavingLink}
+            autoFocus
+          />
+          {linkError && <Text style={styles.linkErrorText}>{linkError}</Text>}
+          <View style={styles.linkEditRow}>
+            {circle.resourceUrl && (
+              <TouchableOpacity onPress={removeLink} disabled={isSavingLink}>
+                <Text style={styles.linkRemoveText}>Remove</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => setIsEditingLink(false)} disabled={isSavingLink}>
+              <Text style={styles.nameEditActionMuted}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={saveLink} disabled={isSavingLink}>
+              <Text style={styles.nameEditAction}>{isSavingLink ? '…' : 'Save'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : circle.resourceUrl ? (
+        <View style={styles.linkSection}>
+          {youtubeId ? (
+            <YouTubeEmbed videoId={youtubeId} style={styles.linkEmbed} />
+          ) : (
+            <LinkCard url={circle.resourceUrl} style={styles.linkEmbed} />
+          )}
+          {isCreator && (
+            <TouchableOpacity onPress={startEditingLink} hitSlop={8}>
+              <Text style={styles.linkEditLink}>edit link</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : isCreator ? (
+        <TouchableOpacity style={styles.linkEmptyPrompt} onPress={startEditingLink}>
+          <Text style={styles.linkEmptyPromptText}>+ add a link your circle follows</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <View style={styles.signalCard}>
         <SignalMeter
@@ -563,6 +660,60 @@ const styles = StyleSheet.create({
     padding: 18,
     marginBottom: 24,
     ...cardShadow,
+  },
+  linkSection: {
+    marginBottom: 24,
+    alignItems: 'center',
+    gap: 8,
+  },
+  linkEmbed: {
+    width: '100%',
+  },
+  linkEditLink: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  linkEmptyPrompt: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  linkEmptyPromptText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: colors.green,
+  },
+  linkEditCard: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 24,
+    ...cardShadow,
+  },
+  linkInput: {
+    fontSize: 14,
+    color: colors.ink,
+    borderBottomWidth: 1.5,
+    borderBottomColor: colors.green,
+    paddingVertical: 4,
+    marginBottom: 8,
+  },
+  linkErrorText: {
+    fontSize: 11.5,
+    color: '#B3261E',
+    marginBottom: 8,
+  },
+  linkEditRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 16,
+  },
+  linkRemoveText: {
+    fontWeight: '600',
+    fontSize: 13,
+    color: '#B3261E',
+    marginRight: 'auto',
   },
   inviteHint: {
     fontSize: 12.5,

@@ -12,30 +12,34 @@ import { markCheckinConsentSeen } from '@/lib/profile';
 export default function CheckinIntro() {
   const router = useRouter();
   const { session } = useAuth();
-  const { circleId, startTimer, durationMinutes, circleName, dayNumber } = useLocalSearchParams<{
-    circleId: string;
-    startTimer?: string;
-    durationMinutes?: string;
-    circleName?: string;
-    dayNumber?: string;
-  }>();
+  const { circleId, startTimer, durationMinutes, circleName, dayNumber, resourceUrl } =
+    useLocalSearchParams<{
+      circleId: string;
+      startTimer?: string;
+      durationMinutes?: string;
+      circleName?: string;
+      dayNumber?: string;
+      resourceUrl?: string;
+    }>();
   const [isSaving, setIsSaving] = useState(false);
+
+  const goesToActivityScreen = (startTimer === 'true' && !!durationMinutes) || !!resourceUrl;
 
   const handleContinue = async () => {
     if (!session?.user) return;
     // Must happen synchronously inside this tap, before any await — see
     // lib/chime.ts for why.
-    if (startTimer === 'true' && durationMinutes) unlockAudioContext();
+    if (goesToActivityScreen) unlockAudioContext();
     setIsSaving(true);
     try {
       await markCheckinConsentSeen(session.user.id);
     } catch {
       // non-blocking — worst case this intro shows once more than intended
     }
-    if (startTimer === 'true' && durationMinutes) {
+    if (goesToActivityScreen) {
       router.replace({
         pathname: '/checkin-timer',
-        params: { circleId, durationMinutes, circleName, dayNumber },
+        params: { circleId, durationMinutes, circleName, dayNumber, resourceUrl },
       });
     } else {
       router.replace({ pathname: '/checkin', params: { circleId } });

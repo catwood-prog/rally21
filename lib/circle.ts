@@ -1,3 +1,4 @@
+import { isHttpUrl } from './resourceLink';
 import { supabase } from './supabase';
 
 export type MyCircle = {
@@ -10,6 +11,7 @@ export type MyCircle = {
   practiceDurationMinutes: number | null;
   inviteCode: string;
   createdBy: string;
+  resourceUrl: string | null;
 };
 
 export type CircleMember = {
@@ -27,11 +29,12 @@ type CircleRow = {
   duration_days: number;
   invite_code: string;
   created_by: string;
+  resource_url: string | null;
   practices: { name: string; duration_minutes: number | null } | null;
 };
 
 const CIRCLE_SELECT =
-  'circles(id, name, time_of_day, start_date, duration_days, invite_code, created_by, practices(name, duration_minutes))';
+  'circles(id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, practices(name, duration_minutes))';
 
 function mapCircleRow(c: CircleRow): MyCircle {
   return {
@@ -44,6 +47,7 @@ function mapCircleRow(c: CircleRow): MyCircle {
     practiceDurationMinutes: c.practices?.duration_minutes ?? null,
     inviteCode: c.invite_code,
     createdBy: c.created_by,
+    resourceUrl: c.resource_url,
   };
 }
 
@@ -75,7 +79,7 @@ export async function getCircleById(circleId: string): Promise<MyCircle | null> 
   const { data, error } = await supabase
     .from('circles')
     .select(
-      'id, name, time_of_day, start_date, duration_days, invite_code, created_by, practices(name, duration_minutes)'
+      'id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, practices(name, duration_minutes)'
     )
     .eq('id', circleId)
     .maybeSingle<CircleRow>();
@@ -93,6 +97,19 @@ export async function renameCircle(circleId: string, name: string): Promise<void
   const trimmed = name.trim();
   if (!trimmed) return;
   const { error } = await supabase.from('circles').update({ name: trimmed }).eq('id', circleId);
+  if (error) throw error;
+}
+
+/** RLS-gated the same way as renameCircle — creator only. Pass null (or
+ * an empty string) to remove the link. Non-empty values must be http(s);
+ * the same rule is enforced by the `circles_resource_url_http_check` DB
+ * constraint, so a bad value fails closed even if this check is bypassed. */
+export async function setCircleResourceUrl(circleId: string, url: string | null): Promise<void> {
+  const trimmed = url?.trim() || null;
+  if (trimmed && !isHttpUrl(trimmed)) {
+    throw new Error('link must start with http:// or https://');
+  }
+  const { error } = await supabase.from('circles').update({ resource_url: trimmed }).eq('id', circleId);
   if (error) throw error;
 }
 

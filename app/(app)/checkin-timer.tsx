@@ -4,10 +4,13 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { Brandmark } from '@/components/Brandmark';
+import { LinkCard } from '@/components/LinkCard';
+import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { useAuth } from '@/lib/auth-context';
 import { playChime, vibrateOnCompletion } from '@/lib/chime';
 import { getMyProfile, setTimerSoundMuted } from '@/lib/profile';
+import { extractYouTubeId } from '@/lib/resourceLink';
 import { useWakeLock } from '@/lib/wakeLock';
 
 const RADIUS = 80;
@@ -23,17 +26,54 @@ function formatMMSS(totalSeconds: number): string {
 
 type Phase = 'running' | 'paused' | 'done';
 
+function TimerRing({ remaining, totalSeconds }: { remaining: number; totalSeconds: number }) {
+  const elapsedFraction = totalSeconds > 0 ? 1 - remaining / totalSeconds : 0;
+  const dashOffset = CIRCUMFERENCE * Math.min(1, Math.max(0, elapsedFraction));
+
+  return (
+    <View style={styles.ringWrap}>
+      <Svg width={186} height={186} viewBox="0 0 186 186">
+        <Circle cx={93} cy={93} r={RADIUS} stroke="rgba(255,255,255,0.14)" strokeWidth={STROKE_WIDTH} fill="none" />
+        <Circle
+          cx={93}
+          cy={93}
+          r={RADIUS}
+          stroke="#F4C84B"
+          strokeWidth={STROKE_WIDTH}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
+          strokeDashoffset={dashOffset}
+          rotation="-90"
+          origin="93, 93"
+        />
+      </Svg>
+      <View style={styles.ringTextWrap} pointerEvents="none">
+        <Text style={styles.countdown}>{formatMMSS(remaining)}</Text>
+        <Text style={styles.countdownCaption}>of {formatMMSS(totalSeconds)}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function CheckinTimer() {
   const router = useRouter();
   const { session } = useAuth();
-  const { circleId, circleName, dayNumber, durationMinutes } = useLocalSearchParams<{
+  const { circleId, circleName, dayNumber, durationMinutes, resourceUrl } = useLocalSearchParams<{
     circleId: string;
     circleName: string;
     dayNumber: string;
-    durationMinutes: string;
+    durationMinutes?: string;
+    resourceUrl?: string;
   }>();
 
   const totalSeconds = (parseInt(durationMinutes ?? '0', 10) || 0) * 60;
+  const videoId = resourceUrl ? extractYouTubeId(resourceUrl) : null;
+  // The video (or, absent one, a plain link) is the practice itself — a
+  // countdown ring only makes sense when there's nothing else driving the
+  // screen, i.e. no resource link at all, or a non-video link paired with
+  // a timed practice.
+  const hasTimerUI = !videoId && totalSeconds > 0;
 
   const [phase, setPhase] = useState<Phase>('running');
   // Remaining time is always derived from a wall-clock timestamp, never
@@ -67,10 +107,10 @@ export default function CheckinTimer() {
   };
 
   useEffect(() => {
-    if (phase !== 'running') return;
+    if (phase !== 'running' || !hasTimerUI) return;
     const id = setInterval(() => setTick((t) => t + 1), 500);
     return () => clearInterval(id);
-  }, [phase]);
+  }, [phase, hasTimerUI]);
 
   const remaining =
     phase === 'paused' && pausedRemaining != null
@@ -80,10 +120,10 @@ export default function CheckinTimer() {
         : totalSeconds;
 
   useEffect(() => {
-    if (phase === 'running' && remaining <= 0) {
+    if (hasTimerUI && phase === 'running' && remaining <= 0) {
       setPhase('done');
     }
-  }, [remaining, phase]);
+  }, [remaining, phase, hasTimerUI]);
 
   useEffect(() => {
     if (phase !== 'done') return;
@@ -124,9 +164,6 @@ export default function CheckinTimer() {
     );
   }
 
-  const elapsedFraction = totalSeconds > 0 ? 1 - remaining / totalSeconds : 0;
-  const dashOffset = CIRCUMFERENCE * Math.min(1, Math.max(0, elapsedFraction));
-
   return (
     <View style={styles.container}>
       <Brandmark light size={22.5} style={styles.brandmark} />
@@ -144,48 +181,37 @@ export default function CheckinTimer() {
       </View>
 
       <View style={styles.center}>
-        <Text style={styles.prompt}>breathe, and let it settle</Text>
+        {videoId ? (
+          <YouTubeEmbed videoId={videoId} style={styles.videoHero} />
+        ) : resourceUrl ? (
+          <>
+            <LinkCard url={resourceUrl} style={styles.linkHero} light />
+            {hasTimerUI && <TimerRing remaining={remaining} totalSeconds={totalSeconds} />}
+          </>
+        ) : (
+          <>
+            <Text style={styles.prompt}>breathe, and let it settle</Text>
+            <TimerRing remaining={remaining} totalSeconds={totalSeconds} />
+          </>
+        )}
 
-        <View style={styles.ringWrap}>
-          <Svg width={186} height={186} viewBox="0 0 186 186">
-            <Circle
-              cx={93}
-              cy={93}
-              r={RADIUS}
-              stroke="rgba(255,255,255,0.14)"
-              strokeWidth={STROKE_WIDTH}
-              fill="none"
-            />
-            <Circle
-              cx={93}
-              cy={93}
-              r={RADIUS}
-              stroke="#F4C84B"
-              strokeWidth={STROKE_WIDTH}
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
-              strokeDashoffset={dashOffset}
-              rotation="-90"
-              origin="93, 93"
-            />
-          </Svg>
-          <View style={styles.ringTextWrap} pointerEvents="none">
-            <Text style={styles.countdown}>{formatMMSS(remaining)}</Text>
-            <Text style={styles.countdownCaption}>of {formatMMSS(totalSeconds)}</Text>
-          </View>
-        </View>
-
-        <Text style={styles.footNote}>
-          Timed practice · or just <Text style={styles.footNoteBold}>mark as done</Text>
-        </Text>
+        {hasTimerUI && (
+          <Text style={styles.footNote}>
+            Timed practice · or just <Text style={styles.footNoteBold}>mark as done</Text>
+          </Text>
+        )}
       </View>
 
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.ghostButton} onPress={handlePauseToggle}>
-          <Text style={styles.ghostButtonText}>{phase === 'paused' ? 'Resume' : 'Pause'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.doneButton} onPress={handleMarkDone}>
+        {hasTimerUI && (
+          <TouchableOpacity style={styles.ghostButton} onPress={handlePauseToggle}>
+            <Text style={styles.ghostButtonText}>{phase === 'paused' ? 'Resume' : 'Pause'}</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[styles.doneButton, !hasTimerUI && styles.doneButtonFull]}
+          onPress={handleMarkDone}
+        >
           <Text style={styles.doneButtonText}>Mark as done</Text>
         </TouchableOpacity>
       </View>
@@ -265,6 +291,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  videoHero: {
+    width: '100%',
+    marginBottom: 8,
+  },
+  linkHero: {
+    width: '100%',
+    marginBottom: 18,
+  },
   ringTextWrap: {
     position: 'absolute',
     alignItems: 'center',
@@ -313,6 +347,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 14,
     alignItems: 'center',
+  },
+  doneButtonFull: {
+    flex: undefined,
+    width: '100%',
   },
   doneButtonText: {
     fontWeight: '700',

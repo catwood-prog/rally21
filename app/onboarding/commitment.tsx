@@ -14,7 +14,9 @@ import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
+import { setCircleResourceUrl } from '@/lib/circle';
 import { createCircle } from '@/lib/circles';
+import { isHttpUrl } from '@/lib/resourceLink';
 
 const TIME_OPTIONS = [
   { label: 'Morning', time: '08:00:00' },
@@ -37,11 +39,17 @@ export default function TheCommitment() {
   const [circleName, setCircleName] = useState(practiceName ?? '');
   const [selectedTime, setSelectedTime] = useState(TIME_OPTIONS[0].time);
   const [isPublic, setIsPublic] = useState(false);
+  const [resourceUrl, setResourceUrl] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSetIt = async () => {
     if (!practiceKey) return;
+    const trimmedUrl = resourceUrl.trim();
+    if (trimmedUrl && !isHttpUrl(trimmedUrl)) {
+      setError('that link needs to start with http:// or https://');
+      return;
+    }
     setIsCreating(true);
     try {
       const { circleId, inviteCode } = await createCircle(
@@ -50,6 +58,12 @@ export default function TheCommitment() {
         circleName,
         isSolo ? false : isPublic
       );
+      if (trimmedUrl) {
+        await setCircleResourceUrl(circleId, trimmedUrl).catch(() => {
+          // non-blocking — the circle exists either way; they can add the
+          // link later from the circle screen
+        });
+      }
       if (isSolo) {
         // "/" re-checks profile + membership and lands on Today
         router.replace('/');
@@ -112,6 +126,18 @@ export default function TheCommitment() {
       </View>
 
       <Text style={styles.hint}>daily, for 21 days — a couple lines a day, that&apos;s it</Text>
+
+      <Text style={[styles.label, styles.sectionSpacing]}>add a link (optional)</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="a video, article, or playlist your circle follows"
+        placeholderTextColor={colors.muted}
+        value={resourceUrl}
+        onChangeText={setResourceUrl}
+        autoCorrect={false}
+        autoCapitalize="none"
+        keyboardType="url"
+      />
 
       {!isSolo && (
         <>
