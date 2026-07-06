@@ -1,3 +1,4 @@
+import { captureError } from './sentry';
 import { supabase } from './supabase';
 
 export type DailyQuestion = {
@@ -57,7 +58,10 @@ export async function getDailyQuestion(localDate: string): Promise<DailyQuestion
     .rpc('get_daily_question', { p_local_date: localDate })
     .single<DailyQuestion>();
 
-  if (error) throw error;
+  if (error) {
+    captureError(error, { rpc: 'get_daily_question' });
+    throw error;
+  }
   return data ?? null;
 }
 

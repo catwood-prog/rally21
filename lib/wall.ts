@@ -1,3 +1,4 @@
+import { captureError } from './sentry';
 import { supabase } from './supabase';
 
 export type WallMessage = {
@@ -58,7 +59,10 @@ export async function getWallMessages(circleId: string): Promise<WallMessage[]> 
  * you" — Notifications spec §4b). */
 export async function isFriendNudgeEnabled(userId: string): Promise<boolean> {
   const { data, error } = await supabase.rpc('is_friend_nudge_enabled', { p_user_id: userId });
-  if (error) throw error;
+  if (error) {
+    captureError(error, { rpc: 'is_friend_nudge_enabled' });
+    throw error;
+  }
   return data ?? true;
 }
 
@@ -86,7 +90,10 @@ export async function sendFriendNudge(params: {
     p_html: params.html,
     p_wall_body: params.wallBody,
   });
-  if (error) throw error;
+  if (error) {
+    captureError(error, { rpc: 'send_friend_nudge' });
+    throw error;
+  }
   return data as 'sent' | 'already_nudged';
 }
 
@@ -229,7 +236,11 @@ export function subscribeToWall(circleId: string, onChange: () => void): () => v
       { event: '*', schema: 'public', table: 'checkin_reactions', filter: `circle_id=eq.${circleId}` },
       onChange
     )
-    .subscribe();
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        captureError(new Error(`wall subscription ${status}`), { table: 'wall_messages' });
+      }
+    });
 
   return () => {
     supabase.removeChannel(channel);

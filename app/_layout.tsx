@@ -10,13 +10,17 @@ import {
   PlusJakartaSans_700Bold,
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { Text, TextInput } from 'react-native';
 
 import { FONT_BODY } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { AuthProvider } from '@/lib/auth-context';
+import { initSentry, setSentryScreen } from '@/lib/sentry';
+
+initSentry();
 
 // Applies the body font everywhere by default so individual screens don't
 // each need a fontFamily on every Text — headlines/accents still opt into
@@ -40,6 +44,11 @@ export default function RootLayout() {
     PlusJakartaSans_600SemiBold,
     PlusJakartaSans_700Bold,
   });
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setSentryScreen(pathname);
+  }, [pathname]);
 
   if (!fontsLoaded) return null;
 

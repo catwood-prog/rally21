@@ -1,4 +1,5 @@
 import { CIRCLE_MEMBER_CAP } from './caps';
+import { captureError } from './sentry';
 import { supabase } from './supabase';
 
 export type PracticeCategory = 'move' | 'mind' | 'make' | 'learn';
@@ -128,7 +129,10 @@ export async function createCircle(
     })
     .single<{ circle_id: string; invite_code: string }>();
 
-  if (error) throw error;
+  if (error) {
+    captureError(error, { rpc: 'create_circle' });
+    throw error;
+  }
   return { circleId: data.circle_id, inviteCode: data.invite_code };
 }
 
@@ -137,7 +141,10 @@ export async function joinCircleByCode(code: string): Promise<string> {
     code: code.trim().toUpperCase(),
   });
 
-  if (error) throw error;
+  if (error) {
+    captureError(error, { rpc: 'join_circle_by_code' });
+    throw error;
+  }
   return data as string;
 }
 
@@ -155,7 +162,10 @@ export type PublicCircle = {
  * practiceId to see only circles running that specific practice. */
 export async function listPublicCircles(practiceId?: string): Promise<PublicCircle[]> {
   const { data, error } = await supabase.rpc('list_public_circles', { p_practice_id: practiceId ?? null });
-  if (error) throw error;
+  if (error) {
+    captureError(error, { rpc: 'list_public_circles' });
+    throw error;
+  }
 
   return (
     (data as {
@@ -179,7 +189,10 @@ export async function listPublicCircles(practiceId?: string): Promise<PublicCirc
 
 export async function joinPublicCircle(circleId: string): Promise<string> {
   const { data, error } = await supabase.rpc('join_public_circle', { p_circle_id: circleId });
-  if (error) throw error;
+  if (error) {
+    captureError(error, { rpc: 'join_public_circle' });
+    throw error;
+  }
   return data as string;
 }
 
@@ -188,7 +201,10 @@ export async function joinPublicCircle(circleId: string): Promise<string> {
  * — callers should treat a missing key as "show nothing", never as 0. */
 export async function countOpenCirclesByPractice(): Promise<Record<string, number>> {
   const { data, error } = await supabase.rpc('count_open_circles_by_practice');
-  if (error) throw error;
+  if (error) {
+    captureError(error, { rpc: 'count_open_circles_by_practice' });
+    throw error;
+  }
 
   const counts: Record<string, number> = {};
   for (const row of (data as { practice_id: string; open_circles: number }[]) ?? []) {

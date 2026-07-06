@@ -1,4 +1,5 @@
 import { isHttpUrl } from './resourceLink';
+import { captureError } from './sentry';
 import { supabase } from './supabase';
 
 export type MyCircle = {
@@ -169,7 +170,10 @@ export async function setCircleResourceUrl(circleId: string, url: string | null)
  * creator-less (see CLAUDE.md). */
 export async function leaveCircle(circleId: string): Promise<void> {
   const { error } = await supabase.rpc('leave_circle', { p_circle_id: circleId });
-  if (error) throw error;
+  if (error) {
+    captureError(error, { rpc: 'leave_circle' });
+    throw error;
+  }
 }
 
 export async function getCircleMembers(circleId: string): Promise<CircleMember[]> {
@@ -284,7 +288,11 @@ export function subscribeToCirclePresence(circleId: string, onInsert: () => void
       { event: 'INSERT', schema: 'public', table: 'completions', filter: `circle_id=eq.${circleId}` },
       onInsert
     )
-    .subscribe();
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        captureError(new Error(`circle presence subscription ${status}`), { table: 'completions' });
+      }
+    });
 
   return () => {
     supabase.removeChannel(channel);

@@ -18,3 +18,13 @@ jest.mock('./lib/supabase', () => ({
     },
   },
 }));
+
+// @sentry/react ships ESM that jest-expo's transformer doesn't handle;
+// mocking here (rather than fighting transformIgnorePatterns) matches the
+// lib/supabase mock above — any lib/ test that transitively imports
+// lib/sentry just gets a no-op stub.
+jest.mock('./lib/sentry', () => ({
+  initSentry: jest.fn(),
+  captureError: jest.fn(),
+  setSentryScreen: jest.fn(),
+}));
