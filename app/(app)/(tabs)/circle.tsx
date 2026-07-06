@@ -38,6 +38,7 @@ import {
   subscribeToCirclePresence,
 } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
+import { getMyProfile, markCoverHintSeen } from '@/lib/profile';
 import { extractYouTubeId, isHttpUrl } from '@/lib/resourceLink';
 import { computeSignal, PresenceRow } from '@/lib/signal';
 import { getWallPreview, subscribeToWall, WallPreviewItem } from '@/lib/wall';
@@ -79,6 +80,9 @@ export default function YourCircle() {
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
   const [isTogglingClosed, setIsTogglingClosed] = useState(false);
+  // Defaults to true so the discovery hint never flashes before the real
+  // value loads — it only ever matters once it resolves to false.
+  const [hasSeenCoverHint, setHasSeenCoverHint] = useState(true);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -105,14 +109,16 @@ export default function YourCircle() {
       const myCircle = selection.circle;
       setCircle(myCircle);
       if (myCircle) {
-        const [circleMembers, circlePresence, preview] = await Promise.all([
+        const [circleMembers, circlePresence, preview, profile] = await Promise.all([
           getCircleMembers(myCircle.id),
           getCirclePresence(myCircle.id),
           getWallPreview(myCircle.id),
+          getMyProfile(session.user.id),
         ]);
         setMembers(circleMembers);
         setPresence(circlePresence);
         setWallPreview(preview);
+        setHasSeenCoverHint(!!profile?.has_seen_cover_hint);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your circle');
@@ -142,6 +148,31 @@ export default function YourCircle() {
     });
     return unsubscribe;
   }, [circle?.id]);
+
+  // Completing a first cover teaches the same thing the hint says —
+  // dismiss it for good the moment that happens, same as the voice hint
+  // dismissing itself on first dictation.
+  useEffect(() => {
+    if (!session?.user || hasSeenCoverHint) return;
+    const today = getLocalDateString();
+    const coveredSomeone = presence.some(
+      (p) => p.localDate === today && p.kind === 'covered' && p.coveredBy === session.user.id
+    );
+    if (coveredSomeone) {
+      setHasSeenCoverHint(true);
+      markCoverHintSeen(session.user.id).catch(() => {
+        // low-stakes — the hint just might show again next time
+      });
+    }
+  }, [presence, session?.user?.id, hasSeenCoverHint]);
+
+  const dismissCoverHint = () => {
+    if (!session?.user) return;
+    setHasSeenCoverHint(true);
+    markCoverHintSeen(session.user.id).catch(() => {
+      // low-stakes — the hint just might show again next time
+    });
+  };
 
   if (isLoading) {
     return (
@@ -252,6 +283,9 @@ export default function YourCircle() {
 
   const shownMembers = members.slice(0, MAX_AVATARS_SHOWN);
   const overflowCount = members.length - shownMembers.length;
+  const hasCoverableMember = shownMembers.some(
+    (member) => member.userId !== session?.user?.id && !inTodayUserIds.has(member.userId)
+  );
   const isCreator = circle.createdBy === session?.user?.id;
   const youtubeId = circle.resourceUrl ? extractYouTubeId(circle.resourceUrl) : null;
 
@@ -546,13 +580,16 @@ export default function YourCircle() {
               );
               const state = isCovered ? 'covered' : checkedIn ? 'done' : 'pending';
               const isMe = member.userId === session?.user?.id;
+              const isCoverable = !checkedIn && !isMe;
               return (
-                <View key={member.userId} style={styles.avatarRowItem}>
-                  <Avatar name={member.name} avatarUrl={member.avatarUrl} size={40} ring={state} />
-                  <CheckedInBadge state={state} />
-                  {!checkedIn && !isMe && (
+                <View key={member.userId} style={styles.whoHereItem}>
+                  <View style={styles.avatarWrap}>
+                    <Avatar name={member.name} avatarUrl={member.avatarUrl} size={40} ring={state} />
+                    <CheckedInBadge state={state} />
+                  </View>
+                  {isCoverable && (
                     <TouchableOpacity
-                      style={styles.coverAffordance}
+                      style={styles.coverPill}
                       onPress={() =>
                         router.push({
                           pathname: '/cover',
@@ -565,9 +602,9 @@ export default function YourCircle() {
                           },
                         })
                       }
-                      hitSlop={6}
+                      hitSlop={8}
                     >
-                      <Text style={styles.coverAffordanceText}>{STRINGS.coverAffordance}</Text>
+                      <Text style={styles.coverPillText}>{STRINGS.coverAffordance}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -579,6 +616,12 @@ export default function YourCircle() {
               </View>
             )}
           </View>
+
+          {hasCoverableMember && !hasSeenCoverHint && (
+            <TouchableOpacity onPress={dismissCoverHint} style={styles.coverHintCard}>
+              <Text style={styles.coverHintText}>{STRINGS.coverHintDiscovery}</Text>
+            </TouchableOpacity>
+          )}
         </>
       )}
 
@@ -934,17 +977,48 @@ const styles = StyleSheet.create({
     height: 40,
     position: 'relative',
   },
-  coverAffordance: {
-    position: 'absolute',
-    top: 44,
-    left: -10,
-    right: -10,
+  // Who's Here (single-circle view) needs real height below the avatar for
+  // the cover pill, unlike the plain avatarRowItem above (multi-circle
+  // list, no pill) — this wraps a fixed-size avatarWrap (so the badge's
+  // absolute positioning still anchors to the avatar, not the taller item)
+  // plus the pill below it in normal flow, so nothing overlaps at any
+  // avatar count.
+  whoHereItem: {
     alignItems: 'center',
   },
-  coverAffordanceText: {
-    fontSize: 8.5,
+  avatarWrap: {
+    width: 40,
+    height: 40,
+    position: 'relative',
+  },
+  coverPill: {
+    marginTop: 6,
+    minHeight: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 99,
+    backgroundColor: colors.goldSoft,
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  coverPillText: {
+    fontSize: 11.5,
     fontWeight: '700',
     color: colors.gold,
+  },
+  coverHintCard: {
+    backgroundColor: colors.goldSoft,
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 2,
+    marginBottom: 16,
+  },
+  coverHintText: {
+    fontSize: 11.5,
+    color: colors.ink,
+    lineHeight: 16,
   },
   hostControlsCard: {
     backgroundColor: colors.card,

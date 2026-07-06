@@ -10,12 +10,15 @@ export type Profile = {
   last_reentry_ack_date: string | null;
   timer_sound_muted: boolean;
   has_seen_voice_hint: boolean;
+  has_seen_cover_hint: boolean;
 };
 
 export async function getMyProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('users')
-    .select('id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, timer_sound_muted, has_seen_voice_hint')
+    .select(
+      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, timer_sound_muted, has_seen_voice_hint, has_seen_cover_hint'
+    )
     .eq('id', userId)
     .maybeSingle();
 
@@ -46,6 +49,18 @@ export async function markVoiceHintSeen(userId: string): Promise<void> {
   const { error } = await supabase
     .from('users')
     .update({ has_seen_voice_hint: true })
+    .eq('id', userId);
+
+  if (error) throw error;
+}
+
+/** The one-time "you can log a friend's day for them" hint under Who's
+ * Here only shows until the user dismisses it or completes their first
+ * cover — this flips the flag for good. */
+export async function markCoverHintSeen(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({ has_seen_cover_hint: true })
     .eq('id', userId);
 
   if (error) throw error;

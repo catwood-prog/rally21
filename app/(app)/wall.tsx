@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   unlockBanner: {
-    backgroundColor: 'rgba(244, 200, 75, 0.15)',
+    backgroundColor: colors.goldSoft,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
     paddingVertical: 10,
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
   },
   reactionChipMine: {
     borderColor: colors.gold,
-    backgroundColor: 'rgba(244, 200, 75, 0.15)',
+    backgroundColor: colors.goldSoft,
   },
   reactionEmoji: {
     fontSize: 13,

@@ -15,6 +15,9 @@ export const colors = {
   // Soft green fill for confirmed/positive surfaces (badges, "sounds
   // right" states, unlocked hints) — promoted from repeated literals.
   greenSoft: '#EAF3EA',
+  // Gold at low opacity — "mine"/active chip fills, gold-tinted banners
+  // and pills. Promoted from a repeated literal.
+  goldSoft: 'rgba(244, 200, 75, 0.15)',
   // Error/destructive text and borders — promoted from repeated literals.
   errorRed: '#B3261E',
 };

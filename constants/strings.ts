@@ -77,6 +77,7 @@ export const STRINGS = {
   // copy anywhere should read as a score, an "owed", or guilt (see
   // CLAUDE.md's cover-a-friend rule).
   coverAffordance: '💛 cover',
+  coverHintDiscovery: "you can log a friend's day for them — a gift, never a debt.",
   coverHeadline: (name: string) => `${name}'s been quiet`,
   coverSubtitle: "cover today — it's a gift, not a debt 💛",
   coverNotePreview: (covererName: string) =>
