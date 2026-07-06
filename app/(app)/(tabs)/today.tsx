@@ -372,10 +372,10 @@ export default function Today() {
             <Text style={styles.reflectionsLink}>This week</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/journal')}>
-            <Text style={styles.reflectionsLink}>Your journal</Text>
+            <Text style={styles.reflectionsLinkPlum}>Your journal</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/reflection')}>
-            <Text style={styles.reflectionsLink}>Something we noticed</Text>
+            <Text style={styles.reflectionsLinkPlum}>Something we noticed</Text>
           </TouchableOpacity>
         </View>
 
@@ -522,10 +522,10 @@ export default function Today() {
           <Text style={styles.reflectionsLink}>This week</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push('/journal')}>
-          <Text style={styles.reflectionsLink}>Your journal</Text>
+          <Text style={styles.reflectionsLinkPlum}>Your journal</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push('/reflection')}>
-          <Text style={styles.reflectionsLink}>Something we noticed</Text>
+          <Text style={styles.reflectionsLinkPlum}>Something we noticed</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -716,6 +716,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.muted,
+  },
+  // The inner-life layer's links (journal, day-14 observation) — plum,
+  // scarce by design (see CLAUDE.md's color-roles convention). "This
+  // week" stays muted since weekly show-up is progress, not reflection.
+  reflectionsLinkPlum: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.plum,
   },
   addCircleLink: {
     marginTop: 22,

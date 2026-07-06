@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: colors.green,
+    borderColor: colors.plum,
     padding: 18,
     marginBottom: 16,
     ...cardShadow,
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   patternLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.green,
+    color: colors.plum,
     marginBottom: 8,
   },
   patternHeadline: {
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   },
   patternAccent: {
     fontFamily: FONT_SERIF_ITALIC,
-    color: colors.green,
+    color: colors.plum,
     fontSize: 21,
   },
   patternMeta: {
@@ -243,19 +243,21 @@ const styles = StyleSheet.create({
   },
   soundsRight: {
     flex: 1,
-    backgroundColor: colors.green,
+    backgroundColor: colors.plumSoft,
+    borderWidth: 1.5,
+    borderColor: colors.plum,
     borderRadius: 12,
     paddingVertical: 11,
     alignItems: 'center',
   },
   soundsRightText: {
-    color: '#fff',
+    color: colors.plum,
     fontWeight: '700',
     fontSize: 12.5,
   },
   notQuite: {
     flex: 1,
-    backgroundColor: colors.card,
+    backgroundColor: colors.plumSoft,
     borderWidth: 1.5,
     borderColor: colors.line,
     borderRadius: 12,

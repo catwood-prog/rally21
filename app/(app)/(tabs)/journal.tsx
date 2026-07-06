@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   dateHeader: {
     fontSize: 12,
     fontWeight: '800',
-    color: colors.green,
+    color: colors.plum,
     marginBottom: 8,
     marginTop: 6,
   },
@@ -179,6 +179,6 @@ const styles = StyleSheet.create({
   },
   lineLabel: {
     fontFamily: FONT_SERIF_ITALIC,
-    color: colors.green,
+    color: colors.plum,
   },
 });

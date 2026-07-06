@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
-    color: colors.ink,
+    color: colors.plum,
   },
   skipText: {
     fontSize: 11,
@@ -509,8 +509,8 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   chipSelected: {
-    backgroundColor: colors.green,
-    borderColor: colors.green,
+    backgroundColor: colors.plum,
+    borderColor: colors.plum,
   },
   chipText: {
     ...chipTextShape,

@@ -55,6 +55,10 @@ export default function TabsLayout() {
         name="journal"
         options={{
           title: 'Journal',
+          // The only tab that breaks from green — the inner-life layer's
+          // plum accent, scarce by design (see CLAUDE.md's color-roles
+          // convention).
+          tabBarActiveTintColor: colors.plum,
           tabBarIcon: ({ color, size }) => <Ionicons name="book-outline" size={size} color={color} />,
         }}
       />

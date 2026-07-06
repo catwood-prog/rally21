@@ -18,6 +18,11 @@ export const colors = {
   // Gold at low opacity — "mine"/active chip fills, gold-tinted banners
   // and pills. Promoted from a repeated literal.
   goldSoft: 'rgba(244, 200, 75, 0.15)',
+  // Dusk plum — the inner-life layer's accent (journal, reflections,
+  // day-14 observation). Scarce by design: plum only ever means "your
+  // private picture" (see CLAUDE.md's color-roles convention).
+  plum: '#7A6486',
+  plumSoft: '#F0EBF3',
   // Error/destructive text and borders — promoted from repeated literals.
   errorRed: '#B3261E',
 };
