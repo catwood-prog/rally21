@@ -130,8 +130,8 @@ export function VoiceMicButton({
     >
       <Animated.View style={animatedStyle}>
         <Ionicons
-          name={isListening ? 'mic' : 'mic-outline'}
-          size={16}
+          name="mic"
+          size={32}
           color={isListening ? colors.green : colors.muted}
         />
       </Animated.View>

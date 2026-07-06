@@ -30,6 +30,7 @@ import {
 import { getCircleById, getCirclePresence } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 import { deriveCheckinAccent } from '@/lib/practice-accent';
+import { getMyProfile, markVoiceHintSeen } from '@/lib/profile';
 
 function appendTranscript(existing: string, transcript: string): string {
   if (!existing || /\s$/.test(existing)) return existing + transcript;
@@ -55,6 +56,15 @@ export default function CheckIn() {
   const [questionSkipped, setQuestionSkipped] = useState(false);
   const [accent, setAccent] = useState('practice');
   const [micDenied, setMicDenied] = useState(false);
+  const [showVoiceHint, setShowVoiceHint] = useState(false);
+
+  const dismissVoiceHint = () => {
+    if (!session?.user) return;
+    setShowVoiceHint(false);
+    markVoiceHintSeen(session.user.id).catch(() => {
+      // low-stakes — the hint just might show again next time
+    });
+  };
 
   useEffect(() => {
     if (!circleId || !session?.user) return;
@@ -62,11 +72,13 @@ export default function CheckIn() {
       try {
         // reflection is per-person-per-day, not per-circle — if today's
         // already been done (from any circle), edit that same entry
-        const [existing, presence, circle] = await Promise.all([
+        const [existing, presence, circle, profile] = await Promise.all([
           getTodayReflection(today),
           getCirclePresence(circleId),
           getCircleById(circleId),
+          getMyProfile(session.user.id),
         ]);
+        setShowVoiceHint(!profile?.has_seen_voice_hint);
         setAccent(deriveCheckinAccent(circle?.practiceName));
         const alreadyCompletedThisCircle = presence.some(
           (p) => p.userId === session.user.id && p.localDate === today
@@ -173,11 +185,20 @@ export default function CheckIn() {
         {!micDenied && (
           <VoiceMicButton
             style={styles.inputMicButton}
-            onTranscript={(text) => setLine((prev) => appendTranscript(prev, text))}
+            onTranscript={(text) => {
+              setLine((prev) => appendTranscript(prev, text));
+              dismissVoiceHint();
+            }}
             onPermissionDenied={() => setMicDenied(true)}
           />
         )}
       </View>
+
+      {showVoiceHint && !micDenied && (
+        <TouchableOpacity onPress={dismissVoiceHint} style={styles.voiceHintCard}>
+          <Text style={styles.voiceHintText}>{STRINGS.voiceMicDiscoveryHint}</Text>
+        </TouchableOpacity>
+      )}
 
       <Text style={styles.label}>learned (optional)</Text>
       <View style={styles.inputWrap}>
@@ -192,7 +213,10 @@ export default function CheckIn() {
         {!micDenied && (
           <VoiceMicButton
             style={styles.inputMicButton}
-            onTranscript={(text) => setLine2((prev) => appendTranscript(prev, text))}
+            onTranscript={(text) => {
+              setLine2((prev) => appendTranscript(prev, text));
+              dismissVoiceHint();
+            }}
             onPermissionDenied={() => setMicDenied(true)}
           />
         )}
@@ -418,6 +442,18 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: -8,
     marginBottom: 16,
+  },
+  voiceHintCard: {
+    backgroundColor: colors.greenSoft,
+    borderRadius: 12,
+    padding: 10,
+    marginTop: -8,
+    marginBottom: 16,
+  },
+  voiceHintText: {
+    fontSize: 11.5,
+    color: colors.green,
+    lineHeight: 16,
   },
   questionCard: {
     backgroundColor: colors.card,

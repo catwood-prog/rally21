@@ -64,6 +64,7 @@ export const STRINGS = {
   chatPlaceholderReply: "I'm not quite ready yet — coming soon.",
 
   voiceDictationDeniedHint: 'you can also dictate with the keyboard mic 🎤',
+  voiceMicDiscoveryHint: 'you can speak your answers 🎤 — often easier than typing',
 
   practiceStepQuestion: 'what will you do each day?',
   circleNameHelper: "this is your team's name — make it yours",
