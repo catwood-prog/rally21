@@ -1,5 +1,6 @@
 import { MyCircle } from './circle';
-import { daysBetween, getTrailingLocalDates } from './signal';
+import { daysBetween } from './date';
+import { getTrailingLocalDates } from './signal';
 import { supabase } from './supabase';
 
 // Reflections are per-person-per-day, not per-circle — there's no

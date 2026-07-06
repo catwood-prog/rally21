@@ -1,4 +1,4 @@
-import { getLocalDateString } from './date';
+import { daysBetween, getLocalDateString } from './date';
 
 export type SignalState = 'glowing' | 'warm' | 'resting';
 
@@ -15,14 +15,6 @@ export function getTrailingLocalDates(today: string, days: number): string[] {
     dates.push(getLocalDateString(dt));
   }
   return dates;
-}
-
-export function daysBetween(startDate: string, endDate: string): number {
-  const [sy, sm, sd] = startDate.split('-').map(Number);
-  const [ey, em, ed] = endDate.split('-').map(Number);
-  const start = new Date(sy, sm - 1, sd);
-  const end = new Date(ey, em - 1, ed);
-  return Math.round((end.getTime() - start.getTime()) / 86400000);
 }
 
 export type Signal = {
