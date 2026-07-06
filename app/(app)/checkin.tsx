@@ -13,8 +13,10 @@ import {
 import { AccentedText } from '@/components/AccentedText';
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
+import { VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { MOOD_EMOJI, MOOD_VALUES } from '@/constants/mood';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -28,6 +30,11 @@ import {
 import { getCircleById, getCirclePresence } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 import { deriveCheckinAccent } from '@/lib/practice-accent';
+
+function appendTranscript(existing: string, transcript: string): string {
+  if (!existing || /\s$/.test(existing)) return existing + transcript;
+  return `${existing} ${transcript}`;
+}
 
 export default function CheckIn() {
   const router = useRouter();
@@ -47,6 +54,7 @@ export default function CheckIn() {
   const [questionAnswer, setQuestionAnswer] = useState('');
   const [questionSkipped, setQuestionSkipped] = useState(false);
   const [accent, setAccent] = useState('practice');
+  const [micDenied, setMicDenied] = useState(false);
 
   useEffect(() => {
     if (!circleId || !session?.user) return;
@@ -153,24 +161,44 @@ export default function CheckIn() {
       </View>
 
       <Text style={styles.label}>grateful for</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="one small thing today"
-        placeholderTextColor={colors.muted}
-        value={line}
-        onChangeText={setLine}
-        multiline
-      />
+      <View style={styles.inputWrap}>
+        <TextInput
+          style={styles.inputWithMic}
+          placeholder="one small thing today"
+          placeholderTextColor={colors.muted}
+          value={line}
+          onChangeText={setLine}
+          multiline
+        />
+        {!micDenied && (
+          <VoiceMicButton
+            style={styles.inputMicButton}
+            onTranscript={(text) => setLine((prev) => appendTranscript(prev, text))}
+            onPermissionDenied={() => setMicDenied(true)}
+          />
+        )}
+      </View>
 
       <Text style={styles.label}>learned (optional)</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="anything you noticed"
-        placeholderTextColor={colors.muted}
-        value={line2}
-        onChangeText={setLine2}
-        multiline
-      />
+      <View style={styles.inputWrap}>
+        <TextInput
+          style={styles.inputWithMic}
+          placeholder="anything you noticed"
+          placeholderTextColor={colors.muted}
+          value={line2}
+          onChangeText={setLine2}
+          multiline
+        />
+        {!micDenied && (
+          <VoiceMicButton
+            style={styles.inputMicButton}
+            onTranscript={(text) => setLine2((prev) => appendTranscript(prev, text))}
+            onPermissionDenied={() => setMicDenied(true)}
+          />
+        )}
+      </View>
+
+      {micDenied && <Text style={styles.micDeniedHint}>{STRINGS.voiceDictationDeniedHint}</Text>}
 
       {question && (
         <View style={styles.questionCard}>
@@ -364,6 +392,32 @@ const styles = StyleSheet.create({
     color: colors.ink,
     marginBottom: 16,
     minHeight: 48,
+  },
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: 14,
+    marginBottom: 16,
+  },
+  inputWithMic: {
+    flex: 1,
+    padding: 14,
+    fontSize: 14,
+    color: colors.ink,
+    minHeight: 48,
+  },
+  inputMicButton: {
+    paddingRight: 12,
+    paddingBottom: 14,
+  },
+  micDeniedHint: {
+    fontSize: 11.5,
+    color: colors.muted,
+    marginTop: -8,
+    marginBottom: 16,
   },
   questionCard: {
     backgroundColor: colors.card,

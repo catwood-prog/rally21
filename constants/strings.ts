@@ -62,4 +62,6 @@ export const STRINGS = {
     "One thing to be clear about: I'm a companion, not a therapist. If things feel heavy, please talk to someone qualified — and in a crisis, contact emergency services or a crisis line right away.",
   chatComingSoonPill: 'Coming soon',
   chatPlaceholderReply: "I'm not quite ready yet — coming soon.",
+
+  voiceDictationDeniedHint: 'you can also dictate with the keyboard mic 🎤',
 } as const;
