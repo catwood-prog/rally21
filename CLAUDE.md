@@ -33,3 +33,4 @@
 ## Deployment / workflow conventions
 
 - **A feature is not "shipped" until it is live.** After every push, verify that a Vercel production deployment was created and reached READY (run the deploy status check, or trigger `npx vercel --prod` if the GitHub webhook didn't fire). Never report work as deployed based on push alone.
+- **All server-side code (edge functions, migrations, cron definitions) must exist in the repo and deploy from it.** Code that only exists in a dashboard is one accident away from not existing. Edge functions live in `supabase/functions/<name>/index.ts` and deploy via `supabase functions deploy <name>`; schema/cron changes are `supabase/migrations/<timestamp>_<name>.sql`, applied via the Supabase CLI or MCP `apply_migration` and always saved back to the repo in the same change. The dashboard (or an MCP tool call) is a deployment target, never the source of truth — never leave a fix applied only remotely.

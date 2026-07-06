@@ -1,0 +1,13 @@
+project_id = "vrmnzofownjutyyabcjw"
+
+[functions.delete-account]
+verify_jwt = true
+
+[functions.send-notifications]
+verify_jwt = false
+
+[functions.unsubscribe]
+verify_jwt = false
+
+[functions.compose-nudges]
+verify_jwt = false
