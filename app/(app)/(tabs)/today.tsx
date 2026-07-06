@@ -343,8 +343,13 @@ export default function Today() {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity style={styles.cta} onPress={() => goToCheckin(circle, false, signal.dayNumber)}>
-            <Text style={styles.ctaText}>{iAmCheckedInToday ? "Edit today's check-in" : 'Check in'}</Text>
+          <TouchableOpacity
+            style={[styles.cta, iAmCheckedInToday && styles.ctaSecondary]}
+            onPress={() => goToCheckin(circle, false, signal.dayNumber)}
+          >
+            <Text style={[styles.ctaText, iAmCheckedInToday && styles.ctaSecondaryText]}>
+              {iAmCheckedInToday ? STRINGS.editCheckinCta : STRINGS.checkInCta}
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -484,10 +489,12 @@ export default function Today() {
               </View>
             ) : (
               <TouchableOpacity
-                style={styles.cta}
+                style={[styles.cta, iAmCheckedInToday && styles.ctaSecondary]}
                 onPress={() => goToCheckin(circle, false, signal.dayNumber)}
               >
-                <Text style={styles.ctaText}>{iAmCheckedInToday ? "Edit today's check-in" : 'Check in'}</Text>
+                <Text style={[styles.ctaText, iAmCheckedInToday && styles.ctaSecondaryText]}>
+                  {iAmCheckedInToday ? STRINGS.editCheckinCta : STRINGS.checkInCta}
+                </Text>
               </TouchableOpacity>
             )}
 
@@ -627,6 +634,15 @@ const styles = StyleSheet.create({
     padding: 14,
     alignItems: 'center',
   },
+  // Once checked in, the day is complete — the outline treatment (same
+  // idea as the "Invite someone" button, recolored gold) keeps editing
+  // available without competing with the day's main action.
+  ctaSecondary: {
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+    padding: 11,
+  },
   coveredNoteCard: {
     backgroundColor: colors.card,
     borderRadius: 16,
@@ -645,6 +661,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
     color: colors.ink,
+  },
+  ctaSecondaryText: {
+    fontWeight: '600',
+    color: colors.gold,
   },
   timerChoiceRow: {
     flexDirection: 'row',

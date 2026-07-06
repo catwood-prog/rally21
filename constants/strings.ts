@@ -38,6 +38,12 @@ export const STRINGS = {
   checkinSuccessBody: 'You showed up again.',
   checkinSuccessCta: 'Nice',
 
+  // Today's per-circle CTA — bold-on-fill only while the day is still
+  // open; once checked in, the glow is the reward and editing is a quiet,
+  // occasional correction, not the day's main action.
+  checkInCta: 'Check in',
+  editCheckinCta: 'edit check-in',
+
   groupHeaderStatus: (n: number, x: number, y: number) => `Day ${n} of 21 · ${x} of ${y} checked in`,
   cardLinkStatus: (x: number, y: number) => `${x} of ${y} in today`,
   groupAllInCelebration: (count: number, circleName: string) => `that's all ${count} of ${circleName} in today 🔥`,
