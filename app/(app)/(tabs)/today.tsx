@@ -18,6 +18,7 @@ import { isVerbPhrasePractice, STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { getMyCircleCap, MAX_CIRCLES } from '@/lib/caps';
+import { DailyQuestion, getDailyQuestion, getTodayReflection } from '@/lib/checkin';
 import { unlockAudioContext } from '@/lib/chime';
 import {
   CircleMember,
@@ -57,21 +58,30 @@ export default function Today() {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [circleCap, setCircleCap] = useState(MAX_CIRCLES);
+  const [reflectionQuestion, setReflectionQuestion] = useState<DailyQuestion | null>(null);
+  // Defaults to true so the teaser never flashes before the real value
+  // loads — it only ever matters once it resolves to false.
+  const [hasWrittenReflectionToday, setHasWrittenReflectionToday] = useState(true);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
     setIsLoading(true);
     setError(null);
+    const today = getLocalDateString();
     try {
-      const [profile, myCircles, myCircleCap] = await Promise.all([
+      const [profile, myCircles, myCircleCap, question, todayReflection] = await Promise.all([
         getMyProfile(session.user.id),
         listMyCircles(session.user.id),
         getMyCircleCap(),
+        getDailyQuestion(today),
+        getTodayReflection(today),
       ]);
       setMyName(profile?.name ?? null);
       setHasSeenCheckinConsent(profile?.has_seen_checkin_consent ?? false);
       setCircles(myCircles);
       setCircleCap(myCircleCap);
+      setReflectionQuestion(question);
+      setHasWrittenReflectionToday(!!todayReflection);
 
       if (myCircles.length === 0) {
         setCircleData({});
@@ -93,7 +103,6 @@ export default function Today() {
       // user's most recent completion across every circle — never on a
       // fresh start with no completions yet, and never twice for the same
       // gap once it's been acknowledged.
-      const today = getLocalDateString();
       const allMyDates = entries
         .flatMap(([, data]) => data.presence)
         .filter((p) => p.userId === session.user.id)
@@ -367,6 +376,17 @@ export default function Today() {
           </TouchableOpacity>
         )}
 
+        {!hasWrittenReflectionToday && reflectionQuestion && (
+          <TouchableOpacity
+            style={styles.reflectionTeaser}
+            onPress={() => goToCheckin(circle, false, signal.dayNumber)}
+          >
+            <Text style={styles.reflectionTeaserText}>
+              {STRINGS.reflectionTeaser(reflectionQuestion.prompt)}
+            </Text>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.reflectionsRow}>
           <TouchableOpacity onPress={() => router.push('/weekly')}>
             <Text style={styles.reflectionsLink}>This week</Text>
@@ -516,6 +536,27 @@ export default function Today() {
       })}
 
       {addCircleButton}
+
+      {!hasWrittenReflectionToday && reflectionQuestion && circles[0] && (
+        <TouchableOpacity
+          style={styles.reflectionTeaser}
+          onPress={() => {
+            const firstCircle = circles[0];
+            const firstCircleData = circleData[firstCircle.id] ?? { members: [], presence: [] };
+            const firstCircleSignal = computeSignal({
+              presence: firstCircleData.presence,
+              memberCount: firstCircleData.members.length,
+              today,
+              circleStartDate: firstCircle.startDate,
+            });
+            goToCheckin(firstCircle, false, firstCircleSignal.dayNumber);
+          }}
+        >
+          <Text style={styles.reflectionTeaserText}>
+            {STRINGS.reflectionTeaser(reflectionQuestion.prompt)}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.reflectionsRow}>
         <TouchableOpacity onPress={() => router.push('/weekly')}>
@@ -704,6 +745,16 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '600',
     color: colors.green,
+  },
+  reflectionTeaser: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  reflectionTeaserText: {
+    fontFamily: FONT_SERIF_ITALIC,
+    fontSize: 15,
+    color: colors.plum,
+    textAlign: 'center',
   },
   reflectionsRow: {
     flexDirection: 'row',

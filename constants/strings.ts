@@ -168,6 +168,12 @@ export const STRINGS = {
     'You can correct or delete anything, anytime.',
   ],
   introPrivacyCta: 'Sounds good',
+
+  // Today's reflection teaser (D4 design review) — an invitation, never a
+  // reminder of something missed. Only shows before today's reflection is
+  // written; disappears the moment it is (see CLAUDE.md's color-roles
+  // convention — this earns plum as inner-life content).
+  reflectionTeaser: (questionPrompt: string) => `tonight: "${questionPrompt}"`,
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one

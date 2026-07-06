@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '@/constants/theme';
+import { chipShape, chipTextShape, colors } from '@/constants/theme';
 import { SignalState } from '@/lib/signal';
 
 const STATE_LABEL: Record<SignalState, string> = {
@@ -81,16 +81,17 @@ const styles = StyleSheet.create({
   labelState: {
     fontWeight: '800',
   },
+  // Demoted from a solid-gold pill — this is pure information (which day
+  // it is), not an action, so gold on this screen stays reserved for the
+  // check-in CTA and the warmth status word (see CLAUDE.md's color-roles
+  // convention).
   dayBadge: {
-    backgroundColor: colors.gold,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: 99,
+    ...chipShape,
+    backgroundColor: colors.cream,
   },
   dayBadgeText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#3A2E06',
+    ...chipTextShape,
+    color: colors.muted,
   },
   bars: {
     flexDirection: 'row',
