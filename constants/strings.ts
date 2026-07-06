@@ -111,3 +111,29 @@ export const STRINGS = {
   quietHoursLabel: 'quiet hours',
   quietHoursHelper: 'no emails between these hours, your local time.',
 } as const;
+
+// The daily nudge's rotating warm-line pool (Notifications spec §3) — one
+// line picked per send, alongside the practice(s) and an open-app button.
+// Canonical source for the copy itself; the send-notifications edge
+// function (a standalone Deno file with no access to this module graph)
+// keeps its own literal copy of this exact array in sync by hand — see
+// the comment at its definition there.
+export const NUDGE_WARM_LINES = [
+  "no pressure — just today's little thing, whenever you get to it.",
+  'your circle showed up for you before. today, maybe you show up for them.',
+  "small and steady beats big and never. today's a small day.",
+  'nobody is keeping score. this is just an invitation.',
+  "a couple minutes, a couple lines — that's the whole ask.",
+  'the circle is quietly rooting for you, no pressure attached.',
+  "today's version of you only needs to do today's version of the thing.",
+  'showing up messy still counts as showing up.',
+] as const;
+
+// Restart-framed only — never references a miss. Used instead of a warm
+// line when yesterday had no completion, so the copy never reads as guilt.
+export const NUDGE_RESTART_LINES = [
+  'Day 1s are allowed. Tonight counts.',
+  'every day is a fine day to start again.',
+  'no catching up required — just today.',
+  "today's a clean page. that's all it needs to be.",
+] as const;
