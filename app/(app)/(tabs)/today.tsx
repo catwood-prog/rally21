@@ -641,7 +641,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: 1.5,
     borderColor: colors.gold,
-    padding: 11,
+    padding: 8,
   },
   coveredNoteCard: {
     backgroundColor: colors.card,
