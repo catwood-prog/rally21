@@ -14,7 +14,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
-import { STRINGS } from '@/constants/strings';
+import { isVerbPhrasePractice, STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { MAX_CIRCLES } from '@/lib/caps';
@@ -228,6 +228,8 @@ export default function Today() {
       today,
       circleStartDate: circle.startDate,
     });
+    const practiceName = circle.practiceName ?? '';
+    const isVerbPhrase = isVerbPhrasePractice(practiceName);
 
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -242,13 +244,24 @@ export default function Today() {
 
         <Text style={styles.headline}>
           {isSolo ? (
+            isVerbPhrase ? (
+              <>
+                today you <Text style={styles.headlineAccent}>{practiceName.toLowerCase()}</Text>
+              </>
+            ) : (
+              <>
+                today: <Text style={styles.headlineAccent}>{practiceName.toLowerCase()}</Text>
+              </>
+            )
+          ) : isVerbPhrase ? (
             <>
-              today you <Text style={styles.headlineAccent}>{circle.practiceName?.toLowerCase()}</Text>
+              today you{' '}
+              <Text style={styles.headlineAccent}>{practiceName.toLowerCase()}</Text>
+              {'\n'}with <Text style={styles.headlineAccent}>your circle</Text>
             </>
           ) : (
             <>
-              today you{' '}
-              <Text style={styles.headlineAccent}>{circle.practiceName?.toLowerCase()}</Text>
+              today: <Text style={styles.headlineAccent}>{practiceName.toLowerCase()}</Text>,
               {'\n'}with <Text style={styles.headlineAccent}>your circle</Text>
             </>
           )}

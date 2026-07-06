@@ -1,3 +1,5 @@
+import { isVerbPhrasePractice } from '@/constants/strings';
+
 const TIME_UNIT_WORDS = new Set([
   'minute',
   'minutes',
@@ -50,14 +52,16 @@ function verbAccent(verb: string): string | null {
 /**
  * Derives the check-in headline's serif-italic accent word from a practice
  * name — "Meditate 10 minutes" -> "sit", "Run 5k" -> "run", "Write one page"
- * -> "pages". Practice names always follow the verb-phrase convention (see
- * CLAUDE.md), typically verb + quantity + [unit or object]; anything that
- * doesn't fit — free-form custom names — falls back to "practice" rather
- * than risk a word that reads oddly.
+ * -> "pages". Seeded practices follow the verb-phrase convention (see
+ * CLAUDE.md's resilient-headline rule), typically verb + quantity + [unit
+ * or object]; a custom name can be anything, so anything that doesn't
+ * start with a recognized verb (same list the Today headline checks) falls
+ * back to "practice" rather than risk a word that reads oddly.
  */
 export function deriveCheckinAccent(practiceName: string | null | undefined): string {
   const fallback = 'practice';
   if (!practiceName) return fallback;
+  if (!isVerbPhrasePractice(practiceName)) return fallback;
 
   const tokens = practiceName
     .toLowerCase()

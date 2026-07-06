@@ -1,3 +1,34 @@
+// Seeded practices follow the verb-phrase convention (see CLAUDE.md), but
+// a custom practice can be any free-form name — nothing validates that at
+// save time (see CLAUDE.md's "resilient headline" rule). Any sentence
+// built from a practice name (the Today headline, the check-in headline's
+// accent word) must check this first and degrade gracefully rather than
+// assume a verb start.
+export const PRACTICE_VERB_STARTERS = [
+  'meditate',
+  'walk',
+  'run',
+  'write',
+  'stretch',
+  'sit',
+  'breathe',
+  'read',
+  'journal',
+  'draw',
+  'move',
+  'practice',
+  'do',
+];
+
+export function isVerbPhrasePractice(practiceName: string): boolean {
+  const firstWord = practiceName
+    .trim()
+    .split(/\s+/)[0]
+    ?.toLowerCase()
+    .replace(/[^a-z]/g, '');
+  return !!firstWord && PRACTICE_VERB_STARTERS.includes(firstWord);
+}
+
 // No i18n setup exists in this project yet — user-facing copy lives here
 // instead of inline, so it has one place to move into a real localization
 // system later. Strings that take values are small formatter functions
