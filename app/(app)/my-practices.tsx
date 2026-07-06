@@ -23,7 +23,7 @@ import {
   Practice,
   PracticeCategory,
   updatePractice,
-} from '@/lib/circles';
+} from '@/lib/circle-setup';
 
 type FormState = { name: string; category: PracticeCategory; duration: string };
 

@@ -15,7 +15,7 @@ import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { setCircleResourceUrl } from '@/lib/circle';
-import { createCircle } from '@/lib/circles';
+import { createCircle } from '@/lib/circle-setup';
 import { isHttpUrl } from '@/lib/resourceLink';
 
 const TIME_OPTIONS = [

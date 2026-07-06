@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   errorText: {
-    color: '#B3261E',
+    color: colors.errorRed,
     fontSize: 12.5,
     marginBottom: 8,
   },

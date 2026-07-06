@@ -1,4 +1,4 @@
-import { PracticeCategory } from '@/lib/circles';
+import { PracticeCategory } from '@/lib/circle-setup';
 
 export const CATEGORIES: { key: PracticeCategory; label: string; emoji: string }[] = [
   { key: 'move', label: 'Move', emoji: '🏃' },

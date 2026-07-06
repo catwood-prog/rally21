@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   },
   lock: {
     alignSelf: 'flex-start',
-    backgroundColor: '#EAF3EA',
+    backgroundColor: colors.greenSoft,
     borderRadius: 99,
     paddingVertical: 5,
     paddingHorizontal: 10,

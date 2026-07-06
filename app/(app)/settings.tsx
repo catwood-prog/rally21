@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   deleteButton: {
     backgroundColor: colors.card,
     borderWidth: 1.5,
-    borderColor: '#B3261E',
+    borderColor: colors.errorRed,
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
@@ -344,14 +344,14 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     fontWeight: '700',
     fontSize: 13,
-    color: '#B3261E',
+    color: colors.errorRed,
   },
   confirmCard: {
     backgroundColor: colors.card,
     borderRadius: 14,
     padding: 14,
     borderWidth: 1.5,
-    borderColor: '#B3261E',
+    borderColor: colors.errorRed,
     ...cardShadow,
   },
   confirmText: {
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   },
   confirmDeleteButton: {
     flex: 1,
-    backgroundColor: '#B3261E',
+    backgroundColor: colors.errorRed,
     borderRadius: 12,
     paddingVertical: 11,
     alignItems: 'center',

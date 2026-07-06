@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   },
   moodButtonSelected: {
     borderColor: colors.green,
-    backgroundColor: '#EAF3EA',
+    backgroundColor: colors.greenSoft,
   },
   moodEmoji: {
     fontSize: 24,

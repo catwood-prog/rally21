@@ -14,7 +14,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { cardShadow, colors } from '@/constants/theme';
-import { joinCircleByCode, joinPublicCircle, listPublicCircles, PublicCircle } from '@/lib/circles';
+import { joinCircleByCode, joinPublicCircle, listPublicCircles, PublicCircle } from '@/lib/circle-setup';
 
 export default function JoinCircle() {
   const router = useRouter();

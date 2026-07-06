@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   lock: {
-    backgroundColor: '#EAF3EA',
+    backgroundColor: colors.greenSoft,
     borderRadius: 99,
     paddingVertical: 4,
     paddingHorizontal: 9,

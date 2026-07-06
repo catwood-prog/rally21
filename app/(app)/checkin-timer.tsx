@@ -7,6 +7,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { LinkCard } from '@/components/LinkCard';
 import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
+import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { playChime, vibrateOnCompletion } from '@/lib/chime';
 import { getMyProfile, setTimerSoundMuted } from '@/lib/profile';
@@ -38,7 +39,7 @@ function TimerRing({ remaining, totalSeconds }: { remaining: number; totalSecond
           cx={93}
           cy={93}
           r={RADIUS}
-          stroke="#F4C84B"
+          stroke={colors.gold}
           strokeWidth={STROKE_WIDTH}
           fill="none"
           strokeLinecap="round"
@@ -236,7 +237,7 @@ const styles = StyleSheet.create({
   },
   doneEmoji: {
     fontSize: 40,
-    color: '#F4C84B',
+    color: colors.gold,
     marginBottom: 14,
   },
   doneText: {
@@ -343,7 +344,7 @@ const styles = StyleSheet.create({
   },
   doneButton: {
     flex: 1,
-    backgroundColor: '#F4C84B',
+    backgroundColor: colors.gold,
     borderRadius: 16,
     paddingVertical: 14,
     alignItems: 'center',

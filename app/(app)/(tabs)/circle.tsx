@@ -699,7 +699,7 @@ const styles = StyleSheet.create({
   },
   linkErrorText: {
     fontSize: 11.5,
-    color: '#B3261E',
+    color: colors.errorRed,
     marginBottom: 8,
   },
   linkEditRow: {
@@ -711,7 +711,7 @@ const styles = StyleSheet.create({
   linkRemoveText: {
     fontWeight: '600',
     fontSize: 13,
-    color: '#B3261E',
+    color: colors.errorRed,
     marginRight: 'auto',
   },
   inviteHint: {

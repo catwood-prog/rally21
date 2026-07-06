@@ -22,7 +22,7 @@ import {
   listPracticesByCategory,
   Practice,
   PracticeCategory,
-} from '@/lib/circles';
+} from '@/lib/circle-setup';
 
 export default function FindAPractice() {
   const router = useRouter();
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   },
   cardImage: {
     height: 74,
-    backgroundColor: '#EAF3EA',
+    backgroundColor: colors.greenSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

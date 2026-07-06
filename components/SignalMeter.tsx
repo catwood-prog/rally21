@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     justifyContent: 'flex-end',
-    backgroundColor: '#EAF3EA',
+    backgroundColor: colors.greenSoft,
     borderRadius: 3,
     overflow: 'hidden',
   },

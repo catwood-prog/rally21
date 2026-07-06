@@ -12,6 +12,11 @@ export const colors = {
   // used only on the surfaces that spec called out explicitly (check-in
   // success, chat) rather than a blanket app-wide rebrand.
   cream: '#F7F5F0',
+  // Soft green fill for confirmed/positive surfaces (badges, "sounds
+  // right" states, unlocked hints) — promoted from repeated literals.
+  greenSoft: '#EAF3EA',
+  // Error/destructive text and borders — promoted from repeated literals.
+  errorRed: '#B3261E',
 };
 
 // The mockup's ".card" box-shadow: 0 6px 16px rgba(0,0,0,0.05) — spread
