@@ -91,6 +91,31 @@ async function signToken(secret: string, userId: string, kind: string): Promise<
     .join("");
 }
 
+/** ≤2 delivered sends/day, total, across every kind (spec §5) — checked
+ * generically rather than per-kind, so "nudge takes slot 1, a friend
+ * nudge takes slot 2, that evening's digest is skipped" falls out of
+ * plain chronological order (the digest fires last, at 19:00) instead of
+ * needing hand-written slot logic. Counts only rows that actually sent
+ * (suppressed_reason null) — a row this function held back for some
+ * other reason never used up a slot. */
+async function countDeliveredToday(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  timeZone: string,
+  now: Date
+): Promise<number> {
+  const { data } = await admin
+    .from("notification_outbox")
+    .select("sent_at")
+    .eq("user_id", userId)
+    .is("suppressed_reason", null)
+    .not("sent_at", "is", null)
+    .gte("sent_at", new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString());
+
+  const today = localDateString(now, timeZone);
+  return (data ?? []).filter((r: any) => localDateString(new Date(r.sent_at), timeZone) === today).length;
+}
+
 function unsubscribeFooter(supabaseUrl: string, userId: string, kind: string, token: string): string {
   const link = `${supabaseUrl}/functions/v1/unsubscribe?u=${userId}&k=${kind}&t=${token}`;
   return `<hr style="border:none;border-top:1px solid #eee;margin:24px 0 12px" />
@@ -162,6 +187,16 @@ Deno.serve(async (req) => {
         }
       }
 
+      const deliveredToday = await countDeliveredToday(admin, row.user_id, timeZone, now);
+      if (deliveredToday >= 2) {
+        await admin
+          .from("notification_outbox")
+          .update({ suppressed_reason: "cap_reached", sent_at: now.toISOString() })
+          .eq("id", row.id);
+        summary.suppressed++;
+        continue;
+      }
+
       if (prefs && isQuietHours(localTime, prefs.quiet_start, prefs.quiet_end)) {
         // Leave the row untouched — scheduled_for stays in the past, so
         // it's simply reconsidered next cron tick, once local time is
@@ -179,6 +214,24 @@ Deno.serve(async (req) => {
           .eq("id", row.id);
         summary.suppressed++;
         continue;
+      }
+
+      // "Unless the recipient has the app open / opens it before send, it
+      // arrives in-app instead of by email" (spec §4b) — the wall post
+      // already happened synchronously when the nudge was sent, so this
+      // just decides whether the EMAIL is also worth sending. A last_seen_at
+      // within the last few minutes is our best proxy for "active right
+      // now" since there's no separate presence/online system.
+      if (row.kind === "friend_nudge" && user?.last_seen_at) {
+        const ACTIVE_WINDOW_MS = 3 * 60 * 1000;
+        if (now.getTime() - new Date(user.last_seen_at).getTime() < ACTIVE_WINDOW_MS) {
+          await admin
+            .from("notification_outbox")
+            .update({ suppressed_reason: "seen_in_app", sent_at: now.toISOString() })
+            .eq("id", row.id);
+          summary.suppressed++;
+          continue;
+        }
       }
 
       if (row.kind === "nudge_daily") {

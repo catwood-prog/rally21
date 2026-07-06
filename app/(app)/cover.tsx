@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
@@ -7,11 +7,11 @@ import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, colors } from '@/constants/theme';
+import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { coverMember } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
-import { postWallMessage } from '@/lib/wall';
+import { isFriendNudgeEnabled, sendFriendNudge } from '@/lib/wall';
 
 type Mode = 'cover' | 'wave';
 
@@ -29,8 +29,17 @@ export default function CoverAFriend() {
   const covererName = myName || 'someone in your circle';
 
   const [mode, setMode] = useState<Mode>('cover');
+  const [nudgeAllowed, setNudgeAllowed] = useState(true);
+  const [messageIndex, setMessageIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!memberId) return;
+    isFriendNudgeEnabled(memberId)
+      .then(setNudgeAllowed)
+      .catch(() => setNudgeAllowed(true));
+  }, [memberId]);
 
   const goBackToCircle = () => router.replace({ pathname: '/circle', params: { circleId } });
 
@@ -40,10 +49,24 @@ export default function CoverAFriend() {
     try {
       if (mode === 'cover') {
         await coverMember(circleId, memberId, session.user.id, getLocalDateString());
+        goBackToCircle();
       } else {
-        await postWallMessage(circleId, session.user.id, STRINGS.wallWaveEntry(covererName, name));
+        const message = STRINGS.friendNudgeMessages[messageIndex];
+        const result = await sendFriendNudge({
+          circleId,
+          recipientId: memberId,
+          localDate: getLocalDateString(),
+          subject: STRINGS.friendNudgeSubject(covererName),
+          html: STRINGS.friendNudgeEmailBody(covererName, message),
+          wallBody: STRINGS.wallWaveEntry(covererName, name),
+        });
+        if (result === 'already_nudged') {
+          setError(STRINGS.alreadyNudgedError(name));
+          setIsSaving(false);
+          return;
+        }
+        goBackToCircle();
       }
-      goBackToCircle();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'something went wrong — try again');
       setIsSaving(false);
@@ -80,20 +103,41 @@ export default function CoverAFriend() {
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.optionRow}
-            onPress={() => setMode('wave')}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: mode === 'wave' }}
-          >
-            <Text style={styles.optionText}>{STRINGS.waveActionLabel}</Text>
-            {mode === 'wave' && (
-              <View style={styles.pickPill}>
-                <Text style={styles.pickPillText}>Pick</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          {nudgeAllowed && (
+            <TouchableOpacity
+              style={styles.optionRow}
+              onPress={() => setMode('wave')}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: mode === 'wave' }}
+            >
+              <Text style={styles.optionText}>{STRINGS.waveActionLabel}</Text>
+              {mode === 'wave' && (
+                <View style={styles.pickPill}>
+                  <Text style={styles.pickPillText}>Pick</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
+
+        {mode === 'wave' && nudgeAllowed && (
+          <View style={styles.messageChipRow}>
+            {STRINGS.friendNudgeMessages.map((message, index) => {
+              const selected = index === messageIndex;
+              return (
+                <TouchableOpacity
+                  key={message}
+                  style={[styles.messageChip, selected && styles.messageChipSelected]}
+                  onPress={() => setMessageIndex(index)}
+                >
+                  <Text style={[styles.messageChipText, selected && styles.messageChipTextSelected]}>
+                    {message}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
       </View>
 
       <TouchableOpacity style={styles.cta} onPress={handleSubmit} disabled={isSaving}>
@@ -190,6 +234,30 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#fff',
+  },
+  messageChipRow: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 14,
+  },
+  messageChip: {
+    ...chipShape,
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+  },
+  messageChipSelected: {
+    backgroundColor: colors.greenSoft,
+    borderColor: colors.green,
+  },
+  messageChipText: {
+    ...chipTextShape,
+    color: colors.muted,
+  },
+  messageChipTextSelected: {
+    color: colors.green,
   },
   cta: {
     backgroundColor: colors.green,

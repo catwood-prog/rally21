@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.compose-nudges]
 verify_jwt = false
+
+[functions.compose-digest]
+verify_jwt = false

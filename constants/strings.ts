@@ -110,6 +110,21 @@ export const STRINGS = {
   digestToggleHelper: "a short recap if something warm happened and you haven't seen it yet.",
   quietHoursLabel: 'quiet hours',
   quietHoursHelper: 'no emails between these hours, your local time.',
+
+  // Friend nudge (Notifications spec §4b) — pre-written only, so every
+  // nudge is safe to receive. This absorbs the cover-a-friend "wave"
+  // gesture; wallWaveEntry above still renders the wall line.
+  friendNudgeMessages: [
+    'thinking of you today 💛',
+    "the circle's warmer with you",
+    'no pressure — just waving',
+    'sending a little sunshine your way ☀️',
+    'just popped by to say hi 👋',
+  ],
+  friendNudgeSubject: (waverName: string) => `${waverName} is waving at you 👋`,
+  friendNudgeEmailBody: (waverName: string, message: string) =>
+    `<p>${waverName}: "${message}"</p>`,
+  alreadyNudgedError: (name: string) => `someone's already waved at ${name} today 💛`,
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one
