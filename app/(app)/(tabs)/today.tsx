@@ -11,6 +11,7 @@ import {
 
 import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
+import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -22,6 +23,7 @@ import {
   CircleMember,
   getCircleMembers,
   getCirclePresence,
+  isSoloCircle,
   listMyCircles,
   MyCircle,
   subscribeToCirclePresence,
@@ -219,7 +221,7 @@ export default function Today() {
     );
     const iAmCheckedInToday = !!session?.user && inTodayUserIds.has(session.user.id);
     const inCount = inTodayUserIds.size;
-    const isSolo = members.length === 1;
+    const isSolo = isSoloCircle(members.length);
     const signal = computeSignal({
       presence,
       memberCount: members.length,
@@ -287,7 +289,7 @@ export default function Today() {
                     size={42}
                     ring={checkedIn ? 'done' : 'pending'}
                   />
-                  {checkedIn && <Text style={styles.avatarCheck}>✓</Text>}
+                  <CheckedInBadge visible={checkedIn} />
                 </View>
                 <Text style={styles.memberName} numberOfLines={1}>
                   {isMe ? 'You' : member.name ?? 'circle-mate'}
@@ -374,7 +376,7 @@ export default function Today() {
         );
         const iAmCheckedInToday = !!session?.user && inTodayUserIds.has(session.user.id);
         const inCount = inTodayUserIds.size;
-        const isSolo = members.length === 1;
+        const isSolo = isSoloCircle(members.length);
         const signal = computeSignal({
           presence,
           memberCount: members.length,
@@ -419,7 +421,7 @@ export default function Today() {
                         size={38}
                         ring={checkedIn ? 'done' : 'pending'}
                       />
-                      {checkedIn && <Text style={styles.avatarCheck}>✓</Text>}
+                      <CheckedInBadge visible={checkedIn} />
                     </View>
                     <Text style={styles.memberName} numberOfLines={1}>
                       {isMe ? 'You' : member.name ?? 'circle-mate'}
@@ -577,23 +579,6 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     position: 'relative',
-  },
-  avatarCheck: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.bg,
-    backgroundColor: colors.green,
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '700',
-    textAlign: 'center',
-    lineHeight: 12,
-    overflow: 'hidden',
   },
   memberName: {
     fontSize: 9,

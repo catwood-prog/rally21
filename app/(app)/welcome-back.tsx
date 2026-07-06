@@ -8,7 +8,14 @@ import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { CircleMember, getCircleMembers, getCirclePresence, listMyCircles, MyCircle } from '@/lib/circle';
+import {
+  CircleMember,
+  getCircleMembers,
+  getCirclePresence,
+  isSoloCircle,
+  listMyCircles,
+  MyCircle,
+} from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 import { markReentryAcknowledged } from '@/lib/profile';
 import { computeSignal, PresenceRow } from '@/lib/signal';
@@ -103,7 +110,7 @@ export default function WelcomeBack() {
 
       {circles.map((circle) => {
         const data = circleData[circle.id] ?? { members: [], presence: [], awayMessages: [] };
-        const isSolo = data.members.length === 1;
+        const isSolo = isSoloCircle(data.members.length);
         const signal = computeSignal({
           presence: data.presence,
           memberCount: data.members.length,

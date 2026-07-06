@@ -21,6 +21,13 @@ export type CircleMember = {
   role: string;
 };
 
+/** A circle with exactly one member gets the solo-practice UI treatment
+ * (no "with your circle" framing, no member row) across Today, the
+ * circle screen, and welcome-back. */
+export function isSoloCircle(memberCount: number): boolean {
+  return memberCount === 1;
+}
+
 type CircleRow = {
   id: string;
   name: string;

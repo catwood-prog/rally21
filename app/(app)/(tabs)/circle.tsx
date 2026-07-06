@@ -14,6 +14,7 @@ import {
 import { MASCOT } from '@/assets/mascot';
 import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
+import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { LinkCard } from '@/components/LinkCard';
 import { SignalMeter } from '@/components/SignalMeter';
 import { YouTubeEmbed } from '@/components/YouTubeEmbed';
@@ -26,6 +27,7 @@ import {
   getCircleById,
   getCircleMembers,
   getCirclePresence,
+  isSoloCircle,
   leaveCircle,
   listMyCircles,
   MyCircle,
@@ -158,7 +160,7 @@ export default function YourCircle() {
 
         {listCircles.map((c) => {
           const data = listData[c.id] ?? { members: [], presence: [] };
-          const isSolo = data.members.length === 1;
+          const isSolo = isSoloCircle(data.members.length);
           const signal = computeSignal({
             presence: data.presence,
             memberCount: data.members.length,
@@ -196,7 +198,7 @@ export default function YourCircle() {
                         size={34}
                         ring={checkedIn ? 'done' : 'pending'}
                       />
-                      {checkedIn && <Text style={styles.avatarCheck}>✓</Text>}
+                      <CheckedInBadge visible={checkedIn} />
                     </View>
                   );
                 })}
@@ -225,7 +227,7 @@ export default function YourCircle() {
   const inTodayUserIds = new Set(
     presence.filter((p) => p.localDate === today).map((p) => p.userId)
   );
-  const isSolo = members.length === 1;
+  const isSolo = isSoloCircle(members.length);
   const signal = computeSignal({
     presence,
     memberCount: members.length,
@@ -511,7 +513,7 @@ export default function YourCircle() {
                     size={40}
                     ring={checkedIn ? 'done' : 'pending'}
                   />
-                  {checkedIn && <Text style={styles.avatarCheck}>✓</Text>}
+                  <CheckedInBadge visible={checkedIn} />
                 </View>
               );
             })}
@@ -782,23 +784,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     position: 'relative',
-  },
-  avatarCheck: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.bg,
-    backgroundColor: colors.green,
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '700',
-    textAlign: 'center',
-    lineHeight: 12,
-    overflow: 'hidden',
   },
   avatarOverflow: {
     width: 40,
