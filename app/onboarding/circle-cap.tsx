@@ -1,22 +1,28 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
+import { MAX_CIRCLES } from '@/lib/caps';
+
+const CAP_WORD: Record<number, string> = { 1: 'one', 2: 'two', 3: 'three' };
 
 export default function CircleCap() {
   const router = useRouter();
+  const { cap: capParam } = useLocalSearchParams<{ cap?: string }>();
+  const cap = Number(capParam) || MAX_CIRCLES;
+  const capWord = CAP_WORD[cap] ?? String(cap);
 
   return (
     <View style={styles.container}>
       <Brandmark style={styles.brandmark} />
       <Text style={styles.emoji}>🌱</Text>
       <Text style={styles.title}>
-        three circles is <Text style={styles.titleAccent}>a full life</Text>
+        {capWord} circles is <Text style={styles.titleAccent}>a full life</Text>
       </Text>
       <Text style={styles.body}>
-        You&apos;re showing up in three places already — that&apos;s the whole point. To join
+        You&apos;re showing up in {capWord} places already — that&apos;s the whole point. To join
         another, finish a 21-day arc, or leave one from its circle screen — your check-ins stay
         yours either way.
       </Text>

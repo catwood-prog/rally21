@@ -17,7 +17,7 @@ import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { isVerbPhrasePractice, STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { MAX_CIRCLES } from '@/lib/caps';
+import { getMyCircleCap, MAX_CIRCLES } from '@/lib/caps';
 import { unlockAudioContext } from '@/lib/chime';
 import {
   CircleMember,
@@ -56,19 +56,22 @@ export default function Today() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [circleCap, setCircleCap] = useState(MAX_CIRCLES);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
     setIsLoading(true);
     setError(null);
     try {
-      const [profile, myCircles] = await Promise.all([
+      const [profile, myCircles, myCircleCap] = await Promise.all([
         getMyProfile(session.user.id),
         listMyCircles(session.user.id),
+        getMyCircleCap(),
       ]);
       setMyName(profile?.name ?? null);
       setHasSeenCheckinConsent(profile?.has_seen_checkin_consent ?? false);
       setCircles(myCircles);
+      setCircleCap(myCircleCap);
 
       if (myCircles.length === 0) {
         setCircleData({});
@@ -147,7 +150,7 @@ export default function Today() {
   }
 
   const today = getLocalDateString();
-  const atCap = circles.length >= MAX_CIRCLES;
+  const atCap = circles.length >= circleCap;
 
   const goToCheckin = (circle: MyCircle, wantsTimer: boolean, dayNumber: number) => {
     const wantsTimerWithDuration = wantsTimer && !!circle.practiceDurationMinutes;
@@ -184,7 +187,7 @@ export default function Today() {
 
   const handleAddCircle = () => {
     if (atCap) {
-      router.push('/onboarding/circle-cap');
+      router.push({ pathname: '/onboarding/circle-cap', params: { cap: String(circleCap) } });
     } else {
       router.push({ pathname: '/onboarding/circle-setup', params: { fromToday: 'true' } });
     }
@@ -193,7 +196,7 @@ export default function Today() {
   const addCircleButton = (
     <TouchableOpacity style={styles.addCircleLink} onPress={handleAddCircle}>
       <Text style={styles.addCircleLinkText}>
-        + add a circle <Text style={styles.addCircleCount}>({circles.length} of {MAX_CIRCLES})</Text>
+        + add a circle <Text style={styles.addCircleCount}>({circles.length} of {circleCap})</Text>
       </Text>
     </TouchableOpacity>
   );
