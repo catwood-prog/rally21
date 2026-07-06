@@ -16,7 +16,7 @@ import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
-import { getCircleById, listMyCircles, MyCircle } from '@/lib/circle';
+import { MyCircle, resolveCircleSelection } from '@/lib/circle';
 import { useAuth } from '@/lib/auth-context';
 
 export default function Invite() {
@@ -41,24 +41,14 @@ export default function Invite() {
     if (!session?.user) return;
     setIsLoadingCode(true);
     try {
-      if (circleId) {
-        // circleId is present — refetch that exact circle, never a
-        // "primary" stand-in (see CLAUDE.md).
-        const circle = await getCircleById(circleId);
-        setInviteCode(circle?.inviteCode ?? null);
-        setCircleName(circle?.name ?? null);
-        setPickerCircles(null);
+      const selection = await resolveCircleSelection(circleId, session.user.id);
+      if (selection.kind === 'picker') {
+        setPickerCircles(selection.circles);
         return;
       }
-      // No circleId at all — resolve from the user's own circles instead
-      // of guessing: one circle is unambiguous, more than one needs a pick.
-      const myCircles = await listMyCircles(session.user.id);
-      if (myCircles.length > 1) {
-        setPickerCircles(myCircles);
-      } else if (myCircles.length === 1) {
-        setInviteCode(myCircles[0].inviteCode);
-        setCircleName(myCircles[0].name);
-      }
+      setInviteCode(selection.circle?.inviteCode ?? null);
+      setCircleName(selection.circle?.name ?? null);
+      setPickerCircles(null);
     } finally {
       setIsLoadingCode(false);
     }

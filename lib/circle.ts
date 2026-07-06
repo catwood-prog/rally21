@@ -82,6 +82,46 @@ export async function listMyCircles(userId: string): Promise<MyCircle[]> {
     });
 }
 
+export type CircleSelection =
+  | { kind: 'picker'; circles: MyCircle[] }
+  | { kind: 'single'; circle: MyCircle | null };
+
+/** The shared "if circleId, fetch it; else look at the user's own circles
+ * and either use the one unambiguous circle or ask which one" pattern
+ * used by the circle tab, wall, and invite screens (see CLAUDE.md's "no
+ * primary circle" rule) — never guesses "the first one" when there's more
+ * than one.
+ *
+ * A truthy-but-invalid circleId (including the literal string
+ * `"undefined"` — what `router.setParams({ circleId: undefined })`
+ * serializes to, the cause of a real shipped bug) is always treated as an
+ * explicit id to fetch and resolves to `{ kind: 'single', circle: null }`,
+ * never silently reinterpreted as "no circleId provided". Callers must
+ * clear the param with `router.replace(...)`, not
+ * `router.setParams({ circleId: undefined })`.
+ *
+ * Takes its two lookups as an injectable `deps` (defaulting to the real
+ * getCircleById/listMyCircles) purely so tests can substitute fakes
+ * without network access — call sites never pass this argument. */
+export async function resolveCircleSelection(
+  circleId: string | undefined,
+  userId: string,
+  deps: {
+    getCircleById: (id: string) => Promise<MyCircle | null>;
+    listMyCircles: (userId: string) => Promise<MyCircle[]>;
+  } = { getCircleById, listMyCircles }
+): Promise<CircleSelection> {
+  if (circleId) {
+    const circle = await deps.getCircleById(circleId);
+    return { kind: 'single', circle };
+  }
+  const circles = await deps.listMyCircles(userId);
+  if (circles.length > 1) {
+    return { kind: 'picker', circles };
+  }
+  return { kind: 'single', circle: circles[0] ?? null };
+}
+
 export async function getCircleById(circleId: string): Promise<MyCircle | null> {
   const { data, error } = await supabase
     .from('circles')

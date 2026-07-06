@@ -24,7 +24,6 @@ import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   CircleMember,
-  getCircleById,
   getCircleMembers,
   getCirclePresence,
   isSoloCircle,
@@ -32,6 +31,7 @@ import {
   listMyCircles,
   MyCircle,
   renameCircle,
+  resolveCircleSelection,
   setCircleResourceUrl,
   subscribeToCirclePresence,
 } from '@/lib/circle';
@@ -80,28 +80,23 @@ export default function YourCircle() {
     setError(null);
     setListCircles([]);
     try {
-      let myCircle: MyCircle | null;
-      if (circleId) {
-        myCircle = await getCircleById(circleId);
-      } else {
-        const myCircles = await listMyCircles(session.user.id);
-        if (myCircles.length > 1) {
-          const entries = await Promise.all(
-            myCircles.map(async (c): Promise<[string, ListCircleData]> => {
-              const [circleMembers, circlePresence] = await Promise.all([
-                getCircleMembers(c.id),
-                getCirclePresence(c.id),
-              ]);
-              return [c.id, { members: circleMembers, presence: circlePresence }];
-            })
-          );
-          setListCircles(myCircles);
-          setListData(Object.fromEntries(entries));
-          setCircle(null);
-          return;
-        }
-        myCircle = myCircles[0] ?? null;
+      const selection = await resolveCircleSelection(circleId, session.user.id);
+      if (selection.kind === 'picker') {
+        const entries = await Promise.all(
+          selection.circles.map(async (c): Promise<[string, ListCircleData]> => {
+            const [circleMembers, circlePresence] = await Promise.all([
+              getCircleMembers(c.id),
+              getCirclePresence(c.id),
+            ]);
+            return [c.id, { members: circleMembers, presence: circlePresence }];
+          })
+        );
+        setListCircles(selection.circles);
+        setListData(Object.fromEntries(entries));
+        setCircle(null);
+        return;
       }
+      const myCircle = selection.circle;
       setCircle(myCircle);
       if (myCircle) {
         const [circleMembers, circlePresence, preview] = await Promise.all([

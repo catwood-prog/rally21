@@ -18,7 +18,7 @@ import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { CircleMember, getCircleById, getCircleMembers, listMyCircles, MyCircle } from '@/lib/circle';
+import { CircleMember, getCircleMembers, MyCircle, resolveCircleSelection } from '@/lib/circle';
 import {
   CheckinFeedEntry,
   getCheckinFeed,
@@ -73,18 +73,13 @@ export default function CircleWall() {
     setError(null);
     setPickerCircles(null);
     try {
-      let myCircle: MyCircle | null;
-      if (circleId) {
-        myCircle = await getCircleById(circleId);
-      } else {
-        const myCircles = await listMyCircles(session.user.id);
-        if (myCircles.length > 1) {
-          setPickerCircles(myCircles);
-          setCircle(null);
-          return;
-        }
-        myCircle = myCircles[0] ?? null;
+      const selection = await resolveCircleSelection(circleId, session.user.id);
+      if (selection.kind === 'picker') {
+        setPickerCircles(selection.circles);
+        setCircle(null);
+        return;
       }
+      const myCircle = selection.circle;
       setCircle(myCircle);
       if (myCircle) {
         await Promise.all([getCircleMembers(myCircle.id).then(setMembers), loadFeed(myCircle.id)]);
