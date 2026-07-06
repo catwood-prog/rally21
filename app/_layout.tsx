@@ -61,6 +61,7 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" />
+        <Stack.Screen name="(intro)" />
         <Stack.Screen name="sign-in" />
         <Stack.Screen name="auth/callback" />
         <Stack.Screen name="onboarding" />

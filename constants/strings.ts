@@ -142,6 +142,25 @@ export const STRINGS = {
   hostCloseToJoinsHelperOpen: 'anyone with the code or browsing open circles can join',
   hostCloseToJoinsHelperClosed: "you're not taking new members right now",
   hostDeleteWallMessageConfirm: 'Remove this from the wall?',
+
+  // Pre-sign-in onboarding (rev-7 mockup screens 1–3) — signed-in users
+  // never see these; a signed-out visit to the app starts here.
+  introSplashTagline: 'do it together',
+  introSplashSubtitle: 'a few lines a day · paid back as a gift',
+  introWelcomeTitleLead: "don't do it alone.\ndo it ",
+  introWelcomeTitleAccent: 'together',
+  introWelcomeBody:
+    'Pick a small daily practice with a circle of friends. Show up for each other, a couple of lines a day.',
+  introWelcomeNext: 'Next',
+  introWelcomeSignInLink: 'I already have an account',
+  introPrivacyTitleLead: 'your inner life,',
+  introPrivacyTitleAccent: 'yours alone',
+  introPrivacyBullets: [
+    'Only you ever see your reflections. Your circle sees just what you choose.',
+    'We never sell your data. No ads, ever.',
+    'You can correct or delete anything, anytime.',
+  ],
+  introPrivacyCta: 'Sounds good',
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one
