@@ -12,8 +12,10 @@ import {
 
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
+import { PracticePill } from '@/components/PracticePill';
 import { CATEGORIES } from '@/constants/practices';
 import { FONT_HEADER } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -132,7 +134,7 @@ export default function MyPractices() {
       </TouchableOpacity>
 
       <Text style={styles.title}>My practices</Text>
-      <Text style={styles.subtitle}>practices you&apos;ve created — anyone can pick one for their circle</Text>
+      <Text style={styles.subtitle}>{STRINGS.myPracticesSubtitle}</Text>
 
       {practices.length === 0 && editingId !== 'new' && (
         <Text style={styles.emptyText}>you haven&apos;t created any practices yet</Text>
@@ -154,7 +156,10 @@ export default function MyPractices() {
         return (
           <View key={practice.id} style={[styles.card, practice.isArchived && styles.cardArchived]}>
             <View style={styles.cardInfo}>
-              <Text style={styles.cardName}>{practice.name}</Text>
+              <View style={styles.cardNameRow}>
+                <Text style={styles.cardName}>{practice.name}</Text>
+                <PracticePill variant={practice.isShared ? 'shared' : 'only-you'} />
+              </View>
               <Text style={styles.cardMeta}>
                 {CATEGORIES.find((c) => c.key === practice.category)?.label ?? practice.category}
                 {practice.durationMinutes ? ` · ${practice.durationMinutes} min` : ''}
@@ -319,6 +324,11 @@ const styles = StyleSheet.create({
   },
   cardInfo: {
     flex: 1,
+  },
+  cardNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   cardName: {
     fontSize: 14,

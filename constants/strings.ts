@@ -64,4 +64,11 @@ export const STRINGS = {
   chatPlaceholderReply: "I'm not quite ready yet — coming soon.",
 
   voiceDictationDeniedHint: 'you can also dictate with the keyboard mic 🎤',
+
+  practiceStepQuestion: 'what will you do each day?',
+  circleNameHelper: "this is your team's name — make it yours",
+  publicShareDisclosure: 'public circles share their practice to the library, so others can start their own',
+  myPracticesSubtitle: 'your practice library — reuse them in new circles. Shared ones can be picked by others.',
+  practicePillShared: 'shared',
+  practicePillOnlyYou: 'only you',
 } as const;

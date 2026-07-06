@@ -12,9 +12,14 @@ export type Practice = {
   durationMinutes: number | null;
   createdBy: string | null;
   isArchived: boolean;
+  /** Seeded practices are always shared; a custom practice becomes
+   * shared only once a public circle uses it (see CLAUDE.md's
+   * practice-privacy rule) — never set directly by the client. */
+  isShared: boolean;
 };
 
-const PRACTICE_SELECT = 'id, key, name, description, category, duration_minutes, created_by, is_archived';
+const PRACTICE_SELECT =
+  'id, key, name, description, category, duration_minutes, created_by, is_archived, is_shared';
 
 function mapPractice(row: {
   id: string;
@@ -25,6 +30,7 @@ function mapPractice(row: {
   duration_minutes: number | null;
   created_by: string | null;
   is_archived: boolean;
+  is_shared: boolean;
 }): Practice {
   return {
     id: row.id,
@@ -35,6 +41,7 @@ function mapPractice(row: {
     durationMinutes: row.duration_minutes,
     createdBy: row.created_by,
     isArchived: row.is_archived,
+    isShared: row.is_shared,
   };
 }
 

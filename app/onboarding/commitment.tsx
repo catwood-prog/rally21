@@ -13,6 +13,7 @@ import {
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { setCircleResourceUrl } from '@/lib/circle';
 import { createCircle } from '@/lib/circle-setup';
@@ -100,6 +101,7 @@ export default function TheCommitment() {
       </Text>
 
       <Text style={styles.label}>name your circle</Text>
+      <Text style={styles.helperText}>{STRINGS.circleNameHelper}</Text>
       <TextInput
         style={styles.input}
         placeholder="your circle's name"
@@ -159,6 +161,7 @@ export default function TheCommitment() {
           >
             <Text style={styles.visibilityTitle}>🌍 Public</Text>
             <Text style={styles.visibilityBody}>Anyone on Rally21 can find and join this circle.</Text>
+            <Text style={styles.visibilityDisclosure}>{STRINGS.publicShareDisclosure}</Text>
           </TouchableOpacity>
         </>
       )}
@@ -228,6 +231,12 @@ const styles = StyleSheet.create({
     color: colors.green,
     marginBottom: 8,
   },
+  helperText: {
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: -4,
+    marginBottom: 8,
+  },
   sectionSpacing: {
     marginTop: 24,
   },
@@ -290,6 +299,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.muted,
     lineHeight: 16,
+  },
+  visibilityDisclosure: {
+    fontSize: 11,
+    color: colors.muted,
+    lineHeight: 15,
+    marginTop: 6,
+    fontStyle: 'italic',
   },
   button: {
     backgroundColor: colors.gold,

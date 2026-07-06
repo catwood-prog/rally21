@@ -12,8 +12,10 @@ import {
 
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
+import { PracticePill } from '@/components/PracticePill';
 import { CATEGORIES } from '@/constants/practices';
 import { FONT_HEADER } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -170,6 +172,9 @@ export default function FindAPractice() {
                   <Text style={styles.cardName} numberOfLines={1}>
                     {practice.name}
                   </Text>
+                  {!practice.isShared && practice.createdBy === session?.user?.id && (
+                    <PracticePill variant="only-you" />
+                  )}
                   <Text style={styles.cardCount}>
                     {!isSolo && count ? `${count} open circles` : ' '}
                   </Text>
@@ -192,6 +197,7 @@ export default function FindAPractice() {
 
       {showCustomForm && (
         <View style={styles.customForm}>
+          <Text style={styles.customFormTitle}>{STRINGS.practiceStepQuestion}</Text>
           <TextInput
             style={styles.input}
             placeholder="e.g. Walk 20 minutes"
@@ -352,6 +358,12 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 14,
     ...cardShadow,
+  },
+  customFormTitle: {
+    fontFamily: FONT_HEADER,
+    fontSize: 15,
+    color: colors.ink,
+    marginBottom: 12,
   },
   input: {
     backgroundColor: colors.bg,
