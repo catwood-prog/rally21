@@ -9,6 +9,7 @@ import {
   pseudonymizeInput,
   synthesizeNextContent,
 } from "./synthesis.ts";
+import { ChipAnswer, findDominantChipCandidates, mergeChipTraitCandidates } from "./chip-traits.ts";
 
 // Blueprint v2, part 1 — the weekly LLM synthesis batch
 // (Rally21-Blueprint-Notes.md, Adaptive-Intelligence-Spec §3-5). Same
@@ -62,6 +63,7 @@ Deno.serve(async (req) => {
     backfills: 0,
     newPatternsApplied: 0,
     wantsApplied: 0,
+    chipTraitsApplied: 0,
     totalInputTokens: 0,
     totalOutputTokens: 0,
   };
@@ -209,6 +211,33 @@ Deno.serve(async (req) => {
         },
       });
 
+      // Q1's deterministic lane (chip-trait candidates, zero LLM cost) —
+      // needs the user's FULL chip-answer history regardless of the
+      // incremental `sinceIso` cursor above, since "3 of last 4 asks"
+      // can span further back than whatever changed since the last run.
+      const { data: chipRows } = await admin
+        .from("reflections")
+        .select("local_date, question_answer, questions(dimension, format)")
+        .eq("user_id", user.id)
+        .not("question_answer", "is", null)
+        .order("local_date", { ascending: true });
+
+      const chipAnswers: ChipAnswer[] = (chipRows ?? [])
+        .filter((r: any) => r.questions?.format === "chips")
+        .map((r: any) => ({
+          local_date: r.local_date,
+          dimension: r.questions.dimension,
+          chip_value: r.question_answer,
+        }));
+
+      const chipCandidates = findDominantChipCandidates(chipAnswers);
+      const chipMerge = mergeChipTraitCandidates({
+        previousTraits: result.content.traits,
+        candidates: chipCandidates,
+        nowIso,
+      });
+      result.content.traits = chipMerge.traits;
+
       const { error: insertError } = await admin.from("blueprint_versions").insert({
         user_id: user.id,
         version: (prevRow?.version ?? 0) + 1,
@@ -226,6 +255,7 @@ Deno.serve(async (req) => {
       if (isBackfill) summary.backfills++;
       if (result.appliedNewPattern) summary.newPatternsApplied++;
       if (result.appliedWant) summary.wantsApplied++;
+      if (chipMerge.newTraitApplied) summary.chipTraitsApplied++;
     } catch (e) {
       console.error(`Unhandled error composing blueprint for user ${user.id}:`, e instanceof Error ? e.message : e);
     }

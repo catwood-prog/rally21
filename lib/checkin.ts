@@ -56,7 +56,7 @@ export async function getQuestionById(questionId: string): Promise<DailyQuestion
 export async function getDailyQuestion(localDate: string): Promise<DailyQuestion | null> {
   const { data, error } = await supabase
     .rpc('get_daily_question', { p_local_date: localDate })
-    .single<DailyQuestion>();
+    .maybeSingle<DailyQuestion>();
 
   if (error) {
     captureError(error, { rpc: 'get_daily_question' });
