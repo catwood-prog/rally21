@@ -237,7 +237,7 @@ export default function CheckInComplete() {
 
       <Animated.View style={penguinStyle}>
         <Image
-          source={MASCOT.proudAfterShowingUp}
+          source={MASCOT.penguinConfetti}
           style={styles.penguin}
           resizeMode="contain"
           accessible={false}
@@ -275,8 +275,11 @@ const styles = StyleSheet.create({
     left: 24,
   },
   penguin: {
-    width: 112,
-    height: 120,
+    // Restored to the pre-M1 size along with the original transparent
+    // penguin-confetti asset (7 July, Cat's call — the sheet crop's opaque
+    // cream background read as a box on the warm-grey page).
+    width: 130,
+    height: 134,
     marginBottom: 20,
   },
   title: {
