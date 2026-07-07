@@ -16,9 +16,13 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // it, so the channel (email now, push later) is the only thing that ever
 // changes here.
 //
-// A row's payload is always `{ subject: string, html: string }` — fully
-// rendered by whichever composer created it. This function never builds
-// copy itself.
+// A row's payload is usually `{ subject: string, html: string }` — fully
+// rendered by whichever composer created it, and this function doesn't
+// build copy itself. The one exception (security spec S1, F4):
+// friend_nudge rows carry `senderName`/`circleName` instead, since
+// send_friend_nudge must never accept client-composed email content —
+// this function composes that one kind's subject/html itself, right
+// before sending.
 
 type PrefRow = {
   nudge_enabled: boolean;
@@ -32,9 +36,40 @@ type OutboxRow = {
   id: string;
   user_id: string;
   kind: "nudge_daily" | "social_digest" | "friend_nudge";
-  payload: { subject?: string; html?: string; local_date?: string };
+  payload: {
+    subject?: string;
+    html?: string;
+    local_date?: string;
+    senderName?: string;
+    circleName?: string;
+  };
   scheduled_for: string;
 };
+
+// Security spec S1 (F4): send_friend_nudge no longer accepts client-composed
+// subject/HTML — the RPC only writes senderName/circleName, and THIS
+// function composes the email now (the one exception to "composers decide
+// WHAT to say" — the spec is explicit that this is where it belongs, since
+// the RPC must never trust caller-supplied email content). Own literal
+// copy of the warm-line pool, same convention as compose-nudges'
+// NUDGE_WARM_LINES (this Deno file has no access to the client's module
+// graph) — keep in sync with constants/strings.ts's history if it's ever
+// touched there again.
+const FRIEND_NUDGE_MESSAGES = [
+  "thinking of you today 💛",
+  "the circle's warmer with you",
+  "no pressure — just waving",
+  "sending a little sunshine your way ☀️",
+  "just popped by to say hi 👋",
+];
+
+function composeFriendNudgeEmail(senderName: string): { subject: string; html: string } {
+  const message = FRIEND_NUDGE_MESSAGES[Math.floor(Math.random() * FRIEND_NUDGE_MESSAGES.length)];
+  return {
+    subject: `${senderName} is waving at you 👋`,
+    html: `<p>${senderName}: "${message}"</p>`,
+  };
+}
 
 const KIND_TO_PREF_COLUMN: Record<OutboxRow["kind"], keyof PrefRow> = {
   nudge_daily: "nudge_enabled",
@@ -278,7 +313,19 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (!row.payload?.subject || !row.payload?.html) {
+      // New-format friend_nudge rows carry senderName/circleName instead of
+      // pre-rendered subject/html (security spec S1, F4) — compose here.
+      // Old-format rows (enqueued before this shipped) already have
+      // subject/html and fall straight through unchanged.
+      let renderedSubject = row.payload?.subject;
+      let renderedHtml = row.payload?.html;
+      if (row.kind === "friend_nudge" && !renderedSubject && !renderedHtml && row.payload?.senderName) {
+        const composed = composeFriendNudgeEmail(row.payload.senderName);
+        renderedSubject = composed.subject;
+        renderedHtml = composed.html;
+      }
+
+      if (!renderedSubject || !renderedHtml) {
         console.error(`Outbox row ${row.id} has no renderable payload — skipping`);
         await admin
           .from("notification_outbox")
@@ -307,7 +354,7 @@ Deno.serve(async (req) => {
       }
 
       const token = await signToken(expectedSecret, row.user_id, row.kind);
-      const html = row.payload.html + unsubscribeFooter(supabaseUrl, row.user_id, row.kind, token);
+      const html = renderedHtml + unsubscribeFooter(supabaseUrl, row.user_id, row.kind, token);
 
       const resendRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -315,7 +362,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           from: "Rally21 <rally21@amsadvisory.uk>",
           to: [email],
-          subject: row.payload.subject,
+          subject: renderedSubject,
           html,
         }),
       });

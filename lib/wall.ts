@@ -98,29 +98,27 @@ export async function isFriendNudgeEnabled(userId: string): Promise<boolean> {
   return data ?? true;
 }
 
-/** Sends a pre-written friend nudge (Notifications spec §4b). Routed
- * through a SECURITY DEFINER RPC — notification_outbox has no client RLS
- * access at all, and the anti-pile-on rule (one received nudge per
- * person per day, across all circles/senders) is enforced server-side
- * via that table's dedupe_key, not trusted to the client. Returns
- * 'already_nudged' (no error, no wall post) if someone else got there
- * first today — never nudge-yourself or already-checked-in states,
- * which raise instead since the UI shouldn't let those happen. */
+/** Sends a pre-written friend nudge (Notifications spec §4b; Security
+ * spec §S1 F4). Routed through a SECURITY DEFINER RPC — notification_outbox
+ * has no client RLS access at all, the anti-pile-on rule (one received
+ * nudge per person per day, across all circles/senders) is enforced
+ * server-side via that table's dedupe_key, and the email/wall copy is
+ * composed server-side from a fixed template — the RPC never accepts
+ * client-composed subject/HTML/wall text (a client could otherwise send
+ * arbitrary HTML email, or bypass the public-circle wall gate with
+ * attacker-chosen text). Returns 'already_nudged' (no error, no wall
+ * post) if someone else got there first today — never nudge-yourself or
+ * already-checked-in states, which raise instead since the UI shouldn't
+ * let those happen. */
 export async function sendFriendNudge(params: {
   circleId: string;
   recipientId: string;
   localDate: string;
-  subject: string;
-  html: string;
-  wallBody: string;
 }): Promise<'sent' | 'already_nudged'> {
   const { data, error } = await supabase.rpc('send_friend_nudge', {
     p_circle_id: params.circleId,
     p_recipient_id: params.recipientId,
     p_local_date: params.localDate,
-    p_subject: params.subject,
-    p_html: params.html,
-    p_wall_body: params.wallBody,
   });
   if (error) {
     captureError(error, { rpc: 'send_friend_nudge' });

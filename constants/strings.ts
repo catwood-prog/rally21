@@ -97,7 +97,9 @@ export const STRINGS = {
     `${covererName} covered you today. No pressure, we've got you.`,
   wallCoveredEntry: (covererName: string, coveredName: string) =>
     `${covererName} covered ${coveredName} today 💛`,
-  wallWaveEntry: (waverName: string, targetName: string) => `${waverName} waved at ${targetName} 👋`,
+  // The wave's wall line (was wallWaveEntry) now composes server-side in
+  // send_friend_nudge (security spec S1, F4) — the copy is unchanged,
+  // just no longer client-composed.
 
   presenceCoveredLabel: 'covered 💛',
   circleYouCoveredCard: (name: string) => `You covered ${name} today 💛`,
@@ -128,17 +130,10 @@ export const STRINGS = {
 
   // Friend nudge (Notifications spec §4b) — pre-written only, so every
   // nudge is safe to receive. This absorbs the cover-a-friend "wave"
-  // gesture; wallWaveEntry above still renders the wall line.
-  friendNudgeMessages: [
-    'thinking of you today 💛',
-    "the circle's warmer with you",
-    'no pressure — just waving',
-    'sending a little sunshine your way ☀️',
-    'just popped by to say hi 👋',
-  ],
-  friendNudgeSubject: (waverName: string) => `${waverName} is waving at you 👋`,
-  friendNudgeEmailBody: (waverName: string, message: string) =>
-    `<p>${waverName}: "${message}"</p>`,
+  // gesture. The subject/message pool and wall-line template all compose
+  // server-side now (security spec S1, F4) — send-notifications and
+  // send_friend_nudge keep their own copies of this copy, same pattern as
+  // NUDGE_WARM_LINES below.
   alreadyNudgedError: (name: string) => `someone's already waved at ${name} today 💛`,
 
   // Open circles — wall permissions + host controls (multi-circle spec,

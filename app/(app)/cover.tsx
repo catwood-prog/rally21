@@ -9,7 +9,7 @@ import { MascotEntrance } from '@/components/MascotEntrance';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { coverMember } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
@@ -32,7 +32,6 @@ export default function CoverAFriend() {
 
   const [mode, setMode] = useState<Mode>('cover');
   const [nudgeAllowed, setNudgeAllowed] = useState(true);
-  const [messageIndex, setMessageIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,14 +52,13 @@ export default function CoverAFriend() {
         await coverMember(circleId, memberId, session.user.id, getLocalDateString());
         goBackToCircle();
       } else {
-        const message = STRINGS.friendNudgeMessages[messageIndex];
+        // Security spec S1 (F4): the RPC composes the email + wall copy
+        // server-side from a fixed template now — the client no longer
+        // sends subject/HTML/wall text.
         const result = await sendFriendNudge({
           circleId,
           recipientId: memberId,
           localDate: getLocalDateString(),
-          subject: STRINGS.friendNudgeSubject(covererName),
-          html: STRINGS.friendNudgeEmailBody(covererName, message),
-          wallBody: STRINGS.wallWaveEntry(covererName, name),
         });
         if (result === 'already_nudged') {
           setError(STRINGS.alreadyNudgedError(name));
@@ -122,25 +120,6 @@ export default function CoverAFriend() {
             </TouchableOpacity>
           )}
         </View>
-
-        {mode === 'wave' && nudgeAllowed && (
-          <View style={styles.messageChipRow}>
-            {STRINGS.friendNudgeMessages.map((message, index) => {
-              const selected = index === messageIndex;
-              return (
-                <TouchableOpacity
-                  key={message}
-                  style={[styles.messageChip, selected && styles.messageChipSelected]}
-                  onPress={() => setMessageIndex(index)}
-                >
-                  <Text style={[styles.messageChipText, selected && styles.messageChipTextSelected]}>
-                    {message}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
       </View>
 
       <TouchableOpacity style={styles.cta} onPress={handleSubmit} disabled={isSaving}>
@@ -242,30 +221,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#fff',
-  },
-  messageChipRow: {
-    width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 14,
-  },
-  messageChip: {
-    ...chipShape,
-    backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-  },
-  messageChipSelected: {
-    backgroundColor: colors.greenSoft,
-    borderColor: colors.green,
-  },
-  messageChipText: {
-    ...chipTextShape,
-    color: colors.muted,
-  },
-  messageChipTextSelected: {
-    color: colors.green,
   },
   cta: {
     backgroundColor: colors.green,
