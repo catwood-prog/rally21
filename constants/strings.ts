@@ -144,6 +144,8 @@ export const STRINGS = {
   digestToggleHelper: "a short recap if something warm happened and you haven't seen it yet.",
   quietHoursLabel: 'quiet hours',
   quietHoursHelper: 'no emails between these hours, your local time.',
+  quietHoursFromLabel: 'from',
+  quietHoursUntilLabel: 'until',
 
   // Friend nudge (Notifications spec §4b) — pre-written only, so every
   // nudge is safe to receive. This absorbs the cover-a-friend "wave"

@@ -223,40 +223,42 @@ export default function Settings() {
 
       <Text style={[styles.label, styles.sectionSpacing]}>{STRINGS.notificationsSectionLabel}</Text>
 
-      <View style={styles.prefRow}>
-        <View style={styles.prefRowText}>
-          <Text style={styles.prefRowLabel}>{STRINGS.nudgeToggleLabel}</Text>
-          <Text style={styles.prefRowHelper}>{STRINGS.nudgeToggleHelper}</Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.prefPill, prefs?.nudgeEnabled && styles.prefPillOn]}
-          onPress={() => savePrefs({ nudgeEnabled: !prefs?.nudgeEnabled })}
-        >
-          <Text style={[styles.prefPillText, prefs?.nudgeEnabled && styles.prefPillTextOn]}>
-            {prefs?.nudgeEnabled ? 'on' : 'off'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {prefs?.nudgeEnabled && (
-        <>
-          <Text style={styles.subLabel}>{STRINGS.nudgeTimeLabel}</Text>
-          <View style={styles.chipRow}>
-            {NUDGE_TIME_OPTIONS.map((option) => {
-              const selected = option.time === prefs.nudgeTime;
-              return (
-                <TouchableOpacity
-                  key={option.label}
-                  style={[styles.chip, selected && styles.chipSelected]}
-                  onPress={() => savePrefs({ nudgeTime: option.time })}
-                >
-                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
+      <View style={styles.prefCard}>
+        <View style={styles.prefToggleRow}>
+          <View style={styles.prefRowText}>
+            <Text style={styles.prefRowLabel}>{STRINGS.nudgeToggleLabel}</Text>
+            <Text style={styles.prefRowHelper}>{STRINGS.nudgeToggleHelper}</Text>
           </View>
-        </>
-      )}
+          <TouchableOpacity
+            style={[styles.prefPill, prefs?.nudgeEnabled && styles.prefPillOn]}
+            onPress={() => savePrefs({ nudgeEnabled: !prefs?.nudgeEnabled })}
+          >
+            <Text style={[styles.prefPillText, prefs?.nudgeEnabled && styles.prefPillTextOn]}>
+              {prefs?.nudgeEnabled ? 'on' : 'off'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {prefs?.nudgeEnabled && (
+          <>
+            <Text style={[styles.subLabel, styles.prefCardInlineLabel]}>{STRINGS.nudgeTimeLabel}</Text>
+            <View style={styles.chipRow}>
+              {NUDGE_TIME_OPTIONS.map((option) => {
+                const selected = option.time === prefs.nudgeTime;
+                return (
+                  <TouchableOpacity
+                    key={option.label}
+                    style={[styles.chip, selected && styles.chipSelected]}
+                    onPress={() => savePrefs({ nudgeTime: option.time })}
+                  >
+                    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        )}
+      </View>
 
       <View style={[styles.prefRow, styles.sectionSpacing]}>
         <View style={styles.prefRowText}>
@@ -288,35 +290,41 @@ export default function Settings() {
         </TouchableOpacity>
       </View>
 
-      <Text style={[styles.subLabel, styles.sectionSpacing]}>{STRINGS.quietHoursLabel}</Text>
-      <Text style={styles.prefRowHelper}>{STRINGS.quietHoursHelper}</Text>
-      <View style={styles.chipRow}>
-        {QUIET_START_OPTIONS.map((option) => {
-          const selected = option.time === prefs?.quietStart;
-          return (
-            <TouchableOpacity
-              key={option.label}
-              style={[styles.chip, selected && styles.chipSelected]}
-              onPress={() => savePrefs({ quietStart: option.time })}
-            >
-              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-      <View style={styles.chipRow}>
-        {QUIET_END_OPTIONS.map((option) => {
-          const selected = option.time === prefs?.quietEnd;
-          return (
-            <TouchableOpacity
-              key={option.label}
-              style={[styles.chip, selected && styles.chipSelected]}
-              onPress={() => savePrefs({ quietEnd: option.time })}
-            >
-              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
+      <View style={[styles.prefCard, styles.sectionSpacing]}>
+        <Text style={styles.prefRowLabel}>{STRINGS.quietHoursLabel}</Text>
+        <Text style={styles.prefRowHelper}>{STRINGS.quietHoursHelper}</Text>
+
+        <Text style={[styles.subLabel, styles.prefCardInlineLabel]}>{STRINGS.quietHoursFromLabel}</Text>
+        <View style={styles.chipRow}>
+          {QUIET_START_OPTIONS.map((option) => {
+            const selected = option.time === prefs?.quietStart;
+            return (
+              <TouchableOpacity
+                key={option.label}
+                style={[styles.chip, selected && styles.chipSelected]}
+                onPress={() => savePrefs({ quietStart: option.time })}
+              >
+                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <Text style={[styles.subLabel, styles.prefCardInlineLabel]}>{STRINGS.quietHoursUntilLabel}</Text>
+        <View style={styles.chipRow}>
+          {QUIET_END_OPTIONS.map((option) => {
+            const selected = option.time === prefs?.quietEnd;
+            return (
+              <TouchableOpacity
+                key={option.label}
+                style={[styles.chip, selected && styles.chipSelected]}
+                onPress={() => savePrefs({ quietEnd: option.time })}
+              >
+                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
@@ -483,6 +491,27 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 12,
     ...cardShadow,
+  },
+  // A card that holds more than one row of content (a toggle plus its
+  // own time chips, or quiet hours' from/until chips) — same surface
+  // treatment as prefRow, but stacks vertically instead of being the
+  // row itself.
+  prefCard: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 14,
+    ...cardShadow,
+  },
+  prefToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  // Same gap as the nudge card's own "remind me" label-to-chips rhythm
+  // (subLabel's marginBottom) — used for every inline chip-row label
+  // inside a prefCard (remind me, from, until).
+  prefCardInlineLabel: {
+    marginTop: 14,
   },
   prefRowText: {
     flex: 1,
