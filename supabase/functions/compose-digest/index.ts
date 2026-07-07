@@ -15,6 +15,17 @@ const DIGEST_SEND_TIME = "19:00";
 // markers (every 21 days) stay in-app only, never in the digest.
 const MAJOR_STOPS = [50, 100, 365];
 
+// Friend/pair streak milestones (Rally21-Glow-Spec.md §3).
+const PAIR_STREAK_MILESTONES = [7, 21, 50, 100, 200, 365];
+
+/** One calendar day before `dateStr` (YYYY-MM-DD), computed in UTC so
+ * it's never skewed by DST — mirrors compose-nudges' own helper. */
+function dayBefore(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const prev = new Date(Date.UTC(y, m - 1, d - 1));
+  return `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, "0")}-${String(prev.getUTCDate()).padStart(2, "0")}`;
+}
+
 /** A circle's day number as of a given instant — day math only, no
  * per-user timezone precision needed for a once-daily congratulatory
  * line (a day off either way is harmless). */
@@ -206,8 +217,48 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Friend/pair streak milestones (Rally21-Glow-Spec.md §3) —
+      // compare today vs yesterday, not lastSeenAt: this composer already
+      // runs once daily, so "crossed since yesterday" is exactly "today".
+      // Never a line about a streak ending (spec §5).
+      const { data: circleMemberRows } = await admin
+        .from("memberships")
+        .select("user_id")
+        .in("circle_id", circleIds)
+        .neq("user_id", user.id);
+
+      const otherMemberIds = Array.from(new Set((circleMemberRows ?? []).map((m) => m.user_id as string)));
+      const pairLines: string[] = [];
+      if (otherMemberIds.length > 0) {
+        const { data: otherUsers } = await admin.from("users").select("id, name").in("id", otherMemberIds);
+        const otherNameById = new Map<string, string>();
+        for (const u of otherUsers ?? []) otherNameById.set(u.id, u.name ?? "someone in your circle");
+
+        for (const otherId of otherMemberIds) {
+          const [{ data: todayStreak }, { data: yesterdayStreak }] = await Promise.all([
+            admin.rpc("get_pair_streak_between", { p_user1: user.id, p_user2: otherId, p_through: localDate }),
+            admin.rpc("get_pair_streak_between", {
+              p_user1: user.id,
+              p_user2: otherId,
+              p_through: dayBefore(localDate),
+            }),
+          ]);
+          const todayVal = (todayStreak as number | null) ?? 0;
+          const yesterdayVal = (yesterdayStreak as number | null) ?? 0;
+          for (const milestone of PAIR_STREAK_MILESTONES) {
+            if (todayVal >= milestone && yesterdayVal < milestone) {
+              pairLines.push(`you and ${otherNameById.get(otherId) ?? "someone in your circle"} hit ${milestone} days together 🔥`);
+            }
+          }
+        }
+      }
+
       const triggeringCount =
-        (covered?.length ?? 0) + (waves?.length ?? 0) + (wallCount ?? 0) + journeyLines.length;
+        (covered?.length ?? 0) +
+        (waves?.length ?? 0) +
+        (wallCount ?? 0) +
+        journeyLines.length +
+        pairLines.length;
       if (triggeringCount === 0) {
         summary.skippedNoEvents++;
         continue;
@@ -238,7 +289,7 @@ Deno.serve(async (req) => {
         checkedInByCircle.get(c.circle_id)!.add(c.user_id);
       }
 
-      const lines: string[] = [...journeyLines];
+      const lines: string[] = [...journeyLines, ...pairLines];
       for (const c of covered ?? []) {
         const name = covererNames.get(c.covered_by as string) ?? "someone in your circle";
         lines.push(`${name} covered you today 💛 — "no pressure, we've got you"`);
