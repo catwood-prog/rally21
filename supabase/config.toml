@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.compose-digest]
 verify_jwt = false
+
+[functions.ask-rally]
+verify_jwt = true
