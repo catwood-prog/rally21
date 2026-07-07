@@ -19,6 +19,18 @@ export type TodayReflection = {
   questionSkipped: boolean;
 };
 
+/** A reflections row only counts as a real, written reflection once it
+ * carries mood or a grateful-for line. Q1's get_daily_question() pins
+ * the day's question by inserting a bare stub row (question_id +
+ * snapshot only) the first time it's called for a day — including from
+ * Today's passive reflection teaser, before the user has opened
+ * check-in at all. Anywhere "has today been reflected on" gates a flow
+ * must use this, not a bare existence check, or a pin stub reads as a
+ * completed day. */
+export function isReflectionSubstantive(r: { mood: number | null; line1: string | null }): boolean {
+  return r.mood !== null || r.line1 !== null;
+}
+
 /** The user's reflection for a given local day, if they've already done
  * one today — regardless of which circle triggered it, since reflection
  * is one-per-person-per-day, not one-per-circle. */
@@ -78,6 +90,28 @@ export async function saveCompletion(params: {
   );
 
   if (error) throw error;
+}
+
+/** A direct, targeted read of whether THIS circle's completion for
+ * today already exists — deliberately not derived from the full
+ * per-circle presence list (a real cold-load race was traced to that
+ * derivation), so a fresh /checkin page load can't momentarily read
+ * "not completed yet" for a circle whose completion was just saved. */
+export async function hasCompletedToday(params: {
+  userId: string;
+  circleId: string;
+  localDate: string;
+}): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('completions')
+    .select('user_id')
+    .eq('user_id', params.userId)
+    .eq('circle_id', params.circleId)
+    .eq('local_date', params.localDate)
+    .maybeSingle();
+
+  if (error) throw error;
+  return !!data;
 }
 
 /** The day's mood/lines/question — one per person per local day, shared

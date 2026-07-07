@@ -1,3 +1,4 @@
+import { isReflectionSubstantive } from './checkin';
 import { MyCircle } from './circle';
 import { daysBetween } from './date';
 import { getTrailingLocalDates } from './signal';
@@ -37,16 +38,21 @@ export async function getMyReflections(userId: string): Promise<Reflection[]> {
 
   if (error) throw error;
 
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    localDate: r.local_date,
-    mood: r.mood,
-    line1: r.line1,
-    line2: r.line2,
-    questionPrompt: r.questions?.prompt ?? null,
-    questionAnswer: r.question_answer,
-    createdAt: r.created_at,
-  }));
+  // A row can be a bare question-pin stub (Q1's get_daily_question(),
+  // mood/line1 both still null) rather than a real written reflection —
+  // never show a phantom empty day in the journal timeline.
+  return (data ?? [])
+    .filter((r) => isReflectionSubstantive({ mood: r.mood, line1: r.line1 }))
+    .map((r) => ({
+      id: r.id,
+      localDate: r.local_date,
+      mood: r.mood,
+      line1: r.line1,
+      line2: r.line2,
+      questionPrompt: r.questions?.prompt ?? null,
+      questionAnswer: r.question_answer,
+      createdAt: r.created_at,
+    }));
 }
 
 // ── weekly look-back ─────────────────────────────────────────────────────

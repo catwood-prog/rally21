@@ -19,7 +19,7 @@ import { isVerbPhrasePractice, STRINGS } from '@/constants/strings';
 import { cardShadow, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { getMyCircleCap, MAX_CIRCLES } from '@/lib/caps';
-import { DailyQuestion, getDailyQuestion, getTodayReflection } from '@/lib/checkin';
+import { DailyQuestion, getDailyQuestion, getTodayReflection, isReflectionSubstantive } from '@/lib/checkin';
 import { unlockAudioContext } from '@/lib/chime';
 import {
   CircleMember,
@@ -86,7 +86,7 @@ export default function Today() {
       setCircles(myCircles);
       setCircleCap(myCircleCap);
       setReflectionQuestion(question);
-      setHasWrittenReflectionToday(!!todayReflection);
+      setHasWrittenReflectionToday(!!todayReflection && isReflectionSubstantive(todayReflection));
       setGlow(myGlow);
 
       if (myCircles.length === 0) {

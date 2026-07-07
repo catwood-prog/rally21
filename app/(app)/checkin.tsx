@@ -24,10 +24,12 @@ import {
   getDailyQuestion,
   getQuestionById,
   getTodayReflection,
+  hasCompletedToday,
+  isReflectionSubstantive,
   saveCompletion,
   saveReflection,
 } from '@/lib/checkin';
-import { getCircleById, getCirclePresence } from '@/lib/circle';
+import { getCircleById } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 import { deriveCheckinAccent } from '@/lib/practice-accent';
 import { getMyProfile, markVoiceHintSeen } from '@/lib/profile';
@@ -72,19 +74,16 @@ export default function CheckIn() {
       try {
         // reflection is per-person-per-day, not per-circle — if today's
         // already been done (from any circle), edit that same entry
-        const [existing, presence, circle, profile] = await Promise.all([
+        const [existing, alreadyCompletedThisCircle, circle, profile] = await Promise.all([
           getTodayReflection(today),
-          getCirclePresence(circleId),
+          hasCompletedToday({ userId: session.user.id, circleId, localDate: today }),
           getCircleById(circleId),
           getMyProfile(session.user.id),
         ]);
         setShowVoiceHint(!profile?.has_seen_voice_hint);
         setAccent(deriveCheckinAccent(circle?.practiceName));
-        const alreadyCompletedThisCircle = presence.some(
-          (p) => p.userId === session.user.id && p.localDate === today
-        );
 
-        if (existing && !alreadyCompletedThisCircle) {
+        if (existing && isReflectionSubstantive(existing) && !alreadyCompletedThisCircle) {
           // a different circle already triggered today's one reflection —
           // this one just needs its own completion marked, no form, ever
           setIsRedirecting(true);
