@@ -283,6 +283,58 @@ export const STRINGS = {
   wallComposerPlaceholder: 'Message your circle…',
   hostDeleteWallMessageCancel: 'Cancel',
   hostDeleteWallMessageLink: 'remove',
+
+  // DC1 (7 July) — "your data & privacy" screen (MVP Screens mockup #23):
+  // the privacy-promise screen's three promises (see, correct, or delete
+  // anytime) made operable.
+  yourDataSettingsRow: 'Your data & privacy',
+  yourDataTitle: 'Your data & privacy',
+  yourDataReassurance:
+    'Your reflections are yours. Only you see your picture. Your circle sees only what you choose. We never sell your data.',
+  yourDataSectionLabel: 'You can, anytime:',
+  yourDataSeeEverything: 'See everything we keep',
+  yourDataExport: 'Export it all',
+  yourDataDeleteCheckin: 'Delete a single check-in',
+  yourDataDeletePicture: 'Delete my picture',
+  yourDataDeletePictureNote: '(keep streaks)',
+  yourDataFooterNote: 'Deletions and exports happen right away — nothing is queued or delayed.',
+
+  yourDataSummaryJoined: (date: string) => `joined ${date}`,
+  yourDataSummaryCircles: (n: number) => `${n} circle${n === 1 ? '' : 's'}`,
+  yourDataSummaryCheckins: (n: number) => `${n} check-in${n === 1 ? '' : 's'} logged`,
+  yourDataSummaryReflections: (n: number) => `${n} reflection${n === 1 ? '' : 's'} written`,
+  yourDataSummaryPrivateMapBuilt: 'building from your patterns',
+  yourDataSummaryPrivateMapEmpty: 'nothing yet — keep checking in',
+  yourDataSummaryConversations: (n: number) =>
+    n === 0 ? 'no messages yet' : `${n} message${n === 1 ? '' : 's'} with Rally`,
+  yourDataSummaryNotificationsOn: 'on',
+  yourDataSummaryNotificationsOff: 'off',
+
+  yourDataExportPreparing: 'preparing your export…',
+  yourDataExportError: 'could not export right now — try again',
+
+  yourDataDeleteCheckinEmpty: 'no check-ins yet to delete',
+  yourDataDeleteCheckinRowLabel: (circleName: string, dateLabel: string) => `${circleName} — ${dateLabel}`,
+  yourDataDeleteCheckinConfirm:
+    "delete this check-in? this may change your glow — it recomputes from what's left. reflections from that day stay put.",
+  yourDataDeleteCheckinConfirmCta: 'Delete',
+  yourDataDeleteCheckinCancelCta: 'Cancel',
+  yourDataDeleteCheckinError: 'could not delete that — try again',
+
+  yourDataDeletePictureNoneYet: 'no photo to remove yet',
+  yourDataDeletePictureConfirm: "remove your photo? your initials will show instead — nothing else changes.",
+  yourDataDeletePictureConfirmCta: 'Remove photo',
+  yourDataDeletePictureCancelCta: 'Cancel',
+  yourDataDeletePictureError: 'could not remove that — try again',
+
+  yourDataDangerZoneLabel: 'danger zone',
+  yourDataDeleteAccountCta: 'Delete my account',
+  yourDataDeleteAccountConfirmIntro:
+    "This deletes your profile, check-ins, and reflections for good — it can't be undone. Circles you started stay with your circle-mates.",
+  yourDataDeleteAccountTypeToConfirmLabel: 'type DELETE to confirm',
+  yourDataDeleteAccountConfirmCta: 'Delete forever',
+  yourDataDeleteAccountCancelCta: 'Cancel',
+  yourDataDeleteAccountError: 'could not delete your account — try again',
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one

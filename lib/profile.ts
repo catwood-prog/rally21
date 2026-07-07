@@ -148,6 +148,24 @@ async function uploadAvatar(userId: string, imageUri: string): Promise<string> {
   return `${data.publicUrl}?t=${Date.now()}`;
 }
 
+/** DC1 — "delete my picture (keep streaks)": removes the stored avatar
+ * object(s) and clears avatar_url, reverting to the initials fallback.
+ * Never touches completions/reflections — the glow/history stay intact,
+ * only the photo goes. */
+export async function removeAvatar(userId: string): Promise<void> {
+  const { data: files, error: listError } = await supabase.storage.from('avatars').list(userId);
+  if (listError) throw listError;
+
+  if (files && files.length > 0) {
+    const paths = files.map((f) => `${userId}/${f.name}`);
+    const { error: removeError } = await supabase.storage.from('avatars').remove(paths);
+    if (removeError) throw removeError;
+  }
+
+  const { error } = await supabase.from('users').update({ avatar_url: null }).eq('id', userId);
+  if (error) throw error;
+}
+
 export async function saveProfile(
   userId: string,
   { name, avatarUri }: { name: string; avatarUri?: string | null }

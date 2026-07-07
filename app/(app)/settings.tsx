@@ -17,7 +17,6 @@ import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
-import { deleteMyAccount } from '@/lib/account';
 import { useAuth } from '@/lib/auth-context';
 import { getMyNotificationPrefs, NotificationPrefs, updateNotificationPrefs } from '@/lib/notifications';
 import { getMyProfile, saveProfile, setSoundsEnabled } from '@/lib/profile';
@@ -55,8 +54,6 @@ export default function Settings() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -140,18 +137,6 @@ export default function Settings() {
     }
   };
 
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      await deleteMyAccount();
-      await signOut();
-      router.replace('/sign-in');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not delete your account — try again');
-      setIsDeleting(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <View style={styles.loading}>
@@ -202,6 +187,10 @@ export default function Settings() {
         onPress={() => router.push('/my-practices')}
       >
         <Text style={styles.signOutText}>My practices</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.signOutButton} onPress={() => router.push('/your-data')}>
+        <Text style={styles.signOutText}>{STRINGS.yourDataSettingsRow}</Text>
       </TouchableOpacity>
 
       <Text style={[styles.label, styles.sectionSpacing]}>{STRINGS.soundsSectionLabel}</Text>
@@ -330,40 +319,6 @@ export default function Settings() {
       <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
         <Text style={styles.signOutText}>Sign out</Text>
       </TouchableOpacity>
-
-      <Text style={[styles.label, styles.sectionSpacing]}>danger zone</Text>
-      {!confirmingDelete ? (
-        <TouchableOpacity style={styles.deleteButton} onPress={() => setConfirmingDelete(true)}>
-          <Text style={styles.deleteButtonText}>Delete my account</Text>
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.confirmCard}>
-          <Text style={styles.confirmText}>
-            This deletes your profile, check-ins, and reflections for good — it can&apos;t be
-            undone. Circles you started stay with your circle-mates.
-          </Text>
-          <View style={styles.confirmRow}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setConfirmingDelete(false)}
-              disabled={isDeleting}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.confirmDeleteButton}
-              onPress={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.confirmDeleteText}>Delete forever</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
 
       <MessageDialog
         visible={savedNotice}
@@ -580,62 +535,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
     color: colors.ink,
-  },
-  deleteButton: {
-    backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: colors.errorRed,
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  deleteButtonText: {
-    fontWeight: '700',
-    fontSize: 13,
-    color: colors.errorRed,
-  },
-  confirmCard: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: colors.errorRed,
-    ...cardShadow,
-  },
-  confirmText: {
-    fontSize: 12.5,
-    color: colors.ink,
-    lineHeight: 18,
-    marginBottom: 14,
-  },
-  confirmRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: colors.bg,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    borderRadius: 12,
-    paddingVertical: 11,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontWeight: '700',
-    fontSize: 12.5,
-    color: colors.ink,
-  },
-  confirmDeleteButton: {
-    flex: 1,
-    backgroundColor: colors.errorRed,
-    borderRadius: 12,
-    paddingVertical: 11,
-    alignItems: 'center',
-  },
-  confirmDeleteText: {
-    fontWeight: '700',
-    fontSize: 12.5,
-    color: '#fff',
   },
 });
