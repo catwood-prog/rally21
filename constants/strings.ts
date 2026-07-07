@@ -238,6 +238,12 @@ export const STRINGS = {
     "your glow is the run of days you've shown up — anywhere, for anyone. a friend can cover you and it holds, up to a few times a month depending how far you've come. miss a day uncovered and it dims to embers for 48 hours — one small thing brings it right back.",
   glowDetailCta: 'Got it',
 
+  // The glow moment — G5, Duolingo-style post-check-in beat (7 July).
+  // Only shown on the check-in that earns the day (never a milestone
+  // day, never a second circle, never an edit).
+  glowBeatRekindledLine: 'the fire came back — that counts double',
+  glowBeatContinueCta: 'keep it glowing',
+
   // Friend streaks (Rally21-Glow-Spec.md §3) — shown near who's-here,
   // only the single best active pair streak, N >= 3.
   pairStreakLabel: (name: string, n: number) => `you and ${name}: ${n} days both in 🔥`,

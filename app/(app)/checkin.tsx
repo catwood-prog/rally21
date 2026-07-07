@@ -24,6 +24,7 @@ import {
   getDailyQuestion,
   getQuestionById,
   getTodayReflection,
+  hasAnyCompletionToday,
   hasCompletedToday,
   isReflectionSubstantive,
   saveCompletion,
@@ -121,6 +122,11 @@ export default function CheckIn() {
     if (!canSave || !session?.user || !circleId || mood === null) return;
     setIsSaving(true);
     try {
+      // G5: checked BEFORE saving so we can tell whether THIS save is the
+      // one that earns the day — true only the first time any circle is
+      // completed today; a second circle same day, or an edit of an
+      // already-completed circle, both find this already true.
+      const alreadyEarnedToday = await hasAnyCompletionToday({ userId: session.user.id, localDate: today });
       await saveCompletion({ userId: session.user.id, circleId, localDate: today });
       await saveReflection({
         userId: session.user.id,
@@ -132,7 +138,10 @@ export default function CheckIn() {
         questionAnswer: questionSkipped ? null : questionAnswer.trim() || null,
         questionSkipped,
       });
-      router.replace({ pathname: '/checkin-complete', params: { circleId } });
+      router.replace({
+        pathname: '/checkin-complete',
+        params: { circleId, earnedToday: alreadyEarnedToday ? undefined : 'true' },
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'something went wrong — try again');
       setIsSaving(false);

@@ -114,6 +114,26 @@ export async function hasCompletedToday(params: {
   return !!data;
 }
 
+/** G5 (Rally21-Glow-Spec.md §1): whether the user has ANY own completion
+ * for this local date, in any circle — unlike hasCompletedToday, not
+ * scoped to one circle. Checked BEFORE calling saveCompletion so the
+ * caller can tell whether the save about to happen is the one that
+ * EARNS the day (glow increments) versus a second-circle completion or
+ * an edit of an already-completed circle, both of which find this
+ * already true. */
+export async function hasAnyCompletionToday(params: { userId: string; localDate: string }): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('completions')
+    .select('id')
+    .eq('user_id', params.userId)
+    .eq('kind', 'self')
+    .eq('local_date', params.localDate)
+    .limit(1);
+
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
 /** The day's mood/lines/question — one per person per local day, shared
  * across however many circles they're in. Re-saving the same day edits
  * this same row rather than creating another. */

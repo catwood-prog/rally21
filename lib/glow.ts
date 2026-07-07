@@ -60,3 +60,46 @@ export async function getPairStreaks(circleId: string): Promise<PairStreak[]> {
     streak: row.streak,
   }));
 }
+
+// The glow moment (G5, Rally21-Glow-Spec.md §1) — the post-check-in
+// week row. States mirror get_week_for_user()'s own shelter-capacity
+// accounting exactly, so this never disagrees with getMyGlow()'s number.
+export type WeekDayState = 'earned' | 'held' | 'none';
+export type WeekDay = { date: string; state: WeekDayState };
+
+type WeekDayRow = { day_date: string; state: string };
+
+/** The last 7 local days (oldest first, today last), for the glow
+ * moment's week row. All streak/shelter-capacity math happens
+ * server-side — this only shapes the RPC result. */
+export async function getMyWeek(): Promise<WeekDay[]> {
+  const { data, error } = await supabase.rpc('get_my_week');
+  if (error) throw error;
+  return ((data ?? []) as WeekDayRow[]).map((row) => ({
+    date: row.day_date,
+    state: row.state === 'earned' || row.state === 'held' ? row.state : 'none',
+  }));
+}
+
+/** The G3/G5 composition rule: a milestone day always shows the
+ * milestone celebration instead of the glow moment (never both) —
+ * checked first. Otherwise the glow moment shows only on the check-in
+ * that actually earned the day (the user's first own completion of the
+ * local date) — never a second-circle completion, never an edit. */
+export function shouldShowGlowBeat(params: { earnedToday: boolean; hasMilestone: boolean }): boolean {
+  if (params.hasMilestone) return false;
+  return params.earnedToday;
+}
+
+/** Whether today's earned day rekindled the glow from embers — derived
+ * purely from the week row rather than a separate server flag: a
+ * missed, uncovered day always reads 'none' (get_week_for_user uses the
+ * same day-state logic regardless of the ember window), so "yesterday
+ * none, today earned" is exactly the rekindle pattern (Rally21-Glow-Spec
+ * §2's 48h window always includes the very next day). */
+export function didRekindleToday(week: WeekDay[]): boolean {
+  if (week.length < 2) return false;
+  const today = week[week.length - 1];
+  const yesterday = week[week.length - 2];
+  return today.state === 'earned' && yesterday.state === 'none';
+}

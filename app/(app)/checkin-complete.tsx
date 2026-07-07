@@ -22,7 +22,7 @@ import { useAuth } from '@/lib/auth-context';
 import { playCheckinPop } from '@/lib/chime';
 import { getCircleById } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
-import { checkGlowMilestone } from '@/lib/glow';
+import { checkGlowMilestone, shouldShowGlowBeat } from '@/lib/glow';
 import { getMyProfile } from '@/lib/profile';
 
 const CONFETTI_COUNT = 25;
@@ -124,7 +124,7 @@ function ConfettiPiece({ spec, fallDistance }: { spec: ConfettiSpec; fallDistanc
 export default function CheckInComplete() {
   const router = useRouter();
   const { session } = useAuth();
-  const { circleId } = useLocalSearchParams<{ circleId: string }>();
+  const { circleId, earnedToday } = useLocalSearchParams<{ circleId: string; earnedToday?: string }>();
   const { height: windowHeight } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
 
@@ -216,6 +216,13 @@ export default function CheckInComplete() {
   }));
 
   const handleDismiss = () => {
+    // G5 (Rally21-Glow-Spec.md §1): the glow moment only replaces this
+    // screen's normal dismissal on the check-in that actually earned the
+    // day, and never alongside a milestone (they compose, never both).
+    if (shouldShowGlowBeat({ earnedToday: earnedToday === 'true', hasMilestone: !!glowMilestone })) {
+      router.replace('/glow-beat');
+      return;
+    }
     if (router.canGoBack()) {
       router.back();
     } else {
