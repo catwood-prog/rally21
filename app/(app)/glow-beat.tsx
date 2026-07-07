@@ -57,7 +57,13 @@ function WeekSlot({ day, index, reduceMotion }: { day: WeekDay; index: number; r
  * shown only on the check-in that earns the day (see
  * lib/glow.ts's shouldShowGlowBeat, checked by checkin-complete.tsx
  * before ever routing here). Never blocks — a load failure still leaves
- * the continue button reachable, landing on Today same as always. */
+ * the continue button reachable, landing on Today same as always.
+ *
+ * SOUND (polish pass, pending Cat's reference video): no new sound
+ * asset here by design — the existing check-in chime already played on
+ * the previous screen (checkin-complete.tsx's playCheckinPop), and
+ * replaying it again this soon would read as a glitch, not a beat.
+ * Once Cat shares the reference video, this is where its cue goes. */
 export default function GlowBeat() {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
