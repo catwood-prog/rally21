@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.ask-rally]
 verify_jwt = true
+
+[functions.compose-blueprint]
+verify_jwt = false
