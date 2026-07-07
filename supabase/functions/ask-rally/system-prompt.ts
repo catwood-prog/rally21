@@ -1,7 +1,7 @@
 // The Ask Rally system prompt, copied VERBATIM from Rally21-Ask-Rally-Spec.md
 // §2 — this file is the source of truth for the wording; don't edit the
 // persona/tone text here without updating that spec too. `{{...}}` blocks
-// are filled in by assembleSystemPrompt() below.
+// are filled in by context.ts's assembleAskRallySystemPrompt().
 
 export const SYSTEM_PROMPT_TEMPLATE = `You are Rally, the companion inside Rally21 — a habit app where small
 circles of friends commit to one daily practice for 21 days, and where
@@ -90,26 +90,6 @@ Confidence matters: treat low-confidence traits as hunches to check
 can stand on. Coverage gaps are humility: where you know little, ask
 rather than assume.`;
 
-// A0 is a founder-only playground with no blueprint engine yet (that's
-// B1/B2) — these are hand-written fixtures approximating Cat's real
-// patterns so the persona/tone can be tested before any real data feeds
-// this prompt. Replace with the real assembled blocks once A1 wires this
-// up to the actual blueprint/reflections/circle tables.
-const FIXTURE_BLUEPRINT_BLOCK = `Blueprint (hand-written fixture, A0 playground — not yet real data):
-- fairly sure: mood dips on Thursdays, most weeks (5 of last 7)
-- hunch: energy runs lower in the two days right before a big work deadline
-- confirmed pattern: check-ins cluster before 9am, 4 of the last 5
-- coverage: you know a fair amount about her rhythm and habits, little yet about what she's working toward.`;
-
-const FIXTURE_STATES_BLOCK = `Recent state (hand-written fixture): mood steady this week, energy dipped mid-week then recovered. Currently glowing at 12 days.`;
-
-const FIXTURE_REFLECTIONS_BLOCK = `Last reflections (hand-written fixture, verbatim style):
-- July 5 — grateful for: "the circle checking in on me when I went quiet Tuesday." learned: "I still show up even when I don't feel like it."
-- July 3 — grateful for: "a genuinely good coffee." learned: "saying no to one thing freed up the whole afternoon."
-- June 30 — grateful for: "my sister calling out of nowhere." learned: "Thursdays are still rough — same as always."`;
-
-const FIXTURE_CIRCLE_BLOCK = `Circle (hand-written fixture): "Morning Pages" practice, day 12 of the journey, circle "The Regulars," 3 of 4 checked in today.`;
-
 const CRISIS_RESOURCES_BY_REGION: Record<string, string> = {
   UK: "UK — Samaritans: call 116 123 (free, 24/7) or text SHOUT to 85258.",
   US: "US — 988 Suicide & Crisis Lifeline: call or text 988, or text HOME to 741741 (Crisis Text Line).",
@@ -120,14 +100,6 @@ const CRISIS_RESOURCES_BY_REGION: Record<string, string> = {
  * both minimum regions rather than guessing — safer than omitting either. */
 export function resolveCrisisResources(_locale?: string | null): string {
   return Object.values(CRISIS_RESOURCES_BY_REGION).join(" ");
-}
-
-export function assembleSystemPrompt(crisisResources: string): string {
-  return SYSTEM_PROMPT_TEMPLATE.replace("{{crisis_resources}}", crisisResources)
-    .replace("{{blueprint_block}}", FIXTURE_BLUEPRINT_BLOCK)
-    .replace("{{states_block}}", FIXTURE_STATES_BLOCK)
-    .replace("{{reflections_block}}", FIXTURE_REFLECTIONS_BLOCK)
-    .replace("{{circle_block}}", FIXTURE_CIRCLE_BLOCK);
 }
 
 /** The fixed reply for a crisis-flagged message (spec §2 CRISIS section):
@@ -180,9 +152,4 @@ export type ChatMessage = { role: "user" | "assistant"; content: string };
  * truncated regardless of how long the conversation gets. */
 export function truncateHistory(messages: ChatMessage[], maxTurns: number): ChatMessage[] {
   return messages.length > maxTurns ? messages.slice(messages.length - maxTurns) : messages;
-}
-
-/** Same two-account allowlist as app_caps()'s founder override. */
-export function isFounder(userId: string, founderIds: ReadonlySet<string>): boolean {
-  return founderIds.has(userId);
 }

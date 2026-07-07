@@ -250,6 +250,10 @@ export const STRINGS = {
   blueprintWantNowPractice: 'now your practice — find it with your circles',
   blueprintWantBecame: (circleName: string) =>
     circleName ? `became "${circleName}"` : 'became a practice',
+
+  // Ask Rally, part 1 (A1, Rally21-Ask-Rally-Spec.md) — entry points.
+  askRallyLinkLabel: 'Ask Rally',
+  askRallyAboutThis: 'ask Rally about this',
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one

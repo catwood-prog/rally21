@@ -6,6 +6,7 @@ import { MASCOT } from '@/assets/mascot';
 import { Brandmark } from '@/components/Brandmark';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { MOOD_EMOJI } from '@/constants/mood';
 import { useAuth } from '@/lib/auth-context';
@@ -91,6 +92,10 @@ export default function Journal() {
       <View style={styles.lock}>
         <Text style={styles.lockText}>🔒 Only you see these</Text>
       </View>
+
+      <TouchableOpacity onPress={() => router.push('/ask-rally')}>
+        <Text style={styles.askRallyLink}>{STRINGS.askRallyLinkLabel} →</Text>
+      </TouchableOpacity>
 
       {error && <Text style={styles.subtitle}>{error}</Text>}
 
@@ -183,6 +188,12 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '700',
     color: colors.green,
+  },
+  askRallyLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.plum,
+    marginBottom: 18,
   },
   subtitle: {
     fontSize: 13,

@@ -36,6 +36,13 @@ function appendTranscript(existing: string, transcript: string): string {
   return `${existing} ${transcript}`;
 }
 
+/** A1 entry point: "ask Rally about this" on any pattern card, prefilling
+ * the composer with that pattern as a starting point (never auto-sent —
+ * the user still chooses what to actually ask). */
+function patternContextText(copy: { headline: string; accent: string }): string {
+  return copy.accent ? `${copy.headline} ${copy.accent}` : copy.headline;
+}
+
 export default function Blueprint() {
   const router = useRouter();
   const { session } = useAuth();
@@ -268,6 +275,15 @@ export default function Blueprint() {
                   </TouchableOpacity>
                 </View>
               )}
+              {!isWritingNote && (
+                <TouchableOpacity
+                  onPress={() =>
+                    router.push({ pathname: '/ask-rally', params: { context: patternContextText(copy) } })
+                  }
+                >
+                  <Text style={styles.askRallyAboutLink}>{STRINGS.askRallyAboutThis} →</Text>
+                </TouchableOpacity>
+              )}
             </View>
           );
         })()}
@@ -287,6 +303,11 @@ export default function Blueprint() {
             )}
             {!!copy.evidence && <Text style={styles.patternMeta}>{copy.evidence}</Text>}
             <Text style={styles.respondedText}>{STRINGS.blueprintConfirmedText}</Text>
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: '/ask-rally', params: { context: patternContextText(copy) } })}
+            >
+              <Text style={styles.askRallyAboutLink}>{STRINGS.askRallyAboutThis} →</Text>
+            </TouchableOpacity>
           </View>
         );
       })}
@@ -531,6 +552,12 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: 16,
     fontWeight: '600',
+  },
+  askRallyAboutLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.plum,
+    marginTop: 12,
   },
   noteWrap: {
     marginTop: 16,

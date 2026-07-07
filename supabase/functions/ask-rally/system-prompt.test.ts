@@ -1,8 +1,6 @@
 import {
-  assembleSystemPrompt,
   crisisResponse,
   isCrisisMessage,
-  isFounder,
   resolveCrisisResources,
   truncateHistory,
 } from './system-prompt';
@@ -42,15 +40,6 @@ describe('resolveCrisisResources', () => {
   });
 });
 
-describe('assembleSystemPrompt', () => {
-  test('fills in every template block, none left unreplaced', () => {
-    const prompt = assembleSystemPrompt(resolveCrisisResources());
-    expect(prompt).not.toContain('{{');
-    expect(prompt).toContain('WHO YOU ARE');
-    expect(prompt).toContain('988'); // crisis resources made it in
-  });
-});
-
 describe('truncateHistory', () => {
   const makeMessages = (n: number) =>
     Array.from({ length: n }, (_, i) => ({
@@ -69,17 +58,5 @@ describe('truncateHistory', () => {
     expect(result).toHaveLength(20);
     expect(result[0].content).toBe('turn 1'); // turn 0 (oldest) dropped
     expect(result[19].content).toBe('turn 20'); // newest kept
-  });
-});
-
-describe('isFounder', () => {
-  const founderIds = new Set(['founder-a', 'founder-b']);
-
-  test('recognizes an allowlisted id', () => {
-    expect(isFounder('founder-a', founderIds)).toBe(true);
-  });
-
-  test('rejects anyone not on the allowlist', () => {
-    expect(isFounder('some-random-user-id', founderIds)).toBe(false);
   });
 });

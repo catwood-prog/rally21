@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -16,78 +16,139 @@ import { Brandmark } from '@/components/Brandmark';
 import { VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
-import { useAuth } from '@/lib/auth-context';
-import { AskRallyMessage, ASK_RALLY_FOUNDER_IDS, streamAskRally } from '@/lib/askRally';
+import {
+  AskRallyMessage,
+  deleteConversation,
+  getActiveConversation,
+  streamAskRally,
+} from '@/lib/askRally';
 
 function appendTranscript(existing: string, transcript: string): string {
   if (!existing || /\s$/.test(existing)) return existing + transcript;
   return `${existing} ${transcript}`;
 }
 
-// A0 — the tone playground (Rally21-Ask-Rally-Spec.md). Founder-only,
-// nothing persists: history lives in this screen's own state and is gone
-// the moment it unmounts or "start fresh" is tapped.
+// Ask Rally, part 1 — the real thing (Rally21-Ask-Rally-Spec.md). Every
+// authenticated user (A0's founder allowlist is gone). Conversations
+// persist server-side for continuity: 'start fresh' closes the current
+// thread (server-side, on the next message) and opens a new one;
+// 'delete' is a separate, one-tap, real hard delete.
 export default function AskRally() {
   const router = useRouter();
-  const { session, isLoading: isAuthLoading } = useAuth();
+  const { context } = useLocalSearchParams<{ context?: string }>();
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AskRallyMessage[]>([]);
   const [draft, setDraft] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [limitMessage, setLimitMessage] = useState<string | null>(null);
   const [micDenied, setMicDenied] = useState(false);
+  const pendingStartFresh = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
+  const prefilledFromContext = useRef(false);
 
-  const isFounder = !!session?.user && ASK_RALLY_FOUNDER_IDS.has(session.user.id);
-
-  useEffect(() => {
-    // Client-side redirect only — a UX nicety. The edge function's own
-    // 403 is the real enforcement (never rely on this alone).
-    if (!isAuthLoading && !isFounder) {
-      router.replace('/today');
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const active = await getActiveConversation();
+      setConversationId(active?.id ?? null);
+      setMessages(active?.messages ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not load your conversation');
+    } finally {
+      setIsLoading(false);
     }
-  }, [isAuthLoading, isFounder, router]);
+  }, []);
 
-  if (isAuthLoading || !isFounder) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={colors.green} />
-      </View>
-    );
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  // Entry from a blueprint card ("ask Rally about this") prefills the
+  // composer with that pattern as a starting point — never auto-sent on
+  // the user's behalf, they still choose what to actually ask.
+  if (context && !prefilledFromContext.current && !isLoading) {
+    prefilledFromContext.current = true;
+    setDraft(`About this: "${context}" — `);
   }
 
   const handleStartFresh = () => {
+    pendingStartFresh.current = true;
     setMessages([]);
+    setConversationId(null);
     setError(null);
+    setLimitMessage(null);
     setDraft('');
+  };
+
+  const handleDelete = async () => {
+    if (!conversationId) return;
+    try {
+      await deleteConversation(conversationId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not delete that — try again');
+      return;
+    }
+    setConversationId(null);
+    setMessages([]);
+    setLimitMessage(null);
   };
 
   const handleSend = async () => {
     const text = draft.trim();
     if (!text || isSending) return;
 
-    const nextMessages: AskRallyMessage[] = [...messages, { role: 'user', content: text }];
-    setMessages([...nextMessages, { role: 'assistant', content: '' }]);
+    setMessages((prev) => [...prev, { role: 'user', content: text }, { role: 'assistant', content: '' }]);
     setDraft('');
     setError(null);
+    setLimitMessage(null);
     setIsSending(true);
+    const startFresh = pendingStartFresh.current;
+    pendingStartFresh.current = false;
 
     try {
       let assistantText = '';
-      await streamAskRally(nextMessages, (chunk) => {
-        assistantText += chunk;
-        setMessages((prev) => {
-          const updated = [...prev];
-          updated[updated.length - 1] = { role: 'assistant', content: assistantText };
-          return updated;
-        });
-      });
+      let limited = false;
+      await streamAskRally(
+        text,
+        (chunk) => {
+          assistantText += chunk;
+          setMessages((prev) => {
+            const updated = [...prev];
+            updated[updated.length - 1] = { role: 'assistant', content: assistantText };
+            return updated;
+          });
+        },
+        {
+          startFresh,
+          onHeaders: (headers) => {
+            limited = headers.get('X-Ask-Rally-Limited') === 'true';
+          },
+        }
+      );
+      if (limited) setLimitMessage(assistantText);
+      // Refresh from the server so the conversation id (first message
+      // ever) and full history stay authoritative — never trust local
+      // optimistic state as the source of truth for something persisted.
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not reach Ask Rally');
-      setMessages((prev) => prev.slice(0, -1));
+      setMessages((prev) => prev.slice(0, -2));
     } finally {
       setIsSending(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color={colors.green} />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -100,12 +161,19 @@ export default function AskRally() {
           <TouchableOpacity onPress={() => router.push('/today')}>
             <Text style={styles.back}>← Today</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleStartFresh} hitSlop={8}>
-            <Text style={styles.startFresh}>start fresh</Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={handleStartFresh} hitSlop={8}>
+              <Text style={styles.startFresh}>start fresh</Text>
+            </TouchableOpacity>
+            {conversationId && (
+              <TouchableOpacity onPress={handleDelete} hitSlop={8}>
+                <Text style={styles.deleteText}>delete</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
         <Text style={styles.title}>Ask Rally</Text>
-        <Text style={styles.subtitle}>founder-only playground — nothing here is saved</Text>
+        <Text style={styles.subtitle}>private to you — nothing here shapes your blueprint or circle</Text>
       </View>
 
       <ScrollView
@@ -115,7 +183,7 @@ export default function AskRally() {
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
         {messages.length === 0 && (
-          <Text style={styles.emptyText}>say anything — this is just for testing the tone.</Text>
+          <Text style={styles.emptyText}>say anything — Rally already knows your patterns.</Text>
         )}
         {messages.map((m, i) => (
           <View
@@ -127,6 +195,7 @@ export default function AskRally() {
             </Text>
           </View>
         ))}
+        {limitMessage && <Text style={styles.limitText}>{limitMessage}</Text>}
         {error && <Text style={styles.errorText}>{error}</Text>}
       </ScrollView>
 
@@ -185,6 +254,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
   back: {
     fontSize: 13,
     fontWeight: '600',
@@ -194,6 +268,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.plum,
+  },
+  deleteText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.errorRed,
   },
   title: {
     fontFamily: FONT_HEADER,
@@ -236,6 +315,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.ink,
     lineHeight: 20,
+  },
+  limitText: {
+    fontSize: 12.5,
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   errorText: {
     fontSize: 12.5,
