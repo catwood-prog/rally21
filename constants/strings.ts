@@ -75,6 +75,7 @@ export const STRINGS = {
 
   voiceDictationDeniedHint: 'you can also dictate with the keyboard mic 🎤',
   voiceMicDiscoveryHint: 'you can speak your answers 🎤 — often easier than typing',
+  checkinQuestionInputPlaceholder: 'your answer',
 
   practiceStepQuestion: 'what will you do each day?',
   circleNameHelper: "this is your team's name — make it yours",
@@ -118,7 +119,6 @@ export const STRINGS = {
   // send_friend_nudge (security spec S1, F4) — the copy is unchanged,
   // just no longer client-composed.
 
-  presenceCoveredLabel: 'covered 💛',
   circleYouCoveredCard: (name: string) => `You covered ${name} today 💛`,
   circleYouCoveredCardBody: "The signal stays warm for everyone. That's the whole point.",
   circleCoveredYouCard: (covererName: string) => `${covererName} covered you today 💛`,
@@ -207,6 +207,9 @@ export const STRINGS = {
   journeyGateWaitingOnHost: "your host can complete the circle whenever they're ready.",
   journeyGateCardTitle: (circleName: string) => `${circleName} hit 21 days`,
   journeyGateCardBody: 'rally on, or your host can complete it — whenever feels right.',
+  // Shared by journey-gate.tsx and celebration.tsx — both resolve a circle
+  // by id from route params and show this if it's missing/inaccessible.
+  circleNotFound: "couldn't find that circle",
 
   journeyRalliedOnCard: (circleName: string) => `${circleName} rallied on 🔥`,
   journeyRallyMarkerTitle: (rallyNum: number) => `rally ${rallyNum} complete`,
@@ -272,6 +275,14 @@ export const STRINGS = {
   askRallyLinkLabel: 'Ask Rally',
   askRallyAboutThis: 'ask Rally about this',
   askRallySubtitle: 'private to you — nothing here shapes your private map or circle',
+  askRallyStartFresh: 'start fresh',
+  askRallyDelete: 'delete',
+  askRallyComposerPlaceholder: 'ask Rally anything…',
+  askRallySendCta: 'Send',
+
+  wallComposerPlaceholder: 'Message your circle…',
+  hostDeleteWallMessageCancel: 'Cancel',
+  hostDeleteWallMessageLink: 'remove',
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one

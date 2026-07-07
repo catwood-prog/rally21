@@ -229,7 +229,7 @@ export default function JourneyGate() {
   if (!circle) {
     return (
       <View style={styles.loading}>
-        <Text style={styles.subtitle}>couldn&apos;t find that circle</Text>
+        <Text style={styles.subtitle}>{STRINGS.circleNotFound}</Text>
       </View>
     );
   }

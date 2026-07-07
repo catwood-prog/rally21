@@ -14,6 +14,7 @@ import {
 
 import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
+import { VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
@@ -44,6 +45,11 @@ const QUICK_REACTIONS = ['🎉', '👏', '💛', '🔥'];
 const OPEN_CIRCLE_REACTIONS = ['💛', '👏', '🔥', '👋'];
 const VOICE_UNLOCK_COMPLETIONS = 7;
 
+function appendTranscript(existing: string, transcript: string): string {
+  if (!existing || /\s$/.test(existing)) return existing + transcript;
+  return `${existing} ${transcript}`;
+}
+
 type FeedItem =
   | { kind: 'message'; id: string; userId: string; body: string; createdAt: string; reactions: CheckinFeedEntry['reactions'] }
   | {
@@ -68,6 +74,7 @@ export default function CircleWall() {
   const [draft, setDraft] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [micDenied, setMicDenied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Non-null only when there's no circleId param AND the user is in more
   // than one circle, so we can't tell which wall they meant.
@@ -334,12 +341,12 @@ export default function CircleWall() {
                           </Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => setConfirmingDeleteId(null)} disabled={isDeleting}>
-                          <Text style={styles.hostDeleteCancelText}>Cancel</Text>
+                          <Text style={styles.hostDeleteCancelText}>{STRINGS.hostDeleteWallMessageCancel}</Text>
                         </TouchableOpacity>
                       </>
                     ) : (
                       <TouchableOpacity onPress={() => setConfirmingDeleteId(item.id)} hitSlop={6}>
-                        <Text style={styles.hostDeleteLink}>remove</Text>
+                        <Text style={styles.hostDeleteLink}>{STRINGS.hostDeleteWallMessageLink}</Text>
                       </TouchableOpacity>
                     ))}
                 </View>
@@ -394,12 +401,19 @@ export default function CircleWall() {
         <View style={styles.inputBar}>
           <TextInput
             style={styles.input}
-            placeholder="Message your circle…"
+            placeholder={STRINGS.wallComposerPlaceholder}
             placeholderTextColor={colors.muted}
             value={draft}
             onChangeText={setDraft}
             multiline
           />
+          {!micDenied && (
+            <VoiceMicButton
+              style={styles.micButton}
+              onTranscript={(text) => setDraft((prev) => appendTranscript(prev, text))}
+              onPermissionDenied={() => setMicDenied(true)}
+            />
+          )}
           <TouchableOpacity
             style={[styles.sendButton, !draft.trim() && styles.sendButtonDisabled]}
             onPress={handleSend}
@@ -640,6 +654,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.ink,
     maxHeight: 100,
+  },
+  micButton: {
+    paddingBottom: 8,
   },
   sendButton: {
     width: 38,

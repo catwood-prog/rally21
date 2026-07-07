@@ -594,13 +594,13 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   noteSaveButton: {
-    backgroundColor: colors.plum,
+    backgroundColor: colors.gold,
     borderRadius: 12,
     paddingVertical: 9,
     paddingHorizontal: 18,
   },
   noteSaveText: {
-    color: '#fff',
+    color: colors.ink,
     fontWeight: '700',
     fontSize: 12.5,
   },

@@ -28,6 +28,8 @@ export const colors = {
   plumSoft: '#F0EBF3',
   // Error/destructive text and borders — promoted from repeated literals.
   errorRed: '#B3261E',
+  // Modal/sheet backdrop dim — promoted from a repeated literal.
+  overlay: 'rgba(0, 0, 0, 0.4)',
 };
 
 // The mockup's ".card" box-shadow: 0 6px 16px rgba(0,0,0,0.05) — spread

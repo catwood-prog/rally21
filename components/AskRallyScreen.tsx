@@ -171,20 +171,20 @@ export function AskRallyScreen({
               <Text style={styles.back}>← Today</Text>
             </TouchableOpacity>
           ) : (
-            <Text style={styles.title}>Ask Rally</Text>
+            <Text style={styles.title}>{STRINGS.askRallyLinkLabel}</Text>
           )}
           <View style={styles.headerActions}>
             <TouchableOpacity onPress={handleStartFresh} hitSlop={8}>
-              <Text style={styles.startFresh}>start fresh</Text>
+              <Text style={styles.startFresh}>{STRINGS.askRallyStartFresh}</Text>
             </TouchableOpacity>
             {conversationId && (
               <TouchableOpacity onPress={handleDelete} hitSlop={8}>
-                <Text style={styles.deleteText}>delete</Text>
+                <Text style={styles.deleteText}>{STRINGS.askRallyDelete}</Text>
               </TouchableOpacity>
             )}
           </View>
         </View>
-        {showBackLink && <Text style={styles.title}>Ask Rally</Text>}
+        {showBackLink && <Text style={styles.title}>{STRINGS.askRallyLinkLabel}</Text>}
         <Text style={styles.subtitle}>{STRINGS.askRallySubtitle}</Text>
       </View>
 
@@ -218,7 +218,7 @@ export function AskRallyScreen({
       <View style={styles.inputWrap}>
         <TextInput
           style={styles.input}
-          placeholder="ask Rally anything…"
+          placeholder={STRINGS.askRallyComposerPlaceholder}
           placeholderTextColor={colors.muted}
           value={draft}
           onChangeText={setDraft}
@@ -237,7 +237,7 @@ export function AskRallyScreen({
           onPress={handleSend}
           disabled={!draft.trim() || isSending}
         >
-          {isSending ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.sendButtonText}>Send</Text>}
+          {isSending ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.sendButtonText}>{STRINGS.askRallySendCta}</Text>}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

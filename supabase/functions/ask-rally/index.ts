@@ -11,6 +11,7 @@ import {
   CircleSummary,
   countMessagesOnLocalDate,
   DAILY_MESSAGE_LIMIT,
+  localDateString,
   RATE_LIMIT_MESSAGE,
 } from "./context.ts";
 import {
@@ -65,16 +66,6 @@ function jsonError(error: string, status: number): Response {
 function dayNumberAt(startDate: string, atMs: number): number {
   const startMs = new Date(`${startDate}T00:00:00Z`).getTime();
   return Math.floor((atMs - startMs) / 86400000) + 1;
-}
-
-function localDateString(date: Date, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(date);
-  const y = parts.find((p) => p.type === "year")!.value;
-  const m = parts.find((p) => p.type === "month")!.value;
-  const d = parts.find((p) => p.type === "day")!.value;
-  return `${y}-${m}-${d}`;
 }
 
 function textStreamResponse(text: string, extraHeaders: Record<string, string> = {}): Response {

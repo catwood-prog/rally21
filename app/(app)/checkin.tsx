@@ -274,6 +274,8 @@ function QuestionInput({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const [micDenied, setMicDenied] = useState(false);
+
   if (question.format === 'chips' && question.options?.length) {
     return (
       <View style={styles.chipRow}>
@@ -329,13 +331,22 @@ function QuestionInput({
   }
 
   return (
-    <TextInput
-      style={styles.questionInput}
-      placeholder="your answer"
-      placeholderTextColor={colors.muted}
-      value={value}
-      onChangeText={onChange}
-    />
+    <View style={styles.questionInputRow}>
+      <TextInput
+        style={[styles.questionInput, styles.questionInputFlex]}
+        placeholder={STRINGS.checkinQuestionInputPlaceholder}
+        placeholderTextColor={colors.muted}
+        value={value}
+        onChangeText={onChange}
+      />
+      {!micDenied && (
+        <VoiceMicButton
+          style={styles.questionInputMicButton}
+          onTranscript={(text) => onChange(appendTranscript(value, text))}
+          onPermissionDenied={() => setMicDenied(true)}
+        />
+      )}
+    </View>
   );
 }
 
@@ -495,6 +506,17 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 13,
     color: colors.ink,
+  },
+  questionInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  questionInputFlex: {
+    flex: 1,
+  },
+  questionInputMicButton: {
+    paddingBottom: 10,
   },
   chipRow: {
     flexDirection: 'row',
