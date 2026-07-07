@@ -42,6 +42,26 @@ const MAX_HISTORY_TURNS = 20;
 // whole ask_messages history for a long-lived account.
 const RECENT_MESSAGES_FOR_RATE_LIMIT = 50;
 
+// A3 (7 July): this function is called from the browser via raw fetch
+// (lib/askRally.ts), not through supabase-js/PostgREST, so it must handle
+// the OPTIONS preflight itself and carry these on every response path —
+// including the crisis/rate-limit text-stream paths and every error exit.
+// X-Ask-Rally-Crisis/X-Ask-Rally-Limited must be explicitly exposed or the
+// browser's fetch() strips them before onHeaders ever sees them.
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Expose-Headers": "X-Ask-Rally-Crisis, X-Ask-Rally-Limited",
+};
+
+function jsonError(error: string, status: number): Response {
+  return new Response(JSON.stringify({ error }), {
+    status,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
+
 function dayNumberAt(startDate: string, atMs: number): number {
   const startMs = new Date(`${startDate}T00:00:00Z`).getTime();
   return Math.floor((atMs - startMs) / 86400000) + 1;
@@ -65,18 +85,22 @@ function textStreamResponse(text: string, extraHeaders: Record<string, string> =
     },
   });
   return new Response(stream, {
-    headers: { "Content-Type": "text/plain; charset=utf-8", ...extraHeaders },
+    headers: { ...CORS_HEADERS, "Content-Type": "text/plain; charset=utf-8", ...extraHeaders },
   });
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
+    return jsonError("Method not allowed", 405);
   }
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Missing authorization" }), { status: 401 });
+    return jsonError("Missing authorization", 401);
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -89,7 +113,7 @@ Deno.serve(async (req) => {
 
   const { data: userData, error: userError } = await client.auth.getUser();
   if (userError || !userData?.user) {
-    return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401 });
+    return jsonError("Not authenticated", 401);
   }
   const userId = userData.user.id;
 
@@ -97,12 +121,12 @@ Deno.serve(async (req) => {
   try {
     body = await req.json();
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
+    return jsonError("Invalid JSON body", 400);
   }
 
   const messageText = (body.message ?? "").trim();
   if (!messageText) {
-    return new Response(JSON.stringify({ error: "message is required" }), { status: 400 });
+    return jsonError("message is required", 400);
   }
 
   // "start fresh" (spec §6: "reinforces the privacy story") closes any
@@ -129,7 +153,7 @@ Deno.serve(async (req) => {
       .single<{ id: string }>();
     if (createError || !created) {
       console.error("Could not create ask_conversation:", createError?.message);
-      return new Response(JSON.stringify({ error: "could not start a conversation" }), { status: 500 });
+      return jsonError("could not start a conversation", 500);
     }
     activeConversationId = created.id;
   }
@@ -183,7 +207,7 @@ Deno.serve(async (req) => {
 
   if (!anthropicApiKey) {
     console.error("ANTHROPIC_API_KEY is not configured");
-    return new Response(JSON.stringify({ error: "Ask Rally is not configured yet" }), { status: 503 });
+    return jsonError("Ask Rally is not configured yet", 503);
   }
 
   // ---- context assembly — fresh every request. "Deletion wins races"
@@ -334,7 +358,7 @@ Deno.serve(async (req) => {
   if (!anthropicRes.ok || !anthropicRes.body) {
     const text = await anthropicRes.text().catch(() => "");
     console.error(`Anthropic API error ${anthropicRes.status}: ${text}`);
-    return new Response(JSON.stringify({ error: "Ask Rally couldn't respond — try again" }), { status: 502 });
+    return jsonError("Ask Rally couldn't respond — try again", 502);
   }
 
   // Relay Anthropic's SSE stream to the client as plain text deltas only,
@@ -394,5 +418,5 @@ Deno.serve(async (req) => {
     },
   });
 
-  return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  return new Response(stream, { headers: { ...CORS_HEADERS, "Content-Type": "text/plain; charset=utf-8" } });
 });

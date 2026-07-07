@@ -25,14 +25,36 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // error from deleteUser (the auth user is already gone) is treated as
 // success rather than failure — a retry after a partial prior run must not
 // error just because the desired end state already holds.
+//
+// A3 (7 July): called from the browser via supabase.functions.invoke
+// (lib/account.ts), which is a real fetch() under the hood — needs the
+// same OPTIONS-preflight + CORS-header-on-every-response handling as
+// ask-rally, or it fails with "Failed to fetch" before ever reaching auth.
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function jsonResponse(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Missing authorization" }), { status: 401 });
+    return jsonResponse({ error: "Missing authorization" }, 401);
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -45,7 +67,7 @@ Deno.serve(async (req) => {
 
   const { data: userData, error: userError } = await callerClient.auth.getUser();
   if (userError || !userData?.user) {
-    return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401 });
+    return jsonResponse({ error: "Not authenticated" }, 401);
   }
   const userId = userData.user.id;
 
@@ -54,7 +76,7 @@ Deno.serve(async (req) => {
   const { error: prepError } = await adminClient.rpc("delete_account_prep", { p_user_id: userId });
   if (prepError) {
     console.error(`delete_account_prep failed for ${userId}:`, prepError.message);
-    return new Response(JSON.stringify({ error: prepError.message }), { status: 500 });
+    return jsonResponse({ error: prepError.message }, 500);
   }
 
   const { data: files, error: listError } = await adminClient.storage.from("avatars").list(userId);
@@ -71,10 +93,8 @@ Deno.serve(async (req) => {
   const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
   if (deleteError && !deleteError.message?.toLowerCase().includes("not found")) {
     console.error(`auth.admin.deleteUser failed for ${userId}:`, deleteError.message);
-    return new Response(JSON.stringify({ error: deleteError.message }), { status: 500 });
+    return jsonResponse({ error: deleteError.message }, 500);
   }
 
-  return new Response(JSON.stringify({ success: true }), {
-    headers: { "Content-Type": "application/json" },
-  });
+  return jsonResponse({ success: true }, 200);
 });
