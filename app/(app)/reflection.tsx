@@ -4,8 +4,10 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { getMyBlueprint } from '@/lib/blueprint';
 import {
   computeDayObservation,
   DayObservation,
@@ -27,6 +29,7 @@ export default function Reflection() {
   const { session } = useAuth();
   const [observation, setObservation] = useState<DayObservation | null>(null);
   const [response, setResponse] = useState<'confirmed' | 'rejected' | null>(null);
+  const [hasBlueprintPattern, setHasBlueprintPattern] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,9 +39,13 @@ export default function Reflection() {
     setIsLoading(true);
     setError(null);
     try {
-      const reflections = await getMyReflections(session.user.id);
+      const [reflections, myBlueprint] = await Promise.all([
+        getMyReflections(session.user.id),
+        getMyBlueprint().catch(() => []),
+      ]);
       const result = computeDayObservation(reflections);
       setObservation(result);
+      setHasBlueprintPattern(myBlueprint.length > 0);
       if (result.available) {
         setResponse(await getMyObservationResponse(session.user.id, result.type, result.direction));
       }
@@ -138,6 +145,11 @@ export default function Reflection() {
           <Text style={styles.footer}>
             Built only from your check-ins.{'\n'}You can correct or delete anything.
           </Text>
+          {hasBlueprintPattern && (
+            <TouchableOpacity onPress={() => router.push('/blueprint')} style={styles.blueprintLinkWrap}>
+              <Text style={styles.blueprintLink}>{STRINGS.blueprintSeeYourBlueprint}</Text>
+            </TouchableOpacity>
+          )}
         </>
       )}
 
@@ -281,6 +293,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
     marginTop: 8,
+  },
+  blueprintLinkWrap: {
+    marginTop: 14,
+    alignItems: 'center',
+  },
+  blueprintLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.plum,
   },
   growCard: {
     backgroundColor: '#FDF4DC',

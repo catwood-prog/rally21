@@ -38,6 +38,7 @@ import {
   subscribeToCirclePresence,
 } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
+import { getPairStreaks, PairStreak } from '@/lib/glow';
 import {
   completeCircle,
   GATE_DAY,
@@ -92,6 +93,7 @@ export default function YourCircle() {
   // value loads — it only ever matters once it resolves to false.
   const [hasSeenCoverHint, setHasSeenCoverHint] = useState(true);
   const [myLastCelebratedDay, setMyLastCelebratedDay] = useState(0);
+  const [pairStreaks, setPairStreaks] = useState<PairStreak[]>([]);
   const [isRallying, setIsRallying] = useState(false);
   const [isConfirmingComplete, setIsConfirmingComplete] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
@@ -121,18 +123,21 @@ export default function YourCircle() {
       const myCircle = selection.circle;
       setCircle(myCircle);
       if (myCircle) {
-        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay] = await Promise.all([
-          getCircleMembers(myCircle.id),
-          getCirclePresence(myCircle.id),
-          getWallPreview(myCircle.id),
-          getMyProfile(session.user.id),
-          getMyLastCelebratedDay(myCircle.id, session.user.id),
-        ]);
+        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay, myPairStreaks] =
+          await Promise.all([
+            getCircleMembers(myCircle.id),
+            getCirclePresence(myCircle.id),
+            getWallPreview(myCircle.id),
+            getMyProfile(session.user.id),
+            getMyLastCelebratedDay(myCircle.id, session.user.id),
+            getPairStreaks(myCircle.id).catch(() => []),
+          ]);
         setMembers(circleMembers);
         setPresence(circlePresence);
         setWallPreview(preview);
         setHasSeenCoverHint(!!profile?.has_seen_cover_hint);
         setMyLastCelebratedDay(lastCelebratedDay);
+        setPairStreaks(myPairStreaks);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your circle');
@@ -725,6 +730,17 @@ export default function YourCircle() {
             )}
           </View>
 
+          {(() => {
+            const best = pairStreaks
+              .filter((p) => p.streak >= 3)
+              .sort((a, b) => b.streak - a.streak)[0];
+            return best ? (
+              <Text style={styles.pairStreakText}>
+                {STRINGS.pairStreakLabel(best.otherName, best.streak)}
+              </Text>
+            ) : null;
+          })()}
+
           {hasCoverableMember && !hasSeenCoverHint && (
             <TouchableOpacity onPress={dismissCoverHint} style={styles.coverHintCard}>
               <Text style={styles.coverHintText}>{STRINGS.coverHintDiscovery}</Text>
@@ -1161,6 +1177,13 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
     color: colors.gold,
+  },
+  pairStreakText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.gold,
+    marginTop: -4,
+    marginBottom: 10,
   },
   coverHintCard: {
     backgroundColor: colors.goldSoft,

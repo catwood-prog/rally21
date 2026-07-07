@@ -474,6 +474,9 @@ export default function Today() {
           <TouchableOpacity onPress={() => router.push('/reflection')}>
             <Text style={styles.reflectionsLinkPlum}>Something we noticed</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/blueprint')}>
+            <Text style={styles.reflectionsLinkPlum}>{STRINGS.blueprintLinkLabel}</Text>
+          </TouchableOpacity>
         </View>
 
         {addCircleButton}
@@ -675,6 +678,9 @@ export default function Today() {
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push('/reflection')}>
           <Text style={styles.reflectionsLinkPlum}>Something we noticed</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/blueprint')}>
+          <Text style={styles.reflectionsLinkPlum}>{STRINGS.blueprintLinkLabel}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

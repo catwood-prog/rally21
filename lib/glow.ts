@@ -28,3 +28,24 @@ export async function getMyGlow(): Promise<Glow> {
     shelterCapacity: row?.shelter_capacity ?? 1,
   };
 }
+
+// Friend streaks (Rally21-Glow-Spec.md §3) — app-level, not circle-level:
+// consecutive days both people's own days counted toward their own glow.
+// The shared circle is only how the pair forms.
+export type PairStreak = {
+  otherUserId: string;
+  otherName: string;
+  streak: number;
+};
+
+type PairStreakRow = { other_user_id: string; other_name: string | null; streak: number };
+
+export async function getPairStreaks(circleId: string): Promise<PairStreak[]> {
+  const { data, error } = await supabase.rpc('get_pair_streaks', { p_circle_id: circleId });
+  if (error) throw error;
+  return ((data ?? []) as PairStreakRow[]).map((row) => ({
+    otherUserId: row.other_user_id,
+    otherName: row.other_name ?? 'circle-mate',
+    streak: row.streak,
+  }));
+}

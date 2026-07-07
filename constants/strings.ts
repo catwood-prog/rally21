@@ -212,6 +212,26 @@ export const STRINGS = {
   glowDetailBody:
     "your glow is the run of days you've shown up — anywhere, for anyone. a friend can cover you and it holds, up to a few times a month depending how far you've come. miss a day uncovered and it dims to embers for 48 hours — one small thing brings it right back.",
   glowDetailCta: 'Got it',
+
+  // Friend streaks (Rally21-Glow-Spec.md §3) — shown near who's-here,
+  // only the single best active pair streak, N >= 3.
+  pairStreakLabel: (name: string, n: number) => `you and ${name}: ${n} days both in 🔥`,
+
+  // Blueprint v0 (Rally21-Blueprint-Notes.md) — deterministic pattern
+  // cards, day-14 observation's visual grammar.
+  blueprintTitle: 'your blueprint',
+  blueprintSubline: "patterns you can't see alone",
+  blueprintFooter: 'built only from your own check-ins.',
+  blueprintEmptyText: 'your patterns need a little more time to show themselves',
+  blueprintPatternLabel: 'A GENTLE PATTERN',
+  blueprintSoundsRight: 'Sounds right',
+  blueprintNotQuite: 'Not quite',
+  blueprintNotePlaceholder: 'what was it really? (optional)',
+  blueprintNoteSubmit: 'Save',
+  blueprintNoteSkip: 'Skip',
+  blueprintConfirmedText: '✓ you said this sounds right',
+  blueprintSeeYourBlueprint: 'see your blueprint →',
+  blueprintLinkLabel: 'Your blueprint',
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one

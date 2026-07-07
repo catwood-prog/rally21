@@ -11,13 +11,15 @@ export type Profile = {
   sounds_enabled: boolean;
   has_seen_voice_hint: boolean;
   has_seen_cover_hint: boolean;
+  blueprint_surfaced_pattern_key: string | null;
+  blueprint_surfaced_at: string | null;
 };
 
 export async function getMyProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('users')
     .select(
-      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint'
+      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, blueprint_surfaced_pattern_key, blueprint_surfaced_at'
     )
     .eq('id', userId)
     .maybeSingle();
