@@ -155,6 +155,51 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Ember nudge (Rally21-Glow-Spec.md §2, §6) — ships LAST,
+      // deliberately, as the one warm notification for the mechanic.
+      // Rides this same composer/pref (nudge_enabled) and IS the daily
+      // nudge for an ember day — enqueueing it skips nudge_daily below,
+      // never both. dedupe_key is keyed on the missed local date (the
+      // ember EVENT), not today's date, so re-evaluating every 15 min
+      // while still in embers never produces a second row.
+      const { data: glowRow } = await admin.rpc("get_glow_for_user", { p_user: user.id });
+      const glow = Array.isArray(glowRow) ? glowRow[0] : glowRow;
+      if (glow?.state === "embers" && glow.missed_local_date) {
+        const emberDedupeKey = `ember-${user.id}-${glow.missed_local_date}`;
+        const emberResolved = resolveSendTime(
+          prefs.nudge_time ?? activeCircles[0].timeOfDay!,
+          prefs.quiet_start,
+          prefs.quiet_end
+        );
+        if (emberResolved !== "skip") {
+          const emberLocalTime = localTimeString(now, timeZone);
+          if (emberLocalTime >= emberResolved) {
+            const emberHtml = `<p>your glow is down to embers — one small thing today rekindles it.</p>
+<p>it's protecting ${glow.glow} day${glow.glow === 1 ? "" : "s"} of showing up.</p>
+<p><a href="https://rally21.vercel.app">open Rally21</a></p>`;
+
+            const { error: emberInsertError } = await admin.from("notification_outbox").insert({
+              user_id: user.id,
+              kind: "ember_nudge",
+              payload: {
+                subject: "your glow is down to embers 🕯️",
+                html: emberHtml,
+                local_date: localDateString(now, timeZone),
+              },
+              scheduled_for: now.toISOString(),
+              dedupe_key: emberDedupeKey,
+            });
+
+            if (emberInsertError && emberInsertError.code !== "23505") {
+              console.error(`Could not enqueue ember nudge for user ${user.id}:`, emberInsertError.message);
+            } else if (!emberInsertError) {
+              summary.enqueued++;
+            }
+          }
+        }
+        continue; // never also enqueue nudge_daily for an ember day
+      }
+
       const rawSendTime = prefs.nudge_time ?? activeCircles[0].timeOfDay!;
       const resolved = resolveSendTime(rawSendTime, prefs.quiet_start, prefs.quiet_end);
       if (resolved === "skip") {

@@ -35,7 +35,7 @@ type PrefRow = {
 type OutboxRow = {
   id: string;
   user_id: string;
-  kind: "nudge_daily" | "social_digest" | "friend_nudge";
+  kind: "nudge_daily" | "social_digest" | "friend_nudge" | "ember_nudge";
   payload: {
     subject?: string;
     html?: string;
@@ -75,6 +75,9 @@ const KIND_TO_PREF_COLUMN: Record<OutboxRow["kind"], keyof PrefRow> = {
   nudge_daily: "nudge_enabled",
   social_digest: "digest_enabled",
   friend_nudge: "friend_nudge_enabled",
+  // The ember nudge rides the same pref — it IS the daily nudge for an
+  // ember day (Rally21-Glow-Spec.md §6).
+  ember_nudge: "nudge_enabled",
 };
 
 function localDateString(date: Date, timeZone: string): string {
@@ -207,15 +210,41 @@ Deno.serve(async (req) => {
       // (e.g. queued at 11:10pm, quiet hours don't end until 8am) — by
       // then the recipient's calendar date has moved on, and content
       // describing "today" would arrive describing yesterday instead.
-      // Composers that embed payload.local_date (currently just the daily
-      // nudge) get this staleness guard for free; a row never expires
-      // sooner than actually queued, since it's only ever behind "today".
-      if (row.payload?.local_date) {
+      // Composers that embed payload.local_date get this staleness guard
+      // for free; a row never expires sooner than actually queued, since
+      // it's only ever behind "today". Exempt ember_nudge: its window
+      // spans TWO calendar days by design (48h from the missed day), so
+      // it gets its own dedicated staleness check below instead of this
+      // same-day one.
+      if (row.payload?.local_date && row.kind !== "ember_nudge") {
         const currentLocalDate = localDateString(now, timeZone);
         if (row.payload.local_date < currentLocalDate) {
           await admin
             .from("notification_outbox")
             .update({ suppressed_reason: "expired", sent_at: now.toISOString() })
+            .eq("id", row.id);
+          summary.suppressed++;
+          continue;
+        }
+      }
+
+      // Ember nudge staleness guard (Rally21-Glow-Spec.md §6): re-check
+      // the glow's CURRENT state at send time, not just at enqueue time —
+      // a row can sit queued for a while (quiet hours, cap). Rekindled
+      // (checking in resolves the embers) suppresses as
+      // 'already_checked_in'; window fully lapsed (cooled to 'cold')
+      // suppresses as 'expired'. Only a still-'embers' state actually
+      // sends.
+      if (row.kind === "ember_nudge") {
+        const { data: glowRow } = await admin.rpc("get_glow_for_user", { p_user: row.user_id });
+        const glow = Array.isArray(glowRow) ? glowRow[0] : glowRow;
+        if (glow?.state !== "embers") {
+          await admin
+            .from("notification_outbox")
+            .update({
+              suppressed_reason: glow?.state === "glowing" ? "already_checked_in" : "expired",
+              sent_at: now.toISOString(),
+            })
             .eq("id", row.id);
           summary.suppressed++;
           continue;
