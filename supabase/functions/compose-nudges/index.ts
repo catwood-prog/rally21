@@ -134,16 +134,20 @@ Deno.serve(async (req) => {
 
       const { data: circles } = await admin
         .from("memberships")
-        .select("circles!inner(time_of_day, is_active, practices(name))")
+        .select("circles!inner(time_of_day, is_active, completed_at, practices(name))")
         .eq("user_id", user.id)
         .eq("circles.is_active", true);
 
+      // A completed circle (Rally21-Glow-Spec.md §8) is warmly archived,
+      // read-only history — it never sends a daily nudge again, journey
+      // ladder or not.
       const activeCircles = (circles ?? [])
         .map((row: any) => ({
           timeOfDay: row.circles?.time_of_day as string | null,
+          completedAt: row.circles?.completed_at as string | null,
           practiceName: row.circles?.practices?.name as string | undefined,
         }))
-        .filter((c) => !!c.timeOfDay)
+        .filter((c) => !!c.timeOfDay && !c.completedAt)
         .sort((a, b) => a.timeOfDay!.localeCompare(b.timeOfDay!));
 
       if (activeCircles.length === 0) {

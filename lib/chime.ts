@@ -106,6 +106,41 @@ export function playCheckinPop(): void {
   }
 }
 
+// Day-21 ceremony flourish — the other approved recorded file (mascot
+// brief), same expo-asset resolution as the check-in pop above.
+let day21FlourishUri: string | null | undefined;
+
+function getDay21FlourishUri(): string | null {
+  if (Platform.OS !== 'web') return null;
+  if (day21FlourishUri === undefined) {
+    try {
+      day21FlourishUri = Asset.fromModule(require('../assets/sounds/day21-flourish.wav')).uri;
+    } catch {
+      day21FlourishUri = null;
+    }
+  }
+  return day21FlourishUri;
+}
+
+/** Plays the day-21 ceremony flourish — the one other approved sound in
+ * the app, gated the same way as playCheckinPop (respects the "App
+ * sounds" toggle at the call site, not here). Silently does nothing if
+ * playback is blocked or unsupported — the ceremony screen itself is
+ * always the real signal. */
+export function playDay21Flourish(): void {
+  const uri = getDay21FlourishUri();
+  if (!uri) return;
+  try {
+    const audio = new Audio(uri);
+    audio.volume = 0.6;
+    audio.play().catch(() => {
+      // blocked by autoplay policy — non-fatal
+    });
+  } catch {
+    // unsupported
+  }
+}
+
 export function vibrateOnCompletion(): void {
   try {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {

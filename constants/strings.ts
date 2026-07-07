@@ -176,6 +176,33 @@ export const STRINGS = {
   // written; disappears the moment it is (see CLAUDE.md's color-roles
   // convention — this earns plum as inner-life content).
   reflectionTeaser: (questionPrompt: string) => `tonight: "${questionPrompt}"`,
+
+  // The journey ladder (Rally21-Glow-Spec.md §8) — circles stop ending at
+  // day 21. Ceremonies reward, never interrogate: the app never re-asks.
+  journeyGateTitle: '21 days together',
+  journeyGateBody: 'You showed up for each other for three weeks. What now?',
+  journeyGateRallyOnCta: 'rally on — through to 50',
+  journeyGateRallyOnHelper: 'keep the same circle climbing — day 22, day 34, and on.',
+  journeyGateCompleteCta: 'complete this circle',
+  journeyGateCompleteHelper: 'celebrate what you built and archive it warmly.',
+  journeyGateWaitingOnHost: "your host can complete the circle whenever they're ready.",
+  journeyGateCardTitle: (circleName: string) => `${circleName} hit 21 days`,
+  journeyGateCardBody: 'rally on, or your host can complete it — whenever feels right.',
+
+  journeyRalliedOnCard: (circleName: string) => `${circleName} rallied on 🔥`,
+  journeyRallyMarkerTitle: (rallyNum: number) => `rally ${rallyNum} complete`,
+  journeyRallyMarkerBody: (circleName: string, day: number) => `day ${day} with ${circleName}`,
+  journeyMajorStopTitle: (day: number) => `${day} days together`,
+  journeyMajorStopBody: (circleName: string) => `${circleName} made it — still climbing.`,
+
+  journeyCompletedBadge: 'completed',
+  journeyCompletedTitle: (circleName: string) => `${circleName}, complete`,
+  journeyCompletedBody: 'This circle is now a warm piece of your history — read-only, always yours.',
+  journeyCompletedCta: 'Back to today',
+  journeyCompleteHostControlLabel: 'complete this circle',
+  journeyCompleteHostControlHelper: 'archives it warmly for everyone — this can be undone only by us, so take a moment first.',
+  journeyCompleteConfirmTitle: (circleName: string) => `Complete ${circleName}?`,
+  journeyCompleteConfirmBody: "Everyone keeps their history. The circle becomes read-only — a finished thing, not a lost one.",
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one

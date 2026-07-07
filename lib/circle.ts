@@ -15,6 +15,14 @@ export type MyCircle = {
   resourceUrl: string | null;
   isPublic: boolean;
   closedToJoins: boolean;
+  /** The journey ladder (Rally21-Glow-Spec.md §8) — null/null means still
+   * pre-gate or past day 21 with the gate unanswered. rallied_on_at set
+   * means the circle continues past 21 up the same ladder; completed_at
+   * set means it's archived read-only history. A circle should never have
+   * both set (rally-on and complete are mutually exclusive circle-level
+   * decisions), but completedAt wins if it somehow ever did. */
+  ralliedOnAt: string | null;
+  completedAt: string | null;
 };
 
 export type CircleMember = {
@@ -42,11 +50,13 @@ type CircleRow = {
   resource_url: string | null;
   is_public: boolean;
   closed_to_joins: boolean;
+  rallied_on_at: string | null;
+  completed_at: string | null;
   practices: { name: string; duration_minutes: number | null } | null;
 };
 
 const CIRCLE_SELECT =
-  'circles(id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, is_public, closed_to_joins, practices(name, duration_minutes))';
+  'circles(id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, is_public, closed_to_joins, rallied_on_at, completed_at, practices(name, duration_minutes))';
 
 function mapCircleRow(c: CircleRow): MyCircle {
   return {
@@ -62,6 +72,8 @@ function mapCircleRow(c: CircleRow): MyCircle {
     resourceUrl: c.resource_url,
     isPublic: c.is_public,
     closedToJoins: c.closed_to_joins,
+    ralliedOnAt: c.rallied_on_at,
+    completedAt: c.completed_at,
   };
 }
 
@@ -133,7 +145,7 @@ export async function getCircleById(circleId: string): Promise<MyCircle | null> 
   const { data, error } = await supabase
     .from('circles')
     .select(
-      'id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, is_public, closed_to_joins, practices(name, duration_minutes)'
+      'id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, is_public, closed_to_joins, rallied_on_at, completed_at, practices(name, duration_minutes)'
     )
     .eq('id', circleId)
     .maybeSingle<CircleRow>();

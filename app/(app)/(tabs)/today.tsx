@@ -15,7 +15,7 @@ import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { isVerbPhrasePractice, STRINGS } from '@/constants/strings';
-import { cardShadow, colors } from '@/constants/theme';
+import { cardShadow, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { getMyCircleCap, MAX_CIRCLES } from '@/lib/caps';
 import { DailyQuestion, getDailyQuestion, getTodayReflection } from '@/lib/checkin';
@@ -30,6 +30,7 @@ import {
   subscribeToCirclePresence,
 } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
+import { getMyLastCelebratedDay, getNextMilestone, shouldShowJourneyGate } from '@/lib/journey';
 import { getMyProfile } from '@/lib/profile';
 import { computeSignal, PresenceRow } from '@/lib/signal';
 
@@ -45,7 +46,7 @@ function memberFullName(members: CircleMember[], userId: string | null | undefin
   return members.find((m) => m.userId === userId)?.name ?? 'someone in your circle';
 }
 
-type CircleData = { members: CircleMember[]; presence: PresenceRow[] };
+type CircleData = { members: CircleMember[]; presence: PresenceRow[]; lastCelebratedDay: number };
 
 export default function Today() {
   const router = useRouter();
@@ -90,11 +91,12 @@ export default function Today() {
 
       const entries = await Promise.all(
         myCircles.map(async (c): Promise<[string, CircleData]> => {
-          const [members, presence] = await Promise.all([
+          const [members, presence, lastCelebratedDay] = await Promise.all([
             getCircleMembers(c.id),
             getCirclePresence(c.id),
+            getMyLastCelebratedDay(c.id, session.user.id),
           ]);
-          return [c.id, { members, presence }];
+          return [c.id, { members, presence, lastCelebratedDay }];
         })
       );
       setCircleData(Object.fromEntries(entries));
@@ -143,12 +145,52 @@ export default function Today() {
     const unsubscribes = ids.map((id) =>
       subscribeToCirclePresence(id, () => {
         getCirclePresence(id).then((presence) => {
-          setCircleData((prev) => ({ ...prev, [id]: { members: prev[id]?.members ?? [], presence } }));
+          setCircleData((prev) => ({
+            ...prev,
+            [id]: {
+              members: prev[id]?.members ?? [],
+              presence,
+              lastCelebratedDay: prev[id]?.lastCelebratedDay ?? 0,
+            },
+          }));
         });
       })
     );
     return () => unsubscribes.forEach((u) => u());
   }, [circleIds]);
+
+  // Day-21 gate + later rally markers/major stops: the first circle (in
+  // list order) with something unseen sends the user to the matching
+  // full-screen moment — both are idempotent via last_celebrated_day, so
+  // once seen neither fires again for that circle across refetches.
+  useEffect(() => {
+    if (isLoading || isRedirecting || !circles.length) return;
+    const today = getLocalDateString();
+    for (const c of circles) {
+      const data = circleData[c.id];
+      if (!data) continue;
+      const dayNumber = computeSignal({
+        presence: data.presence,
+        memberCount: data.members.length,
+        today,
+        circleStartDate: c.startDate,
+      }).dayNumber;
+      if (shouldShowJourneyGate(dayNumber, c, data.lastCelebratedDay)) {
+        router.push({ pathname: '/journey-gate', params: { circleId: c.id } });
+        return;
+      }
+      if (c.ralliedOnAt && !c.completedAt) {
+        const milestone = getNextMilestone(dayNumber, data.lastCelebratedDay);
+        if (milestone) {
+          router.push({
+            pathname: '/celebration',
+            params: { circleId: c.id, day: String(milestone.day), isMajorStop: String(milestone.isMajorStop) },
+          });
+          return;
+        }
+      }
+    }
+  }, [circles, circleData, isLoading, isRedirecting, router]);
 
   if (isLoading || isRedirecting) {
     return (
@@ -230,7 +272,7 @@ export default function Today() {
   // ---- exactly one circle: identical to the pre-multi-circle Today ----
   if (circles.length === 1) {
     const circle = circles[0];
-    const data = circleData[circle.id] ?? { members: [], presence: [] };
+    const data = circleData[circle.id] ?? { members: [], presence: [], lastCelebratedDay: 0 };
     const { members, presence } = data;
     const inTodayUserIds = new Set(
       presence.filter((p) => p.localDate === today).map((p) => p.userId)
@@ -249,6 +291,32 @@ export default function Today() {
     });
     const practiceName = circle.practiceName ?? '';
     const isVerbPhrase = isVerbPhrasePractice(practiceName);
+
+    // A completed circle is warmly archived, read-only history — nothing
+    // left to do today, so skip the check-in flow entirely and point
+    // toward the circle screen's archive view instead.
+    if (circle.completedAt) {
+      return (
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+          <View style={styles.topbar}>
+            <Brandmark />
+            <TouchableOpacity onPress={() => router.push('/settings')}>
+              <Text style={styles.signOut}>Settings</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.greeting}>{greeting(myName)}</Text>
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
+          >
+            <Text style={styles.completedCardBadge}>{STRINGS.journeyCompletedBadge}</Text>
+            <Text style={styles.completedCardTitle}>{STRINGS.journeyCompletedTitle(circle.name)}</Text>
+            <Text style={styles.completedCardBody}>{STRINGS.journeyCompletedBody}</Text>
+          </TouchableOpacity>
+          {addCircleButton}
+        </ScrollView>
+      );
+    }
 
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -296,6 +364,7 @@ export default function Today() {
             dayNumber={signal.dayNumber}
             durationDays={circle.durationDays}
             isSolo={isSolo}
+            isRallied={!!circle.ralliedOnAt && !circle.completedAt}
           />
           <Text style={styles.cardLink}>
             {isSolo
@@ -422,7 +491,7 @@ export default function Today() {
       </Text>
 
       {circles.map((circle) => {
-        const data = circleData[circle.id] ?? { members: [], presence: [] };
+        const data = circleData[circle.id] ?? { members: [], presence: [], lastCelebratedDay: 0 };
         const { members, presence } = data;
         const inTodayUserIds = new Set(
           presence.filter((p) => p.localDate === today).map((p) => p.userId)
@@ -440,6 +509,20 @@ export default function Today() {
           circleStartDate: circle.startDate,
         });
 
+        if (circle.completedAt) {
+          return (
+            <TouchableOpacity
+              key={circle.id}
+              style={styles.stackCard}
+              onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
+            >
+              <Text style={styles.completedCardBadge}>{STRINGS.journeyCompletedBadge}</Text>
+              <Text style={styles.completedCardTitle}>{STRINGS.journeyCompletedTitle(circle.name)}</Text>
+              <Text style={styles.completedCardBody}>{STRINGS.journeyCompletedBody}</Text>
+            </TouchableOpacity>
+          );
+        }
+
         return (
           <View key={circle.id} style={styles.stackCard}>
             <TouchableOpacity
@@ -452,6 +535,7 @@ export default function Today() {
                 dayNumber={signal.dayNumber}
                 durationDays={circle.durationDays}
                 isSolo={isSolo}
+                isRallied={!!circle.ralliedOnAt && !circle.completedAt}
               />
               <Text style={styles.cardLink}>
                 {isSolo
@@ -542,7 +626,7 @@ export default function Today() {
           style={styles.reflectionTeaser}
           onPress={() => {
             const firstCircle = circles[0];
-            const firstCircleData = circleData[firstCircle.id] ?? { members: [], presence: [] };
+            const firstCircleData = circleData[firstCircle.id] ?? { members: [], presence: [], lastCelebratedDay: 0 };
             const firstCircleSignal = computeSignal({
               presence: firstCircleData.presence,
               memberCount: firstCircleData.members.length,
@@ -642,6 +726,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.ink,
     marginBottom: 8,
+  },
+  completedCardBadge: {
+    ...chipTextShape,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.greenSoft,
+    color: colors.green,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 999,
+    fontSize: 10.5,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  completedCardTitle: {
+    fontFamily: FONT_HEADER,
+    fontSize: 16,
+    color: colors.ink,
+    marginBottom: 4,
+  },
+  completedCardBody: {
+    fontSize: 12.5,
+    color: colors.muted,
+    lineHeight: 18,
   },
   cardLink: {
     fontSize: 11,

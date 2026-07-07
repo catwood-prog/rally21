@@ -11,6 +11,18 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const DIGEST_SEND_TIME = "19:00";
 
+// The journey ladder's major stops (Rally21-Glow-Spec.md §8) — rally
+// markers (every 21 days) stay in-app only, never in the digest.
+const MAJOR_STOPS = [50, 100, 365];
+
+/** A circle's day number as of a given instant — day math only, no
+ * per-user timezone precision needed for a once-daily congratulatory
+ * line (a day off either way is harmless). */
+function dayNumberAt(startDate: string, atMs: number): number {
+  const startMs = new Date(`${startDate}T00:00:00Z`).getTime();
+  return Math.floor((atMs - startMs) / 86400000) + 1;
+}
+
 // The mascot brief's only email placement — cover-a-friend.png, once per
 // digest max, only when the digest actually contains a covered/wave line
 // (not just wall-message activity). Hash is content-addressed by the web
@@ -102,7 +114,9 @@ Deno.serve(async (req) => {
       // and check-in headcount lines below.
       const { data: memberships } = await admin
         .from("memberships")
-        .select("circles!inner(id, name, is_active, practices(name))")
+        .select(
+          "circles!inner(id, name, is_active, start_date, rallied_on_at, completed_at, practices(name))"
+        )
         .eq("user_id", user.id);
 
       const activeCircles = (memberships ?? [])
@@ -110,6 +124,9 @@ Deno.serve(async (req) => {
           id: row.circles?.id as string,
           name: row.circles?.name as string,
           isActive: row.circles?.is_active as boolean,
+          startDate: row.circles?.start_date as string,
+          ralliedOnAt: row.circles?.rallied_on_at as string | null,
+          completedAt: row.circles?.completed_at as string | null,
           practiceName: row.circles?.practices?.name as string | undefined,
         }))
         .filter((c) => c.isActive);
@@ -161,7 +178,36 @@ Deno.serve(async (req) => {
         .neq("user_id", user.id)
         .gt("created_at", lastSeenAt);
 
-      const triggeringCount = (covered?.length ?? 0) + (waves?.length ?? 0) + (wallCount ?? 0);
+      // Journey ladder events since last seen — the day-21 gate answer
+      // (either outcome) and any major stop (50/100/365) crossed.
+      // Server-computed from the circle's own timestamps/start_date, not
+      // per-member last_celebrated_day, so a major stop still makes the
+      // digest even if the member hasn't opened the app to see the
+      // celebration screen yet.
+      const nowMs = now.getTime();
+      const lastSeenMs = new Date(lastSeenAt).getTime();
+      const journeyLines: string[] = [];
+      for (const c of activeCircles) {
+        if (c.completedAt && new Date(c.completedAt).getTime() > lastSeenMs) {
+          journeyLines.push(`${c.name} completed its 21 days together ✨`);
+          continue;
+        }
+        if (c.ralliedOnAt && new Date(c.ralliedOnAt).getTime() > lastSeenMs) {
+          journeyLines.push(`${c.name} rallied on past day 21 🔥`);
+        }
+        if (c.ralliedOnAt && !c.completedAt) {
+          const dayNow = dayNumberAt(c.startDate, nowMs);
+          const dayAtLastSeen = dayNumberAt(c.startDate, lastSeenMs);
+          for (const stop of MAJOR_STOPS) {
+            if (stop > dayAtLastSeen && stop <= dayNow) {
+              journeyLines.push(`${c.name} made it to ${stop} days 🔥`);
+            }
+          }
+        }
+      }
+
+      const triggeringCount =
+        (covered?.length ?? 0) + (waves?.length ?? 0) + (wallCount ?? 0) + journeyLines.length;
       if (triggeringCount === 0) {
         summary.skippedNoEvents++;
         continue;
@@ -192,7 +238,7 @@ Deno.serve(async (req) => {
         checkedInByCircle.get(c.circle_id)!.add(c.user_id);
       }
 
-      const lines: string[] = [];
+      const lines: string[] = [...journeyLines];
       for (const c of covered ?? []) {
         const name = covererNames.get(c.covered_by as string) ?? "someone in your circle";
         lines.push(`${name} covered you today 💛 — "no pressure, we've got you"`);
@@ -202,6 +248,7 @@ Deno.serve(async (req) => {
         lines.push(`${name} waved at you 👋`);
       }
       for (const c of activeCircles) {
+        if (c.completedAt) continue; // archived — no more daily headcount
         const checkedIn = checkedInByCircle.get(c.id)?.size ?? 0;
         const total = memberCountByCircle.get(c.id) ?? 0;
         if (total > 0) lines.push(`${checkedIn} of ${total} of ${c.practiceName ?? c.name} showed up today`);

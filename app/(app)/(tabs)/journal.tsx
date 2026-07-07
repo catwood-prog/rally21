@@ -10,7 +10,12 @@ import { cardShadow, colors } from '@/constants/theme';
 import { MOOD_EMOJI } from '@/constants/mood';
 import { useAuth } from '@/lib/auth-context';
 import { getLocalDateString } from '@/lib/date';
+import { getMyJournalFacts, JournalFact } from '@/lib/journey';
 import { getMyReflections, Reflection } from '@/lib/reflections';
+
+type TimelineEntry =
+  | { kind: 'reflection'; localDate: string; reflection: Reflection }
+  | { kind: 'fact'; localDate: string; fact: JournalFact };
 
 function dateHeader(localDate: string, today: string): string {
   if (localDate === today) return 'TODAY';
@@ -28,6 +33,7 @@ export default function Journal() {
   const router = useRouter();
   const { session } = useAuth();
   const [reflections, setReflections] = useState<Reflection[]>([]);
+  const [facts, setFacts] = useState<JournalFact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +42,12 @@ export default function Journal() {
     setIsLoading(true);
     setError(null);
     try {
-      setReflections(await getMyReflections(session.user.id));
+      const [myReflections, myFacts] = await Promise.all([
+        getMyReflections(session.user.id),
+        getMyJournalFacts(session.user.id),
+      ]);
+      setReflections(myReflections);
+      setFacts(myFacts);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your journal');
     } finally {
@@ -60,6 +71,15 @@ export default function Journal() {
 
   const today = getLocalDateString();
 
+  // System journal facts (day-21 completion, rally markers, major stops)
+  // interleave with user reflections in one date-grouped timeline — both
+  // already come back sorted newest-first, so a stable sort by date
+  // preserves that within each source and merges the two.
+  const timeline: TimelineEntry[] = [
+    ...reflections.map((r): TimelineEntry => ({ kind: 'reflection', localDate: r.localDate, reflection: r })),
+    ...facts.map((f): TimelineEntry => ({ kind: 'fact', localDate: f.localDate, fact: f })),
+  ].sort((a, b) => b.localDate.localeCompare(a.localDate));
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Brandmark style={styles.brandmark} />
@@ -74,36 +94,46 @@ export default function Journal() {
 
       {error && <Text style={styles.subtitle}>{error}</Text>}
 
-      {!error && reflections.length === 0 && (
+      {!error && timeline.length === 0 && (
         <View style={styles.emptyState}>
           <MascotEntrance source={MASCOT.journalCompanion} style={styles.emptyStateImage} />
           <Text style={styles.subtitle}>your reflections will show up here as you check in</Text>
         </View>
       )}
 
-      {reflections.map((r, i) => {
-        const showHeader = i === 0 || reflections[i - 1].localDate !== r.localDate;
+      {timeline.map((entry, i) => {
+        const showHeader = i === 0 || timeline[i - 1].localDate !== entry.localDate;
+        const key = entry.kind === 'reflection' ? entry.reflection.id : entry.fact.id;
         return (
-          <View key={r.id}>
-            {showHeader && <Text style={styles.dateHeader}>{dateHeader(r.localDate, today)}</Text>}
-            <View style={styles.card}>
-              {r.mood !== null && <Text style={styles.moodBadge}>{MOOD_EMOJI[r.mood]}</Text>}
-              {!!r.line1 && (
-                <Text style={styles.line}>
-                  <Text style={styles.lineLabel}>grateful</Text> · {r.line1}
-                </Text>
-              )}
-              {!!r.line2 && (
-                <Text style={styles.line}>
-                  <Text style={styles.lineLabel}>learned</Text> · {r.line2}
-                </Text>
-              )}
-              {!!r.questionAnswer && !!r.questionPrompt && (
-                <Text style={styles.line}>
-                  <Text style={styles.lineLabel}>{r.questionPrompt}</Text> · {r.questionAnswer}
-                </Text>
-              )}
-            </View>
+          <View key={key}>
+            {showHeader && <Text style={styles.dateHeader}>{dateHeader(entry.localDate, today)}</Text>}
+            {entry.kind === 'fact' ? (
+              <View style={styles.factCard}>
+                <Text style={styles.factText}>{entry.fact.body}</Text>
+              </View>
+            ) : (
+              <View style={styles.card}>
+                {entry.reflection.mood !== null && (
+                  <Text style={styles.moodBadge}>{MOOD_EMOJI[entry.reflection.mood]}</Text>
+                )}
+                {!!entry.reflection.line1 && (
+                  <Text style={styles.line}>
+                    <Text style={styles.lineLabel}>grateful</Text> · {entry.reflection.line1}
+                  </Text>
+                )}
+                {!!entry.reflection.line2 && (
+                  <Text style={styles.line}>
+                    <Text style={styles.lineLabel}>learned</Text> · {entry.reflection.line2}
+                  </Text>
+                )}
+                {!!entry.reflection.questionAnswer && !!entry.reflection.questionPrompt && (
+                  <Text style={styles.line}>
+                    <Text style={styles.lineLabel}>{entry.reflection.questionPrompt}</Text> ·{' '}
+                    {entry.reflection.questionAnswer}
+                  </Text>
+                )}
+              </View>
+            )}
           </View>
         );
       })}
@@ -194,5 +224,19 @@ const styles = StyleSheet.create({
   lineLabel: {
     fontFamily: FONT_SERIF_ITALIC,
     color: colors.plum,
+  },
+  factCard: {
+    backgroundColor: colors.plumSoft,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.plum,
+  },
+  factText: {
+    fontFamily: FONT_SERIF_ITALIC,
+    fontSize: 13,
+    color: colors.plum,
+    lineHeight: 19,
   },
 });

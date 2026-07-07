@@ -14,6 +14,8 @@ function fakeCircle(overrides: Partial<MyCircle> = {}): MyCircle {
     resourceUrl: null,
     isPublic: false,
     closedToJoins: false,
+    ralliedOnAt: null,
+    completedAt: null,
     ...overrides,
   };
 }

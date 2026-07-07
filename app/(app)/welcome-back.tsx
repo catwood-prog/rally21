@@ -137,6 +137,7 @@ export default function WelcomeBack() {
                 durationDays={circle.durationDays}
                 isSolo={isSolo}
                 size="large"
+                isRallied={!!circle.ralliedOnAt && !circle.completedAt}
               />
             </View>
 

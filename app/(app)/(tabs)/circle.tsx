@@ -20,7 +20,7 @@ import { SignalMeter } from '@/components/SignalMeter';
 import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, colors } from '@/constants/theme';
+import { cardShadow, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   CircleMember,
@@ -37,7 +37,15 @@ import {
   setCircleResourceUrl,
   subscribeToCirclePresence,
 } from '@/lib/circle';
-import { getLocalDateString } from '@/lib/date';
+import { daysBetween, getLocalDateString } from '@/lib/date';
+import {
+  completeCircle,
+  GATE_DAY,
+  getMyLastCelebratedDay,
+  getNextMilestone,
+  rallyOnCircle,
+  shouldShowJourneyGate,
+} from '@/lib/journey';
 import { getMyProfile, markCoverHintSeen } from '@/lib/profile';
 import { extractYouTubeId, isHttpUrl } from '@/lib/resourceLink';
 import { computeSignal, PresenceRow } from '@/lib/signal';
@@ -83,6 +91,10 @@ export default function YourCircle() {
   // Defaults to true so the discovery hint never flashes before the real
   // value loads — it only ever matters once it resolves to false.
   const [hasSeenCoverHint, setHasSeenCoverHint] = useState(true);
+  const [myLastCelebratedDay, setMyLastCelebratedDay] = useState(0);
+  const [isRallying, setIsRallying] = useState(false);
+  const [isConfirmingComplete, setIsConfirmingComplete] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -109,16 +121,18 @@ export default function YourCircle() {
       const myCircle = selection.circle;
       setCircle(myCircle);
       if (myCircle) {
-        const [circleMembers, circlePresence, preview, profile] = await Promise.all([
+        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay] = await Promise.all([
           getCircleMembers(myCircle.id),
           getCirclePresence(myCircle.id),
           getWallPreview(myCircle.id),
           getMyProfile(session.user.id),
+          getMyLastCelebratedDay(myCircle.id, session.user.id),
         ]);
         setMembers(circleMembers);
         setPresence(circlePresence);
         setWallPreview(preview);
         setHasSeenCoverHint(!!profile?.has_seen_cover_hint);
+        setMyLastCelebratedDay(lastCelebratedDay);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your circle');
@@ -148,6 +162,32 @@ export default function YourCircle() {
     });
     return unsubscribe;
   }, [circle?.id]);
+
+  // Day-21 gate: the first qualifying open of this circle's detail
+  // screen sends the user to the full-screen ceremony instead — same
+  // idempotent check as Today's, in case this screen is reached first
+  // (e.g. a direct link) without ever passing through Today.
+  useEffect(() => {
+    if (!circle) return;
+    const dayNumber = Math.max(1, daysBetween(circle.startDate, getLocalDateString()) + 1);
+    if (shouldShowJourneyGate(dayNumber, circle, myLastCelebratedDay)) {
+      router.push({ pathname: '/journey-gate', params: { circleId: circle.id } });
+      return;
+    }
+    if (circle.ralliedOnAt && !circle.completedAt) {
+      const milestone = getNextMilestone(dayNumber, myLastCelebratedDay);
+      if (milestone) {
+        router.push({
+          pathname: '/celebration',
+          params: {
+            circleId: circle.id,
+            day: String(milestone.day),
+            isMajorStop: String(milestone.isMajorStop),
+          },
+        });
+      }
+    }
+  }, [circle, myLastCelebratedDay, router]);
 
   // Completing a first cover teaches the same thing the hint says —
   // dismiss it for good the moment that happens, same as the voice hint
@@ -211,13 +251,19 @@ export default function YourCircle() {
               style={styles.listCard}
               onPress={() => router.setParams({ circleId: c.id, fromTab: 'true' })}
             >
-              <Text style={styles.listCardName}>{c.name}</Text>
+              <View style={styles.listCardNameRow}>
+                <Text style={styles.listCardName}>{c.name}</Text>
+                {c.completedAt && (
+                  <Text style={styles.completedBadgeSmall}>{STRINGS.journeyCompletedBadge}</Text>
+                )}
+              </View>
               <SignalMeter
                 state={signal.state}
                 dailyRates={signal.dailyRates}
                 dayNumber={signal.dayNumber}
                 durationDays={c.durationDays}
                 isSolo={isSolo}
+                isRallied={!!c.ralliedOnAt && !c.completedAt}
               />
               <View style={[styles.avatarRow, styles.listCardAvatarRow]}>
                 {shown.map((member) => {
@@ -378,6 +424,31 @@ export default function YourCircle() {
     }
   };
 
+  const handleRallyOn = async () => {
+    setIsRallying(true);
+    try {
+      await rallyOnCircle(circle.id);
+      setCircle({ ...circle, ralliedOnAt: new Date().toISOString() });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not rally on — try again');
+    } finally {
+      setIsRallying(false);
+    }
+  };
+
+  const handleCompleteCircle = async () => {
+    setIsCompleting(true);
+    try {
+      await completeCircle(circle.id);
+      setCircle({ ...circle, completedAt: new Date().toISOString() });
+      setIsConfirmingComplete(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not complete this circle — try again');
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
   const handleRemoveMember = async (memberId: string) => {
     setIsRemovingMember(true);
     try {
@@ -404,6 +475,54 @@ export default function YourCircle() {
         <Text style={styles.back}>{fromTab === 'true' ? '← Your Circles' : '← Today'}</Text>
       </TouchableOpacity>
 
+      {circle.completedAt && (
+        <View style={styles.journeyCompletedBanner}>
+          <Text style={styles.journeyCompletedBadge}>{STRINGS.journeyCompletedBadge}</Text>
+          <Text style={styles.journeyCompletedBannerTitle}>
+            {STRINGS.journeyCompletedTitle(circle.name)}
+          </Text>
+          <Text style={styles.journeyCompletedBannerBody}>{STRINGS.journeyCompletedBody}</Text>
+        </View>
+      )}
+
+      {!circle.completedAt &&
+        !circle.ralliedOnAt &&
+        myLastCelebratedDay >= GATE_DAY && (
+          <View style={styles.journeyGateCard}>
+            <Text style={styles.journeyGateCardTitle}>{STRINGS.journeyGateCardTitle(circle.name)}</Text>
+            <Text style={styles.journeyGateCardBody}>{STRINGS.journeyGateCardBody}</Text>
+            <TouchableOpacity
+              style={styles.journeyGateCardButton}
+              onPress={handleRallyOn}
+              disabled={isRallying}
+            >
+              <Text style={styles.journeyGateCardButtonText}>
+                {isRallying ? '…' : STRINGS.journeyGateRallyOnCta}
+              </Text>
+            </TouchableOpacity>
+            {isCreator ? (
+              isConfirmingComplete ? (
+                <View style={styles.journeyGateConfirmRow}>
+                  <TouchableOpacity onPress={() => setIsConfirmingComplete(false)} disabled={isCompleting}>
+                    <Text style={styles.leaveCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleCompleteCircle} disabled={isCompleting}>
+                    <Text style={styles.journeyGateCompleteConfirmText}>
+                      {isCompleting ? '…' : STRINGS.journeyGateCompleteCta}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={() => setIsConfirmingComplete(true)}>
+                  <Text style={styles.journeyGateCardLink}>{STRINGS.journeyGateCompleteCta}</Text>
+                </TouchableOpacity>
+              )
+            ) : (
+              <Text style={styles.journeyGateCardWaiting}>{STRINGS.journeyGateWaitingOnHost}</Text>
+            )}
+          </View>
+        )}
+
       {isEditingName ? (
         <View style={styles.nameEditRow}>
           <TextInput
@@ -424,7 +543,7 @@ export default function YourCircle() {
       ) : (
         <View style={styles.nameRow}>
           <Text style={styles.title}>{circle.name}</Text>
-          {isCreator && (
+          {isCreator && !circle.completedAt && (
             <TouchableOpacity onPress={startEditingName} hitSlop={10}>
               <Text style={styles.editPencil}>✎</Text>
             </TouchableOpacity>
@@ -473,13 +592,13 @@ export default function YourCircle() {
           ) : (
             <LinkCard url={circle.resourceUrl} style={styles.linkEmbed} />
           )}
-          {isCreator && (
+          {isCreator && !circle.completedAt && (
             <TouchableOpacity onPress={startEditingLink} hitSlop={8}>
               <Text style={styles.linkEditLink}>edit link</Text>
             </TouchableOpacity>
           )}
         </View>
-      ) : isCreator ? (
+      ) : isCreator && !circle.completedAt ? (
         <TouchableOpacity style={styles.linkEmptyPrompt} onPress={startEditingLink}>
           <Text style={styles.linkEmptyPromptText}>+ add a link your circle follows</Text>
         </TouchableOpacity>
@@ -493,20 +612,23 @@ export default function YourCircle() {
           durationDays={circle.durationDays}
           isSolo={isSolo}
           size="large"
+          isRallied={!!circle.ralliedOnAt && !circle.completedAt}
         />
       </View>
 
-      <TouchableOpacity
-        style={styles.inviteButton}
-        onPress={() =>
-          router.push({
-            pathname: '/onboarding/invite',
-            params: { circleId: circle.id, inviteCode: circle.inviteCode },
-          })
-        }
-      >
-        <Text style={styles.inviteButtonText}>✨ Invite someone</Text>
-      </TouchableOpacity>
+      {!circle.completedAt && (
+        <TouchableOpacity
+          style={styles.inviteButton}
+          onPress={() =>
+            router.push({
+              pathname: '/onboarding/invite',
+              params: { circleId: circle.id, inviteCode: circle.inviteCode },
+            })
+          }
+        >
+          <Text style={styles.inviteButtonText}>✨ Invite someone</Text>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.wallPreviewCard}>
         <Text style={styles.sectionLabel}>circle wall</Text>
@@ -611,7 +733,7 @@ export default function YourCircle() {
         </>
       )}
 
-      {isCreator && circle.isPublic && (
+      {isCreator && circle.isPublic && !circle.completedAt && (
         <View style={styles.hostControlsCard}>
           <Text style={styles.sectionLabel}>host controls</Text>
 
@@ -688,6 +810,40 @@ export default function YourCircle() {
         </View>
       )}
 
+      {isCreator && circle.ralliedOnAt && !circle.completedAt && (
+        <View style={styles.hostControlsCard}>
+          <Text style={styles.sectionLabel}>host controls</Text>
+          {isConfirmingComplete ? (
+            <View style={styles.journeyCompleteHostConfirmCard}>
+              <Text style={styles.journeyCompleteHostConfirmTitle}>
+                {STRINGS.journeyCompleteConfirmTitle(circle.name)}
+              </Text>
+              <Text style={styles.journeyCompleteHostConfirmBody}>
+                {STRINGS.journeyCompleteConfirmBody}
+              </Text>
+              <View style={styles.journeyGateConfirmRow}>
+                <TouchableOpacity
+                  onPress={() => setIsConfirmingComplete(false)}
+                  disabled={isCompleting}
+                >
+                  <Text style={styles.leaveCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleCompleteCircle} disabled={isCompleting}>
+                  <Text style={styles.journeyGateCompleteConfirmText}>
+                    {isCompleting ? '…' : STRINGS.journeyGateCompleteCta}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity onPress={() => setIsConfirmingComplete(true)}>
+              <Text style={styles.hostToggleLabel}>{STRINGS.journeyCompleteHostControlLabel}</Text>
+              <Text style={styles.hostToggleHelper}>{STRINGS.journeyCompleteHostControlHelper}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
       {iCoveredSomeoneToday ? (
         <View style={styles.coveredInfoCard}>
           <Text style={styles.coveredInfoTitle}>
@@ -759,11 +915,29 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     ...cardShadow,
   },
+  listCardNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
   listCardName: {
     fontFamily: FONT_HEADER,
     fontSize: 15,
     color: colors.ink,
-    marginBottom: 8,
+  },
+  completedBadgeSmall: {
+    ...chipTextShape,
+    backgroundColor: colors.greenSoft,
+    color: colors.green,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    fontSize: 9.5,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    overflow: 'hidden',
   },
   content: {
     padding: 20,
@@ -1232,5 +1406,110 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
     color: colors.ink,
+  },
+  journeyGateCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    ...cardShadow,
+  },
+  journeyGateCardTitle: {
+    fontFamily: FONT_HEADER,
+    fontSize: 15,
+    color: colors.ink,
+    marginBottom: 4,
+  },
+  journeyGateCardBody: {
+    fontSize: 12.5,
+    color: colors.muted,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  journeyGateCardButton: {
+    backgroundColor: colors.gold,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  journeyGateCardButtonText: {
+    fontWeight: '700',
+    fontSize: 13,
+    color: colors.ink,
+  },
+  journeyGateCardLink: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
+    textDecorationLine: 'underline',
+    textAlign: 'center',
+  },
+  journeyGateCardWaiting: {
+    fontSize: 11.5,
+    color: colors.muted,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  journeyGateConfirmRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 24,
+    marginTop: 4,
+  },
+  journeyGateCompleteConfirmText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  journeyCompletedBanner: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 20,
+    alignItems: 'center',
+    ...cardShadow,
+  },
+  journeyCompletedBadge: {
+    ...chipTextShape,
+    backgroundColor: colors.greenSoft,
+    color: colors.green,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 999,
+    fontSize: 10.5,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  journeyCompletedBannerTitle: {
+    fontFamily: FONT_HEADER,
+    fontSize: 18,
+    color: colors.ink,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  journeyCompletedBannerBody: {
+    fontSize: 12.5,
+    color: colors.muted,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  journeyCompleteHostConfirmCard: {
+    marginTop: 4,
+  },
+  journeyCompleteHostConfirmTitle: {
+    fontFamily: FONT_HEADER,
+    fontSize: 14,
+    color: colors.ink,
+    marginBottom: 4,
+  },
+  journeyCompleteHostConfirmBody: {
+    fontSize: 12,
+    color: colors.muted,
+    lineHeight: 17,
+    marginBottom: 10,
   },
 });

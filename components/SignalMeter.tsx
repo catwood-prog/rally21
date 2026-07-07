@@ -1,7 +1,19 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { chipShape, chipTextShape, colors } from '@/constants/theme';
+import { getJourneyLeg } from '@/lib/journey';
 import { SignalState } from '@/lib/signal';
+
+/** The milestone just below the current journey leg's target — used to
+ * anchor the ladder progress bar's 0% end (21 for the 50-leg, 50 for the
+ * 100-leg, 100 for the 365-leg). Past 365 there's no further named stop,
+ * so the bar just shows full. */
+function legStartDay(targetDay: number | null): number {
+  if (targetDay === 50) return 21;
+  if (targetDay === 100) return 50;
+  if (targetDay === 365) return 100;
+  return 365;
+}
 
 const STATE_LABEL: Record<SignalState, string> = {
   glowing: 'glowing 🔥',
@@ -22,6 +34,7 @@ export function SignalMeter({
   durationDays,
   isSolo = false,
   size = 'default',
+  isRallied = false,
 }: {
   state: SignalState;
   dailyRates: number[];
@@ -29,8 +42,18 @@ export function SignalMeter({
   durationDays?: number;
   isSolo?: boolean;
   size?: 'default' | 'large';
+  /** Circle has rallied on past day 21 (Rally21-Glow-Spec.md §8) — the
+   * day pill switches from "Day N of 21" to the journey ladder ("day N ·
+   * rallying to 50") with its own progress bar for the current leg. */
+  isRallied?: boolean;
 }) {
   const barHeight = size === 'large' ? 46 : 28;
+  const leg = isRallied && dayNumber ? getJourneyLeg(dayNumber) : null;
+  const legStart = leg ? legStartDay(leg.targetDay) : 0;
+  const legProgress =
+    leg && leg.targetDay
+      ? Math.min(1, Math.max(0, (dayNumber! - legStart) / (leg.targetDay - legStart)))
+      : 1;
 
   return (
     <View>
@@ -41,14 +64,28 @@ export function SignalMeter({
             {STATE_LABEL[state]}
           </Text>
         </Text>
-        {!!dayNumber && !!durationDays && (
+        {leg ? (
           <View style={styles.dayBadge}>
             <Text style={styles.dayBadgeText}>
-              Day {Math.min(dayNumber, durationDays)} of {durationDays}
+              day {dayNumber} · {leg.label}
             </Text>
           </View>
+        ) : (
+          !!dayNumber &&
+          !!durationDays && (
+            <View style={styles.dayBadge}>
+              <Text style={styles.dayBadgeText}>
+                Day {Math.min(dayNumber, durationDays)} of {durationDays}
+              </Text>
+            </View>
+          )
         )}
       </View>
+      {leg && (
+        <View style={styles.legProgressTrack}>
+          <View style={[styles.legProgressFill, { width: `${legProgress * 100}%` }]} />
+        </View>
+      )}
       <View style={[styles.bars, { height: barHeight }]}>
         {dailyRates.map((rate, i) => (
           <View key={i} style={styles.barTrack}>
@@ -92,6 +129,18 @@ const styles = StyleSheet.create({
   dayBadgeText: {
     ...chipTextShape,
     color: colors.muted,
+  },
+  legProgressTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.greenSoft,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  legProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: colors.green,
   },
   bars: {
     flexDirection: 'row',
