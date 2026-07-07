@@ -11,7 +11,9 @@ import {
   View,
 } from 'react-native';
 
+import { MASCOT } from '@/assets/mascot';
 import { Brandmark } from '@/components/Brandmark';
+import { MascotEntrance } from '@/components/MascotEntrance';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -137,6 +139,7 @@ export default function Invite() {
         <Text style={styles.backText}>{isFromToday ? '← Today' : '← Your Circle'}</Text>
       </TouchableOpacity>
 
+      <MascotEntrance source={MASCOT.invitationHuddle} style={styles.mascot} />
       <Text style={styles.title}>invite your people</Text>
       <Text style={styles.subtitle}>
         {circleName ? `share this code to join ${circleName}` : 'share this code — anyone can use it to hop in'}
@@ -184,6 +187,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     left: 24,
+  },
+  mascot: {
+    width: 150,
+    height: 109,
+    marginBottom: 14,
   },
   pickerList: {
     width: '100%',

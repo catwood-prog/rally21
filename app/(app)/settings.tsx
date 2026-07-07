@@ -20,7 +20,7 @@ import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme'
 import { deleteMyAccount } from '@/lib/account';
 import { useAuth } from '@/lib/auth-context';
 import { getMyNotificationPrefs, NotificationPrefs, updateNotificationPrefs } from '@/lib/notifications';
-import { getMyProfile, saveProfile } from '@/lib/profile';
+import { getMyProfile, saveProfile, setSoundsEnabled } from '@/lib/profile';
 
 const NUDGE_TIME_OPTIONS: { label: string; time: string | null }[] = [
   { label: STRINGS.nudgeTimeEarliest, time: null },
@@ -51,6 +51,7 @@ export default function Settings() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [newPhotoUri, setNewPhotoUri] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
+  const [soundsEnabled, setSoundsEnabledState] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
@@ -68,6 +69,7 @@ export default function Settings() {
       ]);
       setName(profile?.name ?? '');
       setAvatarUrl(profile?.avatar_url ?? null);
+      setSoundsEnabledState(profile?.sounds_enabled ?? true);
       setPrefs(notificationPrefs);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your profile');
@@ -111,6 +113,18 @@ export default function Settings() {
       setError(e instanceof Error ? e.message : 'could not save that — try again');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleToggleSounds = async () => {
+    if (!session?.user) return;
+    const next = !soundsEnabled;
+    setSoundsEnabledState(next);
+    try {
+      await setSoundsEnabled(session.user.id, next);
+    } catch (e) {
+      setSoundsEnabledState(!next);
+      setError(e instanceof Error ? e.message : 'could not save that — try again');
     }
   };
 
@@ -189,6 +203,23 @@ export default function Settings() {
       >
         <Text style={styles.signOutText}>My practices</Text>
       </TouchableOpacity>
+
+      <Text style={[styles.label, styles.sectionSpacing]}>{STRINGS.soundsSectionLabel}</Text>
+
+      <View style={styles.prefRow}>
+        <View style={styles.prefRowText}>
+          <Text style={styles.prefRowLabel}>{STRINGS.soundsToggleLabel}</Text>
+          <Text style={styles.prefRowHelper}>{STRINGS.soundsToggleHelper}</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.prefPill, soundsEnabled && styles.prefPillOn]}
+          onPress={handleToggleSounds}
+        >
+          <Text style={[styles.prefPillText, soundsEnabled && styles.prefPillTextOn]}>
+            {soundsEnabled ? 'on' : 'off'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <Text style={[styles.label, styles.sectionSpacing]}>{STRINGS.notificationsSectionLabel}</Text>
 

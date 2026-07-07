@@ -10,7 +10,7 @@ import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { playChime, vibrateOnCompletion } from '@/lib/chime';
-import { getMyProfile, setTimerSoundMuted } from '@/lib/profile';
+import { getMyProfile, setSoundsEnabled } from '@/lib/profile';
 import { extractYouTubeId } from '@/lib/resourceLink';
 import { useWakeLock } from '@/lib/wakeLock';
 
@@ -84,24 +84,24 @@ export default function CheckinTimer() {
   const [startedAt, setStartedAt] = useState<number | null>(Date.now());
   const [pausedRemaining, setPausedRemaining] = useState<number | null>(null);
   const [, setTick] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
+  const [soundsEnabled, setSoundsEnabledState] = useState(true);
 
   useWakeLock(phase === 'running');
 
   useEffect(() => {
     if (!session?.user) return;
     getMyProfile(session.user.id)
-      .then((profile) => setIsMuted(profile?.timer_sound_muted ?? false))
+      .then((profile) => setSoundsEnabledState(profile?.sounds_enabled ?? true))
       .catch(() => {
         // preference just falls back to sound-on for this session
       });
   }, [session?.user?.id]);
 
   const handleToggleMute = () => {
-    const next = !isMuted;
-    setIsMuted(next);
+    const next = !soundsEnabled;
+    setSoundsEnabledState(next);
     if (session?.user) {
-      setTimerSoundMuted(session.user.id, next).catch(() => {
+      setSoundsEnabled(session.user.id, next).catch(() => {
         // non-blocking — worst case the preference doesn't stick this time
       });
     }
@@ -131,9 +131,9 @@ export default function CheckinTimer() {
     // The chime is best-effort — if audio was never unlocked, or playback
     // is blocked because the tab finished this while backgrounded, both
     // helpers just no-op. The end-state screen below is the real signal.
-    if (!isMuted) playChime();
+    if (soundsEnabled) playChime();
     vibrateOnCompletion();
-  }, [phase, isMuted]);
+  }, [phase, soundsEnabled]);
 
   useEffect(() => {
     if (phase !== 'done') return;
@@ -176,7 +176,7 @@ export default function CheckinTimer() {
         <View style={styles.topbarRight}>
           {dayNumber ? <Text style={styles.dayLabel}>Day {dayNumber}</Text> : null}
           <TouchableOpacity onPress={handleToggleMute} hitSlop={8}>
-            <Text style={styles.muteIcon}>{isMuted ? '🔇' : '🔊'}</Text>
+            <Text style={styles.muteIcon}>{soundsEnabled ? '🔊' : '🔇'}</Text>
           </TouchableOpacity>
         </View>
       </View>

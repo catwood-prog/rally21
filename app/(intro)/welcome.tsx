@@ -14,7 +14,7 @@ export default function Welcome() {
   return (
     <View style={styles.container}>
       <Image
-        source={MASCOT.huddle}
+        source={MASCOT.invitationHuddle}
         style={styles.image}
         resizeMode="contain"
         accessible={false}

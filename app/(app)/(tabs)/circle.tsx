@@ -2,7 +2,6 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +15,7 @@ import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
 import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { LinkCard } from '@/components/LinkCard';
+import { MascotEntrance } from '@/components/MascotEntrance';
 import { SignalMeter } from '@/components/SignalMeter';
 import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { FONT_HEADER } from '@/constants/fonts';
@@ -404,14 +404,6 @@ export default function YourCircle() {
         <Text style={styles.back}>{fromTab === 'true' ? '← Your Circles' : '← Today'}</Text>
       </TouchableOpacity>
 
-      <Image
-        source={MASCOT.huddle}
-        style={styles.headerImage}
-        resizeMode="contain"
-        accessible={false}
-        alt=""
-      />
-
       {isEditingName ? (
         <View style={styles.nameEditRow}>
           <TextInput
@@ -548,13 +540,7 @@ export default function YourCircle() {
 
       {members.length <= 1 ? (
         <View style={styles.emptyGroupCard}>
-          <Image
-            source={MASCOT.waving}
-            style={styles.emptyGroupImage}
-            resizeMode="contain"
-            accessible={false}
-            alt=""
-          />
+          <MascotEntrance source={MASCOT.cozyAndContent} style={styles.emptyGroupImage} />
           <Text style={styles.emptyGroupTitle}>{STRINGS.emptyGroupTitle}</Text>
           <Text style={styles.emptyGroupBody}>{STRINGS.emptyGroupBody}</Text>
           <TouchableOpacity
@@ -796,12 +782,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT_HEADER,
     fontSize: 24,
     color: colors.ink,
-  },
-  headerImage: {
-    width: 160,
-    height: 134,
-    alignSelf: 'center',
-    marginBottom: 10,
   },
   nameRow: {
     flexDirection: 'row',

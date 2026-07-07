@@ -4,14 +4,12 @@ import { Image, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } 
 import Animated, {
   cancelAnimation,
   Easing,
-  interpolate,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withDelay,
   withRepeat,
   withSequence,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -20,8 +18,11 @@ import { MASCOT } from '@/assets/mascot';
 import { STRINGS } from '@/constants/strings';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
+import { useAuth } from '@/lib/auth-context';
+import { playCheckinPop } from '@/lib/chime';
 import { getCircleById } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
+import { getMyProfile } from '@/lib/profile';
 
 const CONFETTI_COUNT = 25;
 const CONFETTI_COLORS = [colors.gold, colors.green, '#7FBF7F'];
@@ -121,6 +122,7 @@ function ConfettiPiece({ spec, fallDistance }: { spec: ConfettiSpec; fallDistanc
 
 export default function CheckInComplete() {
   const router = useRouter();
+  const { session } = useAuth();
   const { circleId } = useLocalSearchParams<{ circleId: string }>();
   const { height: windowHeight } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
@@ -144,8 +146,10 @@ export default function CheckInComplete() {
 
   const [confettiSpecs] = useState<ConfettiSpec[]>(() => (reduceMotion ? [] : makeConfettiSpecs()));
 
-  const scale = useSharedValue(reduceMotion ? 1 : 0);
-  const rockPhase = useSharedValue(0);
+  // Mascot brief: check-in success gets a slightly bouncier entrance (scale
+  // 0.9 -> 1.05 -> 1.0) so the daily beat feels like a small pat on the
+  // back — then holds still. No idle loop.
+  const scale = useSharedValue(reduceMotion ? 1 : 0.9);
   const headingOpacity = useSharedValue(0);
   const headingY = useSharedValue(8);
   const bodyOpacity = useSharedValue(0);
@@ -157,16 +161,10 @@ export default function CheckInComplete() {
     if (reduceMotion) {
       scale.value = withTiming(1, { duration: 300 });
     } else {
-      scale.value = withSpring(1, { damping: 10, stiffness: 120 }, (finished) => {
-        'worklet';
-        if (finished) {
-          rockPhase.value = withRepeat(
-            withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
-            -1,
-            true
-          );
-        }
-      });
+      scale.value = withSequence(
+        withTiming(1.05, { duration: 220, easing: Easing.out(Easing.ease) }),
+        withTiming(1.0, { duration: 160, easing: Easing.inOut(Easing.ease) })
+      );
     }
 
     headingOpacity.value = withDelay(450, withTiming(1, { duration: 400 }));
@@ -178,11 +176,20 @@ export default function CheckInComplete() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!session?.user) return;
+    getMyProfile(session.user.id)
+      .then((profile) => {
+        if (profile?.sounds_enabled ?? true) playCheckinPop();
+      })
+      .catch(() => {
+        // low-stakes — the celebration screen itself is the real signal
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id]);
+
   const penguinStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: scale.value },
-      { rotate: `${reduceMotion ? 0 : interpolate(rockPhase.value, [0, 1], [-3, 3])}deg` },
-    ],
+    transform: [{ scale: scale.value }],
   }));
   const headingStyle = useAnimatedStyle(() => ({
     opacity: headingOpacity.value,
@@ -219,7 +226,7 @@ export default function CheckInComplete() {
 
       <Animated.View style={penguinStyle}>
         <Image
-          source={MASCOT.confettiBody}
+          source={MASCOT.proudAfterShowingUp}
           style={styles.penguin}
           resizeMode="contain"
           accessible={false}
@@ -255,8 +262,8 @@ const styles = StyleSheet.create({
     left: 24,
   },
   penguin: {
-    width: 130,
-    height: 134,
+    width: 112,
+    height: 120,
     marginBottom: 20,
   },
   title: {

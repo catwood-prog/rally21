@@ -2,7 +2,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { MASCOT } from '@/assets/mascot';
 import { Brandmark } from '@/components/Brandmark';
+import { MascotEntrance } from '@/components/MascotEntrance';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { cardShadow, colors } from '@/constants/theme';
 import { MOOD_EMOJI } from '@/constants/mood';
@@ -73,7 +75,10 @@ export default function Journal() {
       {error && <Text style={styles.subtitle}>{error}</Text>}
 
       {!error && reflections.length === 0 && (
-        <Text style={styles.subtitle}>your reflections will show up here as you check in</Text>
+        <View style={styles.emptyState}>
+          <MascotEntrance source={MASCOT.journalCompanion} style={styles.emptyStateImage} />
+          <Text style={styles.subtitle}>your reflections will show up here as you check in</Text>
+        </View>
       )}
 
       {reflections.map((r, i) => {
@@ -152,6 +157,15 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     color: colors.muted,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingTop: 24,
+  },
+  emptyStateImage: {
+    width: 100,
+    height: 145,
+    marginBottom: 14,
   },
   dateHeader: {
     fontSize: 12,

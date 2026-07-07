@@ -2,8 +2,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { MASCOT } from '@/assets/mascot';
 import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
+import { MascotEntrance } from '@/components/MascotEntrance';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -81,6 +83,7 @@ export default function CoverAFriend() {
       </TouchableOpacity>
 
       <View style={styles.content}>
+        <MascotEntrance source={MASCOT.coverAFriend} style={styles.mascot} />
         <Avatar name={name} avatarUrl={memberAvatarUrl} size={88} />
         <Text style={styles.headline}>{STRINGS.coverHeadline(name)}</Text>
         <Text style={styles.subtitle}>{STRINGS.coverSubtitle}</Text>
@@ -178,6 +181,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingTop: 10,
+  },
+  mascot: {
+    width: 150,
+    height: 136,
+    marginBottom: 6,
   },
   headline: {
     fontFamily: FONT_HEADER,

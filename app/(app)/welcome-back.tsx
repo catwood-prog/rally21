@@ -2,7 +2,9 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { MASCOT } from '@/assets/mascot';
 import { Brandmark } from '@/components/Brandmark';
+import { MascotEntrance } from '@/components/MascotEntrance';
 import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -99,6 +101,7 @@ export default function WelcomeBack() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Brandmark style={styles.brandmark} />
+      <MascotEntrance source={MASCOT.theRestart} style={styles.mascot} />
       <Text style={styles.eyebrow}>welcome back</Text>
       <Text style={styles.title}>
         you&apos;ve <Text style={styles.titleAccent}>missed nothing</Text>
@@ -186,6 +189,12 @@ const styles = StyleSheet.create({
   },
   brandmark: {
     marginBottom: 14,
+  },
+  mascot: {
+    width: 150,
+    height: 117,
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   eyebrow: {
     fontSize: 12,

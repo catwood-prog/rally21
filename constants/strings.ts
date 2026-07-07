@@ -105,6 +105,13 @@ export const STRINGS = {
   circleCoveredYouCard: (covererName: string) => `${covererName} covered you today 💛`,
   circleCoveredYouCardBody: "No pressure, we've got you.",
 
+  // App sounds (mascot brief) — the single toggle governing both sounds
+  // in the app: the check-in timer's completion chime and the check-in
+  // success chime.
+  soundsSectionLabel: 'sounds',
+  soundsToggleLabel: 'app sounds',
+  soundsToggleHelper: 'a soft chime when you finish a timed practice or complete a check-in.',
+
   // Notifications settings (Notifications spec §5) — an invitation, never
   // an obligation. No streak/urgency language in any of these labels.
   notificationsSectionLabel: 'notifications',

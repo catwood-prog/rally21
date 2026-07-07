@@ -8,7 +8,7 @@ export type Profile = {
   avatar_url: string | null;
   has_seen_checkin_consent: boolean;
   last_reentry_ack_date: string | null;
-  timer_sound_muted: boolean;
+  sounds_enabled: boolean;
   has_seen_voice_hint: boolean;
   has_seen_cover_hint: boolean;
 };
@@ -17,7 +17,7 @@ export async function getMyProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('users')
     .select(
-      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, timer_sound_muted, has_seen_voice_hint, has_seen_cover_hint'
+      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint'
     )
     .eq('id', userId)
     .maybeSingle();
@@ -26,8 +26,12 @@ export async function getMyProfile(userId: string): Promise<Profile | null> {
   return data;
 }
 
-export async function setTimerSoundMuted(userId: string, muted: boolean): Promise<void> {
-  const { error } = await supabase.from('users').update({ timer_sound_muted: muted }).eq('id', userId);
+/** The single "App sounds" toggle (mascot brief) — governs both the
+ * check-in timer's completion chime and the check-in success chime.
+ * Default true; surfaced both in Settings and as the timer screen's own
+ * quick-access mute icon, both reading/writing this same flag. */
+export async function setSoundsEnabled(userId: string, enabled: boolean): Promise<void> {
+  const { error } = await supabase.from('users').update({ sounds_enabled: enabled }).eq('id', userId);
   if (error) throw error;
 }
 

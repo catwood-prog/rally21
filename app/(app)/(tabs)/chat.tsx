@@ -16,7 +16,7 @@ export default function Chat() {
 
       <ScrollView contentContainerStyle={styles.content}>
         <Image
-          source={MASCOT.waving}
+          source={MASCOT.threeQuarterView}
           style={styles.mascotImage}
           resizeMode="contain"
           accessible={false}

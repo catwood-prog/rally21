@@ -11,6 +11,13 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const DIGEST_SEND_TIME = "19:00";
 
+// The mascot brief's only email placement — cover-a-friend.png, once per
+// digest max, only when the digest actually contains a covered/wave line
+// (not just wall-message activity). Hash is content-addressed by the web
+// build; only changes if the source image itself is ever replaced.
+const COVER_A_FRIEND_IMAGE_URL =
+  "https://rally21.vercel.app/assets/assets/mascot/cover-a-friend.dbaae2c7f7e7900e543eef8727e86089.png";
+
 function localDateString(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone, year: "numeric", month: "2-digit", day: "2-digit",
@@ -205,7 +212,11 @@ Deno.serve(async (req) => {
 
       const shown = lines.slice(0, 4);
       const remaining = lines.length - shown.length;
-      const html = `<ul>${shown.map((l) => `<li>${l}</li>`).join("")}</ul>${
+      const hasCoveredOrWaveLine = (covered?.length ?? 0) > 0 || (waves?.length ?? 0) > 0;
+      const image = hasCoveredOrWaveLine
+        ? `<p><img src="${COVER_A_FRIEND_IMAGE_URL}" alt="" width="160" style="display:block;margin:0 auto 12px;" /></p>`
+        : "";
+      const html = `${image}<ul>${shown.map((l) => `<li>${l}</li>`).join("")}</ul>${
         remaining > 0 ? `<p>+ ${remaining} more moment${remaining === 1 ? "" : "s"} waiting</p>` : ""
       }<p><a href="https://rally21.vercel.app">open Rally21</a></p>`;
 

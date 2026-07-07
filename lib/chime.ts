@@ -1,3 +1,6 @@
+import { Asset } from 'expo-asset';
+import { Platform } from 'react-native';
+
 // A synthesized two-tone completion chime — no audio file needed. iOS
 // Safari (and most mobile browsers) only allow an AudioContext to actually
 // produce sound if it was created or resumed synchronously inside a user
@@ -62,6 +65,44 @@ export function playChime(): void {
     playTone(audioContext, 660, now + 0.06, 1.35, 0.08);
   } catch {
     // audio blocked (e.g. finished while backgrounded) — no error surfaced
+  }
+}
+
+// The check-in success chime is an approved recorded file (mascot brief),
+// not synthesized like the timer's own chime above — resolved once via
+// expo-asset so a bundler-specific require() shape doesn't leak into the
+// player. Web only, matching the rest of this app's platform scope.
+let checkinPopUri: string | null | undefined;
+
+function getCheckinPopUri(): string | null {
+  if (Platform.OS !== 'web') return null;
+  if (checkinPopUri === undefined) {
+    try {
+      checkinPopUri = Asset.fromModule(require('../assets/sounds/checkin-pop.wav')).uri;
+    } catch {
+      checkinPopUri = null;
+    }
+  }
+  return checkinPopUri;
+}
+
+/** Plays the check-in success chime (mascot brief). A plain HTMLAudioElement,
+ * not the AudioContext singleton above — doesn't need the same synchronous-
+ * gesture unlock, since the "Save" tap that leads here is itself a recent
+ * enough user gesture for browsers' media autoplay heuristics. Silently
+ * does nothing if playback is blocked or unsupported — the celebration
+ * screen itself is always the real completion signal. */
+export function playCheckinPop(): void {
+  const uri = getCheckinPopUri();
+  if (!uri) return;
+  try {
+    const audio = new Audio(uri);
+    audio.volume = 0.6;
+    audio.play().catch(() => {
+      // blocked by autoplay policy — non-fatal
+    });
+  } catch {
+    // unsupported
   }
 }
 
