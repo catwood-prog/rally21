@@ -68,7 +68,7 @@ describe('describeCoverage', () => {
 describe('buildBlueprintBlock', () => {
   it('says so honestly when there is nothing yet, rather than an empty block', () => {
     const block = buildBlueprintBlock({ traits: [], patterns: [], coverage: {} });
-    expect(block.toLowerCase()).toContain('no blueprint patterns yet');
+    expect(block.toLowerCase()).toContain('no private-map patterns yet');
   });
 
   it('includes traits and patterns when present', () => {

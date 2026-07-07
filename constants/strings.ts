@@ -238,8 +238,11 @@ export const STRINGS = {
   pairStreakLabel: (name: string, n: number) => `you and ${name}: ${n} days both in 🔥`,
 
   // Blueprint v0 (Rally21-Blueprint-Notes.md) — deterministic pattern
-  // cards, day-14 observation's visual grammar.
-  blueprintTitle: 'your blueprint',
+  // cards, day-14 observation's visual grammar. Renamed "your blueprint"
+  // → "your private map" (Cat's call, 7 July, N1) — user-facing copy
+  // only, every internal name (tables, RPCs, this file's own keys)
+  // stays "blueprint".
+  blueprintTitle: 'your private map',
   blueprintSubline: "patterns you can't see alone",
   blueprintFooter: 'built only from your own check-ins.',
   blueprintEmptyText: 'your patterns need a little more time to show themselves',
@@ -250,13 +253,13 @@ export const STRINGS = {
   blueprintNoteSubmit: 'Save',
   blueprintNoteSkip: 'Skip',
   blueprintConfirmedText: '✓ you said this sounds right',
-  blueprintSeeYourBlueprint: 'see your blueprint →',
-  blueprintLinkLabel: 'Your blueprint',
+  blueprintSeeYourBlueprint: 'see your private map →',
+  blueprintLinkLabel: 'Your private map',
 
   // Blueprint v2 (B3, Rally21-Blueprint-Notes.md wants layer) — traits,
   // the evolution view, and the wants act flow.
   blueprintTraitsLabel: 'what I’m noticing about you',
-  blueprintEvolutionLabel: 'how your blueprint’s grown',
+  blueprintEvolutionLabel: 'how your private map’s grown',
   blueprintWantLabel: 'WHAT YOU’RE REACHING FOR',
   blueprintWantActCta: 'Make this your next 21 days',
   blueprintWantNowPractice: 'now your practice — find it with your circles',
@@ -266,6 +269,7 @@ export const STRINGS = {
   // Ask Rally, part 1 (A1, Rally21-Ask-Rally-Spec.md) — entry points.
   askRallyLinkLabel: 'Ask Rally',
   askRallyAboutThis: 'ask Rally about this',
+  askRallySubtitle: 'private to you — nothing here shapes your private map or circle',
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one

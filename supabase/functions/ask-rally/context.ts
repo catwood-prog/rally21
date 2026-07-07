@@ -125,7 +125,7 @@ export function buildBlueprintBlock(params: {
   }
   const coverageLine = describeCoverage(params.coverage);
   if (coverageLine) lines.push(coverageLine);
-  if (lines.length === 0) return "No blueprint patterns yet — this person is still early in their reflection history.";
+  if (lines.length === 0) return "No private-map patterns yet — this person is still early in their reflection history.";
   return lines.join("\n");
 }
 
@@ -209,7 +209,7 @@ export function buildCircleBlock(circles: CircleSummary[]): string {
  * no longer applies, there's nothing left to nudge toward. */
 export function buildWantsNote(params: { wantStatement: string | null; hasActivation: boolean }): string {
   if (!params.wantStatement || params.hasActivation) return "";
-  return `\n\nWANTS\nThis person has a confirmed "blueprint want": "${params.wantStatement}" You may help make it more concrete if it comes up naturally, and may mention that turning it into their next 21 days is possible from the blueprint screen — but never push it or bring it up unprompted.`;
+  return `\n\nWANTS\nThis person has a confirmed want on their private map: "${params.wantStatement}" You may help make it more concrete if it comes up naturally, and may mention that turning it into their next 21 days is possible from the private map screen — but never push it or bring it up unprompted.`;
 }
 
 export function assembleAskRallySystemPrompt(params: {

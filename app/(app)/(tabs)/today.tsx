@@ -474,7 +474,7 @@ export default function Today() {
           <TouchableOpacity onPress={() => router.push('/reflection')}>
             <Text style={styles.reflectionsLinkPlum}>Something we noticed</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/blueprint')}>
+          <TouchableOpacity onPress={() => router.push('/private-map')}>
             <Text style={styles.reflectionsLinkPlum}>{STRINGS.blueprintLinkLabel}</Text>
           </TouchableOpacity>
         </View>
@@ -679,7 +679,7 @@ export default function Today() {
         <TouchableOpacity onPress={() => router.push('/reflection')}>
           <Text style={styles.reflectionsLinkPlum}>Something we noticed</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push('/blueprint')}>
+        <TouchableOpacity onPress={() => router.push('/private-map')}>
           <Text style={styles.reflectionsLinkPlum}>{STRINGS.blueprintLinkLabel}</Text>
         </TouchableOpacity>
       </View>

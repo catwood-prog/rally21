@@ -146,7 +146,7 @@ export default function Reflection() {
             Built only from your check-ins.{'\n'}You can correct or delete anything.
           </Text>
           {hasBlueprintPattern && (
-            <TouchableOpacity onPress={() => router.push('/blueprint')} style={styles.blueprintLinkWrap}>
+            <TouchableOpacity onPress={() => router.push('/private-map')} style={styles.blueprintLinkWrap}>
               <Text style={styles.blueprintLink}>{STRINGS.blueprintSeeYourBlueprint}</Text>
             </TouchableOpacity>
           )}

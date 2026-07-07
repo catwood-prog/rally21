@@ -185,7 +185,7 @@ export function AskRallyScreen({
           </View>
         </View>
         {showBackLink && <Text style={styles.title}>Ask Rally</Text>}
-        <Text style={styles.subtitle}>private to you — nothing here shapes your blueprint or circle</Text>
+        <Text style={styles.subtitle}>{STRINGS.askRallySubtitle}</Text>
       </View>
 
       <ScrollView
