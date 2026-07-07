@@ -10,24 +10,26 @@ const WEEKDAY_PLURAL = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursda
 
 export type BlueprintPattern = {
   patternKey: string;
-  patternType: 'weekday_mood' | 'time_of_day_mood' | 'consistency';
+  patternType: 'weekday_mood' | 'time_of_day_mood' | 'consistency' | 'synthesis_pattern' | 'synthesis_want';
   weekday: number | null;
   direction: 'low' | 'high' | 'before_noon_higher' | 'after_noon_higher' | null;
   cutoffHour: number | null;
   agreementCount: number;
   totalCount: number;
   evidenceRate: number;
+  statement: string | null;
 };
 
 type BlueprintPatternRow = {
   pattern_key: string;
-  pattern_type: 'weekday_mood' | 'time_of_day_mood' | 'consistency';
+  pattern_type: BlueprintPattern['patternType'];
   weekday: number | null;
   direction: string | null;
   cutoff_hour: number | null;
   agreement_count: number;
   total_count: number;
   evidence_rate: number;
+  statement: string | null;
 };
 
 export async function getMyBlueprint(): Promise<BlueprintPattern[]> {
@@ -42,12 +44,18 @@ export async function getMyBlueprint(): Promise<BlueprintPattern[]> {
     agreementCount: row.agreement_count,
     totalCount: row.total_count,
     evidenceRate: row.evidence_rate,
+    statement: row.statement,
   }));
 }
 
-/** Bold statement + plain evidence sentence, composed from the RPC's
- * structured fields — never free text from the server. */
+/** Bold statement + plain evidence sentence. Synthesis-sourced patterns
+ * (B2) carry their own pre-written `statement` and skip the template
+ * entirely; B1's deterministic patterns still compose from structured
+ * fields — never free text from the server for those. */
 export function describeBlueprintPattern(p: BlueprintPattern): { headline: string; accent: string; evidence: string } {
+  if (p.patternType === 'synthesis_pattern' || p.patternType === 'synthesis_want') {
+    return { headline: p.statement ?? '', accent: '', evidence: '' };
+  }
   if (p.patternType === 'weekday_mood' && p.weekday !== null) {
     const isLow = p.direction === 'low';
     return {

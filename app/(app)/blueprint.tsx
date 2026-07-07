@@ -133,13 +133,18 @@ export default function Blueprint() {
       {activePattern &&
         (() => {
           const copy = describeBlueprintPattern(activePattern);
+          const isSynthesis = activePattern.patternType === 'synthesis_pattern' || activePattern.patternType === 'synthesis_want';
           return (
             <View style={styles.patternCard}>
               <Text style={styles.patternLabel}>{STRINGS.blueprintPatternLabel}</Text>
-              <Text style={styles.patternHeadline}>
-                {copy.headline} <Text style={styles.patternAccent}>{copy.accent}</Text>.
-              </Text>
-              <Text style={styles.patternMeta}>{copy.evidence}</Text>
+              {isSynthesis ? (
+                <Text style={styles.patternHeadline}>{copy.headline}</Text>
+              ) : (
+                <Text style={styles.patternHeadline}>
+                  {copy.headline} <Text style={styles.patternAccent}>{copy.accent}</Text>.
+                </Text>
+              )}
+              {!!copy.evidence && <Text style={styles.patternMeta}>{copy.evidence}</Text>}
 
               {isWritingNote ? (
                 <View style={styles.noteWrap}>
@@ -203,13 +208,18 @@ export default function Blueprint() {
 
       {confirmedPatterns.map((p) => {
         const copy = describeBlueprintPattern(p);
+        const isSynthesis = p.patternType === 'synthesis_pattern' || p.patternType === 'synthesis_want';
         return (
           <View key={p.patternKey} style={[styles.patternCard, styles.patternCardConfirmed]}>
             <Text style={styles.patternLabel}>{STRINGS.blueprintPatternLabel}</Text>
-            <Text style={styles.patternHeadline}>
-              {copy.headline} <Text style={styles.patternAccent}>{copy.accent}</Text>.
-            </Text>
-            <Text style={styles.patternMeta}>{copy.evidence}</Text>
+            {isSynthesis ? (
+              <Text style={styles.patternHeadline}>{copy.headline}</Text>
+            ) : (
+              <Text style={styles.patternHeadline}>
+                {copy.headline} <Text style={styles.patternAccent}>{copy.accent}</Text>.
+              </Text>
+            )}
+            {!!copy.evidence && <Text style={styles.patternMeta}>{copy.evidence}</Text>}
             <Text style={styles.respondedText}>{STRINGS.blueprintConfirmedText}</Text>
           </View>
         );
