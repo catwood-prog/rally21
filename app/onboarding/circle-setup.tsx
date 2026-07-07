@@ -7,7 +7,17 @@ import { cardShadow, colors } from '@/constants/theme';
 
 export default function CircleSetup() {
   const router = useRouter();
-  const { fromToday } = useLocalSearchParams<{ fromToday?: string }>();
+  const { fromToday, wantKey, wantStatement, suggestedName } = useLocalSearchParams<{
+    fromToday?: string;
+    wantKey?: string;
+    wantStatement?: string;
+    suggestedName?: string;
+  }>();
+
+  // The wants act flow ("make this your next 21 days") lands here first —
+  // same solo/circle fork everyone else gets, just carrying the want's
+  // details through so create-circle can prefill a custom practice.
+  const wantParams = wantKey ? { wantKey, wantStatement: wantStatement ?? '', suggestedName: suggestedName ?? '' } : {};
 
   return (
     <View style={styles.container}>
@@ -29,7 +39,7 @@ export default function CircleSetup() {
         onPress={() =>
           router.push({
             pathname: '/onboarding/create-circle',
-            params: fromToday === 'true' ? { fromToday: 'true' } : {},
+            params: { ...(fromToday === 'true' ? { fromToday: 'true' } : {}), ...wantParams },
           })
         }
       >
@@ -61,7 +71,11 @@ export default function CircleSetup() {
         onPress={() =>
           router.push({
             pathname: '/onboarding/create-circle',
-            params: fromToday === 'true' ? { solo: 'true', fromToday: 'true' } : { solo: 'true' },
+            params: {
+              solo: 'true',
+              ...(fromToday === 'true' ? { fromToday: 'true' } : {}),
+              ...wantParams,
+            },
           })
         }
       >

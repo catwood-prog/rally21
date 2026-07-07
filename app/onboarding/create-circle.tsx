@@ -29,9 +29,21 @@ import {
 export default function FindAPractice() {
   const router = useRouter();
   const { session } = useAuth();
-  const { solo, fromToday } = useLocalSearchParams<{ solo?: string; fromToday?: string }>();
+  const { solo, fromToday, wantKey, wantStatement, suggestedName } = useLocalSearchParams<{
+    solo?: string;
+    fromToday?: string;
+    wantKey?: string;
+    wantStatement?: string;
+    suggestedName?: string;
+  }>();
   const isSolo = solo === 'true';
   const isFromToday = fromToday === 'true';
+  // The wants act flow ("make this your next 21 days") lands here with a
+  // suggested name already in hand — a want is inherently a personal,
+  // one-off practice, so it opens straight into "create your own" rather
+  // than the catalog grid, prefilled but fully editable (SCOPE: prefill
+  // the existing flow as-is, don't restructure it).
+  const wantParams = wantKey ? { wantKey, wantStatement: wantStatement ?? '' } : undefined;
 
   const [selectedCategory, setSelectedCategory] = useState<PracticeCategory>('move');
   const [searchText, setSearchText] = useState('');
@@ -39,8 +51,8 @@ export default function FindAPractice() {
   const [openCounts, setOpenCounts] = useState<Record<string, number>>({});
   const [isLoadingPractices, setIsLoadingPractices] = useState(true);
 
-  const [showCustomForm, setShowCustomForm] = useState(false);
-  const [customName, setCustomName] = useState('');
+  const [showCustomForm, setShowCustomForm] = useState(!!wantKey);
+  const [customName, setCustomName] = useState(suggestedName ?? '');
   const [customDuration, setCustomDuration] = useState('');
   const [isCreatingPractice, setIsCreatingPractice] = useState(false);
 
@@ -70,6 +82,7 @@ export default function FindAPractice() {
         practiceName: practice.name,
         ...(isSolo ? { solo: 'true' } : {}),
         ...(isFromToday ? { fromToday: 'true' } : {}),
+        ...(wantParams ?? {}),
       },
     });
   };

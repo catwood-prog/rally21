@@ -11,17 +11,25 @@ import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
+  BlueprintDocument,
   BlueprintPattern,
   BlueprintResponse,
+  deriveWantPracticeName,
   describeBlueprintPattern,
+  describeConfidence,
   getMyBlueprint,
+  getMyBlueprintDocument,
   getMyBlueprintResponses,
+  getWantActivation,
   markBlueprintPatternSurfaced,
   respondToBlueprintPattern,
+  WantActivation,
 } from '@/lib/blueprint';
+import { getCircleById, listMyCircles } from '@/lib/circle';
 import { getMyProfile } from '@/lib/profile';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const EMPTY_DOCUMENT: BlueprintDocument = { traits: [], evolution: [], want: null };
 
 function appendTranscript(existing: string, transcript: string): string {
   if (!existing || /\s$/.test(existing)) return existing + transcript;
@@ -40,19 +48,45 @@ export default function Blueprint() {
   const [noteDraft, setNoteDraft] = useState('');
   const [isWritingNote, setIsWritingNote] = useState(false);
   const [micDenied, setMicDenied] = useState(false);
+  const [document, setDocument] = useState<BlueprintDocument>(EMPTY_DOCUMENT);
+  const [wantActivation, setWantActivation] = useState<WantActivation | null>(null);
+  const [isWantLive, setIsWantLive] = useState(false);
+  const [activatedCircleName, setActivatedCircleName] = useState<string | null>(null);
+  const [isActingOnWant, setIsActingOnWant] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
     setIsLoading(true);
     setError(null);
+    setIsActingOnWant(false);
     try {
-      const [myPatterns, myResponses, profile] = await Promise.all([
+      const [myPatterns, myResponses, profile, myDocument] = await Promise.all([
         getMyBlueprint(),
         getMyBlueprintResponses(session.user.id),
         getMyProfile(session.user.id),
+        getMyBlueprintDocument(),
       ]);
       setPatterns(myPatterns);
       setResponses(myResponses);
+      setDocument(myDocument);
+
+      if (myDocument.want && myDocument.want.status === 'confirmed') {
+        const activation = await getWantActivation(myDocument.want.key);
+        setWantActivation(activation);
+        if (activation) {
+          const [circles, circle] = await Promise.all([
+            listMyCircles(session.user.id),
+            getCircleById(activation.circleId).catch(() => null),
+          ]);
+          const stillMember = circles.some((c) => c.id === activation.circleId && !c.completedAt);
+          setIsWantLive(stillMember);
+          setActivatedCircleName(circle?.name ?? null);
+        }
+      } else {
+        setWantActivation(null);
+        setIsWantLive(false);
+        setActivatedCircleName(null);
+      }
 
       const respondedKeys = new Set(myResponses.map((r) => r.patternKey));
       const unresponded = myPatterns.filter((p) => !respondedKeys.has(p.patternKey));
@@ -99,6 +133,19 @@ export default function Blueprint() {
     }
   };
 
+  const handleActOnWant = () => {
+    if (!document.want || isActingOnWant) return;
+    setIsActingOnWant(true);
+    router.push({
+      pathname: '/onboarding/circle-setup',
+      params: {
+        wantKey: document.want.key,
+        wantStatement: document.want.statement,
+        suggestedName: deriveWantPracticeName(document.want.statement),
+      },
+    });
+  };
+
   if (isLoading) {
     return (
       <View style={styles.loading}>
@@ -108,8 +155,15 @@ export default function Blueprint() {
   }
 
   const respondedByKey = new Map(responses.map((r) => [r.patternKey, r]));
-  const confirmedPatterns = patterns.filter((p) => respondedByKey.get(p.patternKey)?.response === 'confirmed');
+  // Confirmed wants get their own dedicated card below (act flow / live /
+  // retired states) — never the generic "you said this sounds right" card.
+  const confirmedPatterns = patterns.filter(
+    (p) => respondedByKey.get(p.patternKey)?.response === 'confirmed' && p.patternType !== 'synthesis_want'
+  );
   const activePattern = patterns.find((p) => p.patternKey === activeKey) ?? null;
+  const visibleTraits = document.traits
+    .map((t) => ({ trait: t, word: describeConfidence(t.confidence) }))
+    .filter((t): t is { trait: typeof document.traits[number]; word: NonNullable<ReturnType<typeof describeConfidence>> } => !!t.word);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -122,6 +176,18 @@ export default function Blueprint() {
       <Text style={styles.subtitle}>{STRINGS.blueprintSubline}</Text>
 
       {error && <Text style={styles.errorText}>{error}</Text>}
+
+      {visibleTraits.length > 0 && (
+        <View style={styles.traitsSection}>
+          <Text style={styles.sectionLabel}>{STRINGS.blueprintTraitsLabel}</Text>
+          {visibleTraits.map(({ trait, word }) => (
+            <View key={trait.key} style={styles.traitRow}>
+              <Text style={styles.traitLabel}>{trait.label}</Text>
+              <Text style={styles.traitWord}>{word}</Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {!error && patterns.length === 0 && (
         <View style={styles.emptyState}>
@@ -225,6 +291,40 @@ export default function Blueprint() {
         );
       })}
 
+      {document.want && document.want.status === 'confirmed' && (
+        <View style={[styles.patternCard, styles.wantCard]}>
+          <Text style={styles.patternLabel}>{STRINGS.blueprintWantLabel}</Text>
+          <Text style={styles.patternHeadline}>{document.want.statement}</Text>
+          {wantActivation ? (
+            <Text style={styles.respondedText}>
+              {isWantLive ? STRINGS.blueprintWantNowPractice : STRINGS.blueprintWantBecame(activatedCircleName ?? '')}
+            </Text>
+          ) : (
+            <TouchableOpacity style={styles.actButton} onPress={handleActOnWant} disabled={isActingOnWant}>
+              <Text style={styles.actButtonText}>
+                {isActingOnWant ? '…' : STRINGS.blueprintWantActCta}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {document.evolution.length > 0 && (
+        <View style={styles.evolutionSection}>
+          <Text style={styles.sectionLabel}>{STRINGS.blueprintEvolutionLabel}</Text>
+          {document.evolution.map((entry) => (
+            <View key={entry.key} style={styles.evolutionRow}>
+              <Text style={styles.evolutionStatement} numberOfLines={2}>
+                {entry.statement}
+              </Text>
+              <Text style={[styles.evolutionTag, entry.status === 'rejected' && styles.evolutionTagRetired]}>
+                {entry.status === 'confirmed' ? 'confirmed' : 'retired'}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+
       {patterns.length > 0 && <Text style={styles.footer}>{STRINGS.blueprintFooter}</Text>}
     </ScrollView>
   );
@@ -264,6 +364,80 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: colors.muted,
     marginBottom: 18,
+  },
+  traitsSection: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    ...cardShadow,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 10,
+  },
+  traitRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  traitLabel: {
+    fontSize: 13,
+    color: colors.ink,
+    flex: 1,
+    marginRight: 8,
+  },
+  traitWord: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: colors.plum,
+    fontStyle: 'italic',
+  },
+  wantCard: {
+    borderColor: colors.plum,
+  },
+  actButton: {
+    backgroundColor: colors.gold,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  actButtonText: {
+    color: colors.ink,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  evolutionSection: {
+    marginBottom: 16,
+  },
+  evolutionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+    gap: 10,
+  },
+  evolutionStatement: {
+    fontSize: 12,
+    color: colors.muted,
+    flex: 1,
+  },
+  evolutionTag: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.plum,
+    textTransform: 'uppercase',
+  },
+  evolutionTagRetired: {
+    color: colors.muted,
   },
   errorText: {
     fontSize: 13,

@@ -15,6 +15,8 @@ import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
+import { useAuth } from '@/lib/auth-context';
+import { activateWant } from '@/lib/blueprint';
 import { setCircleResourceUrl } from '@/lib/circle';
 import { createCircle } from '@/lib/circle-setup';
 import { isHttpUrl } from '@/lib/resourceLink';
@@ -28,11 +30,14 @@ const TIME_OPTIONS = [
 
 export default function TheCommitment() {
   const router = useRouter();
-  const { practiceKey, practiceName, solo, fromToday } = useLocalSearchParams<{
+  const { session } = useAuth();
+  const { practiceKey, practiceName, solo, fromToday, wantKey, wantStatement } = useLocalSearchParams<{
     practiceKey: string;
     practiceName: string;
     solo?: string;
     fromToday?: string;
+    wantKey?: string;
+    wantStatement?: string;
   }>();
   const isSolo = solo === 'true';
   const isFromToday = fromToday === 'true';
@@ -64,6 +69,18 @@ export default function TheCommitment() {
           // non-blocking — the circle exists either way; they can add the
           // link later from the circle screen
         });
+      }
+      if (wantKey && session?.user) {
+        // The wants act flow — "make this your next 21 days." The circle
+        // now exists either way; a failure to record the activation just
+        // means the blueprint's want card won't show the quiet "now your
+        // practice" state, never a reason to fail circle creation itself.
+        await activateWant({
+          userId: session.user.id,
+          wantKey,
+          wantStatement: wantStatement ?? '',
+          circleId,
+        }).catch(() => {});
       }
       if (isSolo) {
         // "/" re-checks profile + membership and lands on Today

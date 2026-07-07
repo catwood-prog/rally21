@@ -120,3 +120,148 @@ export async function markBlueprintPatternSurfaced(patternKey: string): Promise<
   const { error } = await supabase.rpc('mark_blueprint_pattern_surfaced', { p_pattern_key: patternKey });
   if (error) throw error;
 }
+
+// Blueprint v2 (B3) — traits, the evolution view, and the wants act flow
+// (Rally21-Blueprint-Notes.md). Traits/evolution/want all read the
+// caller's latest blueprint_versions row DIRECTLY (owner-only RLS) rather
+// than through get_my_blueprint() — that RPC's job is "what's still
+// active" (top 3 by evidence, excludes not_quite entirely), not "what's
+// ever happened." Confirmed/retired synthesis items and traits live only
+// in the version document, so this is the one read path that can't lose
+// them to the RPC's own cutoff.
+
+export type BlueprintTrait = {
+  key: string;
+  label: string;
+  confidence: number;
+  evidenceRefs: string[];
+};
+
+export type BlueprintConfidenceWord = 'hunch' | 'fairly sure' | 'solid';
+
+/** Ask-Rally spec §3: traits render as confidence WORDS, never numbers.
+ * Below 0.4 a trait doesn't surface at all (the same floor the spec uses
+ * for ask-rally's own blueprint_block) — the word bands above that are
+ * ours, evenly split across the remaining range. */
+export function describeConfidence(confidence: number): BlueprintConfidenceWord | null {
+  if (confidence < 0.4) return null;
+  if (confidence < 0.6) return 'hunch';
+  if (confidence < 0.8) return 'fairly sure';
+  return 'solid';
+}
+
+export type BlueprintEvolutionEntry = {
+  key: string;
+  statement: string;
+  status: 'confirmed' | 'rejected';
+};
+
+export type BlueprintWantDetail = {
+  key: string;
+  statement: string;
+  status: 'surfaced' | 'confirmed' | 'rejected';
+};
+
+type RawTrait = { key: string; label: string; confidence: number; evidence_refs?: string[] };
+type RawEntry = { key: string; statement: string; status: string };
+type RawBlueprintContent = { traits?: RawTrait[]; patterns?: RawEntry[]; wants?: RawEntry[] };
+
+export type BlueprintDocument = {
+  traits: BlueprintTrait[];
+  evolution: BlueprintEvolutionEntry[];
+  want: BlueprintWantDetail | null;
+};
+
+export async function getMyBlueprintDocument(): Promise<BlueprintDocument> {
+  const { data, error } = await supabase
+    .from('blueprint_versions')
+    .select('content')
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ content: RawBlueprintContent }>();
+  if (error) throw error;
+
+  const content = data?.content ?? {};
+
+  const traits: BlueprintTrait[] = (content.traits ?? []).map((t) => ({
+    key: t.key,
+    label: t.label,
+    confidence: t.confidence,
+    evidenceRefs: t.evidence_refs ?? [],
+  }));
+
+  const evolution: BlueprintEvolutionEntry[] = (content.patterns ?? [])
+    .filter((p): p is RawEntry & { status: 'confirmed' | 'rejected' } => p.status === 'confirmed' || p.status === 'rejected')
+    .map((p) => ({ key: p.key, statement: p.statement, status: p.status }));
+
+  const wantRow = (content.wants ?? [])[0];
+  const want: BlueprintWantDetail | null = wantRow
+    ? { key: wantRow.key, statement: wantRow.statement, status: wantRow.status as BlueprintWantDetail['status'] }
+    : null;
+
+  return { traits, evolution, want };
+}
+
+/** A rough, honest starting point for the practice-name field when a
+ * confirmed want becomes a circle — never a clever rewrite, just strips
+ * the want statement's own "you keep reaching for" framing (the phrasing
+ * the synthesis prompt is told to use) since that doesn't read as a
+ * practice name on its own. Always editable before saving. */
+export function deriveWantPracticeName(statement: string): string {
+  const stripped = statement.replace(/^you keep reaching for\s+/i, '').trim().replace(/\.$/, '');
+  if (!stripped) return statement;
+  return stripped.charAt(0).toUpperCase() + stripped.slice(1);
+}
+
+/** Same "you keep reaching for" strip as deriveWantPracticeName, but
+ * lowercased for mid-sentence splicing — used by R1's archive banner
+ * ("21 days toward {phrase}"). */
+export function deriveWantPhrase(statement: string): string {
+  const stripped = statement.replace(/^you keep reaching for\s+/i, '').trim().replace(/\.$/, '');
+  if (!stripped) return statement;
+  return stripped.charAt(0).toLowerCase() + stripped.slice(1);
+}
+
+export type WantActivation = {
+  circleId: string;
+  wantStatement: string;
+};
+
+export async function getWantActivation(wantKey: string): Promise<WantActivation | null> {
+  const { data, error } = await supabase
+    .from('want_activations')
+    .select('circle_id, want_statement')
+    .eq('want_key', wantKey)
+    .maybeSingle<{ circle_id: string; want_statement: string }>();
+  if (error) throw error;
+  if (!data) return null;
+  return { circleId: data.circle_id, wantStatement: data.want_statement };
+}
+
+export async function activateWant(params: {
+  userId: string;
+  wantKey: string;
+  wantStatement: string;
+  circleId: string;
+}): Promise<void> {
+  const { error } = await supabase.from('want_activations').insert({
+    user_id: params.userId,
+    want_key: params.wantKey,
+    want_statement: params.wantStatement,
+    circle_id: params.circleId,
+  });
+  if (error) throw error;
+}
+
+/** R1's day-21 gate copy (B3 step 3): when a completing circle was born
+ * from a want, the archive banner names it — nothing more than that one
+ * review beat. */
+export async function getWantActivationForCircle(circleId: string): Promise<{ wantStatement: string } | null> {
+  const { data, error } = await supabase
+    .from('want_activations')
+    .select('want_statement')
+    .eq('circle_id', circleId)
+    .maybeSingle<{ want_statement: string }>();
+  if (error) throw error;
+  return data ? { wantStatement: data.want_statement } : null;
+}

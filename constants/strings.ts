@@ -202,6 +202,9 @@ export const STRINGS = {
 
   journeyCompletedBadge: 'completed',
   journeyCompletedTitle: (circleName: string) => `${circleName}, complete`,
+  // B3 step 3 — when the completing circle was born from a blueprint want,
+  // the archive banner names it; the review beat, nothing more.
+  journeyCompletedWantTitle: (wantPhrase: string) => `21 days toward ${wantPhrase}`,
   journeyCompletedBody: 'This circle is now a warm piece of your history — read-only, always yours.',
   journeyCompletedCta: 'Back to today',
   journeyCompleteHostControlLabel: 'complete this circle',
@@ -237,6 +240,16 @@ export const STRINGS = {
   blueprintConfirmedText: '✓ you said this sounds right',
   blueprintSeeYourBlueprint: 'see your blueprint →',
   blueprintLinkLabel: 'Your blueprint',
+
+  // Blueprint v2 (B3, Rally21-Blueprint-Notes.md wants layer) — traits,
+  // the evolution view, and the wants act flow.
+  blueprintTraitsLabel: 'what I’m noticing about you',
+  blueprintEvolutionLabel: 'how your blueprint’s grown',
+  blueprintWantLabel: 'WHAT YOU’RE REACHING FOR',
+  blueprintWantActCta: 'Make this your next 21 days',
+  blueprintWantNowPractice: 'now your practice — find it with your circles',
+  blueprintWantBecame: (circleName: string) =>
+    circleName ? `became "${circleName}"` : 'became a practice',
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one

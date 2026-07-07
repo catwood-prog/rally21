@@ -22,6 +22,7 @@ import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { deriveWantPhrase, getWantActivationForCircle } from '@/lib/blueprint';
 import {
   CircleMember,
   getCircleMembers,
@@ -97,6 +98,7 @@ export default function YourCircle() {
   const [isRallying, setIsRallying] = useState(false);
   const [isConfirmingComplete, setIsConfirmingComplete] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [wantStatementForCircle, setWantStatementForCircle] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -138,6 +140,12 @@ export default function YourCircle() {
         setHasSeenCoverHint(!!profile?.has_seen_cover_hint);
         setMyLastCelebratedDay(lastCelebratedDay);
         setPairStreaks(myPairStreaks);
+        if (myCircle.completedAt) {
+          const activation = await getWantActivationForCircle(myCircle.id).catch(() => null);
+          setWantStatementForCircle(activation?.wantStatement ?? null);
+        } else {
+          setWantStatementForCircle(null);
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your circle');
@@ -484,7 +492,9 @@ export default function YourCircle() {
         <View style={styles.journeyCompletedBanner}>
           <Text style={styles.journeyCompletedBadge}>{STRINGS.journeyCompletedBadge}</Text>
           <Text style={styles.journeyCompletedBannerTitle}>
-            {STRINGS.journeyCompletedTitle(circle.name)}
+            {wantStatementForCircle
+              ? STRINGS.journeyCompletedWantTitle(deriveWantPhrase(wantStatementForCircle))
+              : STRINGS.journeyCompletedTitle(circle.name)}
           </Text>
           <Text style={styles.journeyCompletedBannerBody}>{STRINGS.journeyCompletedBody}</Text>
         </View>
