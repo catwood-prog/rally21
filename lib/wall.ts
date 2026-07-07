@@ -100,21 +100,24 @@ export async function isFriendNudgeEnabled(userId: string): Promise<boolean> {
 
 /** Sends a pre-written friend nudge (Notifications spec §4b; Security
  * spec §S1 F4). Routed through a SECURITY DEFINER RPC — notification_outbox
- * has no client RLS access at all, the anti-pile-on rule (one received
- * nudge per person per day, across all circles/senders) is enforced
- * server-side via that table's dedupe_key, and the email/wall copy is
- * composed server-side from a fixed template — the RPC never accepts
- * client-composed subject/HTML/wall text (a client could otherwise send
+ * has no client RLS access at all, and the email/wall copy is composed
+ * server-side from a fixed template — the RPC never accepts client-
+ * composed subject/HTML/wall text (a client could otherwise send
  * arbitrary HTML email, or bypass the public-circle wall gate with
- * attacker-chosen text). Returns 'already_nudged' (no error, no wall
- * post) if someone else got there first today — never nudge-yourself or
- * already-checked-in states, which raise instead since the UI shouldn't
- * let those happen. */
+ * attacker-chosen text). W1 (7 July, Cat's ruling): the wave is a
+ * connection tool, not only a check-in nudge — it never fails for
+ * social reasons anymore. Returns 'already_nudged' (no error, no wall
+ * post) if someone else got there first today (the real per-recipient
+ * abuse guard, one received wave per person per day), or
+ * 'wave_cap_reached' if the SENDER has hit their own quiet daily send
+ * cap — neither is an error, both are designed, warm-copy outcomes.
+ * Nudge-yourself/not-a-member/opted-out still raise, since the UI
+ * shouldn't let those happen at all. */
 export async function sendFriendNudge(params: {
   circleId: string;
   recipientId: string;
   localDate: string;
-}): Promise<'sent' | 'already_nudged'> {
+}): Promise<'sent' | 'already_nudged' | 'wave_cap_reached'> {
   const { data, error } = await supabase.rpc('send_friend_nudge', {
     p_circle_id: params.circleId,
     p_recipient_id: params.recipientId,
@@ -124,7 +127,7 @@ export async function sendFriendNudge(params: {
     captureError(error, { rpc: 'send_friend_nudge' });
     throw error;
   }
-  return data as 'sent' | 'already_nudged';
+  return data as 'sent' | 'already_nudged' | 'wave_cap_reached';
 }
 
 export async function postWallMessage(

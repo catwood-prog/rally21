@@ -285,13 +285,15 @@ Deno.serve(async (req) => {
       // already happened synchronously when the nudge was sent, so this
       // just decides whether the EMAIL is also worth sending. A last_seen_at
       // within the last few minutes is our best proxy for "active right
-      // now" since there's no separate presence/online system.
+      // now" since there's no separate presence/online system. W1 (7 July):
+      // 'delivered_in_app', not a generic "seen" reason — the wave already
+      // happened via the wall post, this only ever decides the email.
       if (row.kind === "friend_nudge" && user?.last_seen_at) {
         const ACTIVE_WINDOW_MS = 3 * 60 * 1000;
         if (now.getTime() - new Date(user.last_seen_at).getTime() < ACTIVE_WINDOW_MS) {
           await admin
             .from("notification_outbox")
-            .update({ suppressed_reason: "seen_in_app", sent_at: now.toISOString() })
+            .update({ suppressed_reason: "delivered_in_app", sent_at: now.toISOString() })
             .eq("id", row.id);
           summary.suppressed++;
           continue;
@@ -322,9 +324,16 @@ Deno.serve(async (req) => {
           .eq("user_id", row.user_id)
           .eq("local_date", localDate);
         if ((count ?? 0) > 0) {
+          // W1 (7 July): a checked-in recipient's wave already "happened"
+          // (wall + digest carry it) — the email is redundant, not a
+          // failure, so friend_nudge gets its own distinct reason. A daily
+          // nudge reminder truly wasn't needed, so that reason is unchanged.
           await admin
             .from("notification_outbox")
-            .update({ suppressed_reason: "already_checked_in", sent_at: now.toISOString() })
+            .update({
+              suppressed_reason: row.kind === "friend_nudge" ? "delivered_in_app" : "already_checked_in",
+              sent_at: now.toISOString(),
+            })
             .eq("id", row.id);
           summary.suppressed++;
           continue;

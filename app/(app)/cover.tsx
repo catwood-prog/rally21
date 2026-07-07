@@ -20,17 +20,22 @@ type Mode = 'cover' | 'wave';
 export default function CoverAFriend() {
   const router = useRouter();
   const { session } = useAuth();
-  const { circleId, memberId, memberName, memberAvatarUrl, myName } = useLocalSearchParams<{
+  const { circleId, memberId, memberName, memberAvatarUrl, myName, alreadyCheckedIn } = useLocalSearchParams<{
     circleId: string;
     memberId: string;
     memberName?: string;
     memberAvatarUrl?: string;
     myName?: string;
+    alreadyCheckedIn?: string;
   }>();
   const name = memberName || 'your circle-mate';
   const covererName = myName || 'someone in your circle';
+  // W1 (7 July): a member who's already checked in can only be waved at
+  // — covering a day that's already done makes no sense (and RLS would
+  // reject it), so this is wave-only from the start, not just the default.
+  const isWaveOnly = alreadyCheckedIn === 'true';
 
-  const [mode, setMode] = useState<Mode>('cover');
+  const [mode, setMode] = useState<Mode>(isWaveOnly ? 'wave' : 'cover');
   const [nudgeAllowed, setNudgeAllowed] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,10 +70,25 @@ export default function CoverAFriend() {
           setIsSaving(false);
           return;
         }
+        if (result === 'wave_cap_reached') {
+          setError(STRINGS.waveCapReachedError);
+          setIsSaving(false);
+          return;
+        }
         goBackToCircle();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'something went wrong — try again');
+      // "nudges disabled" can only reach here via a race (opted out
+      // between load and submit) since the option is hidden client-side
+      // whenever we already know it's off — same warm mapping either way.
+      // Self-wave/not-a-member shouldn't be reachable at all from this
+      // screen's own navigation, so they fall to the plain fallback.
+      const message = e instanceof Error ? e.message : '';
+      if (message.includes('nudges disabled')) {
+        setError(STRINGS.waveOptedOutError(name));
+      } else {
+        setError('something went wrong — try again');
+      }
       setIsSaving(false);
     }
   };
@@ -83,27 +103,33 @@ export default function CoverAFriend() {
       <View style={styles.content}>
         <MascotEntrance source={MASCOT.coverAFriend} style={styles.mascot} />
         <Avatar name={name} avatarUrl={memberAvatarUrl} size={88} />
-        <Text style={styles.headline}>{STRINGS.coverHeadline(name)}</Text>
-        <Text style={styles.subtitle}>{STRINGS.coverSubtitle}</Text>
+        <Text style={styles.headline}>
+          {isWaveOnly ? STRINGS.waveHeadline(name) : STRINGS.coverHeadline(name)}
+        </Text>
+        <Text style={styles.subtitle}>{isWaveOnly ? STRINGS.waveSubtitle : STRINGS.coverSubtitle}</Text>
 
         <View style={styles.noteCard}>
-          <Text style={styles.noteText}>{STRINGS.coverNotePreview(covererName)}</Text>
+          <Text style={styles.noteText}>
+            {isWaveOnly ? STRINGS.waveNotePreview(covererName, name) : STRINGS.coverNotePreview(covererName)}
+          </Text>
         </View>
 
         <View style={styles.optionList}>
-          <TouchableOpacity
-            style={styles.optionRow}
-            onPress={() => setMode('cover')}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: mode === 'cover' }}
-          >
-            <Text style={styles.optionText}>{STRINGS.coverActionLabel}</Text>
-            {mode === 'cover' && (
-              <View style={styles.pickPill}>
-                <Text style={styles.pickPillText}>Pick</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          {!isWaveOnly && (
+            <TouchableOpacity
+              style={styles.optionRow}
+              onPress={() => setMode('cover')}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: mode === 'cover' }}
+            >
+              <Text style={styles.optionText}>{STRINGS.coverActionLabel}</Text>
+              {mode === 'cover' && (
+                <View style={styles.pickPill}>
+                  <Text style={styles.pickPillText}>Pick</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
           {nudgeAllowed && (
             <TouchableOpacity
               style={styles.optionRow}

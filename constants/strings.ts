@@ -87,15 +87,28 @@ export const STRINGS = {
   // copy anywhere should read as a score, an "owed", or guilt (see
   // CLAUDE.md's cover-a-friend rule).
   coverAffordance: '💛 cover',
+  // W1 (7 July): a circle-mate who's already checked in today gets a
+  // wave-only affordance — you can't cover a day that's already done,
+  // but a hello is always welcome.
+  waveAffordance: '👋 wave',
   coverHintDiscovery: "you can log a friend's day for them — a gift, never a debt.",
   coverHeadline: (name: string) => `${name}'s been quiet`,
   coverSubtitle: "cover today — it's a gift, not a debt 💛",
   coverNotePreview: (covererName: string) =>
     `They'll get a warm note: "${covererName} covered you today. No pressure, we've got you."`,
+  // W1: shown instead of coverHeadline/coverSubtitle/coverNotePreview
+  // when the member has already checked in — "they've been quiet" would
+  // be factually wrong, and there's no cover note to preview.
+  waveHeadline: (name: string) => `say hi to ${name}`,
+  waveSubtitle: 'a wave is always welcome, even after they\'ve shown up',
+  waveNotePreview: (waverName: string, name: string) =>
+    `${name} will see: "${waverName} waved at ${name} 👋" on the circle wall.`,
   coverActionLabel: '💛 Cover & send love',
   waveActionLabel: '👋 Just a wave hello',
   coverCta: (name: string) => `Cover ${name} today`,
   waveCta: (name: string) => `Wave hello to ${name}`,
+  waveCapReachedError: "you've sent a lot of waves today — give it a little rest and try again tomorrow 💛",
+  waveOptedOutError: (name: string) => `${name} isn't taking waves right now`,
 
   coveredNoteToCoveredMember: (covererName: string) =>
     `${covererName} covered you today. No pressure, we've got you.`,

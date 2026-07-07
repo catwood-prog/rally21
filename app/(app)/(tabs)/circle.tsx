@@ -703,14 +703,17 @@ export default function YourCircle() {
               );
               const state = isCovered ? 'covered' : checkedIn ? 'done' : 'pending';
               const isMe = member.userId === session?.user?.id;
-              const isCoverable = !checkedIn && !isMe;
+              // W1 (7 July): a wave is always reachable for any circle-mate,
+              // checked in or not — only self stays ungreetable. Covering
+              // still only makes sense for someone who hasn't shown up yet.
+              const isReachable = !isMe;
               return (
                 <View key={member.userId} style={styles.whoHereItem}>
                   <View style={styles.avatarWrap}>
                     <Avatar name={member.name} avatarUrl={member.avatarUrl} size={40} ring={state} />
                     <CheckedInBadge state={state} />
                   </View>
-                  {isCoverable && (
+                  {isReachable && (
                     <TouchableOpacity
                       style={styles.coverPill}
                       onPress={() =>
@@ -722,12 +725,15 @@ export default function YourCircle() {
                             memberName: member.name ?? 'your circle-mate',
                             memberAvatarUrl: member.avatarUrl ?? '',
                             myName,
+                            alreadyCheckedIn: checkedIn ? 'true' : undefined,
                           },
                         })
                       }
                       hitSlop={8}
                     >
-                      <Text style={styles.coverPillText}>{STRINGS.coverAffordance}</Text>
+                      <Text style={styles.coverPillText}>
+                        {checkedIn ? STRINGS.waveAffordance : STRINGS.coverAffordance}
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
