@@ -22,6 +22,7 @@ import { useAuth } from '@/lib/auth-context';
 import { playCheckinPop } from '@/lib/chime';
 import { getCircleById } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
+import { checkGlowMilestone } from '@/lib/glow';
 import { getMyProfile } from '@/lib/profile';
 
 const CONFETTI_COUNT = 25;
@@ -132,6 +133,7 @@ export default function CheckInComplete() {
   // duration. Falls back to day 1 if the circle fetch fails or circleId is
   // somehow missing, rather than showing broken text.
   const [dayNumber, setDayNumber] = useState<number | null>(null);
+  const [glowMilestone, setGlowMilestone] = useState<number | null>(null);
 
   useEffect(() => {
     if (!circleId) return;
@@ -143,6 +145,15 @@ export default function CheckInComplete() {
       })
       .catch(() => {});
   }, [circleId]);
+
+  // Glow milestones (Rally21-Glow-Spec.md §4) — detected once per this
+  // screen's mount, right at check-in time; a monotonic server-side
+  // tracker means this never refires for an already-celebrated milestone.
+  useEffect(() => {
+    checkGlowMilestone()
+      .then(setGlowMilestone)
+      .catch(() => {});
+  }, []);
 
   const [confettiSpecs] = useState<ConfettiSpec[]>(() => (reduceMotion ? [] : makeConfettiSpecs()));
 
@@ -235,9 +246,11 @@ export default function CheckInComplete() {
       </Animated.View>
 
       <Animated.Text style={[styles.title, headingStyle]}>
-        {STRINGS.checkinSuccessTitle(dayNumber ?? 1)}
+        {glowMilestone ? STRINGS.glowMilestoneTitle(glowMilestone) : STRINGS.checkinSuccessTitle(dayNumber ?? 1)}
       </Animated.Text>
-      <Animated.Text style={[styles.subtitle, bodyStyle]}>{STRINGS.checkinSuccessBody}</Animated.Text>
+      <Animated.Text style={[styles.subtitle, bodyStyle]}>
+        {glowMilestone ? STRINGS.glowMilestoneBody : STRINGS.checkinSuccessBody}
+      </Animated.Text>
 
       <Animated.View style={[styles.buttonWrap, buttonStyle]}>
         <TouchableOpacity style={styles.button} onPress={handleDismiss}>

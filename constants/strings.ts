@@ -38,6 +38,11 @@ export const STRINGS = {
   checkinSuccessBody: 'You showed up again.',
   checkinSuccessCta: 'Nice',
 
+  // Glow milestones (Rally21-Glow-Spec.md §4) — a variant of the same
+  // check-in success screen, no new assets or badges.
+  glowMilestoneTitle: (n: number) => `${n} days glowing 🔥`,
+  glowMilestoneBody: "That's a real run. Keep it warm.",
+
   // Today's per-circle CTA — bold-on-fill only while the day is still
   // open; once checked in, the glow is the reward and editing is a quiet,
   // occasional correction, not the day's main action.

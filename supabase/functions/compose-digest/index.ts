@@ -253,12 +253,26 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Personal glow milestones (Rally21-Glow-Spec.md §4) — written in
+      // real time by check_glow_milestone() at check-in, so (unlike the
+      // journey ladder's major stops) querying "since last seen" is
+      // reliable here: there's no lazy client-visit dependency.
+      const { data: glowMilestoneFacts } = await admin
+        .from("journal_facts")
+        .select("body, created_at")
+        .eq("user_id", user.id)
+        .eq("kind", "glow_milestone")
+        .gt("created_at", lastSeenAt);
+
+      const glowMilestoneLines = (glowMilestoneFacts ?? []).map((f) => `${f.body} 🔥`);
+
       const triggeringCount =
         (covered?.length ?? 0) +
         (waves?.length ?? 0) +
         (wallCount ?? 0) +
         journeyLines.length +
-        pairLines.length;
+        pairLines.length +
+        glowMilestoneLines.length;
       if (triggeringCount === 0) {
         summary.skippedNoEvents++;
         continue;
@@ -289,7 +303,7 @@ Deno.serve(async (req) => {
         checkedInByCircle.get(c.circle_id)!.add(c.user_id);
       }
 
-      const lines: string[] = [...journeyLines, ...pairLines];
+      const lines: string[] = [...journeyLines, ...pairLines, ...glowMilestoneLines];
       for (const c of covered ?? []) {
         const name = covererNames.get(c.covered_by as string) ?? "someone in your circle";
         lines.push(`${name} covered you today 💛 — "no pressure, we've got you"`);

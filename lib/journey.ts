@@ -127,7 +127,10 @@ export function shouldShowJourneyGate(
 
 export type JournalFact = {
   id: string;
-  kind: 'circle_completed' | 'rally_marker' | 'major_stop';
+  // 'glow_milestone' (Rally21-Glow-Spec.md §4) shares this same table —
+  // journal_facts is a general system-journal-entry surface, not
+  // R1-exclusive, even though this module is otherwise journey-specific.
+  kind: 'circle_completed' | 'rally_marker' | 'major_stop' | 'glow_milestone';
   body: string;
   localDate: string;
   createdAt: string;

@@ -40,6 +40,17 @@ export type PairStreak = {
 
 type PairStreakRow = { other_user_id: string; other_name: string | null; streak: number };
 
+// Glow milestones (Rally21-Glow-Spec.md §4) — 7/21/50/100/365. Detected
+// server-side at check-in time (never on a plain get_my_glow() read,
+// which stays side-effect-free); a monotonic tracker means this can
+// never refire, including after an ember-rekindle passes back through
+// an already-celebrated milestone.
+export async function checkGlowMilestone(): Promise<number | null> {
+  const { data, error } = await supabase.rpc('check_glow_milestone');
+  if (error) throw error;
+  return data ?? null;
+}
+
 export async function getPairStreaks(circleId: string): Promise<PairStreak[]> {
   const { data, error } = await supabase.rpc('get_pair_streaks', { p_circle_id: circleId });
   if (error) throw error;
