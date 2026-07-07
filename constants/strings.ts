@@ -203,6 +203,15 @@ export const STRINGS = {
   journeyCompleteHostControlHelper: 'archives it warmly for everyone — this can be undone only by us, so take a moment first.',
   journeyCompleteConfirmTitle: (circleName: string) => `Complete ${circleName}?`,
   journeyCompleteConfirmBody: "Everyone keeps their history. The circle becomes read-only — a finished thing, not a lost one.",
+
+  // The personal glow (Rally21-Glow-Spec.md §1-2, §6).
+  glowGlowingLabel: (n: number) => `${n} day${n === 1 ? '' : 's'} glowing`,
+  glowEmbersLabel: 'your glow is down to embers — one small thing today rekindles it.',
+  glowHeldTodayNote: (name: string) => `${name} kept your glow warm today 💛`,
+  glowDetailTitle: 'your glow',
+  glowDetailBody:
+    "your glow is the run of days you've shown up — anywhere, for anyone. a friend can cover you and it holds, up to a few times a month depending how far you've come. miss a day uncovered and it dims to embers for 48 hours — one small thing brings it right back.",
+  glowDetailCta: 'Got it',
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one

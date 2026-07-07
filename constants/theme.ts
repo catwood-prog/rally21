@@ -18,6 +18,9 @@ export const colors = {
   // Gold at low opacity — "mine"/active chip fills, gold-tinted banners
   // and pills. Promoted from a repeated literal.
   goldSoft: 'rgba(244, 200, 75, 0.15)',
+  // Dimmed gold for the glow's embers state (Rally21-Glow-Spec.md §2) —
+  // never red, the flame just quiets rather than alarms.
+  goldMuted: 'rgba(244, 200, 75, 0.65)',
   // Dusk plum — the inner-life layer's accent (journal, reflections,
   // day-14 observation). Scarce by design: plum only ever means "your
   // private picture" (see CLAUDE.md's color-roles convention).

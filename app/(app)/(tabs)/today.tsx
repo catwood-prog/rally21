@@ -12,6 +12,7 @@ import {
 import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
 import { CheckedInBadge } from '@/components/CheckedInBadge';
+import { GlowBadge } from '@/components/GlowBadge';
 import { SignalMeter } from '@/components/SignalMeter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { isVerbPhrasePractice, STRINGS } from '@/constants/strings';
@@ -30,6 +31,7 @@ import {
   subscribeToCirclePresence,
 } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
+import { getMyGlow, Glow } from '@/lib/glow';
 import { getMyLastCelebratedDay, getNextMilestone, shouldShowJourneyGate } from '@/lib/journey';
 import { getMyProfile } from '@/lib/profile';
 import { computeSignal, PresenceRow } from '@/lib/signal';
@@ -63,6 +65,7 @@ export default function Today() {
   // Defaults to true so the teaser never flashes before the real value
   // loads — it only ever matters once it resolves to false.
   const [hasWrittenReflectionToday, setHasWrittenReflectionToday] = useState(true);
+  const [glow, setGlow] = useState<Glow | null>(null);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -70,12 +73,13 @@ export default function Today() {
     setError(null);
     const today = getLocalDateString();
     try {
-      const [profile, myCircles, myCircleCap, question, todayReflection] = await Promise.all([
+      const [profile, myCircles, myCircleCap, question, todayReflection, myGlow] = await Promise.all([
         getMyProfile(session.user.id),
         listMyCircles(session.user.id),
         getMyCircleCap(),
         getDailyQuestion(today),
         getTodayReflection(today),
+        getMyGlow().catch(() => null),
       ]);
       setMyName(profile?.name ?? null);
       setHasSeenCheckinConsent(profile?.has_seen_checkin_consent ?? false);
@@ -83,6 +87,7 @@ export default function Today() {
       setCircleCap(myCircleCap);
       setReflectionQuestion(question);
       setHasWrittenReflectionToday(!!todayReflection);
+      setGlow(myGlow);
 
       if (myCircles.length === 0) {
         setCircleData({});
@@ -263,6 +268,7 @@ export default function Today() {
           </TouchableOpacity>
         </View>
         <Text style={styles.greeting}>{greeting(myName)}</Text>
+        <GlowBadge glow={glow} />
         <Text style={styles.subtitle}>{error ?? "you're not in a circle yet"}</Text>
         {addCircleButton}
       </ScrollView>
@@ -305,6 +311,7 @@ export default function Today() {
             </TouchableOpacity>
           </View>
           <Text style={styles.greeting}>{greeting(myName)}</Text>
+          <GlowBadge glow={glow} coveredByName={iWasCoveredToday ? memberFullName(members, iWasCoveredToday.coveredBy) : null} />
           <TouchableOpacity
             style={styles.card}
             onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
@@ -328,6 +335,7 @@ export default function Today() {
         </View>
 
         <Text style={styles.greeting}>{greeting(myName)}</Text>
+        <GlowBadge glow={glow} coveredByName={iWasCoveredToday ? memberFullName(members, iWasCoveredToday.coveredBy) : null} />
 
         <Text style={styles.headline}>
           {isSolo ? (
@@ -474,6 +482,21 @@ export default function Today() {
   }
 
   // ---- two or three circles: the stack ----
+  // The glow is one global number, not per-circle — find the first
+  // covered-today instance across any of them for the header's note.
+  let coveredTodayName: string | null = null;
+  for (const c of circles) {
+    const data = circleData[c.id];
+    if (!data) continue;
+    const covered = data.presence.find(
+      (p) => p.localDate === today && p.userId === session?.user?.id && p.kind === 'covered'
+    );
+    if (covered) {
+      coveredTodayName = memberFullName(data.members, covered.coveredBy);
+      break;
+    }
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.topbar}>
@@ -484,6 +507,7 @@ export default function Today() {
       </View>
 
       <Text style={styles.greeting}>{greeting(myName)}</Text>
+      <GlowBadge glow={glow} coveredByName={coveredTodayName} />
 
       <Text style={styles.headline}>
         {CIRCLE_COUNT_WORD[circles.length] ?? circles.length} small things{' '}

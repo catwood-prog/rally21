@@ -1,5 +1,11 @@
 @AGENTS.md
 
+## Warmth laws (Rally21-Glow-Spec.md §0, amended 6 July)
+
+> **Misses cost something. Shame costs nothing.** Every loss has a
+> rescue (a friend) or a road back (embers). No notification ever
+> scolds. The penguin never guilt-trips — at most it looks hopeful.
+
 ## Product conventions
 
 - **Practice names are verb phrases by convention, not by validation** (e.g. "Meditate 10 minutes", "Walk 20 minutes", "Write one page"), never noun phrases (not "10 Min Meditation") — this is guidance for practices seeded in code or created via the admin/seed path, nudged at creation via a verb-phrase placeholder, but nothing blocks saving a free-form custom name. Because of that, every sentence surface built from a practice name must handle any name gracefully instead of assuming a verb start: check `isVerbPhrasePractice` (`constants/strings.ts`, backed by `PRACTICE_VERB_STARTERS`) and degrade — the Today headline reads "today you {practice} with your circle" for a recognized verb start, "today: {practice}, with your circle" otherwise; the check-in headline's serif accent (`lib/practice-accent.ts`) falls back to the word "practice" for anything that doesn't match. Apply the same check to any new sentence built from a practice name.
