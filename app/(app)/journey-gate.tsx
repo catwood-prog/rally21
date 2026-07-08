@@ -28,7 +28,7 @@ import {
   markCelebrationSeen,
   rallyOnCircle,
 } from '@/lib/journey';
-import { MASCOT_GESTURE } from '@/lib/motion';
+import { MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
 import { getMyProfile } from '@/lib/profile';
 
 // The one big moment in the app (mascot brief) — a bigger, slower burst
@@ -198,15 +198,15 @@ export default function JourneyGate() {
     bowRotate.value = withDelay(
       MASCOT_GESTURE.DAY21_BOW_DELAY_MS,
       withSequence(
-        withTiming(MASCOT_GESTURE.DAY21_BOW_ROTATE_DEG, { duration: bowHalf, easing: Easing.out(Easing.ease) }),
-        withTiming(0, { duration: bowHalf, easing: Easing.inOut(Easing.ease) })
+        withTiming(MASCOT_GESTURE.DAY21_BOW_ROTATE_DEG, { duration: bowHalf, easing: WARM_EASE_OUT }),
+        withTiming(0, { duration: bowHalf, easing: WARM_EASE_IN_OUT })
       )
     );
     bowDip.value = withDelay(
       MASCOT_GESTURE.DAY21_BOW_DELAY_MS,
       withSequence(
-        withTiming(MASCOT_GESTURE.DAY21_BOW_DIP_PX, { duration: bowHalf, easing: Easing.out(Easing.ease) }),
-        withTiming(0, { duration: bowHalf, easing: Easing.inOut(Easing.ease) })
+        withTiming(MASCOT_GESTURE.DAY21_BOW_DIP_PX, { duration: bowHalf, easing: WARM_EASE_OUT }),
+        withTiming(0, { duration: bowHalf, easing: WARM_EASE_IN_OUT })
       )
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps

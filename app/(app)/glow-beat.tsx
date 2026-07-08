@@ -19,7 +19,13 @@ import { useAuth } from '@/lib/auth-context';
 import { playGlowBeatBowl } from '@/lib/chime';
 import * as haptics from '@/lib/haptics';
 import { didRekindleToday, getMyGlow, getMyWeek, WeekDay } from '@/lib/glow';
-import { GLOW_BEAT, GLOW_BEAT_COPY_START_MS, GLOW_BEAT_WEEK_ROW_START_MS, WARM_EASE_OUT } from '@/lib/motion';
+import {
+  GLOW_BEAT,
+  GLOW_BEAT_COPY_START_MS,
+  GLOW_BEAT_WEEK_ROW_START_MS,
+  WARM_EASE_IN_OUT,
+  WARM_EASE_OUT,
+} from '@/lib/motion';
 import { getMyProfile } from '@/lib/profile';
 
 function WeekSlot({
@@ -171,9 +177,9 @@ export default function GlowBeat() {
         numberScale.value = withSequence(
           withTiming(GLOW_BEAT.NUMBER_OVERSHOOT_SCALE, {
             duration: GLOW_BEAT.NUMBER_SETTLE_MS / 2,
-            easing: Easing.out(Easing.ease),
+            easing: WARM_EASE_OUT,
           }),
-          withTiming(1, { duration: GLOW_BEAT.NUMBER_SETTLE_MS / 2, easing: Easing.inOut(Easing.ease) })
+          withTiming(1, { duration: GLOW_BEAT.NUMBER_SETTLE_MS / 2, easing: WARM_EASE_IN_OUT })
         );
         if (soundsEnabledRef.current) playGlowBeatBowl();
         haptics.thump({ reduceMotion });
@@ -207,8 +213,8 @@ export default function GlowBeat() {
     flameOpacity.value = withTiming(1, { duration: GLOW_BEAT.FLAME_BLOOM_DURATION_MS, easing: WARM_EASE_OUT });
     flameY.value = withTiming(0, { duration: GLOW_BEAT.FLAME_BLOOM_DURATION_MS, easing: WARM_EASE_OUT });
     flameScale.value = withSequence(
-      withTiming(1.08, { duration: bloomUpMs, easing: Easing.out(Easing.ease) }),
-      withTiming(1.0, { duration: bloomDownMs, easing: Easing.inOut(Easing.ease) })
+      withTiming(1.08, { duration: bloomUpMs, easing: WARM_EASE_OUT }),
+      withTiming(1.0, { duration: bloomDownMs, easing: WARM_EASE_IN_OUT })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

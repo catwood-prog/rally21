@@ -23,7 +23,7 @@ import { playCheckinPop } from '@/lib/chime';
 import { getCircleById } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
 import { checkGlowMilestone, shouldShowGlowBeat } from '@/lib/glow';
-import { MASCOT_GESTURE } from '@/lib/motion';
+import { MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
 import { getMyProfile } from '@/lib/profile';
 
 const CONFETTI_COUNT = 25;
@@ -204,9 +204,9 @@ export default function CheckInComplete() {
         withSequence(
           withTiming(MASCOT_GESTURE.CHECKIN_PUFF_SCALE, {
             duration: MASCOT_GESTURE.CHECKIN_PUFF_UP_MS,
-            easing: Easing.out(Easing.ease),
+            easing: WARM_EASE_OUT,
           }),
-          withTiming(1, { duration: MASCOT_GESTURE.CHECKIN_PUFF_DOWN_MS, easing: Easing.inOut(Easing.ease) })
+          withTiming(1, { duration: MASCOT_GESTURE.CHECKIN_PUFF_DOWN_MS, easing: WARM_EASE_IN_OUT })
         )
       );
       hopY.value = withDelay(
@@ -214,9 +214,9 @@ export default function CheckInComplete() {
         withSequence(
           withTiming(-MASCOT_GESTURE.CHECKIN_PUFF_HOP_PX, {
             duration: MASCOT_GESTURE.CHECKIN_PUFF_UP_MS,
-            easing: Easing.out(Easing.ease),
+            easing: WARM_EASE_OUT,
           }),
-          withTiming(0, { duration: MASCOT_GESTURE.CHECKIN_PUFF_DOWN_MS, easing: Easing.inOut(Easing.ease) })
+          withTiming(0, { duration: MASCOT_GESTURE.CHECKIN_PUFF_DOWN_MS, easing: WARM_EASE_IN_OUT })
         )
       );
     }
