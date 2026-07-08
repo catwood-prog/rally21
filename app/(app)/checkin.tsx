@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import { AccentedText } from '@/components/AccentedText';
 import { Brandmark } from '@/components/Brandmark';
@@ -31,7 +32,9 @@ import {
   saveReflection,
 } from '@/lib/checkin';
 import { getCircleById } from '@/lib/circle';
+import { unlockAudioContext } from '@/lib/chime';
 import { getLocalDateString } from '@/lib/date';
+import * as haptics from '@/lib/haptics';
 import { deriveCheckinAccent } from '@/lib/practice-accent';
 import { getMyProfile, markVoiceHintSeen } from '@/lib/profile';
 
@@ -45,6 +48,7 @@ export default function CheckIn() {
   const { session } = useAuth();
   const { circleId } = useLocalSearchParams<{ circleId: string }>();
   const today = getLocalDateString();
+  const reduceMotion = useReducedMotion();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -120,6 +124,13 @@ export default function CheckIn() {
 
   const handleSave = async () => {
     if (!canSave || !session?.user || !circleId || mood === null) return;
+    // Must happen synchronously inside this tap, before any await — iOS
+    // Safari only unlocks an AudioContext created/resumed directly inside
+    // a user gesture. Whether this save turns out to be the one that
+    // earns the day (and so plays the glow beat's bowl instead of
+    // checkin-pop) isn't known until after the awaits below, so every
+    // save unlocks unconditionally; a redundant unlock is harmless.
+    unlockAudioContext();
     setIsSaving(true);
     try {
       // G5: checked BEFORE saving so we can tell whether THIS save is the
@@ -138,6 +149,7 @@ export default function CheckIn() {
         questionAnswer: questionSkipped ? null : questionAnswer.trim() || null,
         questionSkipped,
       });
+      haptics.success({ reduceMotion });
       router.replace({
         pathname: '/checkin-complete',
         params: { circleId, earnedToday: alreadyEarnedToday ? undefined : 'true' },

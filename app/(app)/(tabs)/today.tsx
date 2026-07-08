@@ -39,6 +39,7 @@ import { getMyLastCelebratedDay, getNextMilestone, shouldShowJourneyGate } from 
 import { getMyProfile } from '@/lib/profile';
 import { hasUnrespondedDayObservation } from '@/lib/reflections';
 import { computeSignal, PresenceRow } from '@/lib/signal';
+import { hasPlayedTodayGlowOneShot, markTodayGlowOneShotPlayed } from '@/lib/todayOneShot';
 
 const CIRCLE_COUNT_WORD: Record<number, string> = { 1: 'one', 2: 'two', 3: 'three' };
 
@@ -77,6 +78,11 @@ export default function Today() {
   const [glow, setGlow] = useState<Glow | null>(null);
   const [week, setWeek] = useState<WeekDay[] | null>(null);
   const [hasSurfacedPattern, setHasSurfacedPattern] = useState(false);
+  // P1 — the one-shot dot-pop/flame-flicker (state change only, never
+  // per visit): true only the first time this local date's own week-row
+  // slot reads 'earned', gated by an in-memory tracker so a later focus
+  // of Today the same day never replays it.
+  const [glowOneShot, setGlowOneShot] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -161,6 +167,20 @@ export default function Today() {
       load();
     }, [load])
   );
+
+  // P1 — the one-shot dot-pop/flame-flicker: fires exactly once, the
+  // first time this local date's own week-row slot reads 'earned'
+  // (typically the very next Today render after a check-in). A later
+  // focus of Today the same day finds the date already marked played
+  // and does nothing, so it never replays per visit.
+  useEffect(() => {
+    if (!week || week.length === 0) return;
+    const todayRow = week[week.length - 1];
+    if (todayRow.state !== 'earned') return;
+    if (hasPlayedTodayGlowOneShot(todayRow.date)) return;
+    markTodayGlowOneShotPlayed(todayRow.date);
+    setGlowOneShot(true);
+  }, [week]);
 
   // live updates whenever anyone in any of these circles checks in
   const circleIds = circles.map((c) => c.id).join(',');
@@ -287,7 +307,7 @@ export default function Today() {
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <AppHeader hideHouse style={styles.topbar} />
         <Text style={styles.greeting}>{greeting(myName)}</Text>
-        <GlowBadge glow={glow} />
+        <GlowBadge glow={glow} flickerOnce={glowOneShot} />
         {birthdayBanner}
         <Text style={styles.subtitle}>{error ?? "you're not in a circle yet"}</Text>
         {addCircleButton}
@@ -326,7 +346,11 @@ export default function Today() {
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
           <AppHeader hideHouse style={styles.topbar} />
           <Text style={styles.greeting}>{greeting(myName)}</Text>
-          <GlowBadge glow={glow} coveredByName={iWasCoveredToday ? memberFullName(members, iWasCoveredToday.coveredBy) : null} />
+          <GlowBadge
+            glow={glow}
+            coveredByName={iWasCoveredToday ? memberFullName(members, iWasCoveredToday.coveredBy) : null}
+            flickerOnce={glowOneShot}
+          />
           {birthdayBanner}
           <TouchableOpacity
             style={styles.card}
@@ -476,7 +500,7 @@ export default function Today() {
           </TouchableOpacity>
         )}
 
-        <TodayFooter week={week} hasSurfacedPattern={hasSurfacedPattern} />
+        <TodayFooter week={week} hasSurfacedPattern={hasSurfacedPattern} oneShotEarned={glowOneShot} />
 
         {addCircleButton}
       </ScrollView>
@@ -504,7 +528,7 @@ export default function Today() {
       <AppHeader hideHouse style={styles.topbar} />
 
       <Text style={styles.greeting}>{greeting(myName)}</Text>
-      <GlowBadge glow={glow} coveredByName={coveredTodayName} />
+      <GlowBadge glow={glow} coveredByName={coveredTodayName} flickerOnce={glowOneShot} />
       {birthdayBanner}
 
       <Text style={styles.headline}>

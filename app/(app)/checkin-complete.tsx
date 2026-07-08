@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -23,6 +23,7 @@ import { playCheckinPop } from '@/lib/chime';
 import { getCircleById } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
 import { checkGlowMilestone, shouldShowGlowBeat } from '@/lib/glow';
+import { MASCOT_GESTURE } from '@/lib/motion';
 import { getMyProfile } from '@/lib/profile';
 
 const CONFETTI_COUNT = 25;
@@ -134,6 +135,11 @@ export default function CheckInComplete() {
   // somehow missing, rather than showing broken text.
   const [dayNumber, setDayNumber] = useState<number | null>(null);
   const [glowMilestone, setGlowMilestone] = useState<number | null>(null);
+  // P1: the sound-suppression check below needs to know whether a
+  // milestone exists before it can decide whether this is a glow-beat
+  // check-in — this flag distinguishes "not fetched yet" from "fetched,
+  // no milestone" (both read as glowMilestone === null otherwise).
+  const [milestoneChecked, setMilestoneChecked] = useState(false);
 
   useEffect(() => {
     if (!circleId) return;
@@ -152,7 +158,8 @@ export default function CheckInComplete() {
   useEffect(() => {
     checkGlowMilestone()
       .then(setGlowMilestone)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setMilestoneChecked(true));
   }, []);
 
   const [confettiSpecs] = useState<ConfettiSpec[]>(() => (reduceMotion ? [] : makeConfettiSpecs()));
@@ -161,6 +168,10 @@ export default function CheckInComplete() {
   // 0.9 -> 1.05 -> 1.0) so the daily beat feels like a small pat on the
   // back — then holds still. No idle loop.
   const scale = useSharedValue(reduceMotion ? 1 : 0.9);
+  // P1 — a small proud puff/hop layered on top of the entrance above,
+  // once it settles: a tiny scale puff plus a quick hop up and back.
+  const puffScale = useSharedValue(1);
+  const hopY = useSharedValue(0);
   const headingOpacity = useSharedValue(0);
   const headingY = useSharedValue(8);
   const bodyOpacity = useSharedValue(0);
@@ -184,11 +195,49 @@ export default function CheckInComplete() {
     bodyY.value = withDelay(650, withTiming(0, { duration: 400 }));
     buttonOpacity.value = withDelay(850, withTiming(1, { duration: 400 }));
     buttonY.value = withDelay(850, withTiming(0, { duration: 400 }));
+
+    // P1 mascot gesture — a small proud puff/hop once the existing bouncy
+    // entrance settles, then holds still (never a loop).
+    if (!reduceMotion) {
+      puffScale.value = withDelay(
+        MASCOT_GESTURE.CHECKIN_PUFF_DELAY_MS,
+        withSequence(
+          withTiming(MASCOT_GESTURE.CHECKIN_PUFF_SCALE, {
+            duration: MASCOT_GESTURE.CHECKIN_PUFF_UP_MS,
+            easing: Easing.out(Easing.ease),
+          }),
+          withTiming(1, { duration: MASCOT_GESTURE.CHECKIN_PUFF_DOWN_MS, easing: Easing.inOut(Easing.ease) })
+        )
+      );
+      hopY.value = withDelay(
+        MASCOT_GESTURE.CHECKIN_PUFF_DELAY_MS,
+        withSequence(
+          withTiming(-MASCOT_GESTURE.CHECKIN_PUFF_HOP_PX, {
+            duration: MASCOT_GESTURE.CHECKIN_PUFF_UP_MS,
+            easing: Easing.out(Easing.ease),
+          }),
+          withTiming(0, { duration: MASCOT_GESTURE.CHECKIN_PUFF_DOWN_MS, easing: Easing.inOut(Easing.ease) })
+        )
+      );
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // P1: on the check-in that earns the day (and isn't a milestone), the
+  // glow beat's own bowl sound REPLACES checkin-pop — never both. Every
+  // OTHER check-in (non-earning, or a milestone one, which never routes
+  // to the glow beat at all) keeps checkin-pop exactly as before. Waiting
+  // on milestoneChecked only matters when earned is true, since
+  // shouldShowGlowBeat is false regardless of milestone when it isn't —
+  // this keeps the common non-earning case sounding exactly as
+  // responsive as it always has.
+  const soundDecidedRef = useRef(false);
   useEffect(() => {
-    if (!session?.user) return;
+    if (!session?.user || soundDecidedRef.current) return;
+    const earned = earnedToday === 'true';
+    if (earned && !milestoneChecked) return;
+    soundDecidedRef.current = true;
+    if (shouldShowGlowBeat({ earnedToday: earned, hasMilestone: !!glowMilestone })) return;
     getMyProfile(session.user.id)
       .then((profile) => {
         if (profile?.sounds_enabled ?? true) playCheckinPop();
@@ -196,11 +245,10 @@ export default function CheckInComplete() {
       .catch(() => {
         // low-stakes — the celebration screen itself is the real signal
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.id]);
+  }, [session?.user?.id, earnedToday, milestoneChecked, glowMilestone]);
 
   const penguinStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [{ scale: scale.value }, { scale: puffScale.value }, { translateY: hopY.value }],
   }));
   const headingStyle = useAnimatedStyle(() => ({
     opacity: headingOpacity.value,

@@ -1,10 +1,21 @@
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
+import * as haptics from '@/lib/haptics';
 import { WeekDay } from '@/lib/glow';
+import { TODAY_ONE_SHOT } from '@/lib/motion';
 
 /**
  * D6 (7 July) — Today's footer, replacing four bare text links (which
@@ -16,27 +27,28 @@ import { WeekDay } from '@/lib/glow';
  * awaiting a response. "Your journal" is gone — the Journal tab below
  * already owns that door. Used by both today.tsx render paths (single
  * and multi-circle) so the row is never hand-duplicated.
+ *
+ * P1 (8 July): `oneShotEarned` plays a single fill-pop on today's own
+ * dot (the last one) the first time Today renders with the day already
+ * earned — gated by today.tsx's in-memory tracker (lib/todayOneShot.ts),
+ * never replayed per visit.
  */
 export function TodayFooter({
   week,
   hasSurfacedPattern,
+  oneShotEarned,
 }: {
   week: WeekDay[] | null;
   hasSurfacedPattern: boolean;
+  oneShotEarned?: boolean;
 }) {
   const router = useRouter();
 
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.weekStrip} onPress={() => router.push('/weekly')}>
-        {(week ?? []).map((day) => (
-          <View
-            key={day.date}
-            style={[styles.dot, day.state === 'earned' && styles.dotEarned, day.state === 'held' && styles.dotHeld]}
-          >
-            {day.state === 'earned' && <Text style={styles.dotEarnedMark}>✓</Text>}
-            {day.state === 'held' && <Text style={styles.dotHeldMark}>💛</Text>}
-          </View>
+        {(week ?? []).map((day, i) => (
+          <TodayDot key={day.date} day={day} isToday={i === (week ?? []).length - 1} oneShotEarned={oneShotEarned} />
         ))}
       </TouchableOpacity>
 
@@ -51,6 +63,32 @@ export function TodayFooter({
         <Text style={styles.mapCardChevron}>›</Text>
       </TouchableOpacity>
     </View>
+  );
+}
+
+function TodayDot({ day, isToday, oneShotEarned }: { day: WeekDay; isToday: boolean; oneShotEarned?: boolean }) {
+  const reduceMotion = useReducedMotion();
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    if (!isToday || !oneShotEarned || reduceMotion) return;
+    scale.value = withSequence(
+      withTiming(TODAY_ONE_SHOT.DOT_POP_SCALE, { duration: TODAY_ONE_SHOT.DOT_POP_DURATION_MS / 2, easing: Easing.out(Easing.ease) }),
+      withTiming(1, { duration: TODAY_ONE_SHOT.DOT_POP_DURATION_MS / 2, easing: Easing.inOut(Easing.ease) })
+    );
+    haptics.tick({ reduceMotion });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isToday, oneShotEarned, reduceMotion]);
+
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <Animated.View
+      style={[styles.dot, day.state === 'earned' && styles.dotEarned, day.state === 'held' && styles.dotHeld, animatedStyle]}
+    >
+      {day.state === 'earned' && <Text style={styles.dotEarnedMark}>✓</Text>}
+      {day.state === 'held' && <Text style={styles.dotHeldMark}>💛</Text>}
+    </Animated.View>
   );
 }
 

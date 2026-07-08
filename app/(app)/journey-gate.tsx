@@ -28,6 +28,7 @@ import {
   markCelebrationSeen,
   rallyOnCircle,
 } from '@/lib/journey';
+import { MASCOT_GESTURE } from '@/lib/motion';
 import { getMyProfile } from '@/lib/profile';
 
 // The one big moment in the app (mascot brief) — a bigger, slower burst
@@ -166,6 +167,10 @@ export default function JourneyGate() {
 
   const heroOpacity = useSharedValue(reduceMotion ? 1 : 0);
   const heroY = useSharedValue(reduceMotion ? 0 : 12);
+  // P1 — a slow single bow after the hero's own entrance lands: a small
+  // forward rotate + dip, once, then holds still.
+  const bowRotate = useSharedValue(0);
+  const bowDip = useSharedValue(0);
   const headingOpacity = useSharedValue(0);
   const headingY = useSharedValue(8);
   const bodyOpacity = useSharedValue(0);
@@ -188,6 +193,22 @@ export default function JourneyGate() {
     bodyY.value = withDelay(700, withTiming(0, { duration: 400 }));
     actionsOpacity.value = withDelay(950, withTiming(1, { duration: 400 }));
     actionsY.value = withDelay(950, withTiming(0, { duration: 400 }));
+
+    const bowHalf = MASCOT_GESTURE.DAY21_BOW_DURATION_MS / 2;
+    bowRotate.value = withDelay(
+      MASCOT_GESTURE.DAY21_BOW_DELAY_MS,
+      withSequence(
+        withTiming(MASCOT_GESTURE.DAY21_BOW_ROTATE_DEG, { duration: bowHalf, easing: Easing.out(Easing.ease) }),
+        withTiming(0, { duration: bowHalf, easing: Easing.inOut(Easing.ease) })
+      )
+    );
+    bowDip.value = withDelay(
+      MASCOT_GESTURE.DAY21_BOW_DELAY_MS,
+      withSequence(
+        withTiming(MASCOT_GESTURE.DAY21_BOW_DIP_PX, { duration: bowHalf, easing: Easing.out(Easing.ease) }),
+        withTiming(0, { duration: bowHalf, easing: Easing.inOut(Easing.ease) })
+      )
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -203,7 +224,11 @@ export default function JourneyGate() {
 
   const heroStyle = useAnimatedStyle(() => ({
     opacity: heroOpacity.value,
-    transform: [{ translateY: heroY.value }],
+    transform: [
+      { translateY: heroY.value },
+      { translateY: bowDip.value },
+      { rotate: `${bowRotate.value}deg` },
+    ],
   }));
   const headingStyle = useAnimatedStyle(() => ({
     opacity: headingOpacity.value,

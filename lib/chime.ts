@@ -1,6 +1,8 @@
 import { Asset } from 'expo-asset';
 import { Platform } from 'react-native';
 
+import { GLOW_BEAT_BOWL_SOUND } from '@/lib/motion';
+
 // A synthesized two-tone completion chime — no audio file needed. iOS
 // Safari (and most mobile browsers) only allow an AudioContext to actually
 // produce sound if it was created or resumed synchronously inside a user
@@ -138,6 +140,34 @@ export function playDay21Flourish(): void {
     });
   } catch {
     // unsupported
+  }
+}
+
+/** P1 — the glow beat's own sound (G3, ~1.5s ring): synthesized like
+ * playChime rather than a recorded file, a full register below
+ * checkin-pop's D4/A4 so it reads as "one deeper single bowl strike."
+ * REPLACES checkin-pop on an earning check-in (checkin-complete.tsx
+ * suppresses its own chime when it knows it's about to route here) —
+ * never both on one check-in. Reuses the shared `audioContext` unlocked
+ * by the check-in tap, same as playChime; silently does nothing if it
+ * was never unlocked, is blocked, or is unsupported. */
+export function playGlowBeatBowl(): void {
+  if (!audioContext) return;
+  try {
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().catch(() => {});
+    }
+    const now = audioContext.currentTime;
+    playTone(audioContext, GLOW_BEAT_BOWL_SOUND.FREQUENCY_HZ, now, GLOW_BEAT_BOWL_SOUND.DURATION_S, GLOW_BEAT_BOWL_SOUND.PEAK_VOLUME);
+    playTone(
+      audioContext,
+      GLOW_BEAT_BOWL_SOUND.OVERTONE_HZ,
+      now + GLOW_BEAT_BOWL_SOUND.OVERTONE_DELAY_S,
+      GLOW_BEAT_BOWL_SOUND.DURATION_S - GLOW_BEAT_BOWL_SOUND.OVERTONE_DELAY_S,
+      GLOW_BEAT_BOWL_SOUND.OVERTONE_PEAK_VOLUME
+    );
+  } catch {
+    // audio blocked — the glow beat's own visuals are always the real signal
   }
 }
 
