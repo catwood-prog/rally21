@@ -30,6 +30,12 @@ export type CircleMember = {
   name: string | null;
   avatarUrl: string | null;
   role: string;
+  // BD1 — enough to render "it's {name}'s birthday today" resolved against
+  // the member's OWN timezone. Readable via S1's shares_circle_with policy.
+  birthMonth: number | null;
+  birthDay: number | null;
+  celebrateBirthday: boolean;
+  timezone: string | null;
 };
 
 /** A circle with exactly one member gets the solo-practice UI treatment
@@ -247,9 +253,22 @@ export async function markVoiceUnlockedHintSeen(circleId: string): Promise<void>
 export async function getCircleMembers(circleId: string): Promise<CircleMember[]> {
   const { data, error } = await supabase
     .from('memberships')
-    .select('user_id, role, users(name, avatar_url)')
+    .select('user_id, role, users(name, avatar_url, birth_month, birth_day, celebrate_birthday, timezone)')
     .eq('circle_id', circleId)
-    .returns<{ user_id: string; role: string; users: { name: string | null; avatar_url: string | null } | null }[]>();
+    .returns<
+      {
+        user_id: string;
+        role: string;
+        users: {
+          name: string | null;
+          avatar_url: string | null;
+          birth_month: number | null;
+          birth_day: number | null;
+          celebrate_birthday: boolean | null;
+          timezone: string | null;
+        } | null;
+      }[]
+    >();
 
   if (error) throw error;
 
@@ -258,6 +277,10 @@ export async function getCircleMembers(circleId: string): Promise<CircleMember[]
     name: m.users?.name ?? null,
     avatarUrl: m.users?.avatar_url ?? null,
     role: m.role,
+    birthMonth: m.users?.birth_month ?? null,
+    birthDay: m.users?.birth_day ?? null,
+    celebrateBirthday: m.users?.celebrate_birthday ?? true,
+    timezone: m.users?.timezone ?? null,
   }));
 }
 

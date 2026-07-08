@@ -85,6 +85,27 @@ export const STRINGS = {
   soloFirstWhenLabel: "when's your first one?",
   soloFirstNow: 'right now',
   soloFirstTomorrow: (timeLabel: string) => `tomorrow ${timeLabel}`,
+
+  // BD1 — birthdays. Collected at sign-up (optional) and editable in
+  // settings; celebrated in circles on the day. The year, if given, is
+  // never shown and never turned into an age. Copy states the visibility
+  // plainly (circle-mates can see the day) per the spec.
+  birthdayLabel: "when's your birthday?",
+  birthdayOptionalTag: '(optional)',
+  birthdayWhy: 'so your circle can celebrate you on the day — the year stays private, and you can skip this',
+  birthdayMonthSubLabel: 'month',
+  birthdayDaySubLabel: 'day',
+  birthdayYearSubLabel: 'year (optional)',
+  birthdayYearPlaceholder: 'e.g. 1990',
+  birthdayPickMonthFirst: 'pick a month first',
+  birthdayInvalid: "that day isn't in that month — pick another",
+  settingsBirthdayLabel: 'your birthday',
+  birthdayCelebrateLabel: 'celebrate my birthday',
+  birthdayCelebrateHelper:
+    'when on, your circles see your birthday and can celebrate you on the day. off means it stays hidden — nothing shows anywhere.',
+  birthdaySave: 'Save birthday',
+  birthdaySelfLine: (name: string | null) => `happy birthday${name ? `, ${name}` : ''} 🎂`,
+  birthdayMemberLine: (name: string) => `it's ${name}'s birthday today 🎂`,
   publicShareDisclosure: 'public circles share their practice to the library, so others can start their own',
   myPracticesSubtitle: 'your practice library — reuse them in new circles. Shared ones can be picked by others.',
   practicePillShared: 'shared',

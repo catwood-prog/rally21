@@ -229,10 +229,27 @@ Deno.serve(async (req) => {
 
       const otherMemberIds = Array.from(new Set((circleMemberRows ?? []).map((m) => m.user_id as string)));
       const pairLines: string[] = [];
+      // BD1 — a quiet birthday line for circle-mates. Supplementary only: it
+      // rides along an already-firing digest and is deliberately NOT counted
+      // toward triggeringCount, so a birthday alone never sends a standalone
+      // email (spec §4c). Resolved against each celebrant's OWN timezone.
+      const birthdayLines: string[] = [];
       if (otherMemberIds.length > 0) {
-        const { data: otherUsers } = await admin.from("users").select("id, name").in("id", otherMemberIds);
+        const { data: otherUsers } = await admin
+          .from("users")
+          .select("id, name, birth_month, birth_day, celebrate_birthday, timezone")
+          .in("id", otherMemberIds);
         const otherNameById = new Map<string, string>();
         for (const u of otherUsers ?? []) otherNameById.set(u.id, u.name ?? "someone in your circle");
+
+        for (const u of otherUsers ?? []) {
+          if (!u.celebrate_birthday || u.birth_month == null || u.birth_day == null) continue;
+          const theirLocalDate = localDateString(now, (u.timezone as string | null) ?? timeZone);
+          const [, m, d] = theirLocalDate.split("-").map(Number);
+          if (m === u.birth_month && d === u.birth_day) {
+            birthdayLines.push(`it's ${u.name ?? "someone in your circle"}'s birthday today 🎂`);
+          }
+        }
 
         for (const otherId of otherMemberIds) {
           const [{ data: todayStreak }, { data: yesterdayStreak }] = await Promise.all([
@@ -303,7 +320,7 @@ Deno.serve(async (req) => {
         checkedInByCircle.get(c.circle_id)!.add(c.user_id);
       }
 
-      const lines: string[] = [...journeyLines, ...pairLines, ...glowMilestoneLines];
+      const lines: string[] = [...birthdayLines, ...journeyLines, ...pairLines, ...glowMilestoneLines];
       for (const c of covered ?? []) {
         const name = covererNames.get(c.covered_by as string) ?? "someone in your circle";
         lines.push(`${name} covered you today 💛 — "no pressure, we've got you"`);

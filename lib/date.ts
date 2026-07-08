@@ -15,6 +15,30 @@ export function getDeviceTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
+/** The YYYY-MM-DD local date in a specific IANA timezone — used to resolve
+ * another person's "today" (e.g. a circle-mate's birthday) against THEIR
+ * clock rather than the viewer's device. Mirrors compose-digest's own
+ * localDateString helper so client and server agree. Falls back to the
+ * device-local date when tz is missing or invalid. */
+export function localDateStringInTimeZone(timeZone: string | null | undefined, date: Date = new Date()): string {
+  if (!timeZone) return getLocalDateString(date);
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const y = parts.find((p) => p.type === 'year')?.value;
+    const m = parts.find((p) => p.type === 'month')?.value;
+    const d = parts.find((p) => p.type === 'day')?.value;
+    if (y && m && d) return `${y}-${m}-${d}`;
+  } catch {
+    // invalid tz string — fall through to device-local
+  }
+  return getLocalDateString(date);
+}
+
 /** Calendar days between two local-date strings (YYYY-MM-DD), built from
  * UTC(Y, M, D) so the subtraction is never skewed by DST. */
 export function daysBetween(fromLocalDate: string, toLocalDate: string): number {

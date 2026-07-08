@@ -11,6 +11,7 @@ import {
 
 import { Avatar } from '@/components/Avatar';
 import { AppHeader } from '@/components/AppHeader';
+import { BirthdayBanner } from '@/components/BirthdayBanner';
 import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { GlowBadge } from '@/components/GlowBadge';
 import { SignalMeter } from '@/components/SignalMeter';
@@ -31,6 +32,7 @@ import {
   MyCircle,
   subscribeToCirclePresence,
 } from '@/lib/circle';
+import { isBirthdayToday } from '@/lib/birthday';
 import { daysBetween, getLocalDateString } from '@/lib/date';
 import { getMyGlow, getMyWeek, Glow, WeekDay } from '@/lib/glow';
 import { getMyLastCelebratedDay, getNextMilestone, shouldShowJourneyGate } from '@/lib/journey';
@@ -58,6 +60,11 @@ export default function Today() {
   const [circles, setCircles] = useState<MyCircle[]>([]);
   const [circleData, setCircleData] = useState<Record<string, CircleData>>({});
   const [myName, setMyName] = useState<string | null>(null);
+  const [myBirthday, setMyBirthday] = useState<{ month: number | null; day: number | null; celebrate: boolean }>({
+    month: null,
+    day: null,
+    celebrate: true,
+  });
   const [hasSeenCheckinConsent, setHasSeenCheckinConsent] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -88,6 +95,11 @@ export default function Today() {
         hasUnrespondedDayObservation(session.user.id).catch(() => false),
       ]);
       setMyName(profile?.name ?? null);
+      setMyBirthday({
+        month: profile?.birth_month ?? null,
+        day: profile?.birth_day ?? null,
+        celebrate: profile?.celebrate_birthday ?? true,
+      });
       setHasSeenCheckinConsent(profile?.has_seen_checkin_consent ?? false);
       setCircles(myCircles);
       setCircleCap(myCircleCap);
@@ -263,6 +275,12 @@ export default function Today() {
     </TouchableOpacity>
   );
 
+  // BD1 — the user's own birthday moment, shown across every Today branch
+  // (only when they've kept the celebrate toggle on). Resolved against the
+  // device's own local date, which is this user's local date.
+  const isMyBirthday = myBirthday.celebrate && isBirthdayToday(myBirthday.month, myBirthday.day, today);
+  const birthdayBanner = isMyBirthday ? <BirthdayBanner name={myName} /> : null;
+
   // ---- zero circles: nothing to show but a way back in ----
   if (circles.length === 0) {
     return (
@@ -270,6 +288,7 @@ export default function Today() {
         <AppHeader hideHouse style={styles.topbar} />
         <Text style={styles.greeting}>{greeting(myName)}</Text>
         <GlowBadge glow={glow} />
+        {birthdayBanner}
         <Text style={styles.subtitle}>{error ?? "you're not in a circle yet"}</Text>
         {addCircleButton}
       </ScrollView>
@@ -308,6 +327,7 @@ export default function Today() {
           <AppHeader hideHouse style={styles.topbar} />
           <Text style={styles.greeting}>{greeting(myName)}</Text>
           <GlowBadge glow={glow} coveredByName={iWasCoveredToday ? memberFullName(members, iWasCoveredToday.coveredBy) : null} />
+          {birthdayBanner}
           <TouchableOpacity
             style={styles.card}
             onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
@@ -327,6 +347,7 @@ export default function Today() {
 
         <Text style={styles.greeting}>{greeting(myName)}</Text>
         <GlowBadge glow={glow} coveredByName={iWasCoveredToday ? memberFullName(members, iWasCoveredToday.coveredBy) : null} />
+        {birthdayBanner}
 
         <Text style={styles.headline}>
           {isSolo ? (
@@ -484,6 +505,7 @@ export default function Today() {
 
       <Text style={styles.greeting}>{greeting(myName)}</Text>
       <GlowBadge glow={glow} coveredByName={coveredTodayName} />
+      {birthdayBanner}
 
       <Text style={styles.headline}>
         {CIRCLE_COUNT_WORD[circles.length] ?? circles.length} small things{' '}

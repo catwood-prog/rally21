@@ -13,14 +13,16 @@ import {
 
 import { Avatar } from '@/components/Avatar';
 import { AppHeader } from '@/components/AppHeader';
+import { BirthdayPicker, BirthdayValue } from '@/components/BirthdayPicker';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { isValidBirthday } from '@/lib/birthday';
 import { BlockedPerson, getMyBlocks, unblockUser } from '@/lib/moderation';
 import { getMyNotificationPrefs, NotificationPrefs, updateNotificationPrefs } from '@/lib/notifications';
-import { getMyProfile, saveProfile, setSoundsEnabled } from '@/lib/profile';
+import { getMyProfile, saveBirthday, saveProfile, setCelebrateBirthday, setSoundsEnabled } from '@/lib/profile';
 
 const NUDGE_TIME_OPTIONS: { label: string; time: string | null }[] = [
   { label: STRINGS.nudgeTimeEarliest, time: null },
@@ -52,6 +54,9 @@ export default function Settings() {
   const [newPhotoUri, setNewPhotoUri] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
   const [soundsEnabled, setSoundsEnabledState] = useState(true);
+  const [birthday, setBirthday] = useState<BirthdayValue>({ month: null, day: null, year: null });
+  const [celebrateBirthday, setCelebrateBirthdayState] = useState(true);
+  const [isSavingBirthday, setIsSavingBirthday] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
@@ -71,6 +76,12 @@ export default function Settings() {
       setName(profile?.name ?? '');
       setAvatarUrl(profile?.avatar_url ?? null);
       setSoundsEnabledState(profile?.sounds_enabled ?? true);
+      setBirthday({
+        month: profile?.birth_month ?? null,
+        day: profile?.birth_day ?? null,
+        year: profile?.birth_year ?? null,
+      });
+      setCelebrateBirthdayState(profile?.celebrate_birthday ?? true);
       setPrefs(notificationPrefs);
       setBlockedPeople(myBlocks);
     } catch (e) {
@@ -142,6 +153,35 @@ export default function Settings() {
     }
   };
 
+  const handleSaveBirthday = async () => {
+    if (!session?.user) return;
+    if (!isValidBirthday(birthday.month, birthday.day, birthday.year)) {
+      setError(STRINGS.birthdayInvalid);
+      return;
+    }
+    setIsSavingBirthday(true);
+    try {
+      await saveBirthday(session.user.id, birthday);
+      setSavedNotice(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not save that — try again');
+    } finally {
+      setIsSavingBirthday(false);
+    }
+  };
+
+  const handleToggleCelebrate = async () => {
+    if (!session?.user) return;
+    const next = !celebrateBirthday;
+    setCelebrateBirthdayState(next);
+    try {
+      await setCelebrateBirthday(session.user.id, next);
+    } catch (e) {
+      setCelebrateBirthdayState(!next);
+      setError(e instanceof Error ? e.message : 'could not save that — try again');
+    }
+  };
+
   const savePrefs = async (patch: Partial<NotificationPrefs>) => {
     if (!session?.user) return;
     const previous = prefs;
@@ -195,6 +235,36 @@ export default function Settings() {
           <Text style={styles.saveButtonText}>Save</Text>
         )}
       </TouchableOpacity>
+
+      <Text style={[styles.label, styles.sectionSpacing]}>{STRINGS.settingsBirthdayLabel}</Text>
+      <Text style={styles.birthdayWhy}>{STRINGS.birthdayWhy}</Text>
+      <BirthdayPicker value={birthday} onChange={setBirthday} />
+      <TouchableOpacity
+        style={[styles.saveButton, styles.birthdaySaveButton]}
+        onPress={handleSaveBirthday}
+        disabled={isSavingBirthday}
+      >
+        {isSavingBirthday ? (
+          <ActivityIndicator size="small" color={colors.ink} />
+        ) : (
+          <Text style={styles.saveButtonText}>{STRINGS.birthdaySave}</Text>
+        )}
+      </TouchableOpacity>
+
+      <View style={[styles.prefRow, styles.birthdayToggleRow]}>
+        <View style={styles.prefRowText}>
+          <Text style={styles.prefRowLabel}>{STRINGS.birthdayCelebrateLabel}</Text>
+          <Text style={styles.prefRowHelper}>{STRINGS.birthdayCelebrateHelper}</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.prefPill, celebrateBirthday && styles.prefPillOn]}
+          onPress={handleToggleCelebrate}
+        >
+          <Text style={[styles.prefPillText, celebrateBirthday && styles.prefPillTextOn]}>
+            {celebrateBirthday ? 'on' : 'off'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity
         style={[styles.signOutButton, styles.sectionSpacing]}
@@ -449,6 +519,19 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 11,
     alignItems: 'center',
+  },
+  birthdayWhy: {
+    fontSize: 12.5,
+    color: colors.muted,
+    lineHeight: 17,
+    marginTop: -4,
+    marginBottom: 14,
+  },
+  birthdaySaveButton: {
+    marginTop: 16,
+  },
+  birthdayToggleRow: {
+    marginTop: 14,
   },
   buttonDisabled: {
     opacity: 0.5,

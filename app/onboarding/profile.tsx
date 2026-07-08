@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,11 +12,14 @@ import {
   View,
 } from 'react-native';
 
+import { BirthdayPicker, BirthdayValue } from '@/components/BirthdayPicker';
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { isValidBirthday } from '@/lib/birthday';
 import { saveProfile } from '@/lib/profile';
 
 export default function ProfileSetup() {
@@ -23,6 +27,7 @@ export default function ProfileSetup() {
   const { session, signOut } = useAuth();
   const [name, setName] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [birthday, setBirthday] = useState<BirthdayValue>({ month: null, day: null, year: null });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [avatarWarning, setAvatarWarning] = useState<string | null>(null);
@@ -42,12 +47,19 @@ export default function ProfileSetup() {
 
   const handleContinue = async () => {
     if (!session?.user || !name.trim()) return;
+    // Birthday is optional, but if a partial/invalid pair was somehow set,
+    // catch it with a friendly message before the DB constraint would.
+    if (!isValidBirthday(birthday.month, birthday.day, birthday.year)) {
+      setError(STRINGS.birthdayInvalid);
+      return;
+    }
     setIsSaving(true);
     setError('');
     try {
       const { avatarWarning: warning } = await saveProfile(session.user.id, {
         name,
         avatarUri: photoUri,
+        birthday,
       });
       if (warning) {
         setAvatarWarning(warning);
@@ -64,7 +76,11 @@ export default function ProfileSetup() {
   const initial = name.trim().charAt(0).toUpperCase();
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+    >
       <Brandmark style={styles.brandmark} />
       <TouchableOpacity style={styles.back} onPress={signOut}>
         <Text style={styles.backText}>← Sign out</Text>
@@ -97,6 +113,14 @@ export default function ProfileSetup() {
         onSubmitEditing={handleContinue}
       />
 
+      <View style={styles.birthdaySection}>
+        <Text style={styles.birthdayLabel}>
+          {STRINGS.birthdayLabel} <Text style={styles.birthdayOptional}>{STRINGS.birthdayOptionalTag}</Text>
+        </Text>
+        <Text style={styles.birthdayWhy}>{STRINGS.birthdayWhy}</Text>
+        <BirthdayPicker value={birthday} onChange={setBirthday} />
+      </View>
+
       {!!error && <Text style={styles.errorText}>{error}</Text>}
 
       <TouchableOpacity
@@ -120,17 +144,23 @@ export default function ProfileSetup() {
           router.replace('/onboarding/circle-setup');
         }}
       />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scroll: {
     flex: 1,
+    backgroundColor: colors.bg,
+  },
+  container: {
+    flexGrow: 1,
     backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+    paddingTop: 96,
+    paddingBottom: 48,
   },
   brandmark: {
     position: 'absolute',
@@ -208,6 +238,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.ink,
     marginBottom: 12,
+  },
+  birthdaySection: {
+    width: '100%',
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  birthdayLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  birthdayOptional: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  birthdayWhy: {
+    fontSize: 12.5,
+    color: colors.muted,
+    lineHeight: 17,
+    marginTop: 4,
+    marginBottom: 14,
   },
   errorText: {
     color: colors.errorRed,

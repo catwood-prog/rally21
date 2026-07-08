@@ -39,7 +39,8 @@ import {
   setCircleResourceUrl,
   subscribeToCirclePresence,
 } from '@/lib/circle';
-import { daysBetween, getLocalDateString } from '@/lib/date';
+import { isBirthdayToday } from '@/lib/birthday';
+import { daysBetween, getLocalDateString, localDateStringInTimeZone } from '@/lib/date';
 import { getPairStreaks, PairStreak } from '@/lib/glow';
 import {
   completeCircle,
@@ -760,6 +761,18 @@ export default function YourCircle() {
       ) : (
         <>
           <Text style={styles.sectionLabel}>who&apos;s here</Text>
+          {members
+            .filter(
+              (m) =>
+                m.userId !== session?.user?.id &&
+                m.celebrateBirthday &&
+                isBirthdayToday(m.birthMonth, m.birthDay, localDateStringInTimeZone(m.timezone))
+            )
+            .map((m) => (
+              <Text key={`bday-${m.userId}`} style={styles.birthdayLine}>
+                {STRINGS.birthdayMemberLine(m.name ?? 'someone in your circle')}
+              </Text>
+            ))}
           <View style={styles.avatarRow}>
             {shownMembers.map((member) => {
               const checkedIn = inTodayUserIds.has(member.userId);
@@ -1278,6 +1291,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     textTransform: 'uppercase',
     color: colors.green,
+    marginBottom: 10,
+  },
+  birthdayLine: {
+    fontSize: 13,
+    color: colors.ink,
     marginBottom: 10,
   },
   wallPreviewCard: {

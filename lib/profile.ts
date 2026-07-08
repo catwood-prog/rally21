@@ -13,19 +13,50 @@ export type Profile = {
   has_seen_cover_hint: boolean;
   blueprint_surfaced_pattern_key: string | null;
   blueprint_surfaced_at: string | null;
+  // BD1 — birthday is fully optional; birth_year (if given) is never
+  // displayed or turned into an age anywhere.
+  birth_month: number | null;
+  birth_day: number | null;
+  birth_year: number | null;
+  celebrate_birthday: boolean;
 };
 
 export async function getMyProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('users')
     .select(
-      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, blueprint_surfaced_pattern_key, blueprint_surfaced_at'
+      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday'
     )
     .eq('id', userId)
     .maybeSingle();
 
   if (error) throw error;
   return data;
+}
+
+export type BirthdayInput = { month: number | null; day: number | null; year: number | null };
+
+/** BD1 — write the caller's own birthday (day + month, optional year).
+ * Passing all-null clears it. The DB check constraint is the backstop for
+ * an invalid pair (e.g. Feb 31); callers should also validate with
+ * isValidBirthday for a friendly message first. */
+export async function saveBirthday(userId: string, { month, day, year }: BirthdayInput): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({ birth_month: month, birth_day: day, birth_year: year })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
+/** BD1 — the celebrate toggle. Off means no birthday surface shows
+ * anywhere (own Today, circle who's-here, digest), and circle-mates see
+ * nothing — no trace. */
+export async function setCelebrateBirthday(userId: string, enabled: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({ celebrate_birthday: enabled })
+    .eq('id', userId);
+  if (error) throw error;
 }
 
 /** The single "App sounds" toggle (mascot brief) — governs both the
@@ -168,7 +199,7 @@ export async function removeAvatar(userId: string): Promise<void> {
 
 export async function saveProfile(
   userId: string,
-  { name, avatarUri }: { name: string; avatarUri?: string | null }
+  { name, avatarUri, birthday }: { name: string; avatarUri?: string | null; birthday?: BirthdayInput }
 ): Promise<{ avatarWarning: string | null }> {
   let avatarUrl: string | undefined;
   let avatarWarning: string | null = null;
@@ -187,6 +218,9 @@ export async function saveProfile(
     .update({
       name: name.trim(),
       ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
+      // BD1 — birthday is optional; only written when the caller passes it
+      // (onboarding). All-null clears it, which is the "skipped" outcome.
+      ...(birthday ? { birth_month: birthday.month, birth_day: birthday.day, birth_year: birthday.year } : {}),
     })
     .eq('id', userId);
 
