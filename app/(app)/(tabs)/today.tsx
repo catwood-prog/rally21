@@ -10,10 +10,11 @@ import {
 } from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
-import { Brandmark } from '@/components/Brandmark';
+import { AppHeader } from '@/components/AppHeader';
 import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { GlowBadge } from '@/components/GlowBadge';
 import { SignalMeter } from '@/components/SignalMeter';
+import { TodayFooter } from '@/components/TodayFooter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { isVerbPhrasePractice, STRINGS } from '@/constants/strings';
 import { cardShadow, chipTextShape, colors } from '@/constants/theme';
@@ -31,9 +32,10 @@ import {
   subscribeToCirclePresence,
 } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
-import { getMyGlow, Glow } from '@/lib/glow';
+import { getMyGlow, getMyWeek, Glow, WeekDay } from '@/lib/glow';
 import { getMyLastCelebratedDay, getNextMilestone, shouldShowJourneyGate } from '@/lib/journey';
 import { getMyProfile } from '@/lib/profile';
+import { hasUnrespondedDayObservation } from '@/lib/reflections';
 import { computeSignal, PresenceRow } from '@/lib/signal';
 
 const CIRCLE_COUNT_WORD: Record<number, string> = { 1: 'one', 2: 'two', 3: 'three' };
@@ -66,6 +68,8 @@ export default function Today() {
   // loads — it only ever matters once it resolves to false.
   const [hasWrittenReflectionToday, setHasWrittenReflectionToday] = useState(true);
   const [glow, setGlow] = useState<Glow | null>(null);
+  const [week, setWeek] = useState<WeekDay[] | null>(null);
+  const [hasSurfacedPattern, setHasSurfacedPattern] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -73,13 +77,15 @@ export default function Today() {
     setError(null);
     const today = getLocalDateString();
     try {
-      const [profile, myCircles, myCircleCap, question, todayReflection, myGlow] = await Promise.all([
+      const [profile, myCircles, myCircleCap, question, todayReflection, myGlow, myWeek, hasNotice] = await Promise.all([
         getMyProfile(session.user.id),
         listMyCircles(session.user.id),
         getMyCircleCap(),
         getDailyQuestion(today),
         getTodayReflection(today),
         getMyGlow().catch(() => null),
+        getMyWeek().catch(() => null),
+        hasUnrespondedDayObservation(session.user.id).catch(() => false),
       ]);
       setMyName(profile?.name ?? null);
       setHasSeenCheckinConsent(profile?.has_seen_checkin_consent ?? false);
@@ -88,6 +94,8 @@ export default function Today() {
       setReflectionQuestion(question);
       setHasWrittenReflectionToday(!!todayReflection && isReflectionSubstantive(todayReflection));
       setGlow(myGlow);
+      setWeek(myWeek);
+      setHasSurfacedPattern(hasNotice);
 
       if (myCircles.length === 0) {
         setCircleData({});
@@ -251,9 +259,7 @@ export default function Today() {
 
   const addCircleButton = (
     <TouchableOpacity style={styles.addCircleLink} onPress={handleAddCircle}>
-      <Text style={styles.addCircleLinkText}>
-        + add a circle <Text style={styles.addCircleCount}>({circles.length} of {circleCap})</Text>
-      </Text>
+      <Text style={styles.addCircleLinkText}>+ add a circle</Text>
     </TouchableOpacity>
   );
 
@@ -261,12 +267,7 @@ export default function Today() {
   if (circles.length === 0) {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <View style={styles.topbar}>
-          <Brandmark />
-          <TouchableOpacity onPress={() => router.push('/settings')}>
-            <Text style={styles.signOut}>Settings</Text>
-          </TouchableOpacity>
-        </View>
+        <AppHeader hideHouse style={styles.topbar} />
         <Text style={styles.greeting}>{greeting(myName)}</Text>
         <GlowBadge glow={glow} />
         <Text style={styles.subtitle}>{error ?? "you're not in a circle yet"}</Text>
@@ -304,12 +305,7 @@ export default function Today() {
     if (circle.completedAt) {
       return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-          <View style={styles.topbar}>
-            <Brandmark />
-            <TouchableOpacity onPress={() => router.push('/settings')}>
-              <Text style={styles.signOut}>Settings</Text>
-            </TouchableOpacity>
-          </View>
+          <AppHeader hideHouse style={styles.topbar} />
           <Text style={styles.greeting}>{greeting(myName)}</Text>
           <GlowBadge glow={glow} coveredByName={iWasCoveredToday ? memberFullName(members, iWasCoveredToday.coveredBy) : null} />
           <TouchableOpacity
@@ -327,12 +323,7 @@ export default function Today() {
 
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <View style={styles.topbar}>
-          <Brandmark />
-          <TouchableOpacity onPress={() => router.push('/settings')}>
-            <Text style={styles.signOut}>Settings</Text>
-          </TouchableOpacity>
-        </View>
+        <AppHeader hideHouse style={styles.topbar} />
 
         <Text style={styles.greeting}>{greeting(myName)}</Text>
         <GlowBadge glow={glow} coveredByName={iWasCoveredToday ? memberFullName(members, iWasCoveredToday.coveredBy) : null} />
@@ -464,20 +455,7 @@ export default function Today() {
           </TouchableOpacity>
         )}
 
-        <View style={styles.reflectionsRow}>
-          <TouchableOpacity onPress={() => router.push('/weekly')}>
-            <Text style={styles.reflectionsLink}>This week</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/journal')}>
-            <Text style={styles.reflectionsLinkPlum}>Your journal</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/reflection')}>
-            <Text style={styles.reflectionsLinkPlum}>Something we noticed</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/private-map')}>
-            <Text style={styles.reflectionsLinkPlum}>{STRINGS.blueprintLinkLabel}</Text>
-          </TouchableOpacity>
-        </View>
+        <TodayFooter week={week} hasSurfacedPattern={hasSurfacedPattern} />
 
         {addCircleButton}
       </ScrollView>
@@ -502,12 +480,7 @@ export default function Today() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.topbar}>
-        <Brandmark />
-        <TouchableOpacity onPress={() => router.push('/settings')}>
-          <Text style={styles.signOut}>Settings</Text>
-        </TouchableOpacity>
-      </View>
+      <AppHeader hideHouse style={styles.topbar} />
 
       <Text style={styles.greeting}>{greeting(myName)}</Text>
       <GlowBadge glow={glow} coveredByName={coveredTodayName} />
@@ -669,20 +642,7 @@ export default function Today() {
         </TouchableOpacity>
       )}
 
-      <View style={styles.reflectionsRow}>
-        <TouchableOpacity onPress={() => router.push('/weekly')}>
-          <Text style={styles.reflectionsLink}>This week</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push('/journal')}>
-          <Text style={styles.reflectionsLinkPlum}>Your journal</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push('/reflection')}>
-          <Text style={styles.reflectionsLinkPlum}>Something we noticed</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push('/private-map')}>
-          <Text style={styles.reflectionsLinkPlum}>{STRINGS.blueprintLinkLabel}</Text>
-        </TouchableOpacity>
-      </View>
+      <TodayFooter week={week} hasSurfacedPattern={hasSurfacedPattern} />
     </ScrollView>
   );
 }
@@ -707,11 +667,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
-  },
-  signOut: {
-    fontSize: 12,
-    color: colors.muted,
-    fontWeight: '600',
   },
   greeting: {
     fontSize: 12,
@@ -896,26 +851,6 @@ const styles = StyleSheet.create({
     color: colors.plum,
     textAlign: 'center',
   },
-  reflectionsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 16,
-    marginTop: 20,
-  },
-  reflectionsLink: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.muted,
-  },
-  // The inner-life layer's links (journal, day-14 observation) — plum,
-  // scarce by design (see CLAUDE.md's color-roles convention). "This
-  // week" stays muted since weekly show-up is progress, not reflection.
-  reflectionsLinkPlum: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.plum,
-  },
   addCircleLink: {
     marginTop: 22,
     alignItems: 'center',
@@ -924,10 +859,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.green,
-  },
-  addCircleCount: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.muted,
   },
 });

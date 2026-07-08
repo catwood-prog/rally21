@@ -266,6 +266,7 @@ export const STRINGS = {
   blueprintConfirmedText: '✓ you said this sounds right',
   blueprintSeeYourBlueprint: 'see your private map →',
   blueprintLinkLabel: 'Your private map',
+  somethingWeNoticedLinkLabel: 'Something we noticed',
 
   // Blueprint v2 (B3, Rally21-Blueprint-Notes.md wants layer) — traits,
   // the evolution view, and the wants act flow.

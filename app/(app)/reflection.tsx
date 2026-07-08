@@ -2,7 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { Brandmark } from '@/components/Brandmark';
+import { AppHeader } from '@/components/AppHeader';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
@@ -92,10 +92,7 @@ export default function Reflection() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Brandmark style={styles.brandmark} />
-      <TouchableOpacity onPress={() => router.push('/today')}>
-        <Text style={styles.back}>← Today</Text>
-      </TouchableOpacity>
+      <AppHeader style={styles.appHeader} />
 
       <View style={styles.header}>
         <Text style={styles.title}>Something we noticed</Text>
@@ -180,13 +177,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 48,
   },
-  brandmark: {
-    marginBottom: 14,
-  },
-  back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
+  appHeader: {
     marginBottom: 16,
   },
   header: {

@@ -3,7 +3,6 @@ import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ChatQuestionIcon } from '@/components/ChatQuestionIcon';
 import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 
@@ -67,7 +66,7 @@ export default function TabsLayout() {
         options={{
           title: STRINGS.chatTabLabel,
           tabBarAccessibilityLabel: STRINGS.chatTabLabel,
-          tabBarIcon: ({ color, size }) => <ChatQuestionIcon size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-outline" size={size} color={color} />,
         }}
       />
     </Tabs>

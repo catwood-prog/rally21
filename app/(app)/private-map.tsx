@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { MASCOT } from '@/assets/mascot';
-import { Brandmark } from '@/components/Brandmark';
+import { AppHeader } from '@/components/AppHeader';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
@@ -174,10 +174,7 @@ export default function Blueprint() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Brandmark style={styles.brandmark} />
-      <TouchableOpacity onPress={() => router.push('/today')}>
-        <Text style={styles.back}>← Today</Text>
-      </TouchableOpacity>
+      <AppHeader style={styles.header} />
 
       <Text style={styles.title}>{STRINGS.blueprintTitle}</Text>
       <Text style={styles.subtitle}>{STRINGS.blueprintSubline}</Text>
@@ -366,13 +363,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 64,
   },
-  brandmark: {
-    marginBottom: 14,
-  },
-  back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
+  header: {
     marginBottom: 16,
   },
   title: {

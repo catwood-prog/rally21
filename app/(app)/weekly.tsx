@@ -2,7 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { Brandmark } from '@/components/Brandmark';
+import { AppHeader } from '@/components/AppHeader';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
@@ -81,10 +81,7 @@ export default function WeeklyLookBack() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Brandmark style={styles.brandmark} />
-      <TouchableOpacity onPress={() => router.push('/today')}>
-        <Text style={styles.back}>← Today</Text>
-      </TouchableOpacity>
+      <AppHeader style={styles.header} />
 
       {lookback.totalDays === 1 ? (
         <Text style={styles.title}>
@@ -181,13 +178,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 48,
   },
-  brandmark: {
-    marginBottom: 14,
-  },
-  back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
+  header: {
     marginBottom: 16,
   },
   subtitle: {

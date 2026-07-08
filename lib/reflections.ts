@@ -281,6 +281,21 @@ export async function getMyObservationResponse(
   return (data?.response as 'confirmed' | 'rejected' | undefined) ?? null;
 }
 
+/** D6 (7 July): whether "something we noticed" (the day-14 observation,
+ * reflection.tsx) currently has a real pattern genuinely awaiting the
+ * user's response — mirrors reflection.tsx's own render gate exactly
+ * (`observation.available && response === null`) so Today's footer link
+ * never points at an empty/already-responded screen. Deliberately NOT
+ * gated by blueprint_surfaced_pattern_key — that's a separate B1 pattern-
+ * card scarcity signal for /private-map, not this screen's own gate. */
+export async function hasUnrespondedDayObservation(userId: string): Promise<boolean> {
+  const reflections = await getMyReflections(userId);
+  const observation = computeDayObservation(reflections);
+  if (!observation.available) return false;
+  const response = await getMyObservationResponse(userId, observation.type, observation.direction);
+  return response === null;
+}
+
 export async function saveObservationResponse(params: {
   userId: string;
   type: 'time_of_day' | 'weekday';
