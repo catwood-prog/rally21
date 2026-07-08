@@ -80,6 +80,9 @@ export default function FindAPractice() {
       params: {
         practiceKey: practice.key,
         practiceName: practice.name,
+        // Carried through so a solo "right now" check-in can route into the
+        // timer/activity screen for a timed practice (see commitment.tsx).
+        ...(practice.durationMinutes ? { practiceDurationMinutes: String(practice.durationMinutes) } : {}),
         ...(isSolo ? { solo: 'true' } : {}),
         ...(isFromToday ? { fromToday: 'true' } : {}),
         ...(wantParams ?? {}),

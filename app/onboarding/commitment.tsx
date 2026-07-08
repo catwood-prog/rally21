@@ -17,6 +17,7 @@ import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { activateWant } from '@/lib/blueprint';
+import { unlockAudioContext } from '@/lib/chime';
 import { setCircleResourceUrl } from '@/lib/circle';
 import { createCircle } from '@/lib/circle-setup';
 import { getMyProfile } from '@/lib/profile';
@@ -32,14 +33,16 @@ const TIME_OPTIONS = [
 export default function TheCommitment() {
   const router = useRouter();
   const { session } = useAuth();
-  const { practiceKey, practiceName, solo, fromToday, wantKey, wantStatement } = useLocalSearchParams<{
-    practiceKey: string;
-    practiceName: string;
-    solo?: string;
-    fromToday?: string;
-    wantKey?: string;
-    wantStatement?: string;
-  }>();
+  const { practiceKey, practiceName, practiceDurationMinutes, solo, fromToday, wantKey, wantStatement } =
+    useLocalSearchParams<{
+      practiceKey: string;
+      practiceName: string;
+      practiceDurationMinutes?: string;
+      solo?: string;
+      fromToday?: string;
+      wantKey?: string;
+      wantStatement?: string;
+    }>();
   const isSolo = solo === 'true';
   const isFromToday = fromToday === 'true';
 
@@ -61,6 +64,19 @@ export default function TheCommitment() {
       setError('that link needs to start with http:// or https://');
       return;
     }
+
+    // For a solo "right now" check-in, mirror Today's check-in CTA: a timed
+    // practice (or one with a resource link) routes through the timer/activity
+    // screen. That screen chimes, so the audio context must be unlocked
+    // synchronously inside this tap, before any await — iOS Safari only unlocks
+    // playback within the user gesture itself (see lib/chime.ts). Harmless when
+    // it turns out we route to the plain check-in instead.
+    const durationMinutes = practiceDurationMinutes
+      ? parseInt(practiceDurationMinutes, 10) || 0
+      : 0;
+    const goesToActivityScreen = !!trimmedUrl || durationMinutes > 0;
+    if (isSolo && startFirstNow && goesToActivityScreen) unlockAudioContext();
+
     setIsCreating(true);
     try {
       const { circleId, inviteCode } = await createCircle(
@@ -92,9 +108,20 @@ export default function TheCommitment() {
           // Route straight into the check-in flow for the circle they just
           // made — the same entry Today's check-in CTA uses: checkin-intro
           // if the first-time private-picture consent hasn't been seen yet,
-          // otherwise the check-in itself (SF1). A brand-new stranger has
-          // never seen consent, so they'll get the intro; the else branch
-          // covers a returning user spinning up another solo circle.
+          // otherwise straight to the timer (for a timed practice / resource
+          // link) or the plain check-in (SF1). A brand-new stranger has never
+          // seen consent, so they'll get the intro — which itself forwards to
+          // the timer when startTimer+duration/resourceUrl are present; the
+          // else branch covers a returning user spinning up another solo circle.
+          const activityParams = goesToActivityScreen
+            ? {
+                circleName: circleName.trim(),
+                dayNumber: '1',
+                ...(durationMinutes > 0 ? { durationMinutes: String(durationMinutes) } : {}),
+                ...(trimmedUrl ? { resourceUrl: trimmedUrl } : {}),
+              }
+            : {};
+
           let hasSeenConsent = false;
           if (session?.user) {
             try {
@@ -105,10 +132,21 @@ export default function TheCommitment() {
               // again, which is harmless
             }
           }
-          router.replace({
-            pathname: hasSeenConsent ? '/checkin' : '/checkin-intro',
-            params: { circleId },
-          });
+
+          if (!hasSeenConsent) {
+            router.replace({
+              pathname: '/checkin-intro',
+              params: {
+                circleId,
+                ...(goesToActivityScreen ? { startTimer: 'true' } : {}),
+                ...activityParams,
+              },
+            });
+          } else if (goesToActivityScreen) {
+            router.replace({ pathname: '/checkin-timer', params: { circleId, ...activityParams } });
+          } else {
+            router.replace({ pathname: '/checkin', params: { circleId } });
+          }
         } else {
           // "/" re-checks profile + membership and lands on Today
           router.replace('/');
