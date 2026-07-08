@@ -14,11 +14,13 @@ import {
 
 import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
+import { MessageDialog } from '@/components/MessageDialog';
 import { VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { reportContent } from '@/lib/moderation';
 import {
   CircleMember,
   getCircleMembers,
@@ -84,6 +86,11 @@ export default function CircleWall() {
   const [hasSeenUnlockHint, setHasSeenUnlockHint] = useState(true);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [reportingMessageId, setReportingMessageId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState('');
+  const [isReporting, setIsReporting] = useState(false);
+  const [reportMicDenied, setReportMicDenied] = useState(false);
+  const [showReportedNotice, setShowReportedNotice] = useState(false);
 
   const loadFeed = useCallback(async (circleId: string) => {
     const [wallMessages, checkinFeed] = await Promise.all([
@@ -206,6 +213,27 @@ export default function CircleWall() {
       setError(e instanceof Error ? e.message : 'could not remove that — try again');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // MOD1: reporter safety is instant and unconditional — the message
+  // disappears from THIS reporter's own view right away (optimistic
+  // local removal), permanently, regardless of what happens to it
+  // globally. A second independent report hides it for everyone,
+  // pending review; that's server-side (report_content's own circuit
+  // breaker), not something this screen needs to know about.
+  const handleReportMessage = async (messageId: string) => {
+    setIsReporting(true);
+    try {
+      await reportContent({ targetKind: 'wall_message', targetId: messageId, reason: reportReason.trim() || undefined });
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      setReportingMessageId(null);
+      setReportReason('');
+      setShowReportedNotice(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not send that report — try again');
+    } finally {
+      setIsReporting(false);
     }
   };
 
@@ -349,7 +377,49 @@ export default function CircleWall() {
                         <Text style={styles.hostDeleteLink}>{STRINGS.hostDeleteWallMessageLink}</Text>
                       </TouchableOpacity>
                     ))}
+                  {!isMe && reportingMessageId !== item.id && (
+                    <TouchableOpacity onPress={() => setReportingMessageId(item.id)} hitSlop={6}>
+                      <Text style={styles.hostDeleteLink}>{STRINGS.reportLink}</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
+                {reportingMessageId === item.id && (
+                  <View style={styles.reportPanel}>
+                    <View style={styles.reportInputRow}>
+                      <TextInput
+                        style={styles.reportInput}
+                        placeholder={STRINGS.reportReasonPlaceholder}
+                        placeholderTextColor={colors.muted}
+                        value={reportReason}
+                        onChangeText={setReportReason}
+                        multiline
+                      />
+                      {!reportMicDenied && (
+                        <VoiceMicButton
+                          style={styles.reportMicButton}
+                          onTranscript={(text) => setReportReason((prev) => appendTranscript(prev, text))}
+                          onPermissionDenied={() => setReportMicDenied(true)}
+                        />
+                      )}
+                    </View>
+                    <View style={styles.reportActionsRow}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setReportingMessageId(null);
+                          setReportReason('');
+                        }}
+                        disabled={isReporting}
+                      >
+                        <Text style={styles.hostDeleteCancelText}>{STRINGS.reportCancelCta}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleReportMessage(item.id)} disabled={isReporting}>
+                        <Text style={styles.hostDeleteConfirmText}>
+                          {isReporting ? '…' : STRINGS.reportSubmitCta}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
             );
           }
@@ -427,6 +497,14 @@ export default function CircleWall() {
           </TouchableOpacity>
         </View>
       )}
+
+      <MessageDialog
+        visible={showReportedNotice}
+        title={STRINGS.reportedConfirmationTitle}
+        message={STRINGS.reportedConfirmationBody}
+        onDismiss={() => setShowReportedNotice(false)}
+      />
+      <MessageDialog visible={!!error} title="hmm" message={error ?? ''} onDismiss={() => setError(null)} />
     </KeyboardAvoidingView>
   );
 }
@@ -634,6 +712,38 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: colors.muted,
+  },
+  reportPanel: {
+    marginTop: 6,
+    backgroundColor: colors.bg,
+    borderRadius: 12,
+    padding: 10,
+    gap: 8,
+    maxWidth: '85%',
+  },
+  reportInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  reportInput: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 10,
+    padding: 8,
+    fontSize: 11.5,
+    color: colors.ink,
+    minHeight: 36,
+  },
+  reportMicButton: {
+    paddingBottom: 6,
+  },
+  reportActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 14,
   },
   inputBar: {
     flexDirection: 'row',

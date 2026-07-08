@@ -18,6 +18,7 @@ import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { BlockedPerson, getMyBlocks, unblockUser } from '@/lib/moderation';
 import { getMyNotificationPrefs, NotificationPrefs, updateNotificationPrefs } from '@/lib/notifications';
 import { getMyProfile, saveProfile, setSoundsEnabled } from '@/lib/profile';
 
@@ -55,25 +56,41 @@ export default function Settings() {
   const [isSaving, setIsSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [blockedPeople, setBlockedPeople] = useState<BlockedPerson[]>([]);
+  const [unblockingId, setUnblockingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
     setIsLoading(true);
     try {
-      const [profile, notificationPrefs] = await Promise.all([
+      const [profile, notificationPrefs, myBlocks] = await Promise.all([
         getMyProfile(session.user.id),
         getMyNotificationPrefs(session.user.id),
+        getMyBlocks().catch(() => []),
       ]);
       setName(profile?.name ?? '');
       setAvatarUrl(profile?.avatar_url ?? null);
       setSoundsEnabledState(profile?.sounds_enabled ?? true);
       setPrefs(notificationPrefs);
+      setBlockedPeople(myBlocks);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your profile');
     } finally {
       setIsLoading(false);
     }
   }, [session?.user?.id]);
+
+  const handleUnblock = async (blockedId: string) => {
+    setUnblockingId(blockedId);
+    try {
+      await unblockUser(blockedId);
+      setBlockedPeople((prev) => prev.filter((p) => p.blockedId !== blockedId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not unblock — try again');
+    } finally {
+      setUnblockingId(null);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -313,6 +330,24 @@ export default function Settings() {
         </View>
       </View>
 
+      {blockedPeople.length > 0 && (
+        <>
+          <Text style={[styles.label, styles.sectionSpacing]}>{STRINGS.blockedPeopleSectionLabel}</Text>
+          <View style={styles.prefCard}>
+            {blockedPeople.map((person) => (
+              <View key={person.blockedId} style={styles.blockedRow}>
+                <Text style={styles.blockedRowName}>{person.name}</Text>
+                <TouchableOpacity onPress={() => handleUnblock(person.blockedId)} disabled={unblockingId === person.blockedId}>
+                  <Text style={styles.blockedRowUnblock}>
+                    {unblockingId === person.blockedId ? '…' : STRINGS.unblockCta}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
+
       <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
         <Text style={styles.signOutText}>Sign out</Text>
       </TouchableOpacity>
@@ -461,6 +496,22 @@ const styles = StyleSheet.create({
   },
   prefRowText: {
     flex: 1,
+  },
+  blockedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  blockedRowName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.ink,
+  },
+  blockedRowUnblock: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.green,
   },
   prefRowLabel: {
     fontSize: 13,

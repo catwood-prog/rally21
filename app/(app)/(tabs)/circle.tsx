@@ -16,6 +16,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { LinkCard } from '@/components/LinkCard';
 import { MascotEntrance } from '@/components/MascotEntrance';
+import { MessageDialog } from '@/components/MessageDialog';
 import { SignalMeter } from '@/components/SignalMeter';
 import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { FONT_HEADER } from '@/constants/fonts';
@@ -48,6 +49,7 @@ import {
   rallyOnCircle,
   shouldShowJourneyGate,
 } from '@/lib/journey';
+import { blockUser, getMyBlocks, reportContent, unblockUser } from '@/lib/moderation';
 import { getMyProfile, markCoverHintSeen } from '@/lib/profile';
 import { extractYouTubeId, isHttpUrl } from '@/lib/resourceLink';
 import { computeSignal, PresenceRow } from '@/lib/signal';
@@ -99,6 +101,14 @@ export default function YourCircle() {
   const [isConfirmingComplete, setIsConfirmingComplete] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [wantStatementForCircle, setWantStatementForCircle] = useState<string | null>(null);
+  // MOD1: which member's report/block panel is open, if any — one at a
+  // time, reachable by tapping their avatar in "who's here".
+  const [memberActionsFor, setMemberActionsFor] = useState<string | null>(null);
+  const [memberActionMode, setMemberActionMode] = useState<'report' | 'block' | null>(null);
+  const [memberReportReason, setMemberReportReason] = useState('');
+  const [isSubmittingMemberAction, setIsSubmittingMemberAction] = useState(false);
+  const [showMemberReportedNotice, setShowMemberReportedNotice] = useState(false);
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -125,7 +135,7 @@ export default function YourCircle() {
       const myCircle = selection.circle;
       setCircle(myCircle);
       if (myCircle) {
-        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay, myPairStreaks] =
+        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay, myPairStreaks, myBlocks] =
           await Promise.all([
             getCircleMembers(myCircle.id),
             getCirclePresence(myCircle.id),
@@ -133,6 +143,7 @@ export default function YourCircle() {
             getMyProfile(session.user.id),
             getMyLastCelebratedDay(myCircle.id, session.user.id),
             getPairStreaks(myCircle.id).catch(() => []),
+            getMyBlocks().catch(() => []),
           ]);
         setMembers(circleMembers);
         setPresence(circlePresence);
@@ -140,6 +151,7 @@ export default function YourCircle() {
         setHasSeenCoverHint(!!profile?.has_seen_cover_hint);
         setMyLastCelebratedDay(lastCelebratedDay);
         setPairStreaks(myPairStreaks);
+        setBlockedIds(new Set(myBlocks.map((b) => b.blockedId)));
         if (myCircle.completedAt) {
           const activation = await getWantActivationForCircle(myCircle.id).catch(() => null);
           setWantStatementForCircle(activation?.wantStatement ?? null);
@@ -475,6 +487,59 @@ export default function YourCircle() {
     }
   };
 
+  const closeMemberActions = () => {
+    setMemberActionsFor(null);
+    setMemberActionMode(null);
+    setMemberReportReason('');
+  };
+
+  const handleReportMember = async (memberId: string) => {
+    setIsSubmittingMemberAction(true);
+    try {
+      await reportContent({
+        targetKind: 'member',
+        targetId: memberId,
+        reason: memberReportReason.trim() || undefined,
+        contextCircleId: circle?.id,
+      });
+      closeMemberActions();
+      setShowMemberReportedNotice(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not send that report — try again');
+    } finally {
+      setIsSubmittingMemberAction(false);
+    }
+  };
+
+  const handleBlockMember = async (memberId: string) => {
+    setIsSubmittingMemberAction(true);
+    try {
+      await blockUser(memberId);
+      setBlockedIds((prev) => new Set(prev).add(memberId));
+      closeMemberActions();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not block — try again');
+    } finally {
+      setIsSubmittingMemberAction(false);
+    }
+  };
+
+  const handleUnblockMember = async (memberId: string) => {
+    setIsSubmittingMemberAction(true);
+    try {
+      await unblockUser(memberId);
+      setBlockedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(memberId);
+        return next;
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not unblock — try again');
+    } finally {
+      setIsSubmittingMemberAction(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Brandmark style={styles.brandmark} />
@@ -736,6 +801,14 @@ export default function YourCircle() {
                       </Text>
                     </TouchableOpacity>
                   )}
+                  {isReachable && (
+                    <TouchableOpacity
+                      onPress={() => setMemberActionsFor(memberActionsFor === member.userId ? null : member.userId)}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.memberMoreLink}>⋯</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               );
             })}
@@ -745,6 +818,79 @@ export default function YourCircle() {
               </View>
             )}
           </View>
+
+          {memberActionsFor &&
+            (() => {
+              const target = members.find((m) => m.userId === memberActionsFor);
+              if (!target) return null;
+              const isBlocked = blockedIds.has(target.userId);
+              return (
+                <View style={styles.memberActionsPanel}>
+                  {memberActionMode === null && (
+                    <View style={styles.memberActionsRow}>
+                      <Text style={styles.memberActionsName}>{target.name ?? 'this member'}</Text>
+                      <TouchableOpacity onPress={() => setMemberActionMode('report')}>
+                        <Text style={styles.memberActionLink}>{STRINGS.reportLink}</Text>
+                      </TouchableOpacity>
+                      {isBlocked ? (
+                        <TouchableOpacity onPress={() => handleUnblockMember(target.userId)} disabled={isSubmittingMemberAction}>
+                          <Text style={styles.memberActionLink}>{STRINGS.unblockCta}</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity onPress={() => setMemberActionMode('block')}>
+                          <Text style={styles.memberActionLinkDestructive}>{STRINGS.blockLink}</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity onPress={closeMemberActions}>
+                        <Text style={styles.memberActionCancelText}>{STRINGS.reportCancelCta}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {memberActionMode === 'report' && (
+                    <>
+                      <TextInput
+                        style={styles.memberReportInput}
+                        placeholder={STRINGS.reportReasonPlaceholder}
+                        placeholderTextColor={colors.muted}
+                        value={memberReportReason}
+                        onChangeText={setMemberReportReason}
+                        multiline
+                      />
+                      <View style={styles.memberActionsRow}>
+                        <TouchableOpacity onPress={closeMemberActions} disabled={isSubmittingMemberAction}>
+                          <Text style={styles.memberActionCancelText}>{STRINGS.reportCancelCta}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleReportMember(target.userId)} disabled={isSubmittingMemberAction}>
+                          <Text style={styles.memberActionLink}>
+                            {isSubmittingMemberAction ? '…' : STRINGS.reportSubmitCta}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  )}
+
+                  {memberActionMode === 'block' && (
+                    <>
+                      <Text style={styles.memberActionConfirmText}>
+                        {STRINGS.blockConfirmTitle(target.name ?? 'this member')}
+                      </Text>
+                      <Text style={styles.memberActionConfirmBody}>{STRINGS.blockConfirmBody}</Text>
+                      <View style={styles.memberActionsRow}>
+                        <TouchableOpacity onPress={closeMemberActions} disabled={isSubmittingMemberAction}>
+                          <Text style={styles.memberActionCancelText}>{STRINGS.blockCancelCta}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleBlockMember(target.userId)} disabled={isSubmittingMemberAction}>
+                          <Text style={styles.memberActionLinkDestructive}>
+                            {isSubmittingMemberAction ? '…' : STRINGS.blockConfirmCta}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  )}
+                </View>
+              );
+            })()}
 
           {(() => {
             const best = pairStreaks
@@ -924,6 +1070,14 @@ export default function YourCircle() {
           <Text style={styles.leaveLinkText}>Leave this circle</Text>
         </TouchableOpacity>
       )}
+
+      <MessageDialog
+        visible={showMemberReportedNotice}
+        title={STRINGS.reportedConfirmationTitle}
+        message={STRINGS.reportedConfirmationBody}
+        onDismiss={() => setShowMemberReportedNotice(false)}
+      />
+      <MessageDialog visible={!!error} title="hmm" message={error ?? ''} onDismiss={() => setError(null)} />
     </ScrollView>
   );
 }
@@ -1193,6 +1347,66 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
     color: colors.gold,
+  },
+  memberMoreLink: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.muted,
+    marginTop: 2,
+  },
+  memberActionsPanel: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+    marginTop: 4,
+    ...cardShadow,
+  },
+  memberActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  memberActionsName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  memberActionLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  memberActionLinkDestructive: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.errorRed,
+  },
+  memberActionCancelText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  memberActionConfirmText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  memberActionConfirmBody: {
+    fontSize: 12,
+    color: colors.muted,
+    lineHeight: 17,
+  },
+  memberReportInput: {
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 12.5,
+    color: colors.ink,
+    minHeight: 44,
   },
   pairStreakText: {
     fontSize: 12,

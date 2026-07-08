@@ -75,6 +75,11 @@ export default function CoverAFriend() {
           setIsSaving(false);
           return;
         }
+        if (result === 'blocked') {
+          setError(STRINGS.waveBlockedError);
+          setIsSaving(false);
+          return;
+        }
         goBackToCircle();
       }
     } catch (e) {

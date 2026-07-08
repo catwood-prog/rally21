@@ -16,6 +16,7 @@ import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { joinCircleByCode, joinPublicCircle, listPublicCircles, PublicCircle } from '@/lib/circle-setup';
+import { reportContent } from '@/lib/moderation';
 
 export default function JoinCircle() {
   const router = useRouter();
@@ -28,6 +29,10 @@ export default function JoinCircle() {
   const [publicCircles, setPublicCircles] = useState<PublicCircle[]>([]);
   const [isLoadingPublic, setIsLoadingPublic] = useState(true);
   const [joiningCircleId, setJoiningCircleId] = useState<string | null>(null);
+  const [reportingCircleId, setReportingCircleId] = useState<string | null>(null);
+  const [circleReportReason, setCircleReportReason] = useState('');
+  const [isReportingCircle, setIsReportingCircle] = useState(false);
+  const [showCircleReportedNotice, setShowCircleReportedNotice] = useState(false);
 
   useEffect(() => {
     listPublicCircles()
@@ -59,6 +64,23 @@ export default function JoinCircle() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not join that circle — try again');
       setJoiningCircleId(null);
+    }
+  };
+
+  // MOD1: a second independent report auto-hides the circle from
+  // browse pending review — server-side (report_content's own circuit
+  // breaker), nothing this screen needs to track itself.
+  const handleReportCircle = async (circleId: string) => {
+    setIsReportingCircle(true);
+    try {
+      await reportContent({ targetKind: 'circle', targetId: circleId, reason: circleReportReason.trim() || undefined });
+      setReportingCircleId(null);
+      setCircleReportReason('');
+      setShowCircleReportedNotice(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not send that report — try again');
+    } finally {
+      setIsReportingCircle(false);
     }
   };
 
@@ -106,29 +128,73 @@ export default function JoinCircle() {
       ) : (
         publicCircles.map((circle) => (
           <View key={circle.circleId} style={styles.publicCard}>
-            <View style={styles.publicCardInfo}>
-              <Text style={styles.publicCardName}>{circle.name}</Text>
-              <Text style={styles.publicCardMeta}>
-                {circle.practiceName?.toLowerCase()} · {circle.memberCount}{' '}
-                {circle.memberCount === 1 ? 'member' : 'members'} · day{' '}
-                {Math.min(circle.dayNumber, circle.durationDays)} of {circle.durationDays}
-              </Text>
+            <View style={styles.publicCardRow}>
+              <View style={styles.publicCardInfo}>
+                <Text style={styles.publicCardName}>{circle.name}</Text>
+                <Text style={styles.publicCardMeta}>
+                  {circle.practiceName?.toLowerCase()} · {circle.memberCount}{' '}
+                  {circle.memberCount === 1 ? 'member' : 'members'} · day{' '}
+                  {Math.min(circle.dayNumber, circle.durationDays)} of {circle.durationDays}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.joinChip}
+                onPress={() => handleJoinPublic(circle)}
+                disabled={joiningCircleId === circle.circleId}
+              >
+                {joiningCircleId === circle.circleId ? (
+                  <ActivityIndicator size="small" color={colors.green} />
+                ) : (
+                  <Text style={styles.joinChipText}>Join</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() =>
+                  setReportingCircleId(reportingCircleId === circle.circleId ? null : circle.circleId)
+                }
+                hitSlop={8}
+              >
+                <Text style={styles.publicCardMoreLink}>⋯</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.joinChip}
-              onPress={() => handleJoinPublic(circle)}
-              disabled={joiningCircleId === circle.circleId}
-            >
-              {joiningCircleId === circle.circleId ? (
-                <ActivityIndicator size="small" color={colors.green} />
-              ) : (
-                <Text style={styles.joinChipText}>Join</Text>
-              )}
-            </TouchableOpacity>
+            {reportingCircleId === circle.circleId && (
+              <View style={styles.circleReportPanel}>
+                <TextInput
+                  style={styles.circleReportInput}
+                  placeholder={STRINGS.reportReasonPlaceholder}
+                  placeholderTextColor={colors.muted}
+                  value={circleReportReason}
+                  onChangeText={setCircleReportReason}
+                  multiline
+                />
+                <View style={styles.circleReportActionsRow}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setReportingCircleId(null);
+                      setCircleReportReason('');
+                    }}
+                    disabled={isReportingCircle}
+                  >
+                    <Text style={styles.circleReportCancelText}>{STRINGS.reportCancelCta}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleReportCircle(circle.circleId)} disabled={isReportingCircle}>
+                    <Text style={styles.circleReportSubmitText}>
+                      {isReportingCircle ? '…' : STRINGS.reportSubmitCta}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
         ))
       )}
 
+      <MessageDialog
+        visible={showCircleReportedNotice}
+        title={STRINGS.reportedConfirmationTitle}
+        message={STRINGS.reportedConfirmationBody}
+        onDismiss={() => setShowCircleReportedNotice(false)}
+      />
       <MessageDialog
         visible={!!error}
         title="hmm"
@@ -217,14 +283,16 @@ const styles = StyleSheet.create({
     marginTop: -6,
   },
   publicCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: colors.card,
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
-    gap: 10,
     ...cardShadow,
+  },
+  publicCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   publicCardInfo: {
     flex: 1,
@@ -238,6 +306,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.muted,
     marginTop: 2,
+  },
+  publicCardMoreLink: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.muted,
+    paddingHorizontal: 4,
   },
   joinChip: {
     backgroundColor: colors.bg,
@@ -253,5 +327,34 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '700',
     color: colors.green,
+  },
+  circleReportPanel: {
+    marginTop: 10,
+    gap: 8,
+  },
+  circleReportInput: {
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 12.5,
+    color: colors.ink,
+    minHeight: 44,
+  },
+  circleReportActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 16,
+  },
+  circleReportCancelText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  circleReportSubmitText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.ink,
   },
 });

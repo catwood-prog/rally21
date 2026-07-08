@@ -110,14 +110,15 @@ export async function isFriendNudgeEnabled(userId: string): Promise<boolean> {
  * post) if someone else got there first today (the real per-recipient
  * abuse guard, one received wave per person per day), or
  * 'wave_cap_reached' if the SENDER has hit their own quiet daily send
- * cap — neither is an error, both are designed, warm-copy outcomes.
- * Nudge-yourself/not-a-member/opted-out still raise, since the UI
- * shouldn't let those happen at all. */
+ * cap, or 'blocked' (MOD1) if either side has blocked the other — none
+ * of these are errors, all are designed, warm-copy outcomes. Nudge-
+ * yourself/not-a-member/opted-out still raise, since the UI shouldn't
+ * let those happen at all. */
 export async function sendFriendNudge(params: {
   circleId: string;
   recipientId: string;
   localDate: string;
-}): Promise<'sent' | 'already_nudged' | 'wave_cap_reached'> {
+}): Promise<'sent' | 'already_nudged' | 'wave_cap_reached' | 'blocked'> {
   const { data, error } = await supabase.rpc('send_friend_nudge', {
     p_circle_id: params.circleId,
     p_recipient_id: params.recipientId,
@@ -127,7 +128,7 @@ export async function sendFriendNudge(params: {
     captureError(error, { rpc: 'send_friend_nudge' });
     throw error;
   }
-  return data as 'sent' | 'already_nudged' | 'wave_cap_reached';
+  return data as 'sent' | 'already_nudged' | 'wave_cap_reached' | 'blocked';
 }
 
 export async function postWallMessage(

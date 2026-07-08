@@ -301,6 +301,25 @@ export const STRINGS = {
   hostDeleteWallMessageCancel: 'Cancel',
   hostDeleteWallMessageLink: 'remove',
 
+  // MOD1 (7 July) — report + block, the safety floor. Quiet, dignified
+  // affordances; no drama styling, matching how the app treats
+  // destructive actions elsewhere.
+  reportLink: 'report',
+  reportReasonPlaceholder: 'say what happened (optional)',
+  reportCancelCta: 'Cancel',
+  reportSubmitCta: 'Send report',
+  reportedConfirmationTitle: 'thank you',
+  reportedConfirmationBody: "we'll take a look. you won't see this again.",
+  blockLink: 'block',
+  blockConfirmTitle: (name: string) => `block ${name}?`,
+  blockConfirmBody: "you won't see their wall messages or reactions anymore, and waves stop both ways. they won't be told.",
+  blockConfirmCta: 'Block',
+  blockCancelCta: 'Cancel',
+  unblockCta: 'Unblock',
+  blockedPeopleSectionLabel: 'blocked people',
+  blockedPeopleEmpty: "you haven't blocked anyone",
+  waveBlockedError: "you can't wave at someone you've blocked",
+
   // DC1 (7 July) — "your data & privacy" screen (MVP Screens mockup #23):
   // the privacy-promise screen's three promises (see, correct, or delete
   // anytime) made operable.
