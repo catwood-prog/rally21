@@ -27,6 +27,7 @@ export default function Welcome() {
           <Text style={styles.titleAccent}>{STRINGS.introWelcomeTitleAccent}</Text>
         </Text>
         <Text style={styles.subtitle}>{STRINGS.introWelcomeBody}</Text>
+        <Text style={styles.soloLine}>{STRINGS.introWelcomeSoloLine}</Text>
         <View style={styles.dots}>
           <View style={[styles.dot, styles.dotActive]} />
           <View style={styles.dot} />
@@ -79,6 +80,14 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     textAlign: 'center',
     marginTop: 12,
+  },
+  soloLine: {
+    fontSize: 12,
+    color: colors.muted,
+    lineHeight: 17,
+    textAlign: 'center',
+    marginTop: 8,
+    opacity: 0.85,
   },
   dots: {
     flexDirection: 'row',

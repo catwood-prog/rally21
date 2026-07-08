@@ -79,6 +79,12 @@ export const STRINGS = {
 
   practiceStepQuestion: 'what will you do each day?',
   circleNameHelper: "this is your team's name — make it yours",
+  // Solo-only "when's your first one?" choice on the commitment screen
+  // (SF1, Cat 7 July). Neither option is judged; "right now" is default so
+  // an evening signup can reach the timer/question/confetti in session one.
+  soloFirstWhenLabel: "when's your first one?",
+  soloFirstNow: 'right now',
+  soloFirstTomorrow: (timeLabel: string) => `tomorrow ${timeLabel}`,
   publicShareDisclosure: 'public circles share their practice to the library, so others can start their own',
   myPracticesSubtitle: 'your practice library — reuse them in new circles. Shared ones can be picked by others.',
   practicePillShared: 'shared',
@@ -179,6 +185,10 @@ export const STRINGS = {
   introWelcomeTitleAccent: 'together',
   introWelcomeBody:
     'Pick a small daily practice with a circle of friends. Show up for each other, a couple of lines a day.',
+  // A quiet solo-inclusive line under the body — the huddle is still the
+  // headline, but a stranger arriving alone shouldn't feel out of place
+  // (SF1, Cat 7 July).
+  introWelcomeSoloLine: 'start alone if you like — the huddle can come later.',
   introWelcomeNext: 'Next',
   introWelcomeSignInLink: 'I already have an account',
   introPrivacyTitleLead: 'your inner life,',

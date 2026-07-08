@@ -67,7 +67,7 @@ export default function CircleSetup() {
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.soloCard}
+        style={styles.card}
         onPress={() =>
           router.push({
             pathname: '/onboarding/create-circle',
@@ -79,8 +79,9 @@ export default function CircleSetup() {
           })
         }
       >
-        <Text style={styles.soloCardTitle}>Go solo</Text>
-        <Text style={styles.soloCardBody}>
+        <Text style={styles.cardEmoji}>🌱</Text>
+        <Text style={styles.cardTitle}>Go solo</Text>
+        <Text style={styles.cardBody}>
           just you, for now — your circle can grow later
         </Text>
       </TouchableOpacity>
@@ -143,19 +144,5 @@ const styles = StyleSheet.create({
     color: colors.muted,
     lineHeight: 16,
     marginTop: 4,
-  },
-  soloCard: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  soloCardTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.muted,
-  },
-  soloCardBody: {
-    fontSize: 11,
-    color: colors.muted,
-    marginTop: 2,
   },
 });

@@ -19,6 +19,7 @@ import { useAuth } from '@/lib/auth-context';
 import { activateWant } from '@/lib/blueprint';
 import { setCircleResourceUrl } from '@/lib/circle';
 import { createCircle } from '@/lib/circle-setup';
+import { getMyProfile } from '@/lib/profile';
 import { isHttpUrl } from '@/lib/resourceLink';
 
 const TIME_OPTIONS = [
@@ -44,6 +45,10 @@ export default function TheCommitment() {
 
   const [circleName, setCircleName] = useState(practiceName ?? '');
   const [selectedTime, setSelectedTime] = useState(TIME_OPTIONS[0].time);
+  // Solo-only: does their first check-in happen now or tomorrow? Default
+  // "right now" so an evening signup reaches the check-in flow this session
+  // instead of committing to a time and leaving having done nothing (SF1).
+  const [startFirstNow, setStartFirstNow] = useState(true);
   const [isPublic, setIsPublic] = useState(false);
   const [resourceUrl, setResourceUrl] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -83,8 +88,31 @@ export default function TheCommitment() {
         }).catch(() => {});
       }
       if (isSolo) {
-        // "/" re-checks profile + membership and lands on Today
-        router.replace('/');
+        if (startFirstNow) {
+          // Route straight into the check-in flow for the circle they just
+          // made — the same entry Today's check-in CTA uses: checkin-intro
+          // if the first-time private-picture consent hasn't been seen yet,
+          // otherwise the check-in itself (SF1). A brand-new stranger has
+          // never seen consent, so they'll get the intro; the else branch
+          // covers a returning user spinning up another solo circle.
+          let hasSeenConsent = false;
+          if (session?.user) {
+            try {
+              const profile = await getMyProfile(session.user.id);
+              hasSeenConsent = profile?.has_seen_checkin_consent ?? false;
+            } catch {
+              // non-blocking — worst case they see the one-time consent intro
+              // again, which is harmless
+            }
+          }
+          router.replace({
+            pathname: hasSeenConsent ? '/checkin' : '/checkin-intro',
+            params: { circleId },
+          });
+        } else {
+          // "/" re-checks profile + membership and lands on Today
+          router.replace('/');
+        }
       } else {
         router.replace({
           pathname: '/onboarding/invite',
@@ -96,6 +124,9 @@ export default function TheCommitment() {
       setIsCreating(false);
     }
   };
+
+  const selectedTimeLabel =
+    TIME_OPTIONS.find((o) => o.time === selectedTime)?.label.toLowerCase() ?? '';
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -145,6 +176,30 @@ export default function TheCommitment() {
       </View>
 
       <Text style={styles.hint}>daily, for 21 days — a couple lines a day, that&apos;s it</Text>
+
+      {isSolo && (
+        <>
+          <Text style={[styles.label, styles.sectionSpacing]}>{STRINGS.soloFirstWhenLabel}</Text>
+          <View style={styles.chipRow}>
+            <TouchableOpacity
+              style={[styles.chip, startFirstNow && styles.chipSelected]}
+              onPress={() => setStartFirstNow(true)}
+            >
+              <Text style={[styles.chipText, startFirstNow && styles.chipTextSelected]}>
+                {STRINGS.soloFirstNow}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, !startFirstNow && styles.chipSelected]}
+              onPress={() => setStartFirstNow(false)}
+            >
+              <Text style={[styles.chipText, !startFirstNow && styles.chipTextSelected]}>
+                {STRINGS.soloFirstTomorrow(selectedTimeLabel)}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
 
       <Text style={[styles.label, styles.sectionSpacing]}>add a link (optional)</Text>
       <TextInput
