@@ -39,7 +39,7 @@ import { getMyLastCelebratedDay, getNextMilestone, shouldShowJourneyGate } from 
 import { getMyProfile } from '@/lib/profile';
 import { hasUnrespondedDayObservation } from '@/lib/reflections';
 import { computeSignal, PresenceRow } from '@/lib/signal';
-import { hasPlayedTodayGlowOneShot, markTodayGlowOneShotPlayed } from '@/lib/todayOneShot';
+import { hasPlayedTodayOneShot, markTodayOneShotPlayed } from '@/lib/todayOneShot';
 
 const CIRCLE_COUNT_WORD: Record<number, string> = { 1: 'one', 2: 'two', 3: 'three' };
 
@@ -177,8 +177,8 @@ export default function Today() {
     if (!week || week.length === 0) return;
     const todayRow = week[week.length - 1];
     if (todayRow.state !== 'earned') return;
-    if (hasPlayedTodayGlowOneShot(todayRow.date)) return;
-    markTodayGlowOneShotPlayed(todayRow.date);
+    if (hasPlayedTodayOneShot('glow', todayRow.date)) return;
+    markTodayOneShotPlayed('glow', todayRow.date);
     setGlowOneShot(true);
   }, [week]);
 

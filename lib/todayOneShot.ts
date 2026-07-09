@@ -1,16 +1,24 @@
-// P1 (8 July) — Today's one-shot gestures (the dot strip's fill-pop, the
-// header flame's flicker) play once per state change, never per visit.
-// A plain in-memory Set is enough: it resets on a full reload, which just
-// means a fresh "session" gets to see the one-shot again once — no
-// AsyncStorage/server round-trip is worth it for a purely decorative
-// flourish. Keyed by local date so a day that's already played never
-// replays on a later focus of Today the same day.
-const playedDates = new Set<string>();
+// P1 (8 July) / BD2 (8 July) — Today's one-shot surfaces (the glow dot
+// strip's fill-pop + header flame flicker, and the birthday moment's
+// entrance/confetti/gesture) each play once per local date, never per
+// visit. A plain in-memory Set is enough: it resets on a full reload,
+// which just means a fresh "session" gets to see the one-shot again once
+// — no AsyncStorage/server round-trip is worth it for a purely
+// decorative flourish. Generalized to a `kind` (BD2 is this module's
+// second caller) so a birthday and a glow one-shot on the SAME day are
+// tracked independently rather than colliding on a shared key.
+export type OneShotKind = 'glow' | 'birthday';
 
-export function hasPlayedTodayGlowOneShot(localDate: string): boolean {
-  return playedDates.has(localDate);
+const playedKeys = new Set<string>();
+
+function key(kind: OneShotKind, localDate: string): string {
+  return `${kind}:${localDate}`;
 }
 
-export function markTodayGlowOneShotPlayed(localDate: string): void {
-  playedDates.add(localDate);
+export function hasPlayedTodayOneShot(kind: OneShotKind, localDate: string): boolean {
+  return playedKeys.has(key(kind, localDate));
+}
+
+export function markTodayOneShotPlayed(kind: OneShotKind, localDate: string): void {
+  playedKeys.add(key(kind, localDate));
 }

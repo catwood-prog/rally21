@@ -79,7 +79,8 @@ export const TODAY_ONE_SHOT = {
   DOT_POP_SCALE: 1.2,
 } as const;
 
-// --- 4. Mascot one-shot gestures (checkin-complete.tsx, journey-gate.tsx) ---
+// --- 4. Mascot one-shot gestures (checkin-complete.tsx, journey-gate.tsx,
+// components/BirthdayBanner.tsx) ---
 // CSS transforms layered on top of the existing M1 entrance, never a
 // replacement for it. Plays once per surface visit, then holds still.
 export const MASCOT_GESTURE = {
@@ -95,6 +96,21 @@ export const MASCOT_GESTURE = {
   DAY21_BOW_DURATION_MS: 600,
   DAY21_BOW_ROTATE_DEG: 8,
   DAY21_BOW_DIP_PX: 6,
+  // BD2 (8 July) — the once-a-year birthday moment. The entrance itself
+  // borrows day-21's own slower ~600ms feel (bigger than the standard
+  // 350ms MascotEntrance, smaller a moment than day-21's full ceremony);
+  // the hop + wiggle then starts once that entrance lands, mirroring the
+  // bow's own "starts once the entrance lands" pattern above. Hop and
+  // wiggle run concurrently (one combined happy bounce), each finishing
+  // well under the ≤600ms budget.
+  BIRTHDAY_ENTRANCE_MS: 600,
+  BIRTHDAY_ENTRANCE_RISE_PX: 12,
+  BIRTHDAY_HOP_DELAY_MS: 600,
+  BIRTHDAY_HOP_UP_MS: 180,
+  BIRTHDAY_HOP_DOWN_MS: 220,
+  BIRTHDAY_HOP_HEIGHT_PX: 10,
+  BIRTHDAY_WIGGLE_ROTATE_DEG: 6,
+  BIRTHDAY_WIGGLE_STEP_MS: 110,
 } as const;
 
 // --- 5. Sound (lib/chime.ts) ---

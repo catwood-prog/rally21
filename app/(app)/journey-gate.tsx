@@ -1,20 +1,19 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
-  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withDelay,
-  withRepeat,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
 import { MASCOT } from '@/assets/mascot';
 import { Brandmark } from '@/components/Brandmark';
+import { ConfettiBurst } from '@/components/ConfettiBurst';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
@@ -32,99 +31,12 @@ import { MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
 import { getMyProfile } from '@/lib/profile';
 
 // The one big moment in the app (mascot brief) — a bigger, slower burst
-// than check-in success's small daily beat.
+// than check-in success's small daily beat. The burst mechanism itself
+// lives in components/ConfettiBurst.tsx (BD2, 8 July) so the birthday
+// moment can reuse it rather than a second implementation — these
+// numbers are unchanged from before that extraction.
 const CONFETTI_COUNT = 34;
 const CONFETTI_COLORS = [colors.gold, colors.green, colors.ink];
-const CONFETTI_LIFETIME_MS = 4200;
-const CONFETTI_FADE_MS = 800;
-
-type ConfettiSpec = {
-  left: `${number}%`;
-  size: number;
-  color: string;
-  fallDuration: number;
-  fallDelay: number;
-  swayAmplitude: number;
-  swayDuration: number;
-  rotateDuration: number;
-};
-
-function makeConfettiSpecs(): ConfettiSpec[] {
-  return Array.from({ length: CONFETTI_COUNT }, () => ({
-    left: `${Math.random() * 100}%`,
-    size: 4 + Math.random() * 5,
-    color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
-    fallDuration: 2600 + Math.random() * 1800,
-    fallDelay: Math.random() * 1200,
-    swayAmplitude: 8 + Math.random() * 14,
-    swayDuration: 900 + Math.random() * 700,
-    rotateDuration: 1600 + Math.random() * 1600,
-  }));
-}
-
-function ConfettiPiece({ spec, fallDistance }: { spec: ConfettiSpec; fallDistance: number }) {
-  const translateY = useSharedValue(-20);
-  const translateX = useSharedValue(0);
-  const rotate = useSharedValue(0);
-  const opacity = useSharedValue(1);
-
-  useEffect(() => {
-    translateY.value = withDelay(
-      spec.fallDelay,
-      withRepeat(withTiming(fallDistance, { duration: spec.fallDuration, easing: Easing.linear }), -1, false)
-    );
-    translateX.value = withRepeat(
-      withSequence(
-        withTiming(spec.swayAmplitude, { duration: spec.swayDuration, easing: Easing.inOut(Easing.ease) }),
-        withTiming(-spec.swayAmplitude, { duration: spec.swayDuration, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-    rotate.value = withRepeat(
-      withTiming(360, { duration: spec.rotateDuration, easing: Easing.linear }),
-      -1,
-      false
-    );
-
-    const fadeTimer = setTimeout(() => {
-      opacity.value = withTiming(0, { duration: CONFETTI_FADE_MS }, (finished) => {
-        if (finished) {
-          cancelAnimation(translateY);
-          cancelAnimation(translateX);
-          cancelAnimation(rotate);
-        }
-      });
-    }, CONFETTI_LIFETIME_MS);
-
-    return () => {
-      clearTimeout(fadeTimer);
-      cancelAnimation(translateY);
-      cancelAnimation(translateX);
-      cancelAnimation(rotate);
-      cancelAnimation(opacity);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const style = useAnimatedStyle(() => ({
-    position: 'absolute' as const,
-    top: 0,
-    left: spec.left,
-    width: spec.size,
-    height: spec.size * 0.65,
-    borderRadius: 2,
-    backgroundColor: spec.color,
-    opacity: opacity.value,
-    transform: [
-      { translateY: translateY.value },
-      { translateX: translateX.value },
-      { rotate: `${rotate.value}deg` },
-    ],
-  }));
-
-  return <Animated.View style={style} />;
-}
 
 type Decision = 'pending' | 'rallied' | 'completed';
 
@@ -132,7 +44,6 @@ export default function JourneyGate() {
   const router = useRouter();
   const { session } = useAuth();
   const { circleId } = useLocalSearchParams<{ circleId: string }>();
-  const { height: windowHeight } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
 
   const [circle, setCircle] = useState<MyCircle | null>(null);
@@ -162,8 +73,6 @@ export default function JourneyGate() {
       })
       .finally(() => setIsLoading(false));
   }, [circleId, router]);
-
-  const [confettiSpecs] = useState<ConfettiSpec[]>(() => (reduceMotion ? [] : makeConfettiSpecs()));
 
   const heroOpacity = useSharedValue(reduceMotion ? 1 : 0);
   const heroY = useSharedValue(reduceMotion ? 0 : 12);
@@ -294,13 +203,7 @@ export default function JourneyGate() {
     <View style={styles.container}>
       <Brandmark style={styles.brandmark} />
 
-      {confettiSpecs.length > 0 && (
-        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-          {confettiSpecs.map((spec, i) => (
-            <ConfettiPiece key={i} spec={spec} fallDistance={windowHeight} />
-          ))}
-        </View>
-      )}
+      <ConfettiBurst count={CONFETTI_COUNT} colors={CONFETTI_COLORS} reduceMotion={reduceMotion} />
 
       <Animated.View style={heroStyle}>
         <Image

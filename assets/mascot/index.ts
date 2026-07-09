@@ -32,4 +32,9 @@ export const MASCOT = {
   // Ask Rally's empty state only (A2, 7 July) — text-first once a
   // conversation exists, per the brief's scarcity principle.
   theListener: require('./the-listener.png'),
+  // BD2 (8 July) — the once-a-year birthday moment on Today
+  // (components/BirthdayBanner.tsx). Party hat, cupcake + candle, gold
+  // scarf, confetti; verified real alpha (corners transparent, not a
+  // painted-opaque checkerboard) before this was wired in.
+  birthdayPenguin: require('./birthday-penguin.png'),
 };
