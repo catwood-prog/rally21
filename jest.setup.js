@@ -28,3 +28,13 @@ jest.mock('./lib/sentry', () => ({
   captureError: jest.fn(),
   setSentryScreen: jest.fn(),
 }));
+
+// The native AsyncStorage module doesn't exist under Jest (it's a native
+// module with no JS implementation to fall back on), so any lib/ test that
+// imports it directly throws "NativeModule: AsyncStorage is null" unless
+// mocked — the package ships its own official in-memory jest mock for
+// exactly this (T1, 8 July: found while adding lib/timer.ts's persisted
+// countdown, which needed a real AsyncStorage round-trip to test).
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+);

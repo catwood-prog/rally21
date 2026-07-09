@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -7,11 +7,22 @@ import { Brandmark } from '@/components/Brandmark';
 import { LinkCard } from '@/components/LinkCard';
 import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { playChime, vibrateOnCompletion } from '@/lib/chime';
-import { getMyProfile, setSoundsEnabled } from '@/lib/profile';
+import { getLocalDateString } from '@/lib/date';
+import { getMyProfile, markTimerBackgroundHintSeen, setSoundsEnabled } from '@/lib/profile';
 import { extractYouTubeId } from '@/lib/resourceLink';
+import {
+  clearPersistedTimer,
+  computeEndsAt,
+  hasEnded,
+  loadPersistedTimer,
+  remainingSeconds,
+  savePersistedTimer,
+  timerStorageKey,
+} from '@/lib/timer';
 import { useWakeLock } from '@/lib/wakeLock';
 
 const RADIUS = 80;
@@ -75,27 +86,73 @@ export default function CheckinTimer() {
   // screen, i.e. no resource link at all, or a non-video link paired with
   // a timed practice.
   const hasTimerUI = !videoId && totalSeconds > 0;
+  // T1 (8 July): scoped per circle AND local date — a sit abandoned on a
+  // previous day and never marked done must never resurface as "still
+  // running" (or "just ended, it still counts") on a later day's fresh
+  // check-in for the same circle.
+  const storageKey = circleId ? timerStorageKey(circleId, getLocalDateString()) : null;
 
   const [phase, setPhase] = useState<Phase>('running');
-  // Remaining time is always derived from a wall-clock timestamp, never
-  // decremented tick-by-tick — that's what keeps the countdown accurate
-  // across a locked screen or a backgrounded tab, where setInterval ticks
-  // get throttled or paused but Date.now() never lies.
-  const [startedAt, setStartedAt] = useState<number | null>(Date.now());
+  // T1: remaining time was already derived from a wall-clock deadline
+  // rather than decremented tick-by-tick (verified by reading the
+  // pre-existing code before this pass) — that part was never the bug.
+  // The gap was that the deadline itself (`endsAt`) lived only in a plain
+  // useState initializer, which re-runs on every fresh mount, so an
+  // accidental same-tab refresh silently restarted the countdown from
+  // full duration instead of resuming it. `endsAt` now starts null and
+  // resolves once (below) from AsyncStorage — either a still-relevant
+  // persisted deadline, or a freshly computed one that gets persisted
+  // immediately so the *next* refresh has something to resume from.
+  const [endsAt, setEndsAt] = useState<number | null>(null);
   const [pausedRemaining, setPausedRemaining] = useState<number | null>(null);
   const [, setTick] = useState(0);
   const [soundsEnabled, setSoundsEnabledState] = useState(true);
+  // Whether this particular completion was detected via the tab-return
+  // catch-up path (item 3) rather than the normal foregrounded countdown
+  // — purely a copy decision, never changes the completion itself.
+  const [caughtUp, setCaughtUp] = useState(false);
+  const [showBackgroundHint, setShowBackgroundHint] = useState(false);
+  const [hasSeenBackgroundHint, setHasSeenBackgroundHint] = useState(true);
+  // Tracks whether the tab has gone hidden at least once while this sit
+  // was actively running — the honest-affordance hint (item 4) only ever
+  // shows on return from *that*, never proactively.
+  const wasBackgroundedRef = useRef(false);
 
   useWakeLock(phase === 'running');
 
   useEffect(() => {
     if (!session?.user) return;
     getMyProfile(session.user.id)
-      .then((profile) => setSoundsEnabledState(profile?.sounds_enabled ?? true))
+      .then((profile) => {
+        setSoundsEnabledState(profile?.sounds_enabled ?? true);
+        setHasSeenBackgroundHint(profile?.has_seen_timer_background_hint ?? true);
+      })
       .catch(() => {
-        // preference just falls back to sound-on for this session
+        // preferences just fall back to their defaults for this session
       });
   }, [session?.user?.id]);
+
+  // T1: resolve the deadline once — resume a still-relevant persisted one
+  // (same circle, same local date, same duration) or start fresh and
+  // persist it immediately so a later refresh has something to resume.
+  useEffect(() => {
+    if (!hasTimerUI || !storageKey) return;
+    let cancelled = false;
+    loadPersistedTimer(storageKey).then((persisted) => {
+      if (cancelled) return;
+      if (persisted && persisted.totalSeconds === totalSeconds) {
+        setEndsAt(persisted.endsAt);
+      } else {
+        const fresh = computeEndsAt(Date.now(), totalSeconds);
+        setEndsAt(fresh);
+        savePersistedTimer(storageKey, { endsAt: fresh, totalSeconds });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleToggleMute = () => {
     const next = !soundsEnabled;
@@ -116,8 +173,8 @@ export default function CheckinTimer() {
   const remaining =
     phase === 'paused' && pausedRemaining != null
       ? pausedRemaining
-      : startedAt != null
-        ? Math.max(0, totalSeconds - (Date.now() - startedAt) / 1000)
+      : endsAt != null
+        ? remainingSeconds(endsAt, Date.now())
         : totalSeconds;
 
   useEffect(() => {
@@ -126,14 +183,55 @@ export default function CheckinTimer() {
     }
   }, [remaining, phase, hasTimerUI]);
 
+  // T1 — warm catch-up (item 3) + the honest affordance hint (item 4) +
+  // re-acquiring an accurate render on return. Both concerns live in one
+  // listener since they're both keyed off the same visibilitychange
+  // event; the Wake Lock's own re-acquire is separate (lib/wakeLock.ts)
+  // since that concern belongs entirely to that hook.
+  useEffect(() => {
+    if (!hasTimerUI || typeof document === 'undefined') return;
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        if (phase === 'running') wasBackgroundedRef.current = true;
+        return;
+      }
+      // visible again — force an immediate accurate repaint of the
+      // countdown rather than waiting up to 500ms for the next tick.
+      setTick((t) => t + 1);
+
+      if (phase === 'running' && endsAt != null && hasEnded(endsAt, Date.now())) {
+        setCaughtUp(true);
+        setPhase('done');
+      }
+
+      if (wasBackgroundedRef.current && !hasSeenBackgroundHint) {
+        setShowBackgroundHint(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [hasTimerUI, phase, endsAt, hasSeenBackgroundHint]);
+
   useEffect(() => {
     if (phase !== 'done') return;
     // The chime is best-effort — if audio was never unlocked, or playback
-    // is blocked because the tab finished this while backgrounded, both
-    // helpers just no-op. The end-state screen below is the real signal.
+    // is blocked because the tab finished this while backgrounded (iOS
+    // Safari in particular may not allow it from here — unverified this
+    // session, see the report), both helpers just no-op. The end-state
+    // screen below is the real signal either way.
     if (soundsEnabled) playChime();
     vibrateOnCompletion();
   }, [phase, soundsEnabled]);
+
+  // T1: once done (by either path), drop the persisted deadline so a
+  // later check-in for the same circle today never resumes a completed
+  // sit's stale deadline.
+  useEffect(() => {
+    if (phase !== 'done' || !hasTimerUI || !storageKey) return;
+    clearPersistedTimer(storageKey);
+  }, [phase, hasTimerUI, storageKey]);
 
   useEffect(() => {
     if (phase !== 'done') return;
@@ -147,20 +245,38 @@ export default function CheckinTimer() {
     if (phase === 'running') {
       setPausedRemaining(remaining);
       setPhase('paused');
+      // A refresh mid-pause simply loses the pause and resumes at full
+      // duration (same as today's behavior) rather than resuming into a
+      // paused state — a deliberately narrower gap than the running case,
+      // see the report.
+      if (hasTimerUI && storageKey) clearPersistedTimer(storageKey);
     } else if (phase === 'paused') {
-      setStartedAt(Date.now() - (totalSeconds - (pausedRemaining ?? totalSeconds)) * 1000);
+      const fresh = computeEndsAt(Date.now(), pausedRemaining ?? totalSeconds);
+      setEndsAt(fresh);
       setPausedRemaining(null);
       setPhase('running');
+      if (hasTimerUI && storageKey) savePersistedTimer(storageKey, { endsAt: fresh, totalSeconds });
     }
   };
 
   const handleMarkDone = () => setPhase('done');
 
+  const dismissBackgroundHint = () => {
+    setShowBackgroundHint(false);
+    setHasSeenBackgroundHint(true);
+    if (session?.user) {
+      markTimerBackgroundHintSeen(session.user.id).catch(() => {
+        // low-stakes — the hint just might show again next time
+      });
+    }
+  };
+
   if (phase === 'done') {
     return (
       <View style={[styles.container, styles.doneContainer]}>
         <Text style={styles.doneEmoji}>✓</Text>
-        <Text style={styles.doneText}>nice — you showed up</Text>
+        <Text style={styles.doneText}>{STRINGS.timerDoneLabel}</Text>
+        {caughtUp && <Text style={styles.catchUpNote}>{STRINGS.timerCatchUpNote}</Text>}
       </View>
     );
   }
@@ -201,6 +317,12 @@ export default function CheckinTimer() {
             Timed practice · or just <Text style={styles.footNoteBold}>mark as done</Text>
           </Text>
         )}
+
+        {showBackgroundHint && (
+          <TouchableOpacity onPress={dismissBackgroundHint} style={styles.backgroundHintCard}>
+            <Text style={styles.backgroundHintText}>{STRINGS.timerBackgroundHint}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.buttonRow}>
@@ -234,6 +356,7 @@ const styles = StyleSheet.create({
   doneContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24,
   },
   doneEmoji: {
     fontSize: 40,
@@ -244,6 +367,12 @@ const styles = StyleSheet.create({
     fontFamily: FONT_HEADER,
     fontSize: 18,
     color: '#fff',
+  },
+  catchUpNote: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
+    marginTop: 10,
   },
   topbar: {
     flexDirection: 'row',
@@ -323,6 +452,19 @@ const styles = StyleSheet.create({
   footNoteBold: {
     fontWeight: '700',
     color: '#fff',
+  },
+  backgroundHintCard: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  backgroundHintText: {
+    fontSize: 11.5,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
   },
   buttonRow: {
     flexDirection: 'row',

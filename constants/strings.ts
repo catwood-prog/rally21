@@ -77,6 +77,15 @@ export const STRINGS = {
   voiceMicDiscoveryHint: 'you can speak your answers 🎤 — often easier than typing',
   checkinQuestionInputPlaceholder: 'your answer',
 
+  // T1 (8 July) — timer resilience. The done-state label stays the same
+  // whether the sit finished in the foreground or was caught up on
+  // return from a backgrounded tab; timerCatchUpNote is the one extra
+  // line that appears only for the latter, never a stale countdown or a
+  // scolding tone.
+  timerDoneLabel: 'nice — you showed up',
+  timerCatchUpNote: 'your sit ended while you were away — it still counts',
+  timerBackgroundHint: "keep this screen open to hear the chime — we'll keep it awake for you.",
+
   practiceStepQuestion: 'what will you do each day?',
   circleNameHelper: "this is your team's name — make it yours",
   // Solo-only "when's your first one?" choice on the commitment screen

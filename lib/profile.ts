@@ -11,6 +11,7 @@ export type Profile = {
   sounds_enabled: boolean;
   has_seen_voice_hint: boolean;
   has_seen_cover_hint: boolean;
+  has_seen_timer_background_hint: boolean;
   blueprint_surfaced_pattern_key: string | null;
   blueprint_surfaced_at: string | null;
   // BD1 — birthday is fully optional; birth_year (if given) is never
@@ -25,7 +26,7 @@ export async function getMyProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('users')
     .select(
-      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday'
+      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, has_seen_timer_background_hint, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday'
     )
     .eq('id', userId)
     .maybeSingle();
@@ -98,6 +99,19 @@ export async function markCoverHintSeen(userId: string): Promise<void> {
   const { error } = await supabase
     .from('users')
     .update({ has_seen_cover_hint: true })
+    .eq('id', userId);
+
+  if (error) throw error;
+}
+
+/** T1 — the timer's "keep this screen open to hear the chime" hint only
+ * shows the first time someone backgrounds the tab mid-sit, ever — this
+ * flips the flag for good, same one-shot pattern as the voice/cover
+ * hints above. */
+export async function markTimerBackgroundHintSeen(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({ has_seen_timer_background_hint: true })
     .eq('id', userId);
 
   if (error) throw error;
