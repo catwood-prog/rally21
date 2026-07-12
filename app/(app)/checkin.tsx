@@ -286,7 +286,7 @@ export default function CheckIn() {
   );
 }
 
-function QuestionInput({
+export function QuestionInput({
   question,
   value,
   onChange,
@@ -334,9 +334,18 @@ function QuestionInput({
   }
 
   if (question.format === 'binary') {
+    // Q3 (12 July, live cohort bug): the bank designs a real pair per
+    // question (e.g. "want to" / "have to") — a hardcoded Yes/No here
+    // flattened every binary question's own voice. Fall back to Yes/No
+    // only when options is genuinely null or malformed (not exactly 2
+    // entries), never as the normal path.
+    const binaryOptions =
+      question.options && question.options.length === 2
+        ? question.options
+        : [STRINGS.checkinBinaryFallbackYes, STRINGS.checkinBinaryFallbackNo];
     return (
       <View style={styles.chipRow}>
-        {['Yes', 'No'].map((option) => (
+        {binaryOptions.map((option) => (
           <TouchableOpacity
             key={option}
             style={[styles.chip, value === option && styles.chipSelected]}

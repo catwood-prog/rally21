@@ -81,6 +81,11 @@ export const STRINGS = {
   voiceDictationDeniedHint: 'you can also dictate with the keyboard mic 🎤',
   voiceMicDiscoveryHint: 'you can speak your answers 🎤 — often easier than typing',
   checkinQuestionInputPlaceholder: 'your answer',
+  // Q3 (12 July) — binary questions render their own two options from the
+  // DB (e.g. "want to" / "have to"); this pair is only a fallback for a
+  // null/malformed options array, never the normal path.
+  checkinBinaryFallbackYes: 'Yes',
+  checkinBinaryFallbackNo: 'No',
 
   // T1 (8 July) — timer resilience. The done-state label stays the same
   // whether the sit finished in the foreground or was caught up on
