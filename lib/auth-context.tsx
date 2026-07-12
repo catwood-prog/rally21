@@ -11,6 +11,7 @@ type AuthContextValue = {
   session: Session | null;
   isLoading: boolean;
   signInWithEmail: (email: string) => Promise<{ error: string | null }>;
+  signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 };
 
@@ -73,12 +74,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return { error: error?.message ?? null };
   };
 
+  // O1 (Google slice, 8/12 July) — web only, same redirect route and same
+  // detectSessionInUrl pickup as the magic-link flow above; there is no
+  // native build yet, so this never needs a platform branch. Live-verified
+  // against the deployed project: an existing magic-link account signing
+  // in with Google using the same (verified) email resolves to the SAME
+  // user id via Supabase's automatic identity linking — never a duplicate.
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: getRedirectUrl() },
+    });
+    return { error: error?.message ?? null };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ session, isLoading, signInWithEmail, signOut }}>
+    <AuthContext.Provider value={{ session, isLoading, signInWithEmail, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );

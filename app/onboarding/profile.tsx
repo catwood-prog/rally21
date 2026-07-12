@@ -22,10 +22,24 @@ import { useAuth } from '@/lib/auth-context';
 import { isValidBirthday } from '@/lib/birthday';
 import { saveProfile } from '@/lib/profile';
 
+// O1 (Google slice, 8/12 July): a brand-new Google signup arrives with a
+// profile name already on the session (verified live — Supabase's
+// raw_user_meta_data for a real Google identity carries `full_name`/`name`,
+// no separate `given_name`, since only the basic email+profile scopes are
+// granted here) — prefill it into the single "your name" field this screen
+// already has, rather than leaving a blank field for something Google
+// already told us. Still just a starting value in a normal TextInput:
+// nothing saves until she taps Continue, same as every other field here.
+function initialNameFromSession(session: { user: { user_metadata?: Record<string, unknown> } } | null): string {
+  const metadata = session?.user.user_metadata;
+  const fullName = metadata?.full_name ?? metadata?.name;
+  return typeof fullName === 'string' ? fullName : '';
+}
+
 export default function ProfileSetup() {
   const router = useRouter();
   const { session, signOut } = useAuth();
-  const [name, setName] = useState('');
+  const [name, setName] = useState(() => initialNameFromSession(session));
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [birthday, setBirthday] = useState<BirthdayValue>({ month: null, day: null, year: null });
   const [isSaving, setIsSaving] = useState(false);

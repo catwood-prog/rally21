@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,14 +13,16 @@ import {
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 
 export default function SignIn() {
-  const { signInWithEmail } = useAuth();
+  const { signInWithEmail, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const handleSend = async () => {
     if (!email.trim()) return;
@@ -30,6 +33,19 @@ export default function SignIn() {
       setStatus('error');
     } else {
       setStatus('sent');
+    }
+  };
+
+  const handleGoogle = async () => {
+    setIsGoogleLoading(true);
+    // signInWithOAuth navigates the whole page away to Google on success —
+    // this only resolves with an error if the redirect itself couldn't be
+    // started (e.g. offline), so isGoogleLoading only needs to reset then.
+    const { error } = await signInWithGoogle();
+    if (error) {
+      setErrorMessage(STRINGS.signInGoogleError);
+      setStatus('error');
+      setIsGoogleLoading(false);
     }
   };
 
@@ -55,6 +71,28 @@ export default function SignIn() {
       <Brandmark style={styles.brandmark} />
       <Text style={styles.title}>let&apos;s get your circle going</Text>
       <Text style={styles.subtitle}>no password — just a link to your email</Text>
+
+      {/* O1 (Google slice, 8/12 July): a dedicated block above the email
+          form, not fused to it — leaves room for a "Continue with Apple"
+          button to slot in above Google later without restructuring. */}
+      <View style={styles.oauthButtons}>
+        <TouchableOpacity style={styles.googleButton} onPress={handleGoogle} disabled={isGoogleLoading}>
+          {isGoogleLoading ? (
+            <ActivityIndicator color={colors.ink} />
+          ) : (
+            <>
+              <Ionicons name="logo-google" size={18} color={colors.ink} />
+              <Text style={styles.googleButtonText}>{STRINGS.signInWithGoogleCta}</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.dividerRow}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>{STRINGS.signInOrDivider}</Text>
+        <View style={styles.dividerLine} />
+      </View>
 
       <TextInput
         style={styles.input}
@@ -104,6 +142,42 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginBottom: 24,
     lineHeight: 20,
+  },
+  oauthButtons: {
+    gap: 10,
+    marginBottom: 18,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
+  googleButtonText: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: colors.ink,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 18,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.line,
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
   },
   email: {
     fontWeight: '700',

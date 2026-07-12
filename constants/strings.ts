@@ -34,6 +34,11 @@ export function isVerbPhrasePractice(practiceName: string): boolean {
 // system later. Strings that take values are small formatter functions
 // rather than raw templates, so call sites can't typo a `{n}` token.
 export const STRINGS = {
+  // O1 (Google slice, 8/12 July) — sign-in screen, web only.
+  signInWithGoogleCta: 'Continue with Google',
+  signInOrDivider: 'or',
+  signInGoogleError: "couldn't sign in with Google — try again",
+
   checkinSuccessTitle: (n: number) => `Day ${n} done`,
   checkinSuccessBody: 'You showed up again.',
   checkinSuccessCta: 'Nice',
