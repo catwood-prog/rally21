@@ -50,3 +50,19 @@ jest.mock('expo-audio', () => ({
     remove: jest.fn(),
   })),
 }));
+
+// GN1 (13 July): both native sign-in libraries wrap a native TurboModule
+// that isn't registered under Jest's module registry (same class of issue
+// as expo-audio above) — any test that transitively imports
+// lib/auth-context.tsx (which every authenticated screen does) needs
+// these stubbed.
+jest.mock('expo-apple-authentication', () => ({
+  signInAsync: jest.fn(),
+  AppleAuthenticationScope: { FULL_NAME: 0, EMAIL: 1 },
+}));
+jest.mock('@react-native-google-signin/google-signin', () => ({
+  GoogleSignin: { configure: jest.fn(), signIn: jest.fn() },
+  isSuccessResponse: jest.fn(() => false),
+  isErrorWithCode: jest.fn(() => false),
+  statusCodes: { SIGN_IN_CANCELLED: 'SIGN_IN_CANCELLED' },
+}));

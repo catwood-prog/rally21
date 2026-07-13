@@ -52,13 +52,17 @@ export default function SignIn() {
 
   const handleApple = async () => {
     setIsAppleLoading(true);
-    // Same navigate-away-on-success shape as handleGoogle above.
     const { error } = await signInWithApple();
+    // Web navigates the whole page away to Apple on success, same as
+    // handleGoogle above. Native (GN1) resolves normally instead — no
+    // page navigation happens, so the loading state always needs
+    // resetting there; doing it unconditionally is harmless on web too
+    // (the reset just lands a beat before the redirect fires).
     if (error) {
       setErrorMessage(STRINGS.signInAppleError);
       setStatus('error');
-      setIsAppleLoading(false);
     }
+    setIsAppleLoading(false);
   };
 
   if (status === 'sent') {

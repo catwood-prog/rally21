@@ -1,4 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
+import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from '@react-native-google-signin/google-signin';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
@@ -6,6 +8,22 @@ import { AppState, Platform } from 'react-native';
 import { getDeviceTimeZone } from './date';
 import { markSeenNow } from './notifications';
 import { supabase } from './supabase';
+
+// GN1 (13 July) — configured once at module load, not per sign-in attempt,
+// matching the library's own documented usage. Google BLOCKS OAuth inside
+// embedded webviews, so unlike Apple there's no web-redirect fallback to
+// borrow from — the native library is the only way in on iOS. webClientId
+// is the SAME client O1's web redirect flow already uses; Supabase's
+// signInWithIdToken verifies the token's `aud` claim against whichever
+// client id it came from, so both must stay registered on the Supabase
+// side (already true — this reuses O1's existing web client, adds nothing
+// new there).
+if (Platform.OS !== 'web') {
+  GoogleSignin.configure({
+    iosClientId: '848724239201-3cd4s610pvlcog6cq81sp3urabeag4ob.apps.googleusercontent.com',
+    webClientId: '848724239201-nasn5s5qtv36milsq9rrt8sp1ae2k91a.apps.googleusercontent.com',
+  });
+}
 
 type AuthContextValue = {
   session: Session | null;
@@ -75,13 +93,41 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return { error: error?.message ?? null };
   };
 
-  // O1 (Google slice, 8/12 July) — web only, same redirect route and same
-  // detectSessionInUrl pickup as the magic-link flow above; there is no
-  // native build yet, so this never needs a platform branch. Live-verified
+  // O1 (Google slice, 8/12 July) — web redirect flow. Live-verified
   // against the deployed project: an existing magic-link account signing
   // in with Google using the same (verified) email resolves to the SAME
   // user id via Supabase's automatic identity linking — never a duplicate.
+  //
+  // GN1 (13 July) — native branch. Google blocks its own OAuth inside an
+  // embedded webview, so the web redirect above can't be reused in the
+  // native app at all — @react-native-google-signin/google-signin (the
+  // library Supabase's own docs recommend) drives the real native account
+  // picker instead, then hands the resulting ID token to the same
+  // signInWithIdToken path Apple's native branch uses.
   const signInWithGoogle = async () => {
+    if (Platform.OS !== 'web') {
+      try {
+        const response = await GoogleSignin.signIn();
+        if (!isSuccessResponse(response)) {
+          return { error: null }; // user cancelled — not a real error
+        }
+        const idToken = response.data.idToken;
+        if (!idToken) {
+          return { error: 'Google sign-in did not return a token — try again' };
+        }
+        const { error } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: idToken,
+        });
+        return { error: error?.message ?? null };
+      } catch (e) {
+        if (isErrorWithCode(e) && e.code === statusCodes.SIGN_IN_CANCELLED) {
+          return { error: null };
+        }
+        return { error: e instanceof Error ? e.message : 'Google sign-in failed — try again' };
+      }
+    }
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: getRedirectUrl() },
@@ -89,22 +135,66 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return { error: error?.message ?? null };
   };
 
-  // O1 (Apple slice, 12 July) — web only, same redirect route as Google.
-  // Live-verified against the deployed project on disposable/throwaway
-  // accounts: an existing email account signing in with Apple and choosing
-  // "Share My Email" resolves to the SAME user id (auto-linking works when
-  // the email actually matches). But Apple's "Hide My Email" gives a
-  // private relay address that can never match an existing account — that
-  // path was reproduced live and genuinely creates a disconnected duplicate
+  // O1 (Apple slice, 12 July) — web redirect flow. Live-verified against
+  // the deployed project on disposable/throwaway accounts: an existing
+  // email account signing in with Apple and choosing "Share My Email"
+  // resolves to the SAME user id (auto-linking works when the email
+  // actually matches). But Apple's "Hide My Email" gives a private relay
+  // address that can never match an existing account — that path was
+  // reproduced live and genuinely creates a disconnected duplicate
   // account, exactly as O1's own hard-rule warning predicted. There is no
   // account-merge feature yet (deferred to a follow-up prompt), so the
   // mitigation here is entirely preventive: signInAppleShareEmailHint on
   // the button, and onboardingAppleRescueLine on profile setup for any
-  // brand-new Apple account. On the NATIVE iOS build, Sign in with Apple
-  // must use the native sheet (expo-apple-authentication →
-  // signInWithIdToken), never this web redirect — there is no native build
-  // yet, so that path is GN1's job, not this one.
+  // brand-new Apple account — both still apply on native.
+  //
+  // GN1 (13 July) — native branch. Apple REJECTS an in-app web-redirect
+  // Apple sign-in (App Review guideline 4.8), so iOS uses the native
+  // ASAuthorizationController sheet via expo-apple-authentication instead,
+  // feeding the identity token straight to Supabase's signInWithIdToken —
+  // no nonce needed (matching Supabase's own documented Expo/React Native
+  // example verbatim; the web OIDC nonce dance doesn't apply here).
+  // Apple's fullName is sent ONLY on a user's very first-ever authorization
+  // for this app — signInWithIdToken doesn't populate user_metadata from
+  // it the way the web redirect flow does (Supabase captures that from
+  // Apple's own form POST, which a native token exchange never sees), so
+  // it's bridged by hand into the same `full_name` field
+  // initialNameFromSession (onboarding/profile.tsx) already reads — no
+  // change needed there, this just feeds it the shape it already expects.
   const signInWithApple = async () => {
+    if (Platform.OS !== 'web') {
+      try {
+        const credential = await AppleAuthentication.signInAsync({
+          requestedScopes: [
+            AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+            AppleAuthentication.AppleAuthenticationScope.EMAIL,
+          ],
+        });
+        if (!credential.identityToken) {
+          return { error: 'Apple sign-in did not return a token — try again' };
+        }
+        const { error } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+        });
+        if (error) return { error: error.message };
+
+        const fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
+          .filter(Boolean)
+          .join(' ');
+        if (fullName) {
+          await supabase.auth.updateUser({ data: { full_name: fullName } });
+        }
+        return { error: null };
+      } catch (e) {
+        // The user dismissing Apple's own sheet isn't an error to surface.
+        if (e && typeof e === 'object' && 'code' in e && e.code === 'ERR_REQUEST_CANCELED') {
+          return { error: null };
+        }
+        return { error: e instanceof Error ? e.message : 'Apple sign-in failed — try again' };
+      }
+    }
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: { redirectTo: getRedirectUrl() },
