@@ -35,6 +35,10 @@ export default function PrivacyPromise() {
             </View>
           ))}
         </View>
+
+        <TouchableOpacity onPress={() => router.push('/privacy')} hitSlop={8}>
+          <Text style={styles.fullPolicyLink}>{STRINGS.introPrivacyReadFullLink}</Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={styles.button} onPress={() => router.replace('/sign-in')}>
@@ -96,6 +100,12 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
     color: colors.ink,
+  },
+  fullPolicyLink: {
+    marginTop: 20,
+    fontSize: 12,
+    color: colors.muted,
+    textDecorationLine: 'underline',
   },
   button: {
     marginHorizontal: 16,

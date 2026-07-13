@@ -259,6 +259,7 @@ export const STRINGS = {
     'You can correct or delete anything, anytime.',
   ],
   introPrivacyCta: 'Sounds good',
+  introPrivacyReadFullLink: 'Read the full privacy policy',
 
   // Today's reflection teaser (D4 design review) — an invitation, never a
   // reminder of something missed. Only shows before today's reflection is
@@ -431,6 +432,51 @@ export const STRINGS = {
   yourDataDeleteAccountConfirmCta: 'Delete forever',
   yourDataDeleteAccountCancelCta: 'Cancel',
   yourDataDeleteAccountError: 'could not delete your account — try again',
+
+  // Public /privacy route (13 July) — a real policy, not marketing, for
+  // the TestFlight/App Store Connect "privacy policy URL" field. Tone
+  // matches the privacy-promise screen (plain language, warm, no legalese
+  // padding) but every claim here must be checked against the actual
+  // code/DB — see the section-by-section audit in the commit that added
+  // this file. Signed-out accessible by design; never gate this route.
+  privacyPolicyTitle: 'Privacy policy',
+  privacyPolicyEffectiveDate: 'Last updated 13 July 2026',
+  privacyPolicyIntro:
+    "Rally21 is a small app for showing up on a practice with a few people who matter to you. This page says plainly what we collect, what your circle can see, who we share anything with, and how to see, correct, or delete your own data — no legal padding, just what's actually true in the code.",
+  privacyPolicySections: [
+    {
+      heading: 'What we collect when you sign up',
+      body: 'Your email address (from however you sign in — magic link, Apple, or Google), the name you give us, an optional profile photo, and your device\'s timezone, so nudges land at the right local time. You can optionally add your birthday (month and day; the year is entirely optional and, if you give it, we never display it or calculate your age from it anywhere).',
+    },
+    {
+      heading: 'What you create while using Rally21',
+      body: "Your check-ins (that you did your practice on a given day), your reflections (a mood and a couple of short private lines about your day), any messages or reactions you post to a circle's wall, and your notification preferences (when you're nudged, quiet hours, which digests you get). If you use Ask Rally, we keep that conversation so it has continuity; if you build a private map, we keep the patterns it's found.",
+    },
+    {
+      heading: "What your circle-mates can see",
+      body: "Circles are the whole point, so some things are shared by design: anyone in a circle with you can see your name, profile photo, and birthday (if you set one), plus whether you checked in on a given day and anything you post to that circle's wall. Your reflections, your Ask Rally conversations, and your private map are never shared — those stay yours alone, always, with no setting that can change that.",
+    },
+    {
+      heading: 'Reporting and blocking',
+      body: "You can report a wall message, a member, or a circle, and you can block someone — they're never told you did either. Reports go to us for review; blocking hides that person's posts from you and stops nudges between you both, without changing what your circle can see about attendance.",
+    },
+    {
+      heading: 'Who we share data with',
+      body: "We use a handful of processors to actually run the app, and nothing else: Supabase (our database, sign-in, and file storage), Resend (sending the emails you've opted into), Anthropic (only when you use Ask Rally or when your private map is built — your relevant data is sent to generate that reply or summary), Vercel (hosting the web app), and Apple/Expo (building and distributing the iOS app). We don't run ads, and we've never sold, rented, or traded anyone's data — not to advertisers, not to anyone.",
+    },
+    {
+      heading: 'Your profile photo',
+      body: "Profile photos are stored in a straightforward file bucket rather than behind a login check, so if you know the exact file address you could view an image directly — it isn't searchable or listed anywhere, but it isn't access-controlled either. Worth knowing if you'd rather not use a real photo.",
+    },
+    {
+      heading: 'Seeing, correcting, or deleting your data',
+      body: "Open Settings → Your data & privacy any time you're signed in to: see a plain summary of what we hold, export everything as a file, delete a single check-in, remove your profile photo, or delete your account entirely (which removes your profile, check-ins, and reflections for good — circles you started stay with whoever's left in them). All of it happens immediately, nothing is queued or reviewed first.",
+    },
+    {
+      heading: 'Questions',
+      body: 'Email rally21@amsadvisory.uk and a real person (not a bot) will read it.',
+    },
+  ],
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one
