@@ -1,0 +1,14 @@
+# This is a managed Expo project — ios/ and android/ are never
+# committed, they're generated fresh by `expo prebuild` on every EAS
+# build. @expo/fingerprint's "bareNativeDir" heuristic detects a
+# physically-present ios/ directory at hash time and includes its
+# contents as a fingerprint source, but PREBUILD runs before the
+# runtime-version fingerprint is calculated on EAS's build workers,
+# while the local `eas build` invocation runs before any prebuild —
+# so the same project produces two different fingerprints purely from
+# this ordering difference, with no real native config change behind
+# it. Excluding the generated directories keeps the fingerprint
+# derived from what actually determines native output (app.json,
+# package.json, plugin config), consistent on both sides.
+ios/**
+android/**

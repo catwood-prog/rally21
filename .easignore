@@ -1,0 +1,46 @@
+# EAS Build reads this instead of .gitignore when deciding what to
+# upload. Mirrors .gitignore except eas.json is deliberately left OUT
+# of this list — it's gitignored (holds ASC API key identifiers, repo
+# is public) but its content affects the native fingerprint, so it
+# must still be included in the build upload or eas build's local
+# fingerprint calculation (which reads it) and the remote worker's
+# calculation (which wouldn't otherwise see it) diverge and every
+# build fails at the CONFIGURE_EXPO_UPDATES phase.
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+app-example
+.vercel
