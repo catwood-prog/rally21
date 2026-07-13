@@ -144,9 +144,15 @@ export default function CircleWall() {
   }, [circle?.id, loadFeed]);
 
   const isCreator = circle?.createdBy === session?.user?.id;
+  // OC1 (13 July): the earned-voice gate now scopes to browse joiners
+  // only — a creator or someone who joined by invite posts free text
+  // from day one, matching the RLS policy exactly (private OR creator OR
+  // join_source <> 'browse' OR 7+ completions).
+  const isBrowseJoiner = circle?.myJoinSource === 'browse';
   const myCompletionCount = checkins.filter((c) => c.userId === session?.user?.id).length;
-  const isVoiceUnlocked = !circle?.isPublic || isCreator || myCompletionCount >= VOICE_UNLOCK_COMPLETIONS;
-  const showUnlockCelebration = !!circle?.isPublic && !isCreator && isVoiceUnlocked && !hasSeenUnlockHint;
+  const isVoiceUnlocked =
+    !circle?.isPublic || isCreator || !isBrowseJoiner || myCompletionCount >= VOICE_UNLOCK_COMPLETIONS;
+  const showUnlockCelebration = !!circle?.isPublic && isBrowseJoiner && isVoiceUnlocked && !hasSeenUnlockHint;
   const reactionSet = circle?.isPublic ? OPEN_CIRCLE_REACTIONS : QUICK_REACTIONS;
 
   useEffect(() => {

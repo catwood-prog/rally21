@@ -16,6 +16,7 @@ function fakeCircle(overrides: Partial<MyCircle> = {}): MyCircle {
     closedToJoins: false,
     ralliedOnAt: null,
     completedAt: null,
+    myJoinSource: null,
     ...overrides,
   };
 }
@@ -31,7 +32,7 @@ describe('resolveCircleSelection', () => {
       listMyCircles,
     });
 
-    expect(getCircleById).toHaveBeenCalledWith('circle-42');
+    expect(getCircleById).toHaveBeenCalledWith('circle-42', 'user-1');
     expect(listMyCircles).not.toHaveBeenCalled();
     expect(result).toEqual({ kind: 'single', circle });
   });
@@ -89,7 +90,7 @@ describe('resolveCircleSelection', () => {
       listMyCircles,
     });
 
-    expect(getCircleById).toHaveBeenCalledWith('undefined');
+    expect(getCircleById).toHaveBeenCalledWith('undefined', 'user-1');
     expect(listMyCircles).not.toHaveBeenCalled();
     expect(result).toEqual({ kind: 'single', circle: null });
   });

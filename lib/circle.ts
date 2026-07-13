@@ -23,6 +23,14 @@ export type MyCircle = {
    * decisions), but completedAt wins if it somehow ever did. */
   ralliedOnAt: string | null;
   completedAt: string | null;
+  /** OC1 (13 July) — the caller's OWN join_source for this circle. Drives
+   * the earned-voice wall gate: only a browse joiner (found the circle
+   * via public browse discovery, a stranger by construction until
+   * MOD1/O1 ship) needs 7 completions to post free text in a public
+   * circle — a creator or someone who joined by invite posts from day
+   * one. null when this circle was fetched without a userId context
+   * (getCircleById's second param is optional). */
+  myJoinSource: 'creator' | 'invite' | 'browse' | null;
 };
 
 export type CircleMember = {
@@ -64,7 +72,7 @@ type CircleRow = {
 const CIRCLE_SELECT =
   'circles(id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, is_public, closed_to_joins, rallied_on_at, completed_at, practices(name, duration_minutes))';
 
-function mapCircleRow(c: CircleRow): MyCircle {
+function mapCircleRow(c: CircleRow, myJoinSource: MyCircle['myJoinSource'] = null): MyCircle {
   return {
     id: c.id,
     name: c.name,
@@ -80,6 +88,7 @@ function mapCircleRow(c: CircleRow): MyCircle {
     closedToJoins: c.closed_to_joins,
     ralliedOnAt: c.rallied_on_at,
     completedAt: c.completed_at,
+    myJoinSource,
   };
 }
 
@@ -89,16 +98,16 @@ function mapCircleRow(c: CircleRow): MyCircle {
 export async function listMyCircles(userId: string): Promise<MyCircle[]> {
   const { data, error } = await supabase
     .from('memberships')
-    .select(CIRCLE_SELECT)
+    .select(`join_source, ${CIRCLE_SELECT}`)
     .eq('user_id', userId)
     .order('joined_at', { ascending: true })
-    .returns<{ circles: CircleRow }[]>();
+    .returns<{ join_source: string; circles: CircleRow }[]>();
 
   if (error) throw error;
 
   return (data ?? [])
     .filter((row) => !!row.circles)
-    .map((row) => mapCircleRow(row.circles))
+    .map((row) => mapCircleRow(row.circles, row.join_source as MyCircle['myJoinSource']))
     .sort((a, b) => {
       if (a.timeOfDay === b.timeOfDay) return 0;
       if (a.timeOfDay === null) return 1;
@@ -132,12 +141,12 @@ export async function resolveCircleSelection(
   circleId: string | undefined,
   userId: string,
   deps: {
-    getCircleById: (id: string) => Promise<MyCircle | null>;
+    getCircleById: (id: string, userId?: string) => Promise<MyCircle | null>;
     listMyCircles: (userId: string) => Promise<MyCircle[]>;
   } = { getCircleById, listMyCircles }
 ): Promise<CircleSelection> {
   if (circleId) {
-    const circle = await deps.getCircleById(circleId);
+    const circle = await deps.getCircleById(circleId, userId);
     return { kind: 'single', circle };
   }
   const circles = await deps.listMyCircles(userId);
@@ -147,7 +156,10 @@ export async function resolveCircleSelection(
   return { kind: 'single', circle: circles[0] ?? null };
 }
 
-export async function getCircleById(circleId: string): Promise<MyCircle | null> {
+/** userId is optional and only fetches the caller's own join_source when
+ * given — most call sites don't need it (myJoinSource stays null), so
+ * this doesn't add a query to every existing caller. */
+export async function getCircleById(circleId: string, userId?: string): Promise<MyCircle | null> {
   const { data, error } = await supabase
     .from('circles')
     .select(
@@ -159,7 +171,18 @@ export async function getCircleById(circleId: string): Promise<MyCircle | null> 
   if (error) throw error;
   if (!data) return null;
 
-  return mapCircleRow(data);
+  let myJoinSource: MyCircle['myJoinSource'] = null;
+  if (userId) {
+    const { data: membership } = await supabase
+      .from('memberships')
+      .select('join_source')
+      .eq('circle_id', circleId)
+      .eq('user_id', userId)
+      .maybeSingle<{ join_source: string }>();
+    myJoinSource = (membership?.join_source as MyCircle['myJoinSource']) ?? null;
+  }
+
+  return mapCircleRow(data, myJoinSource);
 }
 
 /** RLS restricts this to the circle's creator (created_by = auth.uid()) —
