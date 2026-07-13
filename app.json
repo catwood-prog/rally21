@@ -39,7 +39,9 @@
         {
           "photosPermission": "Rally21 uses your photos to let you set a profile picture."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
