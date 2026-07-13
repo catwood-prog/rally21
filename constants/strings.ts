@@ -485,6 +485,22 @@ export const STRINGS = {
       body: 'Email rally21@amsadvisory.uk and a real person (not a bot) will read it.',
     },
   ],
+
+  // SC1 (13 July) — share cards, phase 1a. Quiet, dignified actions
+  // matching the app's established confirm-inline pattern; no drama
+  // styling, no frown/emoji-face iconography for "not for me" (spec §3).
+  shareCardLikeCta: 'Like',
+  shareCardShareCta: 'Share',
+  shareCardNotForMeCta: 'Not for me',
+  shareCardSaveCta: 'Save',
+  shareCardMuteCta: 'Not my kind of thing',
+  shareCardMuteConfirmTitle: 'quiet, for good',
+  shareCardMuteConfirmBody: "you won't see quote cards again — turn them back on anytime in settings.",
+  shareCardMutedFlavorsLabel: 'muted card flavors',
+  shareCardMutedFlavorsEmpty: "you haven't muted any card flavors",
+  shareCardFlavorCuratedQuote: 'quote cards',
+  shareCardReEnableCta: 'Turn back on',
+  shareCardShareError: 'could not share that — try again',
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one

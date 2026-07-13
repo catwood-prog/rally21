@@ -1,5 +1,7 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 
+import { APP_LINK, SHARE_TAGLINE } from '@/constants/sharing';
+
 // Customizes the root HTML shell for the static web export. The app is
 // meant to be added to the home screen and run standalone (no browser
 // chrome) — that only happens if the manifest and apple-mobile-web-app
@@ -13,6 +15,16 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#F2F1EC" />
+
+        {/* SC1 (13 July, spec §6) — so a shared card's link unfurls as a
+            tappable preview in Messages/WhatsApp. Same tokenized tagline
+            + link the share payload itself carries; og:image reuses the
+            existing apple-touch-icon asset rather than adding a new one. */}
+        <meta property="og:title" content={SHARE_TAGLINE} />
+        <meta property="og:description" content="Show up on a new habit, together with people who matter to you." />
+        <meta property="og:image" content={`${APP_LINK}/apple-touch-icon.png`} />
+        <meta property="og:url" content={APP_LINK} />
+        <meta name="twitter:card" content="summary_large_image" />
 
         <link rel="manifest" href="/manifest.json" />
 

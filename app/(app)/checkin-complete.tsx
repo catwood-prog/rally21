@@ -22,9 +22,10 @@ import { useAuth } from '@/lib/auth-context';
 import { playCheckinPop } from '@/lib/chime';
 import { getCircleById } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
-import { checkGlowMilestone, shouldShowGlowBeat } from '@/lib/glow';
+import { checkGlowMilestone, didRekindleToday, getMyWeek, shouldShowGlowBeat } from '@/lib/glow';
 import { MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
 import { getMyProfile } from '@/lib/profile';
+import { getShareCardForToday, shouldOfferShareCard, type ShareCard } from '@/lib/shareCards';
 
 const CONFETTI_COUNT = 25;
 const CONFETTI_COLORS = [colors.gold, colors.green, '#7FBF7F'];
@@ -134,12 +135,20 @@ export default function CheckInComplete() {
   // duration. Falls back to day 1 if the circle fetch fails or circleId is
   // somehow missing, rather than showing broken text.
   const [dayNumber, setDayNumber] = useState<number | null>(null);
+  // SC1: the day-21 (or later) ceremony always wins over a share card —
+  // today.tsx's own gate redirects to /journey-gate the moment this
+  // screen's dismissal lands back on Today, so offering a card on this
+  // exact day would just flash briefly before that redirect. Derived from
+  // the same raw (uncapped) day count as dayNumber, before it gets capped
+  // at durationDays for display.
+  const [isCeremonyDay, setIsCeremonyDay] = useState(false);
   const [glowMilestone, setGlowMilestone] = useState<number | null>(null);
   // P1: the sound-suppression check below needs to know whether a
   // milestone exists before it can decide whether this is a glow-beat
   // check-in — this flag distinguishes "not fetched yet" from "fetched,
   // no milestone" (both read as glowMilestone === null otherwise).
   const [milestoneChecked, setMilestoneChecked] = useState(false);
+  const [shareCard, setShareCard] = useState<ShareCard | null>(null);
 
   useEffect(() => {
     if (!circleId) return;
@@ -148,9 +157,31 @@ export default function CheckInComplete() {
         if (!circle) return;
         const raw = Math.max(1, daysBetween(circle.startDate, getLocalDateString()) + 1);
         setDayNumber(Math.min(raw, circle.durationDays));
+        setIsCeremonyDay(raw >= circle.durationDays);
       })
       .catch(() => {});
   }, [circleId]);
+
+  // SC1 — the card slot (Rally21-Share-Cards-Spec.md §3): only fetch once
+  // the composition rule's other inputs are known, and only offer when
+  // nothing bigger fired. Fetching here (rather than lazily on dismiss) so
+  // the eventual tap feels instant, mirroring how glowMilestone is
+  // pre-fetched the same way.
+  useEffect(() => {
+    if (!session?.user || !milestoneChecked || dayNumber === null) return;
+    const earned = earnedToday === 'true';
+    if (!shouldOfferShareCard({
+      isCeremonyDay,
+      hasMilestone: !!glowMilestone,
+      showsGlowBeat: shouldShowGlowBeat({ earnedToday: earned, hasMilestone: !!glowMilestone }),
+    })) {
+      return;
+    }
+    getMyWeek()
+      .then((week) => getShareCardForToday({ localDate: getLocalDateString(), isRekindle: didRekindleToday(week) }))
+      .then(setShareCard)
+      .catch(() => setShareCard(null));
+  }, [session?.user, milestoneChecked, dayNumber, isCeremonyDay, glowMilestone, earnedToday]);
 
   // Glow milestones (Rally21-Glow-Spec.md §4) — detected once per this
   // screen's mount, right at check-in time; a monotonic server-side
@@ -269,6 +300,21 @@ export default function CheckInComplete() {
     // day, and never alongside a milestone (they compose, never both).
     if (shouldShowGlowBeat({ earnedToday: earnedToday === 'true', hasMilestone: !!glowMilestone })) {
       router.replace('/glow-beat');
+      return;
+    }
+    // SC1 — the card slot: only the least important rung of the
+    // composition ladder, so it only ever replaces the plain dismissal
+    // below, never anything above it.
+    if (shareCard) {
+      router.replace({
+        pathname: '/share-card',
+        params: {
+          cardKey: shareCard.cardKey,
+          body: shareCard.body,
+          attribution: shareCard.attribution ?? '',
+          gloss: shareCard.gloss ?? '',
+        },
+      });
       return;
     }
     if (router.canGoBack()) {

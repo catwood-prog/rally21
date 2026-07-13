@@ -23,6 +23,11 @@ import { isValidBirthday } from '@/lib/birthday';
 import { BlockedPerson, getMyBlocks, unblockUser } from '@/lib/moderation';
 import { getMyNotificationPrefs, NotificationPrefs, updateNotificationPrefs } from '@/lib/notifications';
 import { getMyProfile, saveBirthday, saveProfile, setCelebrateBirthday, setSoundsEnabled } from '@/lib/profile';
+import { getMyMutedCardFlavors, setCardFlavorMuted, ShareCardFlavor } from '@/lib/shareCards';
+
+const CARD_FLAVOR_LABELS: Record<ShareCardFlavor, string> = {
+  curated_quote: STRINGS.shareCardFlavorCuratedQuote,
+};
 
 const NUDGE_TIME_OPTIONS: { label: string; time: string | null }[] = [
   { label: STRINGS.nudgeTimeEarliest, time: null },
@@ -63,15 +68,18 @@ export default function Settings() {
   const [error, setError] = useState<string | null>(null);
   const [blockedPeople, setBlockedPeople] = useState<BlockedPerson[]>([]);
   const [unblockingId, setUnblockingId] = useState<string | null>(null);
+  const [mutedCardFlavors, setMutedCardFlavors] = useState<ShareCardFlavor[]>([]);
+  const [reEnablingFlavor, setReEnablingFlavor] = useState<ShareCardFlavor | null>(null);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
     setIsLoading(true);
     try {
-      const [profile, notificationPrefs, myBlocks] = await Promise.all([
+      const [profile, notificationPrefs, myBlocks, myMutedCardFlavors] = await Promise.all([
         getMyProfile(session.user.id),
         getMyNotificationPrefs(session.user.id),
         getMyBlocks().catch(() => []),
+        getMyMutedCardFlavors().catch(() => []),
       ]);
       setName(profile?.name ?? '');
       setAvatarUrl(profile?.avatar_url ?? null);
@@ -84,6 +92,7 @@ export default function Settings() {
       setCelebrateBirthdayState(profile?.celebrate_birthday ?? true);
       setPrefs(notificationPrefs);
       setBlockedPeople(myBlocks);
+      setMutedCardFlavors(myMutedCardFlavors);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your profile');
     } finally {
@@ -100,6 +109,18 @@ export default function Settings() {
       setError(e instanceof Error ? e.message : 'could not unblock — try again');
     } finally {
       setUnblockingId(null);
+    }
+  };
+
+  const handleReEnableCardFlavor = async (flavor: ShareCardFlavor) => {
+    setReEnablingFlavor(flavor);
+    try {
+      await setCardFlavorMuted(flavor, false);
+      setMutedCardFlavors((prev) => prev.filter((f) => f !== flavor));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not turn that back on — try again');
+    } finally {
+      setReEnablingFlavor(null);
     }
   };
 
@@ -411,6 +432,27 @@ export default function Settings() {
                 <TouchableOpacity onPress={() => handleUnblock(person.blockedId)} disabled={unblockingId === person.blockedId}>
                   <Text style={styles.blockedRowUnblock}>
                     {unblockingId === person.blockedId ? '…' : STRINGS.unblockCta}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
+
+      {mutedCardFlavors.length > 0 && (
+        <>
+          <Text style={[styles.label, styles.sectionSpacing]}>{STRINGS.shareCardMutedFlavorsLabel}</Text>
+          <View style={styles.prefCard}>
+            {mutedCardFlavors.map((flavor) => (
+              <View key={flavor} style={styles.blockedRow}>
+                <Text style={styles.blockedRowName}>{CARD_FLAVOR_LABELS[flavor] ?? flavor}</Text>
+                <TouchableOpacity
+                  onPress={() => handleReEnableCardFlavor(flavor)}
+                  disabled={reEnablingFlavor === flavor}
+                >
+                  <Text style={styles.blockedRowUnblock}>
+                    {reEnablingFlavor === flavor ? '…' : STRINGS.shareCardReEnableCta}
                   </Text>
                 </TouchableOpacity>
               </View>
