@@ -76,7 +76,7 @@ export default function CoverAFriend() {
           return;
         }
         if (result === 'blocked') {
-          setError(STRINGS.waveBlockedError);
+          setError(STRINGS.waveNotDeliveredError);
           setIsSaving(false);
           return;
         }

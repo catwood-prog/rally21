@@ -379,7 +379,11 @@ export const STRINGS = {
   unblockCta: 'Unblock',
   blockedPeopleSectionLabel: 'blocked people',
   blockedPeopleEmpty: "you haven't blocked anyone",
-  waveBlockedError: "you can't wave at someone you've blocked",
+  // W2 (13 July) — send_friend_nudge returns 'blocked' for BOTH directions
+  // of a block (the blocked person waving at their blocker included), so
+  // this copy must never assert who blocked whom — the client genuinely
+  // can't tell, and a block must never be inferable from what's shown.
+  waveNotDeliveredError: "this wave couldn't go through right now",
 
   // DC1 (7 July) — "your data & privacy" screen (MVP Screens mockup #23):
   // the privacy-promise screen's three promises (see, correct, or delete
