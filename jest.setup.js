@@ -38,3 +38,15 @@ jest.mock('./lib/sentry', () => ({
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
+
+// GN1 (13 July): expo-audio's AudioPlayer class extends a native
+// SharedObject base that isn't set up under Jest's module registry, so
+// merely importing it throws — any lib/ test (or screen test) that
+// transitively imports lib/chime.ts needs this global stub, same pattern
+// as the mocks above.
+jest.mock('expo-audio', () => ({
+  createAudioPlayer: jest.fn(() => ({
+    play: jest.fn(),
+    remove: jest.fn(),
+  })),
+}));

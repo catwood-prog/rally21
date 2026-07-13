@@ -1,7 +1,38 @@
 import { Asset } from 'expo-asset';
+import { createAudioPlayer } from 'expo-audio';
 import { Platform } from 'react-native';
 
 import { GLOW_BEAT_BOWL_SOUND } from '@/lib/motion';
+
+// GN1 (13 July): native has no Web Audio API (no window.AudioContext, no
+// HTMLAudioElement), so every function below was previously a silent no-op
+// off-web — safe (already guarded), but a genuinely mute check-in on the
+// first native build. These two files are the timer chime and glow-beat
+// bowl's exact web envelopes baked to static PCM (generated once by a
+// throwaway script matching playTone()'s math verbatim: linear attack over
+// 0.04s, exponential decay to 0.0001 over the rest of each tone's
+// duration) — native has no oscillator/gain-node API to synthesize them
+// live, so this is the smallest faithful native equivalent. The web path
+// below is completely untouched; native is purely an added sibling branch,
+// same pattern as lib/wakeLock.ts's native branch.
+function playNativeSound(source: number): void {
+  if (Platform.OS === 'web') return;
+  try {
+    const player = createAudioPlayer(source);
+    player.play();
+    // One-shot sound effects — release the native player shortly after it
+    // finishes rather than leaking one SharedObject per play() call.
+    setTimeout(() => {
+      try {
+        player.remove();
+      } catch {
+        // already released
+      }
+    }, 2000);
+  } catch {
+    // unsupported — the screen's own visuals are always the real signal
+  }
+}
 
 // A synthesized two-tone completion chime — no audio file needed. iOS
 // Safari (and most mobile browsers) only allow an AudioContext to actually
@@ -57,6 +88,10 @@ function playTone(ctx: AudioContext, frequency: number, startTime: number, durat
  * nothing if audio was never unlocked, is blocked, or is unsupported —
  * the timer's own end-state screen is always the real completion signal. */
 export function playChime(): void {
+  if (Platform.OS !== 'web') {
+    playNativeSound(require('../assets/sounds/timer-chime.wav'));
+    return;
+  }
   if (!audioContext) return;
   try {
     if (audioContext.state === 'suspended') {
@@ -73,7 +108,9 @@ export function playChime(): void {
 // The check-in success chime is an approved recorded file (mascot brief),
 // not synthesized like the timer's own chime above — resolved once via
 // expo-asset so a bundler-specific require() shape doesn't leak into the
-// player. Web only, matching the rest of this app's platform scope.
+// player. This URI-resolution path is web-only (playCheckinPop's native
+// branch above plays the same file directly via createAudioPlayer, which
+// takes a require() module and needs no separate URI step).
 let checkinPopUri: string | null | undefined;
 
 function getCheckinPopUri(): string | null {
@@ -95,6 +132,10 @@ function getCheckinPopUri(): string | null {
  * does nothing if playback is blocked or unsupported — the celebration
  * screen itself is always the real completion signal. */
 export function playCheckinPop(): void {
+  if (Platform.OS !== 'web') {
+    playNativeSound(require('../assets/sounds/checkin-pop.wav'));
+    return;
+  }
   const uri = getCheckinPopUri();
   if (!uri) return;
   try {
@@ -130,6 +171,10 @@ function getDay21FlourishUri(): string | null {
  * playback is blocked or unsupported — the ceremony screen itself is
  * always the real signal. */
 export function playDay21Flourish(): void {
+  if (Platform.OS !== 'web') {
+    playNativeSound(require('../assets/sounds/day21-flourish.wav'));
+    return;
+  }
   const uri = getDay21FlourishUri();
   if (!uri) return;
   try {
@@ -152,6 +197,10 @@ export function playDay21Flourish(): void {
  * by the check-in tap, same as playChime; silently does nothing if it
  * was never unlocked, is blocked, or is unsupported. */
 export function playGlowBeatBowl(): void {
+  if (Platform.OS !== 'web') {
+    playNativeSound(require('../assets/sounds/glow-beat-bowl.wav'));
+    return;
+  }
   if (!audioContext) return;
   try {
     if (audioContext.state === 'suspended') {

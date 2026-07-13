@@ -6,7 +6,30 @@
  * environment — jsdom is already resolvable via jest's own dependency
  * tree (jest-environment-jsdom), so this is a per-file environment
  * override, not a new dependency.
+ *
+ * This file exercises the WEB branch only (jest-expo's own default
+ * Platform.OS is 'ios' — see lib/haptics.test.ts — so without this mock
+ * every test below would silently exercise the native expo-keep-awake
+ * branch added in GN1 instead of the web Wake Lock API these tests are
+ * actually named for). The native branch has its own coverage in
+ * lib/wakeLock.native.test.ts.
  */
+// A minimal mock, not a spread of the real package — requireActual('react-native')
+// pulls in native-only modules (e.g. the DevMenu TurboModule) that don't load
+// under this file's jsdom environment, unrelated to what this test needs. Only
+// lib/wakeLock.ts's own `import { Platform } from 'react-native'` touches this.
+jest.mock('react-native', () => ({
+  Platform: { OS: 'web', select: (spec: Record<string, unknown>) => spec.web ?? spec.default },
+}));
+// expo-keep-awake pulls in expo-modules-core's own native-init code on
+// import, which isn't meant to run under this file's jsdom environment —
+// this file only needs the (unreachable, on web) native branch to not
+// crash the module graph, so a shallow stub is enough.
+jest.mock('expo-keep-awake', () => ({
+  activateKeepAwakeAsync: jest.fn(),
+  deactivateKeepAwake: jest.fn(),
+}));
+
 import React from 'react';
 import { act, create, ReactTestRenderer } from 'react-test-renderer';
 
