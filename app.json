@@ -65,8 +65,14 @@
         {
           "ios": {
             "extraPods": [
-              { "name": "GoogleUtilities", "modular_headers": true },
-              { "name": "RecaptchaInterop", "modular_headers": true }
+              {
+                "name": "GoogleUtilities",
+                "modular_headers": true
+              },
+              {
+                "name": "RecaptchaInterop",
+                "modular_headers": true
+              }
             ]
           }
         }
@@ -81,6 +87,12 @@
         "projectId": "656d0f0d-0e05-44f9-bba4-85f39f5e9333"
       }
     },
-    "owner": "catherineharwood"
+    "owner": "catherineharwood",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/656d0f0d-0e05-44f9-bba4-85f39f5e9333"
+    }
   }
 }
