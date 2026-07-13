@@ -3,6 +3,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,6 +25,11 @@ import { isValidBirthday } from '@/lib/birthday';
 import { BlockedPerson, getMyBlocks, unblockUser } from '@/lib/moderation';
 import { getMyNotificationPrefs, NotificationPrefs, updateNotificationPrefs } from '@/lib/notifications';
 import { getMyProfile, saveBirthday, saveProfile, setCelebrateBirthday, setSoundsEnabled } from '@/lib/profile';
+import {
+  getPushPermissionStatus,
+  PushPermissionStatus,
+  registerForPushNotificationsAsync,
+} from '@/lib/pushNotifications';
 import { getMyMutedCardFlavors, setCardFlavorMuted, ShareCardFlavor } from '@/lib/shareCards';
 
 const CARD_FLAVOR_LABELS: Record<ShareCardFlavor, string> = {
@@ -70,16 +77,19 @@ export default function Settings() {
   const [unblockingId, setUnblockingId] = useState<string | null>(null);
   const [mutedCardFlavors, setMutedCardFlavors] = useState<ShareCardFlavor[]>([]);
   const [reEnablingFlavor, setReEnablingFlavor] = useState<ShareCardFlavor | null>(null);
+  const [pushStatus, setPushStatus] = useState<PushPermissionStatus>('denied');
+  const [isRequestingPush, setIsRequestingPush] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
     setIsLoading(true);
     try {
-      const [profile, notificationPrefs, myBlocks, myMutedCardFlavors] = await Promise.all([
+      const [profile, notificationPrefs, myBlocks, myMutedCardFlavors, pushPermissionStatus] = await Promise.all([
         getMyProfile(session.user.id),
         getMyNotificationPrefs(session.user.id),
         getMyBlocks().catch(() => []),
         getMyMutedCardFlavors().catch(() => []),
+        getPushPermissionStatus().catch(() => 'denied' as PushPermissionStatus),
       ]);
       setName(profile?.name ?? '');
       setAvatarUrl(profile?.avatar_url ?? null);
@@ -93,12 +103,32 @@ export default function Settings() {
       setPrefs(notificationPrefs);
       setBlockedPeople(myBlocks);
       setMutedCardFlavors(myMutedCardFlavors);
+      setPushStatus(pushPermissionStatus);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your profile');
     } finally {
       setIsLoading(false);
     }
   }, [session?.user?.id]);
+
+  // PN1 — 'denied' means the OS already made that call: re-requesting
+  // does nothing on iOS, so this deep-links to the OS Settings app
+  // instead of silently failing. 'undetermined' is the only state where
+  // requesting again actually shows the real system dialog.
+  const handlePushRowPress = async () => {
+    if (!session?.user || pushStatus === 'granted') return;
+    if (pushStatus === 'denied') {
+      Linking.openSettings();
+      return;
+    }
+    setIsRequestingPush(true);
+    try {
+      const status = await registerForPushNotificationsAsync(session.user.id);
+      setPushStatus(status);
+    } finally {
+      setIsRequestingPush(false);
+    }
+  };
 
   const handleUnblock = async (blockedId: string) => {
     setUnblockingId(blockedId);
@@ -369,6 +399,34 @@ export default function Settings() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {Platform.OS !== 'web' && (
+        <View style={[styles.prefRow, styles.sectionSpacing]}>
+          <View style={styles.prefRowText}>
+            <Text style={styles.prefRowLabel}>{STRINGS.pushToggleLabel}</Text>
+            <Text style={styles.prefRowHelper}>
+              {pushStatus === 'granted'
+                ? STRINGS.pushToggleHelperGranted
+                : pushStatus === 'denied'
+                  ? STRINGS.pushToggleHelperDenied
+                  : STRINGS.pushToggleHelperUndetermined}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.prefPill, pushStatus === 'granted' && styles.prefPillOn]}
+            onPress={handlePushRowPress}
+            disabled={isRequestingPush}
+          >
+            {isRequestingPush ? (
+              <ActivityIndicator size="small" color={colors.ink} />
+            ) : (
+              <Text style={[styles.prefPillText, pushStatus === 'granted' && styles.prefPillTextOn]}>
+                {pushStatus === 'granted' ? 'on' : 'off'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={[styles.prefRow, styles.sectionSpacing]}>
         <View style={styles.prefRowText}>

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { Image, Platform, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -24,7 +24,8 @@ import { getCircleById } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
 import { checkGlowMilestone, didRekindleToday, getMyWeek, shouldShowGlowBeat } from '@/lib/glow';
 import { MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
-import { getMyProfile } from '@/lib/profile';
+import { getMyProfile, markPushPromptSeen } from '@/lib/profile';
+import { getPushPermissionStatus, registerForPushNotificationsAsync } from '@/lib/pushNotifications';
 import { getShareCardForToday, shouldOfferShareCard, type ShareCard } from '@/lib/shareCards';
 
 const CONFETTI_COUNT = 25;
@@ -149,6 +150,29 @@ export default function CheckInComplete() {
   // no milestone" (both read as glowMilestone === null otherwise).
   const [milestoneChecked, setMilestoneChecked] = useState(false);
   const [shareCard, setShareCard] = useState<ShareCard | null>(null);
+  // PN1 — the earned-moment pre-permission ask: only worth showing when
+  // the OS hasn't been asked yet (native only) AND our own card hasn't
+  // already been shown once, ever.
+  const [showPushAsk, setShowPushAsk] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'web' || !session?.user) return;
+    Promise.all([getPushPermissionStatus(), getMyProfile(session.user.id)])
+      .then(([status, profile]) => {
+        if (status === 'undetermined' && !profile?.has_seen_push_prompt) setShowPushAsk(true);
+      })
+      .catch(() => {});
+  }, [session?.user]);
+
+  const dismissPushAsk = () => {
+    setShowPushAsk(false);
+    if (session?.user) markPushPromptSeen(session.user.id).catch(() => {});
+  };
+
+  const handleTurnOnPush = () => {
+    if (!session?.user) return;
+    registerForPushNotificationsAsync(session.user.id).finally(() => dismissPushAsk());
+  };
 
   useEffect(() => {
     if (!circleId) return;
@@ -358,6 +382,20 @@ export default function CheckInComplete() {
           <Text style={styles.buttonText}>{STRINGS.checkinSuccessCta}</Text>
         </TouchableOpacity>
       </Animated.View>
+
+      {showPushAsk && (
+        <View style={styles.pushAskWrap}>
+          <Text style={styles.pushAskLine}>{STRINGS.pushAskLine}</Text>
+          <View style={styles.pushAskRow}>
+            <TouchableOpacity onPress={handleTurnOnPush}>
+              <Text style={styles.pushAskCta}>{STRINGS.pushAskCta}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={dismissPushAsk}>
+              <Text style={styles.pushAskDismiss}>{STRINGS.pushAskDismiss}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -410,5 +448,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
     color: '#fff',
+  },
+  pushAskWrap: {
+    marginTop: 18,
+    alignItems: 'center',
+  },
+  pushAskLine: {
+    fontSize: 12,
+    color: colors.muted,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  pushAskRow: {
+    flexDirection: 'row',
+    gap: 18,
+  },
+  pushAskCta: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.green,
+  },
+  pushAskDismiss: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
   },
 });

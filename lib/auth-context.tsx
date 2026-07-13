@@ -7,6 +7,7 @@ import { AppState, Platform } from 'react-native';
 
 import { getDeviceTimeZone } from './date';
 import { markSeenNow } from './notifications';
+import { clearPushToken } from './pushNotifications';
 import { supabase } from './supabase';
 
 // GN1 (13 July) — configured once at module load, not per sign-in attempt,
@@ -203,6 +204,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
   };
 
   const signOut = async () => {
+    // Must run before signOut() clears the session — the delete is
+    // RLS-scoped to the caller's own row.
+    await clearPushToken().catch(() => {});
     await supabase.auth.signOut();
   };
 

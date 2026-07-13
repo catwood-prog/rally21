@@ -52,6 +52,12 @@ export const STRINGS = {
   checkinSuccessBody: 'You showed up again.',
   checkinSuccessCta: 'Nice',
 
+  // PN1 (13 July) — the earned-moment pre-permission ask, shown once ever
+  // on the check-in-success screen before the real iOS system dialog.
+  pushAskLine: "want a gentle nudge when it's time to check in?",
+  pushAskCta: 'Turn on',
+  pushAskDismiss: 'not now',
+
   // Glow milestones (Rally21-Glow-Spec.md §4) — a variant of the same
   // check-in success screen, no new assets or badges.
   glowMilestoneTitle: (n: number) => `${n} days glowing 🔥`,
@@ -212,6 +218,15 @@ export const STRINGS = {
   friendNudgeToggleHelper: "let someone in your circle send you a quiet wave if you've been quiet — never more than one a day.",
   digestToggleLabel: 'evening digest',
   digestToggleHelper: "a short recap if something warm happened and you haven't seen it yet.",
+  // PN1 (13 July) — push is an OS-level permission, not a plain prefs
+  // toggle, so this row's pill/tap behavior differs by state: undetermined
+  // shows the real system dialog on tap; granted is a static "on" (only
+  // iOS Settings can revoke it); denied deep-links to iOS Settings since
+  // re-requesting silently does nothing once already decided.
+  pushToggleLabel: 'push notifications',
+  pushToggleHelperUndetermined: 'get nudges on your phone instead of by email, when your circle needs you.',
+  pushToggleHelperDenied: 'turned off in iOS Settings — tap to open and turn it back on.',
+  pushToggleHelperGranted: "you're all set — nudges arrive right on your phone.",
   quietHoursLabel: 'quiet hours',
   quietHoursHelper: 'no emails between these hours, your local time.',
   quietHoursFromLabel: 'from',

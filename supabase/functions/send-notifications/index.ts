@@ -23,6 +23,16 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // send_friend_nudge must never accept client-composed email content —
 // this function composes that one kind's subject/html itself, right
 // before sending.
+//
+// PN1 (13 July): push is a new delivery channel on this SAME outbox row,
+// never a parallel system. If the recipient has a live device token, the
+// already-composed subject/html is delivered as a push instead of an
+// email (anti-pile-on — never both for one row); everyone else keeps
+// getting email exactly as before. Scope simplification, documented in
+// DEFERRED.md: only the user's single most-recently-seen device_tokens
+// row is used (most users have exactly one), since the outbox row's
+// bookkeeping columns (push_ticket_id/push_token) hold one value, not a
+// per-device array.
 
 type PrefRow = {
   nudge_enabled: boolean;
@@ -162,6 +172,92 @@ function unsubscribeFooter(supabaseUrl: string, userId: string, kind: string, to
 </p>`;
 }
 
+/** Push has no HTML rendering — reuse the same composed subject/html by
+ * stripping tags/whitespace down to a short plain-text body, rather than
+ * having composers produce a second, push-specific copy. */
+function stripHtmlToPushBody(html: string, maxLen = 140): string {
+  const text = html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > maxLen ? `${text.slice(0, maxLen - 1)}…` : text;
+}
+
+type ExpoTicket =
+  | { status: "ok"; id: string }
+  | { status: "error"; message: string; details?: { error?: string } };
+
+/** One push per outbox row, to the single most-recently-seen device
+ * token on file for that user (see the file-header scope note). Returns
+ * null if the user has no registered device at all — the caller falls
+ * back to email exactly as it does today. */
+async function sendExpoPush(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  title: string,
+  body: string
+): Promise<{ ticket: ExpoTicket; token: string } | null> {
+  const { data: device } = await admin
+    .from("device_tokens")
+    .select("token")
+    .eq("user_id", userId)
+    .order("last_seen_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!device?.token) return null;
+
+  const res = await fetch("https://exp.host/--/api/v2/push/send", {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify([{ to: device.token, title, body, sound: "default" }]),
+  });
+  const json = await res.json();
+  const ticket: ExpoTicket = Array.isArray(json?.data) ? json.data[0] : json?.data;
+  return { ticket, token: device.token };
+}
+
+/** Receipts sweep (spec step 5): Expo's /send response only confirms
+ * hand-off, not real delivery — DeviceNotRegistered typically only shows
+ * up in the LATER receipt, once Expo has actually heard back from APNs.
+ * Runs once per invocation, before processing new due rows, and only
+ * checks tickets old enough (>=1 min) to plausibly have a receipt yet;
+ * every checked row is stamped push_receipt_checked_at regardless of
+ * outcome so it's never re-checked. Idempotent — safe to run every tick. */
+async function sweepPushReceipts(admin: ReturnType<typeof createClient>, now: Date): Promise<number> {
+  const { data: rows } = await admin
+    .from("notification_outbox")
+    .select("id, push_ticket_id, push_token")
+    .not("push_ticket_id", "is", null)
+    .is("push_receipt_checked_at", null)
+    .lte("sent_at", new Date(now.getTime() - 60 * 1000).toISOString());
+
+  if (!rows || rows.length === 0) return 0;
+
+  const ids = rows.map((r: any) => r.push_ticket_id);
+  const res = await fetch("https://exp.host/--/api/v2/push/getReceipts", {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+  const json = await res.json();
+  const receipts: Record<string, { status: string; details?: { error?: string } }> = json?.data ?? {};
+
+  let pruned = 0;
+  for (const row of rows as { id: string; push_ticket_id: string; push_token: string }[]) {
+    const receipt = receipts[row.push_ticket_id];
+    if (receipt?.status === "error" && receipt.details?.error === "DeviceNotRegistered") {
+      await admin.from("device_tokens").delete().eq("token", row.push_token);
+      pruned++;
+    }
+    await admin
+      .from("notification_outbox")
+      .update({ push_receipt_checked_at: now.toISOString() })
+      .eq("id", row.id);
+  }
+  return pruned;
+}
+
 Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -175,7 +271,12 @@ Deno.serve(async (req) => {
   }
 
   const now = new Date();
-  const summary = { processed: 0, sent: 0, suppressed: 0, quietHoursSkipped: 0, failed: 0 };
+  const summary = { processed: 0, sent: 0, suppressed: 0, quietHoursSkipped: 0, failed: 0, pushed: 0, pruned: 0 };
+
+  summary.pruned = await sweepPushReceipts(admin, now).catch((e) => {
+    console.error("Push receipt sweep failed:", e instanceof Error ? e.message : e);
+    return 0;
+  });
 
   const { data: dueRows, error: dueError } = await admin
     .from("notification_outbox")
@@ -371,6 +472,39 @@ Deno.serve(async (req) => {
           .eq("id", row.id);
         summary.suppressed++;
         continue;
+      }
+
+      // PN1 — anti-pile-on: a live device token means this row goes as
+      // PUSH instead of email, never both. A token that Expo immediately
+      // reports as DeviceNotRegistered is pruned right away and this row
+      // falls through to email below (better a late email than silence);
+      // any other push failure (network, Expo outage) does the same.
+      try {
+        const pushResult = await sendExpoPush(admin, row.user_id, renderedSubject, stripHtmlToPushBody(renderedHtml));
+        if (pushResult) {
+          const { ticket, token: pushToken } = pushResult;
+          if (ticket.status === "ok") {
+            await admin
+              .from("notification_outbox")
+              .update({
+                sent_at: now.toISOString(),
+                channel: "apns",
+                push_ticket_id: ticket.id,
+                push_token: pushToken,
+              })
+              .eq("id", row.id);
+            summary.sent++;
+            summary.pushed++;
+            continue;
+          }
+          console.error(`Push ticket error for outbox row ${row.id}:`, ticket.message);
+          if (ticket.details?.error === "DeviceNotRegistered") {
+            await admin.from("device_tokens").delete().eq("token", pushToken);
+          }
+          // falls through to email below
+        }
+      } catch (e) {
+        console.error(`Push send failed for outbox row ${row.id}, falling back to email:`, e instanceof Error ? e.message : e);
       }
 
       if (!resendApiKey) {
