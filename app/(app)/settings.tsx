@@ -329,6 +329,7 @@ export default function Settings() {
                 );
               })}
             </View>
+            <Text style={styles.prefRowHelper}>{STRINGS.nudgeTimeHelper}</Text>
           </>
         )}
       </View>

@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { computeSmartSendTime, hhmmToMinutes } from "./timing.ts";
 
 // The daily-nudge composer (Notifications spec §3, Part B). Runs on the
 // same 15-min pg_cron cadence as send-notifications but is a separate
@@ -155,6 +156,68 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      const localDate = localDateString(now, timeZone);
+      const dedupeKey = `nudge-${user.id}-${localDate}`;
+
+      // NS1 (13 July): if a circle-mate already waved at this user today,
+      // the app's own daily nudge (whichever flavor it would have been —
+      // ember included, since both are "the one automated nudge for
+      // today") would just be a redundant second poke. send_friend_nudge
+      // always writes a notification_outbox row the moment it runs
+      // (kind='friend_nudge', payload.local_date), regardless of whether
+      // that row later actually sends — so its mere existence for today
+      // is the correct, durable signal to check, not send-notifications'
+      // own delivered_in_app suppression (that's a separate, send-time
+      // decision about the WAVE's own email). Recording a real
+      // (immediately-suppressed) nudge_daily row here — same pattern as
+      // every other suppression reason elsewhere in this pipeline — both
+      // makes this decision auditable and stops this same user from
+      // being re-evaluated on every later 15-min tick today (the unique
+      // dedupe_key constraint takes over from there).
+      const { count: friendNudgeReceivedToday } = await admin
+        .from("notification_outbox")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("kind", "friend_nudge")
+        .eq("payload->>local_date", localDate);
+
+      if ((friendNudgeReceivedToday ?? 0) > 0) {
+        const { error: suppressInsertError } = await admin.from("notification_outbox").insert({
+          user_id: user.id,
+          kind: "nudge_daily",
+          payload: { local_date: localDate },
+          scheduled_for: now.toISOString(),
+          sent_at: now.toISOString(),
+          suppressed_reason: "suppressed_friend_nudge_already",
+          dedupe_key: dedupeKey,
+        });
+        if (suppressInsertError && suppressInsertError.code !== "23505") {
+          console.error(`Could not record friend-nudge suppression for user ${user.id}:`, suppressInsertError.message);
+        }
+        continue;
+      }
+
+      // NS1: learn this user's typical check-in time-of-day (their own
+      // local tz) from recent completions across every circle — a robust
+      // median, not mean, over the last ~21 days. Below the minimum
+      // sample size, computeSmartSendTime itself falls back to exactly
+      // today's existing default (untouched, unjittered).
+      const lookbackCutoff = new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: recentCompletions } = await admin
+        .from("completions")
+        .select("created_at")
+        .eq("user_id", user.id)
+        .gte("created_at", lookbackCutoff);
+      const timeOfDaySamplesMinutes = (recentCompletions ?? []).map((c: any) =>
+        hhmmToMinutes(localTimeString(new Date(c.created_at), timeZone))
+      );
+      const smartSendTime = computeSmartSendTime({
+        timeOfDaySamplesMinutes,
+        fallbackTime: prefs.nudge_time ?? activeCircles[0].timeOfDay!,
+        userId: user.id,
+        localDate,
+      });
+
       // Ember nudge (Rally21-Glow-Spec.md §2, §6) — ships LAST,
       // deliberately, as the one warm notification for the mechanic.
       // Rides this same composer/pref (nudge_enabled) and IS the daily
@@ -166,11 +229,7 @@ Deno.serve(async (req) => {
       const glow = Array.isArray(glowRow) ? glowRow[0] : glowRow;
       if (glow?.state === "embers" && glow.missed_local_date) {
         const emberDedupeKey = `ember-${user.id}-${glow.missed_local_date}`;
-        const emberResolved = resolveSendTime(
-          prefs.nudge_time ?? activeCircles[0].timeOfDay!,
-          prefs.quiet_start,
-          prefs.quiet_end
-        );
+        const emberResolved = resolveSendTime(smartSendTime, prefs.quiet_start, prefs.quiet_end);
         if (emberResolved !== "skip") {
           const emberLocalTime = localTimeString(now, timeZone);
           if (emberLocalTime >= emberResolved) {
@@ -200,21 +259,17 @@ Deno.serve(async (req) => {
         continue; // never also enqueue nudge_daily for an ember day
       }
 
-      const rawSendTime = prefs.nudge_time ?? activeCircles[0].timeOfDay!;
-      const resolved = resolveSendTime(rawSendTime, prefs.quiet_start, prefs.quiet_end);
+      const resolved = resolveSendTime(smartSendTime, prefs.quiet_start, prefs.quiet_end);
       if (resolved === "skip") {
         summary.skippedQuietHours++;
         continue;
       }
 
-      const localDate = localDateString(now, timeZone);
       const localTime = localTimeString(now, timeZone);
       if (localTime < resolved) {
         summary.notYetDue++;
         continue;
       }
-
-      const dedupeKey = `nudge-${user.id}-${localDate}`;
 
       const practiceNames = activeCircles.map((c) => c.practiceName ?? 'your practice');
       let subject: string;

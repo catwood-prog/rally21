@@ -204,6 +204,10 @@ export const STRINGS = {
   nudgeToggleHelper: "one small reminder when today's practice is still open — never if you've already shown up.",
   nudgeTimeLabel: 'remind me',
   nudgeTimeEarliest: "circle's usual time",
+  // NS1 (13 July): once there's enough check-in history, the actual send
+  // time quietly learns your own rhythm instead — this chip is honestly
+  // just the starting point until then, never an exact alarm.
+  nudgeTimeHelper: 'a starting point — once we learn your rhythm, nudges land a little before your usual time instead.',
   friendNudgeToggleLabel: 'nudges from circle-mates',
   friendNudgeToggleHelper: "let someone in your circle send you a quiet wave if you've been quiet — never more than one a day.",
   digestToggleLabel: 'evening digest',
