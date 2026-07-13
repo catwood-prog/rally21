@@ -45,13 +45,16 @@ type PrefRow = {
 type OutboxRow = {
   id: string;
   user_id: string;
-  kind: "nudge_daily" | "social_digest" | "friend_nudge" | "ember_nudge";
+  kind: "nudge_daily" | "social_digest" | "friend_nudge" | "ember_nudge" | "rest_rejoin";
   payload: {
     subject?: string;
     html?: string;
     local_date?: string;
     senderName?: string;
     circleName?: string;
+    // RS1 — rest_rejoin only, so the send-time staleness recheck below
+    // knows which circle to re-verify the member is still resting in.
+    circleId?: string;
   };
   scheduled_for: string;
 };
@@ -88,6 +91,9 @@ const KIND_TO_PREF_COLUMN: Record<OutboxRow["kind"], keyof PrefRow> = {
   // The ember nudge rides the same pref — it IS the daily nudge for an
   // ember day (Rally21-Glow-Spec.md §6).
   ember_nudge: "nudge_enabled",
+  // RS1 — the rejoin email is fundamentally an invitation nudge (no
+  // dedicated pref exists, or is warranted, for this one rare email).
+  rest_rejoin: "nudge_enabled",
 };
 
 function localDateString(date: Date, timeZone: string): string {
@@ -102,6 +108,20 @@ function localDateString(date: Date, timeZone: string): string {
   const d = parts.find((p) => p.type === "day")!.value;
   return `${y}-${m}-${d}`;
 }
+
+/** Calendar days between two YYYY-MM-DD strings — mirrors lib/date.ts's
+ * daysBetween exactly (own copy, this Deno file has no access to the
+ * client's module graph). */
+function daysBetween(fromLocalDate: string, toLocalDate: string): number {
+  const [fy, fm, fd] = fromLocalDate.split("-").map(Number);
+  const [ty, tm, td] = toLocalDate.split("-").map(Number);
+  const from = Date.UTC(fy, fm - 1, fd);
+  const to = Date.UTC(ty, tm - 1, td);
+  return Math.round((to - from) / 86400000);
+}
+
+// RS1 — kept in sync by hand with compose-nudges' own copy.
+const REJOIN_EMAIL_QUIET_DAYS_THRESHOLD = 14;
 
 function localTimeString(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -346,6 +366,35 @@ Deno.serve(async (req) => {
               suppressed_reason: glow?.state === "glowing" ? "already_checked_in" : "expired",
               sent_at: now.toISOString(),
             })
+            .eq("id", row.id);
+          summary.suppressed++;
+          continue;
+        }
+      }
+
+      // RS1 rejoin staleness guard: re-check they're STILL resting at
+      // send time, not just when compose-nudges enqueued this — a row
+      // can sit queued for a while (quiet hours, the daily cap), and a
+      // real check-in in between means this exact "we missed you" email
+      // would land moments after they came back on their own, which
+      // reads as a strange non-sequitur rather than a warm welcome.
+      if (row.kind === "rest_rejoin" && row.payload?.circleId) {
+        const { data: latestCompletion } = await admin
+          .from("completions")
+          .select("local_date")
+          .eq("user_id", row.user_id)
+          .eq("circle_id", row.payload.circleId)
+          .order("local_date", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const todayLocal = localDateString(now, timeZone);
+        const daysSinceLastCompletion = latestCompletion?.local_date
+          ? daysBetween(latestCompletion.local_date, todayLocal)
+          : Infinity;
+        if (daysSinceLastCompletion < REJOIN_EMAIL_QUIET_DAYS_THRESHOLD) {
+          await admin
+            .from("notification_outbox")
+            .update({ suppressed_reason: "already_checked_in", sent_at: now.toISOString() })
             .eq("id", row.id);
           summary.suppressed++;
           continue;

@@ -40,6 +40,17 @@ const RESTART_LINES = [
   "today's a clean page. that's all it needs to be.",
 ];
 
+// RS1 (13 July) — the one warm rejoin email, after 14+ quiet days in a
+// still-ongoing circle. Kept in sync by hand with lib/resting.ts's
+// REJOIN_EMAIL_QUIET_DAYS_THRESHOLD (that file can't be imported here).
+const REJOIN_EMAIL_QUIET_DAYS_THRESHOLD = 14;
+// Same mascot as the client's own welcome-back.tsx (the-restart.png,
+// "no streak lost, no guilt" reentry framing) — the one existing email
+// image placement precedent is compose-digest's cover-a-friend.png, same
+// hosting pattern (the Vercel-exported web asset's own hashed URL).
+const THE_RESTART_IMAGE_URL =
+  "https://rally21.vercel.app/assets/assets/mascot/the-restart.f3720755916ad298942cb4161aadf321.png";
+
 // Kept in exact sync by hand with constants/strings.ts's
 // PRACTICE_VERB_STARTERS / isVerbPhrasePractice.
 const PRACTICE_VERB_STARTERS = [
@@ -78,6 +89,17 @@ function dayBefore(dateStr: string): string {
   return `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, "0")}-${String(prev.getUTCDate()).padStart(2, "0")}`;
 }
 
+/** Calendar days between two YYYY-MM-DD strings — mirrors lib/date.ts's
+ * daysBetween exactly (own copy, this Deno file has no access to the
+ * client's module graph). */
+function daysBetween(fromLocalDate: string, toLocalDate: string): number {
+  const [fy, fm, fd] = fromLocalDate.split("-").map(Number);
+  const [ty, tm, td] = toLocalDate.split("-").map(Number);
+  const from = Date.UTC(fy, fm - 1, fd);
+  const to = Date.UTC(ty, tm - 1, td);
+  return Math.round((to - from) / 86400000);
+}
+
 /** quiet_start/quiet_end are "HH:MM:SS"; sendTime is "HH:MM:SS".
  * Returns 'skip' (send time falls in the late/evening part of the quiet
  * window — don't send at all today), a clamped "HH:MM" (send time falls
@@ -114,7 +136,14 @@ Deno.serve(async (req) => {
   }
 
   const now = new Date();
-  const summary = { candidates: 0, enqueued: 0, skippedNoCircles: 0, skippedQuietHours: 0, notYetDue: 0 };
+  const summary = {
+    candidates: 0,
+    enqueued: 0,
+    skippedNoCircles: 0,
+    skippedQuietHours: 0,
+    notYetDue: 0,
+    rejoinEnqueued: 0,
+  };
 
   const { data: candidates, error: candidatesError } = await admin
     .from("users")
@@ -321,6 +350,111 @@ Deno.serve(async (req) => {
       if (!insertError) summary.enqueued++;
     } catch (e) {
       console.error(`Unhandled error composing nudge for user ${user.id}:`, e instanceof Error ? e.message : e);
+    }
+  }
+
+  // RS1 (13 July) — the one warm rejoin email: a member is only ever
+  // visually "resting" client-side (never stored), but 14+ quiet days in
+  // a still-ongoing circle is real enough to warrant one gentle outreach.
+  // Deliberately independent of the per-user loop above — a member can be
+  // quiet in circle A while circle B's own daily nudge still fires
+  // normally, and this must never skip because that other loop already
+  // `continue`d for an unrelated reason (friend-nudge suppression, an
+  // ember day, etc.) — so it walks every active membership directly.
+  const { data: restingMemberships, error: restingMembershipsError } = await admin
+    .from("memberships")
+    .select("user_id, circle_id, joined_at, circles!inner(is_active, completed_at)")
+    .eq("circles.is_active", true)
+    .is("circles.completed_at", null);
+
+  if (restingMembershipsError) {
+    console.error("Could not load memberships for the rejoin pass:", restingMembershipsError.message);
+  }
+
+  for (const membership of restingMemberships ?? []) {
+    try {
+      const { data: prefs } = await admin
+        .from("notification_prefs")
+        .select("nudge_enabled")
+        .eq("user_id", membership.user_id)
+        .maybeSingle();
+      if (!prefs?.nudge_enabled) continue;
+
+      const { data: userRow } = await admin
+        .from("users")
+        .select("timezone")
+        .eq("id", membership.user_id)
+        .maybeSingle();
+      const timeZone = (userRow?.timezone as string | null) || "UTC";
+      const today = localDateString(now, timeZone);
+      const joinedLocalDate = localDateString(new Date(membership.joined_at as string), timeZone);
+
+      // Never born resting (lib/resting.ts's own rule) — skip the
+      // completions lookup entirely for a joiner too new to qualify.
+      if (daysBetween(joinedLocalDate, today) <= REJOIN_EMAIL_QUIET_DAYS_THRESHOLD) continue;
+
+      const { data: lastCompletionRow } = await admin
+        .from("completions")
+        .select("local_date")
+        .eq("user_id", membership.user_id)
+        .eq("circle_id", membership.circle_id)
+        .order("local_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const lastCompletionDate = (lastCompletionRow?.local_date as string | undefined) ?? null;
+      const daysSinceLastCompletion = lastCompletionDate
+        ? daysBetween(lastCompletionDate, today)
+        : Infinity;
+
+      if (daysSinceLastCompletion < REJOIN_EMAIL_QUIET_DAYS_THRESHOLD) continue;
+
+      // The resting SPELL is identified by the last real activity date
+      // (or the join date if there's never been one) — it changes the
+      // moment they check in again, so a future spell after a real
+      // rejoin-then-quiet-again cycle gets its own fresh dedupe key
+      // instead of being silently blocked by this one's.
+      const spellKey = lastCompletionDate ?? joinedLocalDate;
+      const dedupeKey = `rest_rejoin-${membership.user_id}-${membership.circle_id}-${spellKey}`;
+
+      const { data: circleRow } = await admin
+        .from("circles")
+        .select("name")
+        .eq("id", membership.circle_id)
+        .maybeSingle();
+      const circleName = (circleRow?.name as string | undefined) ?? "your circle";
+
+      const html = `<p><img src="${THE_RESTART_IMAGE_URL}" alt="" width="160" style="display:block;margin:0 auto 12px;" /></p>
+<p>the huddle kept your spot warm in ${circleName}.</p>
+<p>no streak lost, no catching up required — just today, whenever you're ready.</p>
+<p><a href="https://rally21.vercel.app">open Rally21</a></p>`;
+
+      const { error: rejoinInsertError } = await admin.from("notification_outbox").insert({
+        user_id: membership.user_id,
+        kind: "rest_rejoin",
+        payload: {
+          subject: "the huddle kept your spot warm 💛",
+          html,
+          circleId: membership.circle_id,
+        },
+        scheduled_for: now.toISOString(),
+        dedupe_key: dedupeKey,
+      });
+
+      // A unique-violation just means this exact spell already got its
+      // one email — not an error, exactly the dedupe this key guarantees.
+      if (rejoinInsertError && rejoinInsertError.code !== "23505") {
+        console.error(
+          `Could not enqueue rest_rejoin for user ${membership.user_id} in circle ${membership.circle_id}:`,
+          rejoinInsertError.message
+        );
+      } else if (!rejoinInsertError) {
+        summary.rejoinEnqueued++;
+      }
+    } catch (e) {
+      console.error(
+        `Unhandled error composing rest_rejoin for user ${membership.user_id}:`,
+        e instanceof Error ? e.message : e
+      );
     }
   }
 

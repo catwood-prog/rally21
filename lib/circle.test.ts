@@ -1,4 +1,19 @@
-import { isSoloCircle, MyCircle, resolveCircleSelection } from './circle';
+import { attachRestingStatus, CircleMember, isSoloCircle, MyCircle, resolveCircleSelection } from './circle';
+
+function fakeMember(overrides: Partial<CircleMember> = {}): CircleMember {
+  return {
+    userId: 'user-1',
+    name: 'Alex',
+    avatarUrl: null,
+    role: 'member',
+    birthMonth: null,
+    birthDay: null,
+    celebrateBirthday: true,
+    timezone: null,
+    joinedAt: '2026-06-01T00:00:00Z',
+    ...overrides,
+  };
+}
 
 function fakeCircle(overrides: Partial<MyCircle> = {}): MyCircle {
   return {
@@ -104,5 +119,27 @@ describe('isSoloCircle', () => {
   test('zero or more than one member is not solo', () => {
     expect(isSoloCircle(0)).toBe(false);
     expect(isSoloCircle(2)).toBe(false);
+  });
+});
+
+describe('attachRestingStatus (RS1)', () => {
+  test('a long-quiet member is flagged resting; order and other fields are untouched', () => {
+    const quiet = fakeMember({ userId: 'user-quiet', joinedAt: '2026-06-01T00:00:00Z' });
+    const active = fakeMember({ userId: 'user-active', joinedAt: '2026-06-01T00:00:00Z' });
+    const presence = [{ userId: 'user-active', localDate: '2026-07-13' }];
+
+    const result = attachRestingStatus([quiet, active], presence, '2026-07-13');
+
+    expect(result.map((m) => m.userId)).toEqual(['user-quiet', 'user-active']);
+    expect(result[0]).toMatchObject({ userId: 'user-quiet', isResting: true, name: 'Alex' });
+    expect(result[1]).toMatchObject({ userId: 'user-active', isResting: false });
+  });
+
+  test('a member who joined yesterday is never resting, even with zero presence rows', () => {
+    const freshJoiner = fakeMember({ userId: 'user-new', joinedAt: '2026-07-12T00:00:00Z' });
+
+    const result = attachRestingStatus([freshJoiner], [], '2026-07-13');
+
+    expect(result[0].isResting).toBe(false);
   });
 });

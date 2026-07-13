@@ -1,4 +1,6 @@
+import { getLocalDateString } from './date';
 import { isHttpUrl } from './resourceLink';
+import { isResting } from './resting';
 import { captureError } from './sentry';
 import { supabase } from './supabase';
 
@@ -44,6 +46,11 @@ export type CircleMember = {
   birthDay: number | null;
   celebrateBirthday: boolean;
   timezone: string | null;
+  // RS1 (13 July) — when this member joined the circle (raw timestamptz),
+  // needed alongside presence to derive isResting (see attachRestingStatus
+  // below) — a brand-new joiner is never born resting regardless of how
+  // quiet they've been.
+  joinedAt: string;
 };
 
 /** A circle with exactly one member gets the solo-practice UI treatment
@@ -276,12 +283,15 @@ export async function markVoiceUnlockedHintSeen(circleId: string): Promise<void>
 export async function getCircleMembers(circleId: string): Promise<CircleMember[]> {
   const { data, error } = await supabase
     .from('memberships')
-    .select('user_id, role, users(name, avatar_url, birth_month, birth_day, celebrate_birthday, timezone)')
+    .select(
+      'user_id, role, joined_at, users(name, avatar_url, birth_month, birth_day, celebrate_birthday, timezone)'
+    )
     .eq('circle_id', circleId)
     .returns<
       {
         user_id: string;
         role: string;
+        joined_at: string;
         users: {
           name: string | null;
           avatar_url: string | null;
@@ -304,6 +314,29 @@ export async function getCircleMembers(circleId: string): Promise<CircleMember[]
     birthDay: m.users?.birth_day ?? null,
     celebrateBirthday: m.users?.celebrate_birthday ?? true,
     timezone: m.users?.timezone ?? null,
+    joinedAt: m.joined_at,
+  }));
+}
+
+/** RS1 — extends the canonical member shape with a derived, never-stored
+ * isResting per member, computed purely from data the circle screen
+ * already fetches (getCircleMembers + getCirclePresence): no new
+ * server-side surface needed. Order is preserved; call sites that want
+ * resting members visually pushed to the edge sort the result
+ * themselves (e.g. `[...withResting].sort((a, b) => Number(a.isResting) -
+ * Number(b.isResting))`, a stable sort). */
+export function attachRestingStatus(
+  members: CircleMember[],
+  presence: { userId: string; localDate: string }[],
+  today: string
+): (CircleMember & { isResting: boolean })[] {
+  return members.map((member) => ({
+    ...member,
+    isResting: isResting({
+      joinedLocalDate: getLocalDateString(new Date(member.joinedAt)),
+      presenceLocalDates: presence.filter((p) => p.userId === member.userId).map((p) => p.localDate),
+      today,
+    }),
   }));
 }
 

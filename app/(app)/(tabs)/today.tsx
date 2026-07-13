@@ -25,6 +25,7 @@ import { getMyCircleCap, MAX_CIRCLES } from '@/lib/caps';
 import { DailyQuestion, getDailyQuestion, getTodayReflection, isReflectionSubstantive } from '@/lib/checkin';
 import { unlockAudioContext } from '@/lib/chime';
 import {
+  attachRestingStatus,
   CircleMember,
   getCircleMembers,
   getCirclePresence,
@@ -358,6 +359,13 @@ export default function Today() {
       (p) => p.localDate === today && p.userId === session?.user?.id && p.kind === 'covered'
     );
     const inCount = inTodayUserIds.size;
+    // RS1 — every "N of M" headcount line counts only non-resting
+    // members in M (they're still real members, just quietly at the
+    // edge for now); the circle screen owns the actual visual fade,
+    // this screen's own member row is untouched per RS1's scope.
+    const activeMemberCount = attachRestingStatus(members, presence, today).filter(
+      (m) => !m.isResting
+    ).length;
     const isSolo = isSoloCircle(members.length);
     const signal = computeSignal({
       presence,
@@ -446,9 +454,9 @@ export default function Today() {
             {isSolo
               ? 'view your practice →'
               : `${
-                  inCount === members.length
-                    ? STRINGS.groupAllInCelebration(members.length, circle.name)
-                    : STRINGS.cardLinkStatus(inCount, members.length)
+                  inCount === activeMemberCount
+                    ? STRINGS.groupAllInCelebration(activeMemberCount, circle.name)
+                    : STRINGS.cardLinkStatus(inCount, activeMemberCount)
                 } · view circle →`}
           </Text>
         </TouchableOpacity>
@@ -580,6 +588,10 @@ export default function Today() {
           (p) => p.localDate === today && p.userId === session?.user?.id && p.kind === 'covered'
         );
         const inCount = inTodayUserIds.size;
+        // RS1 — see the single-circle branch above for the full note.
+        const activeMemberCount = attachRestingStatus(members, presence, today).filter(
+          (m) => !m.isResting
+        ).length;
         const isSolo = isSoloCircle(members.length);
         const signal = computeSignal({
           presence,
@@ -620,9 +632,9 @@ export default function Today() {
                 {isSolo
               ? 'view your practice →'
               : `${
-                  inCount === members.length
-                    ? STRINGS.groupAllInCelebration(members.length, circle.name)
-                    : STRINGS.cardLinkStatus(inCount, members.length)
+                  inCount === activeMemberCount
+                    ? STRINGS.groupAllInCelebration(activeMemberCount, circle.name)
+                    : STRINGS.cardLinkStatus(inCount, activeMemberCount)
                 } · view circle →`}
               </Text>
             </TouchableOpacity>

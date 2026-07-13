@@ -25,6 +25,7 @@ import { cardShadow, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { deriveWantPhrase, getWantActivationForCircle } from '@/lib/blueprint';
 import {
+  attachRestingStatus,
   CircleMember,
   getCircleMembers,
   getCirclePresence,
@@ -62,6 +63,13 @@ const MAX_AVATARS_SHOWN = 8;
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
+/** RS1 — resting members fade to the edge of the huddle; active members
+ * stay in the warm center. A stable sort (guaranteed since ES2019)
+ * preserves each group's own relative order otherwise. */
+function sortRestingLast<T extends { isResting: boolean }>(members: T[]): T[] {
+  return [...members].sort((a, b) => Number(a.isResting) - Number(b.isResting));
 }
 
 type ListCircleData = { members: CircleMember[]; presence: PresenceRow[] };
@@ -265,8 +273,11 @@ export default function YourCircle() {
             today,
             circleStartDate: c.startDate,
           });
-          const shown = data.members.slice(0, MAX_AVATARS_SHOWN);
-          const overflow = data.members.length - shown.length;
+          // RS1 — resting members fade to the edge, so they're the ones
+          // pushed into "+N" overflow first, not an active member.
+          const orderedMembers = sortRestingLast(attachRestingStatus(data.members, data.presence, today));
+          const shown = orderedMembers.slice(0, MAX_AVATARS_SHOWN);
+          const overflow = orderedMembers.length - shown.length;
           const inTodayIds = new Set(
             data.presence.filter((p) => p.localDate === today).map((p) => p.userId)
           );
@@ -353,8 +364,17 @@ export default function YourCircle() {
     (p) => p.localDate === today && p.kind === 'covered' && p.coveredBy === session?.user?.id
   );
 
-  const shownMembers = members.slice(0, MAX_AVATARS_SHOWN);
-  const overflowCount = members.length - shownMembers.length;
+  // RS1 — a circle-mate quiet for 5+ days fades to the edge of the
+  // huddle (never dropped, never told) rather than the circle ever
+  // reading as dead. Purely derived from data already fetched above;
+  // every "N of M" headcount line counts only non-resting members in M
+  // (they're still real members, just softly at the edge for now), and
+  // wave/cover stay fully reachable for them — they're exactly who those
+  // are for.
+  const orderedMembers = sortRestingLast(attachRestingStatus(members, presence, today));
+  const activeMemberCount = orderedMembers.filter((m) => !m.isResting).length;
+  const shownMembers = orderedMembers.slice(0, MAX_AVATARS_SHOWN);
+  const overflowCount = orderedMembers.length - shownMembers.length;
   const hasCoverableMember = shownMembers.some(
     (member) => member.userId !== session?.user?.id && !inTodayUserIds.has(member.userId)
   );
@@ -632,9 +652,9 @@ export default function YourCircle() {
         </View>
       )}
       <Text style={styles.headerStatus}>
-        {inTodayUserIds.size === members.length && members.length > 1
-          ? STRINGS.groupAllInCelebration(members.length, circle.name)
-          : STRINGS.groupHeaderStatus(signal.dayNumber, inTodayUserIds.size, members.length)}
+        {inTodayUserIds.size === activeMemberCount && activeMemberCount > 1
+          ? STRINGS.groupAllInCelebration(activeMemberCount, circle.name)
+          : STRINGS.groupHeaderStatus(signal.dayNumber, inTodayUserIds.size, activeMemberCount)}
       </Text>
 
       {isEditingLink ? (
@@ -787,7 +807,7 @@ export default function YourCircle() {
               const isReachable = !isMe;
               return (
                 <View key={member.userId} style={styles.whoHereItem}>
-                  <View style={styles.avatarWrap}>
+                  <View style={[styles.avatarWrap, member.isResting && styles.avatarWrapResting]}>
                     <Avatar name={member.name} avatarUrl={member.avatarUrl} size={40} ring={state} />
                     <CheckedInBadge state={state} />
                   </View>
@@ -1348,6 +1368,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     position: 'relative',
+  },
+  // RS1 — soft fade to the edge of the huddle, opacity only (never a
+  // grey filter, never a label — the resting member themselves must
+  // never know, and nobody else sees why, just a quieter presence).
+  avatarWrapResting: {
+    opacity: 0.5,
   },
   coverPill: {
     marginTop: 6,
