@@ -1,0 +1,29 @@
+-- Rally21 share-card bank: copy edits after the 155-row reseed (Cat, 13 Jul)
+update public.share_card_bank set gloss='You are allowed to be many things at once, even ones that seem to contradict each other.' where id='QB-035';
+update public.share_card_bank set gloss='Friendship offered plainly and freely, worth more than anything money can buy.' where id='QB-081';
+update public.share_card_bank set gloss='Celebrate who you are without apology, and know that what is true in you runs through everyone else too.' where id='QB-092';
+update public.share_card_bank set body='Not knowing when the dawn will come, I open every door', gloss='You cannot know when the good thing will come, so keep every door open to it.' where id='QB-041';
+update public.share_card_bank set body='Now I see the secret of the making of the best persons, it is to grow in the open air and to eat and sleep with the earth.', gloss='The best people are grown by living simply and close to the world, not shut away from it.' where id='QB-104';
+update public.share_card_bank set source_note='Winnie-the-Pooh (1926) — PD ✓' where id='QB-088';
+update public.share_card_bank set body='The idea that habits take 21 days is a myth. A 2009 University College London study found it takes 66 days on average, and for some, as long as 254. So don''t stop at 21. That''s just the beginning. Keep going.' where id='NF-09';
+update public.share_card_bank set body='A 2009 University College London study found that missing a single day made no measurable difference to how automatic a habit became. One missed day does not erase what you have built.' where id='NF-10';
+delete from public.share_card_bank where tier='original_unattributed';
+insert into public.share_card_bank
+(id, flavor, body, attribution, source_note, theme, extra_tags, moment, gloss, active, tier)
+values
+('AN-01', 'curated_quote', 'Showing up small still counts as showing up.', null, 'Original Rally line — no rights or attribution question by construction.', 'returning & beginning again', '{}'::text[], 'rekindle', null, true, 'original_unattributed'),
+('AN-02', 'curated_quote', 'You don''t have to feel ready to begin. You just have to begin.', null, 'Original Rally line — no rights or attribution question by construction.', 'returning & beginning again', '{}'::text[], 'early days', null, true, 'original_unattributed'),
+('AN-03', 'curated_quote', 'The day you almost skipped and didn''t is the one that builds you.', null, 'Original Rally line — no rights or attribution question by construction.', 'craft & practice', '{}'::text[], 'hard day', null, true, 'original_unattributed'),
+('AN-04', 'curated_quote', 'Miss a day, and the road back is still open. It always is.', null, 'Original Rally line — no rights or attribution question by construction.', 'returning & beginning again', '{}'::text[], 'rekindle', null, true, 'original_unattributed'),
+('AN-05', 'curated_quote', 'Small and steady outlasts big and rare.', null, 'Original Rally line — no rights or attribution question by construction.', 'craft & practice', '{}'::text[], 'long arc', null, true, 'original_unattributed'),
+('AN-06', 'curated_quote', 'Be gentle with the version of you that''s still learning.', null, 'Original Rally line — no rights or attribution question by construction.', 'rest & gentleness', '{}'::text[], 'hard day', null, true, 'original_unattributed'),
+('AN-07', 'curated_quote', 'You are not behind. You are one day in, again.', null, 'Original Rally line — no rights or attribution question by construction.', 'returning & beginning again', '{}'::text[], 'rekindle', null, true, 'original_unattributed'),
+('AN-08', 'curated_quote', 'Rest is part of the practice, not a break from it.', null, 'Original Rally line — no rights or attribution question by construction.', 'rest & gentleness', '{}'::text[], 'any', null, true, 'original_unattributed'),
+('AN-09', 'curated_quote', 'The habit you keep quietly is stronger than the one you announce.', null, 'Original Rally line — no rights or attribution question by construction.', 'craft & practice', '{}'::text[], 'long arc', null, true, 'original_unattributed'),
+('AN-10', 'curated_quote', 'Done imperfectly beats planned perfectly and not done.', null, 'Original Rally line — no rights or attribution question by construction.', 'craft & practice', '{}'::text[], 'any', null, true, 'original_unattributed'),
+('AN-11', 'curated_quote', 'Start before you feel like it. The feeling tends to follow.', null, 'Original Rally line — no rights or attribution question by construction.', 'craft & practice', '{}'::text[], 'hard day', null, true, 'original_unattributed'),
+('AN-12', 'curated_quote', 'Some days the whole win is that you came back.', null, 'Original Rally line — no rights or attribution question by construction.', 'returning & beginning again', '{}'::text[], 'rekindle', null, true, 'original_unattributed'),
+('AN-13', 'curated_quote', 'Real change is a season, not a sprint.', null, 'Original Rally line — no rights or attribution question by construction.', 'endurance & the long walk', '{}'::text[], 'long arc', null, true, 'original_unattributed'),
+('AN-14', 'curated_quote', 'You can begin again as many times as you need to.', null, 'Original Rally line — no rights or attribution question by construction.', 'returning & beginning again', '{}'::text[], 'rekindle', null, true, 'original_unattributed'),
+('AN-15', 'curated_quote', 'The small things you do today are a gift to your future self.', null, 'Original Rally line — no rights or attribution question by construction.', 'craft & practice', '{}'::text[], 'any', null, true, 'original_unattributed'),
+('AN-16', 'curated_quote', 'Progress is quiet. Trust in it even when you can''t hear it.', null, 'Original Rally line — no rights or attribution question by construction.', 'endurance & the long walk', '{}'::text[], 'long arc', null, true, 'original_unattributed');
