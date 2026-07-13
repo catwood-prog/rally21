@@ -265,6 +265,18 @@ export const STRINGS = {
   introPrivacyCta: 'Sounds good',
   introPrivacyReadFullLink: 'Read the full privacy policy',
 
+  // RM1 (13 July) — the reminders ask (mockup screen 6, rev-7): a new
+  // sign-up sees this once, in flow, between profile and circle-setup;
+  // an existing user with the flag unset sees a compact version of the
+  // same copy as a one-time dismissible Today card (components/
+  // RemindersAskCard.tsx renders both).
+  remindersAskTitleLead: "don't leave your ",
+  remindersAskTitleAccent: 'circle',
+  remindersAskTitleTrail: ' hanging',
+  remindersAskBody: "A gentle nudge when it's time to check in, and when your circle could use you. No noise, no spam.",
+  remindersAskCta: 'Turn on reminders',
+  remindersAskMaybeLater: 'Maybe later',
+
   // Today's reflection teaser (D4 design review) — an invitation, never a
   // reminder of something missed. Only shows before today's reflection is
   // written; disappears the moment it is (see CLAUDE.md's color-roles

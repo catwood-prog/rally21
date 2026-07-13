@@ -14,6 +14,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { BirthdayBanner } from '@/components/BirthdayBanner';
 import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { GlowBadge } from '@/components/GlowBadge';
+import { RemindersAskCard } from '@/components/RemindersAskCard';
 import { SignalMeter } from '@/components/SignalMeter';
 import { TodayFooter } from '@/components/TodayFooter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
@@ -36,7 +37,8 @@ import { isBirthdayToday } from '@/lib/birthday';
 import { daysBetween, getLocalDateString } from '@/lib/date';
 import { getMyGlow, getMyWeek, Glow, WeekDay } from '@/lib/glow';
 import { getMyLastCelebratedDay, getNextMilestone, shouldShowJourneyGate } from '@/lib/journey';
-import { getMyProfile } from '@/lib/profile';
+import { updateNotificationPrefs } from '@/lib/notifications';
+import { getMyProfile, markRemindersAskSeen } from '@/lib/profile';
 import { hasUnrespondedDayObservation } from '@/lib/reflections';
 import { computeSignal, PresenceRow } from '@/lib/signal';
 import { hasPlayedTodayOneShot, markTodayOneShotPlayed } from '@/lib/todayOneShot';
@@ -67,6 +69,13 @@ export default function Today() {
     celebrate: true,
   });
   const [hasSeenCheckinConsent, setHasSeenCheckinConsent] = useState(true);
+  // RM1 — defaults true so the card never flashes before the real value
+  // loads; only ever matters once it resolves to false. This screen only
+  // ever renders once onboarding is fully complete (see the (app) layout
+  // gate), so a null flag here always means "existing user, never asked
+  // yet" — a still-mid-onboarding account sees the onboarding step
+  // instead (hooks/use-onboarding-status.ts's 'needs-reminders-ask').
+  const [hasSeenRemindersAsk, setHasSeenRemindersAsk] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +116,7 @@ export default function Today() {
         celebrate: profile?.celebrate_birthday ?? true,
       });
       setHasSeenCheckinConsent(profile?.has_seen_checkin_consent ?? false);
+      setHasSeenRemindersAsk(!!profile?.reminders_ask_seen_at);
       setCircles(myCircles);
       setCircleCap(myCircleCap);
       setReflectionQuestion(question);
@@ -301,6 +311,25 @@ export default function Today() {
   const isMyBirthday = myBirthday.celebrate && isBirthdayToday(myBirthday.month, myBirthday.day, today);
   const birthdayBanner = isMyBirthday ? <BirthdayBanner name={myName} /> : null;
 
+  // RM1 — the one-time dismissible reminders-ask card for existing users
+  // (new sign-ups get the onboarding step instead, never both). Either
+  // action hides it immediately and stamps the flag for good; a failed
+  // stamp is low-stakes (the card just might show once more).
+  const handleTurnOnReminders = () => {
+    if (!session?.user) return;
+    setHasSeenRemindersAsk(true);
+    updateNotificationPrefs(session.user.id, { nudgeEnabled: true, digestEnabled: true }).catch(() => {});
+    markRemindersAskSeen(session.user.id).catch(() => {});
+  };
+  const handleMaybeLaterReminders = () => {
+    if (!session?.user) return;
+    setHasSeenRemindersAsk(true);
+    markRemindersAskSeen(session.user.id).catch(() => {});
+  };
+  const remindersAskCard = !hasSeenRemindersAsk ? (
+    <RemindersAskCard variant="compact" onTurnOn={handleTurnOnReminders} onMaybeLater={handleMaybeLaterReminders} />
+  ) : null;
+
   // ---- zero circles: nothing to show but a way back in ----
   if (circles.length === 0) {
     return (
@@ -309,6 +338,7 @@ export default function Today() {
         <Text style={styles.greeting}>{greeting(myName)}</Text>
         <GlowBadge glow={glow} flickerOnce={glowOneShot} />
         {birthdayBanner}
+        {remindersAskCard}
         <Text style={styles.subtitle}>{error ?? "you're not in a circle yet"}</Text>
         {addCircleButton}
       </ScrollView>
@@ -352,6 +382,7 @@ export default function Today() {
             flickerOnce={glowOneShot}
           />
           {birthdayBanner}
+          {remindersAskCard}
           <TouchableOpacity
             style={styles.card}
             onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
@@ -372,6 +403,7 @@ export default function Today() {
         <Text style={styles.greeting}>{greeting(myName)}</Text>
         <GlowBadge glow={glow} coveredByName={iWasCoveredToday ? memberFullName(members, iWasCoveredToday.coveredBy) : null} />
         {birthdayBanner}
+        {remindersAskCard}
 
         <Text style={styles.headline}>
           {isSolo ? (
@@ -530,6 +562,7 @@ export default function Today() {
       <Text style={styles.greeting}>{greeting(myName)}</Text>
       <GlowBadge glow={glow} coveredByName={coveredTodayName} flickerOnce={glowOneShot} />
       {birthdayBanner}
+      {remindersAskCard}
 
       <Text style={styles.headline}>
         {CIRCLE_COUNT_WORD[circles.length] ?? circles.length} small things{' '}

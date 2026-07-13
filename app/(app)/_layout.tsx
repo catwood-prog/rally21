@@ -10,6 +10,7 @@ export default function AppLayout() {
   if (isAuthLoading || (session && status === 'loading')) return null;
   if (!session) return <Redirect href="/sign-in" />;
   if (status === 'needs-profile') return <Redirect href="/onboarding/profile" />;
+  if (status === 'needs-reminders-ask') return <Redirect href="/onboarding/reminders" />;
   if (status === 'needs-circle') return <Redirect href="/onboarding/circle-setup" />;
 
   return <Stack screenOptions={{ headerShown: false }} />;

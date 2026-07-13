@@ -3,13 +3,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 
-export type OnboardingStatus = 'loading' | 'needs-profile' | 'needs-circle' | 'ready';
+export type OnboardingStatus = 'loading' | 'needs-profile' | 'needs-reminders-ask' | 'needs-circle' | 'ready';
 
 /**
  * Where a signed-in user should land: straight to Today if they already
  * have a name and a circle, otherwise back into whichever onboarding step
  * they hadn't finished (covers someone who closed the app mid-setup, not
- * just first-time signups).
+ * just first-time signups). 'needs-reminders-ask' only applies to someone
+ * still mid-onboarding (no circle yet) who closed the app before finishing
+ * RM1's reminders-ask step — an existing user (already has a circle) with
+ * the flag unset instead sees Today's own dismissible card, never this
+ * redirect (see today.tsx).
  */
 export function useOnboardingStatus() {
   const { session } = useAuth();
@@ -21,7 +25,7 @@ export function useOnboardingStatus() {
 
     const { data: profile, error: profileError } = await supabase
       .from('users')
-      .select('name')
+      .select('name, reminders_ask_seen_at')
       .eq('id', session.user.id)
       .maybeSingle();
 
@@ -39,7 +43,13 @@ export function useOnboardingStatus() {
 
     if (membershipError) console.warn('Could not load memberships:', membershipError.message);
 
-    setStatus(count ? 'ready' : 'needs-circle');
+    if (count) {
+      setStatus('ready');
+    } else if (!profile.reminders_ask_seen_at) {
+      setStatus('needs-reminders-ask');
+    } else {
+      setStatus('needs-circle');
+    }
   }, [session?.user?.id]);
 
   useEffect(() => {

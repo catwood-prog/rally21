@@ -24,6 +24,7 @@ export default function Index() {
 
   if (!session) return <Redirect href="/splash" />;
   if (status === 'needs-profile') return <Redirect href="/onboarding/profile" />;
+  if (status === 'needs-reminders-ask') return <Redirect href="/onboarding/reminders" />;
   if (status === 'needs-circle') return <Redirect href="/onboarding/circle-setup" />;
   if (!warmOpenDone) return <WarmOpen onDone={() => setWarmOpenDone(true)} />;
   return <Redirect href="/today" />;
