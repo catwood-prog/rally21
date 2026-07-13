@@ -39,6 +39,15 @@ export const STRINGS = {
   signInOrDivider: 'or',
   signInGoogleError: "couldn't sign in with Google — try again",
 
+  // O1 (Apple slice, 12 July) — Apple sits above Google per Apple's own
+  // button-prominence guideline. The hint line addresses the live-proven
+  // "Hide My Email" trap: an existing member choosing Hide gets a private
+  // relay address that can never match their real account, so the copy
+  // nudges them toward Share before they tap.
+  signInWithAppleCta: 'Continue with Apple',
+  signInAppleShareEmailHint: 'already have Rally? choose share my email so we can find your account',
+  signInAppleError: "couldn't sign in with Apple — try again",
+
   checkinSuccessTitle: (n: number) => `Day ${n} done`,
   checkinSuccessBody: 'You showed up again.',
   checkinSuccessCta: 'Nice',
@@ -104,6 +113,15 @@ export const STRINGS = {
   soloFirstWhenLabel: "when's your first one?",
   soloFirstNow: 'right now',
   soloFirstTomorrow: (timeLabel: string) => `tomorrow ${timeLabel}`,
+
+  // O1 (Apple slice, 12 July) — shown on profile setup for any brand-new
+  // Apple-created account, private-relay email or not: Apple IDs often
+  // live on an old address that won't match a member's real Rally email,
+  // so a warm sign-out nudge here catches that case even when Hide My
+  // Email isn't involved. No merge feature exists yet (deferred), so this
+  // is prevention, not a fix — see DEFERRED.md.
+  onboardingAppleRescueLine:
+    'this looks like a brand new account — if you already use Rally somewhere else, sign out above and sign back in the way you did before',
 
   // BD1 — birthdays. Collected at sign-up (optional) and editable in
   // settings; celebrated in circles on the day. The year, if given, is

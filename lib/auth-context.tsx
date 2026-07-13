@@ -12,6 +12,7 @@ type AuthContextValue = {
   isLoading: boolean;
   signInWithEmail: (email: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
+  signInWithApple: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 };
 
@@ -88,12 +89,37 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return { error: error?.message ?? null };
   };
 
+  // O1 (Apple slice, 12 July) — web only, same redirect route as Google.
+  // Live-verified against the deployed project on disposable/throwaway
+  // accounts: an existing email account signing in with Apple and choosing
+  // "Share My Email" resolves to the SAME user id (auto-linking works when
+  // the email actually matches). But Apple's "Hide My Email" gives a
+  // private relay address that can never match an existing account — that
+  // path was reproduced live and genuinely creates a disconnected duplicate
+  // account, exactly as O1's own hard-rule warning predicted. There is no
+  // account-merge feature yet (deferred to a follow-up prompt), so the
+  // mitigation here is entirely preventive: signInAppleShareEmailHint on
+  // the button, and onboardingAppleRescueLine on profile setup for any
+  // brand-new Apple account. On the NATIVE iOS build, Sign in with Apple
+  // must use the native sheet (expo-apple-authentication →
+  // signInWithIdToken), never this web redirect — there is no native build
+  // yet, so that path is GN1's job, not this one.
+  const signInWithApple = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: { redirectTo: getRedirectUrl() },
+    });
+    return { error: error?.message ?? null };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ session, isLoading, signInWithEmail, signInWithGoogle, signOut }}>
+    <AuthContext.Provider
+      value={{ session, isLoading, signInWithEmail, signInWithGoogle, signInWithApple, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );

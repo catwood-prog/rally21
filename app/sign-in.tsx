@@ -18,11 +18,12 @@ import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 
 export default function SignIn() {
-  const { signInWithEmail, signInWithGoogle } = useAuth();
+  const { signInWithEmail, signInWithGoogle, signInWithApple } = useAuth();
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
 
   const handleSend = async () => {
     if (!email.trim()) return;
@@ -49,6 +50,17 @@ export default function SignIn() {
     }
   };
 
+  const handleApple = async () => {
+    setIsAppleLoading(true);
+    // Same navigate-away-on-success shape as handleGoogle above.
+    const { error } = await signInWithApple();
+    if (error) {
+      setErrorMessage(STRINGS.signInAppleError);
+      setStatus('error');
+      setIsAppleLoading(false);
+    }
+  };
+
   if (status === 'sent') {
     return (
       <View style={styles.container}>
@@ -72,10 +84,21 @@ export default function SignIn() {
       <Text style={styles.title}>let&apos;s get your circle going</Text>
       <Text style={styles.subtitle}>no password — just a link to your email</Text>
 
-      {/* O1 (Google slice, 8/12 July): a dedicated block above the email
-          form, not fused to it — leaves room for a "Continue with Apple"
-          button to slot in above Google later without restructuring. */}
+      {/* O1: Apple sits above Google (Apple's own guideline wants their
+          button at least as prominent when both providers are offered). */}
       <View style={styles.oauthButtons}>
+        <TouchableOpacity style={styles.appleButton} onPress={handleApple} disabled={isAppleLoading}>
+          {isAppleLoading ? (
+            <ActivityIndicator color={colors.card} />
+          ) : (
+            <>
+              <Ionicons name="logo-apple" size={18} color={colors.card} />
+              <Text style={styles.appleButtonText}>{STRINGS.signInWithAppleCta}</Text>
+            </>
+          )}
+        </TouchableOpacity>
+        <Text style={styles.appleHint}>{STRINGS.signInAppleShareEmailHint}</Text>
+
         <TouchableOpacity style={styles.googleButton} onPress={handleGoogle} disabled={isGoogleLoading}>
           {isGoogleLoading ? (
             <ActivityIndicator color={colors.ink} />
@@ -146,6 +169,26 @@ const styles = StyleSheet.create({
   oauthButtons: {
     gap: 10,
     marginBottom: 18,
+  },
+  appleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: colors.ink,
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
+  appleButtonText: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: colors.card,
+  },
+  appleHint: {
+    fontSize: 11.5,
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: -2,
   },
   googleButton: {
     flexDirection: 'row',

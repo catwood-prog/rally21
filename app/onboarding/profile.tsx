@@ -36,6 +36,18 @@ function initialNameFromSession(session: { user: { user_metadata?: Record<string
   return typeof fullName === 'string' ? fullName : '';
 }
 
+// O1 (Apple slice, 12 July) — live-verified this session that Apple's
+// "Hide My Email" produces a genuinely disconnected duplicate account, not
+// a linking failure that's otherwise recoverable client-side. This screen
+// is only ever reached by a brand-new signup (an existing member's session
+// routes straight to /today), so any Apple-provider session landing here
+// IS a brand-new Apple-created account — checked regardless of whether the
+// email looks like a private relay, since a real Apple ID's own address is
+// just as likely to be one nobody recognizes as their Rally email.
+function isNewAppleAccount(session: { user: { app_metadata?: Record<string, unknown> } } | null): boolean {
+  return session?.user.app_metadata?.provider === 'apple';
+}
+
 export default function ProfileSetup() {
   const router = useRouter();
   const { session, signOut } = useAuth();
@@ -45,6 +57,7 @@ export default function ProfileSetup() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [avatarWarning, setAvatarWarning] = useState<string | null>(null);
+  const showAppleRescueLine = isNewAppleAccount(session);
 
   const pickPhoto = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -101,6 +114,12 @@ export default function ProfileSetup() {
       </TouchableOpacity>
 
       <Text style={styles.title}>your profile</Text>
+
+      {showAppleRescueLine && (
+        <View style={styles.appleRescueCard}>
+          <Text style={styles.appleRescueText}>{STRINGS.onboardingAppleRescueLine}</Text>
+        </View>
+      )}
 
       <TouchableOpacity style={styles.photoWrap} onPress={pickPhoto}>
         {photoUri ? (
@@ -196,6 +215,20 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: colors.ink,
     marginBottom: 20,
+  },
+  appleRescueCard: {
+    width: '100%',
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 18,
+  },
+  appleRescueText: {
+    fontSize: 12.5,
+    color: colors.muted,
+    lineHeight: 17,
   },
   photoWrap: {
     width: 104,
