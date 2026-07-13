@@ -17,6 +17,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# EAS submit config — holds App Store Connect API key identifiers
+# (Key ID, Issuer ID, numeric App ID); repo is public, keep this local-only
+eas.json
+
 # Metro
 .metro-health-check*
 
