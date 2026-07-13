@@ -84,6 +84,16 @@ export async function saveCompletion(params: {
   circleId: string;
   localDate: string;
 }): Promise<void> {
+  // RS2: "simply checking in" is one of the two ways to end an away
+  // pause — a cheap no-op if the caller isn't currently away, so every
+  // check-in can call it unconditionally rather than checking away
+  // status first. Never blocks the actual check-in on failure.
+  try {
+    await supabase.rpc('return_from_away');
+  } catch (e) {
+    captureError(e, { rpc: 'return_from_away' });
+  }
+
   const { error } = await supabase.from('completions').upsert(
     { user_id: params.userId, circle_id: params.circleId, local_date: params.localDate },
     { onConflict: 'circle_id,user_id,local_date', ignoreDuplicates: true }

@@ -21,6 +21,7 @@ import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { returnFromAway, setAway } from '@/lib/away';
 import { isValidBirthday } from '@/lib/birthday';
 import { BlockedPerson, getMyBlocks, unblockUser } from '@/lib/moderation';
 import { getMyNotificationPrefs, NotificationPrefs, updateNotificationPrefs } from '@/lib/notifications';
@@ -79,6 +80,8 @@ export default function Settings() {
   const [reEnablingFlavor, setReEnablingFlavor] = useState<ShareCardFlavor | null>(null);
   const [pushStatus, setPushStatus] = useState<PushPermissionStatus>('denied');
   const [isRequestingPush, setIsRequestingPush] = useState(false);
+  const [awaySince, setAwaySinceState] = useState<string | null>(null);
+  const [isTogglingAway, setIsTogglingAway] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -104,6 +107,7 @@ export default function Settings() {
       setBlockedPeople(myBlocks);
       setMutedCardFlavors(myMutedCardFlavors);
       setPushStatus(pushPermissionStatus);
+      setAwaySinceState(profile?.away_since ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your profile');
     } finally {
@@ -230,6 +234,29 @@ export default function Settings() {
     } catch (e) {
       setCelebrateBirthdayState(!next);
       setError(e instanceof Error ? e.message : 'could not save that — try again');
+    }
+  };
+
+  // RS2 — toggling on is a plain self-update (going away needs nothing
+  // else); toggling off always goes through the RPC, since returning
+  // also durably backfills the away gap so glow/week/pair-streak
+  // protection survives long after this flag is cleared.
+  const handleToggleAway = async () => {
+    if (!session?.user || isTogglingAway) return;
+    setIsTogglingAway(true);
+    try {
+      if (awaySince) {
+        await returnFromAway();
+        setAwaySinceState(null);
+      } else {
+        const now = new Date().toISOString();
+        await setAway(session.user.id);
+        setAwaySinceState(now);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not save that — try again');
+    } finally {
+      setIsTogglingAway(false);
     }
   };
 
@@ -477,6 +504,31 @@ export default function Settings() {
               </TouchableOpacity>
             );
           })}
+        </View>
+      </View>
+
+      <Text style={[styles.label, styles.sectionSpacing]}>{STRINGS.awaySectionLabel}</Text>
+      <View style={styles.prefCard}>
+        <View style={styles.prefToggleRow}>
+          <View style={styles.prefRowText}>
+            <Text style={styles.prefRowLabel}>{STRINGS.awayToggleLabel}</Text>
+            <Text style={styles.prefRowHelper}>
+              {awaySince ? STRINGS.awayToggleHelperOn : STRINGS.awayToggleHelperOff}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.prefPill, !!awaySince && styles.prefPillOn]}
+            onPress={handleToggleAway}
+            disabled={isTogglingAway}
+          >
+            {isTogglingAway ? (
+              <ActivityIndicator size="small" color={colors.ink} />
+            ) : (
+              <Text style={[styles.prefPillText, !!awaySince && styles.prefPillTextOn]}>
+                {awaySince ? 'on' : 'off'}
+              </Text>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
 

@@ -232,6 +232,15 @@ export const STRINGS = {
   quietHoursFromLabel: 'from',
   quietHoursUntilLabel: 'until',
 
+  // RS2 (13 July, Rally21-Glow-Spec.md §9) — the away pause. Self-serve,
+  // never advertised with absence math: circle-mates just see a calm
+  // sleeping penguin at the huddle's edge, never "away for N days".
+  awaySectionLabel: '😴 taking a break',
+  awayToggleLabel: 'away pause',
+  awayToggleHelperOff:
+    "heading out for a while? pause everything — no nudges, no digest, nothing decays. come back anytime, even just by checking in.",
+  awayToggleHelperOn: "you're paused — nothing will nudge you, and nothing's decaying while you're gone.",
+
   // Friend nudge (Notifications spec §4b) — pre-written only, so every
   // nudge is safe to receive. This absorbs the cover-a-friend "wave"
   // gesture. The subject/message pool and wall-line template all compose

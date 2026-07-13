@@ -85,11 +85,18 @@ Deno.serve(async (req) => {
   }
 
   const now = new Date();
-  const summary = { candidates: 0, enqueued: 0, skippedNoEvents: 0, skippedQuietHours: 0, notYetDue: 0 };
+  const summary = {
+    candidates: 0,
+    enqueued: 0,
+    skippedNoEvents: 0,
+    skippedQuietHours: 0,
+    notYetDue: 0,
+    skippedAway: 0,
+  };
 
   const { data: candidates, error: candidatesError } = await admin
     .from("users")
-    .select("id, timezone, last_seen_at, notification_prefs!inner(digest_enabled, quiet_start, quiet_end)")
+    .select("id, timezone, last_seen_at, away_since, notification_prefs!inner(digest_enabled, quiet_start, quiet_end)")
     .eq("notification_prefs.digest_enabled", true)
     .not("timezone", "is", null)
     .not("last_seen_at", "is", null);
@@ -102,6 +109,13 @@ Deno.serve(async (req) => {
   for (const user of candidates ?? []) {
     summary.candidates++;
     try {
+      // RS2 (Rally21-Glow-Spec.md §9) — away means no digest either, even
+      // though nothing "warm happened" reasoning would otherwise disagree.
+      if (user.away_since) {
+        summary.skippedAway++;
+        continue;
+      }
+
       const prefs = Array.isArray(user.notification_prefs) ? user.notification_prefs[0] : user.notification_prefs;
       const timeZone = user.timezone as string;
 

@@ -51,6 +51,11 @@ export type CircleMember = {
   // below) — a brand-new joiner is never born resting regardless of how
   // quiet they've been.
   joinedAt: string;
+  // RS2 (13 July) — non-null while this member has self-serve paused
+  // (Rally21-Glow-Spec.md §9). Live, explicit state (unlike isResting's
+  // derivation): drives the sleeping-penguin treatment at the circle
+  // screen's huddle edge, independent of how many days have passed.
+  awaySince: string | null;
 };
 
 /** A circle with exactly one member gets the solo-practice UI treatment
@@ -284,7 +289,7 @@ export async function getCircleMembers(circleId: string): Promise<CircleMember[]
   const { data, error } = await supabase
     .from('memberships')
     .select(
-      'user_id, role, joined_at, users(name, avatar_url, birth_month, birth_day, celebrate_birthday, timezone)'
+      'user_id, role, joined_at, users(name, avatar_url, birth_month, birth_day, celebrate_birthday, timezone, away_since)'
     )
     .eq('circle_id', circleId)
     .returns<
@@ -299,6 +304,7 @@ export async function getCircleMembers(circleId: string): Promise<CircleMember[]
           birth_day: number | null;
           celebrate_birthday: boolean | null;
           timezone: string | null;
+          away_since: string | null;
         } | null;
       }[]
     >();
@@ -315,6 +321,7 @@ export async function getCircleMembers(circleId: string): Promise<CircleMember[]
     celebrateBirthday: m.users?.celebrate_birthday ?? true,
     timezone: m.users?.timezone ?? null,
     joinedAt: m.joined_at,
+    awaySince: m.users?.away_since ?? null,
   }));
 }
 

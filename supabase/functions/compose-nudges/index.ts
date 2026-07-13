@@ -143,11 +143,12 @@ Deno.serve(async (req) => {
     skippedQuietHours: 0,
     notYetDue: 0,
     rejoinEnqueued: 0,
+    skippedAway: 0,
   };
 
   const { data: candidates, error: candidatesError } = await admin
     .from("users")
-    .select("id, timezone, notification_prefs!inner(nudge_enabled, nudge_time, quiet_start, quiet_end)")
+    .select("id, timezone, away_since, notification_prefs!inner(nudge_enabled, nudge_time, quiet_start, quiet_end)")
     .eq("notification_prefs.nudge_enabled", true)
     .not("timezone", "is", null);
 
@@ -159,6 +160,15 @@ Deno.serve(async (req) => {
   for (const user of candidates ?? []) {
     summary.candidates++;
     try {
+      // RS2 (Rally21-Glow-Spec.md §9) — away is a total pause: no daily
+      // nudge, no ember nudge, at compose time. send-notifications also
+      // re-guards this at send time (belt-and-braces, same as every other
+      // staleness recheck in this pipeline).
+      if (user.away_since) {
+        summary.skippedAway++;
+        continue;
+      }
+
       const prefs = Array.isArray(user.notification_prefs) ? user.notification_prefs[0] : user.notification_prefs;
       const timeZone = user.timezone as string;
 
@@ -382,9 +392,20 @@ Deno.serve(async (req) => {
 
       const { data: userRow } = await admin
         .from("users")
-        .select("timezone")
+        .select("timezone, away_since")
         .eq("id", membership.user_id)
         .maybeSingle();
+
+      // RS2 — an away member is never "resting" either: the rejoin email
+      // exists to gently re-invite someone who drifted off unannounced,
+      // not someone who deliberately paused. Skip at compose time; a
+      // future genuinely-quiet spell after they return gets evaluated
+      // fresh against their (by-then-cleared) away_since.
+      if (userRow?.away_since) {
+        summary.skippedAway++;
+        continue;
+      }
+
       const timeZone = (userRow?.timezone as string | null) || "UTC";
       const today = localDateString(now, timeZone);
       const joinedLocalDate = localDateString(new Date(membership.joined_at as string), timeZone);

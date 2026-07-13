@@ -359,12 +359,13 @@ export default function Today() {
       (p) => p.localDate === today && p.userId === session?.user?.id && p.kind === 'covered'
     );
     const inCount = inTodayUserIds.size;
-    // RS1 — every "N of M" headcount line counts only non-resting
-    // members in M (they're still real members, just quietly at the
-    // edge for now); the circle screen owns the actual visual fade,
-    // this screen's own member row is untouched per RS1's scope.
+    // RS1/RS2 — every "N of M" headcount line counts only non-resting,
+    // non-away members in M (they're still real members, just quietly
+    // at the edge for now); the circle screen owns the actual visual
+    // fade/sleeping badge, this screen's own member row is untouched
+    // per RS1's scope.
     const activeMemberCount = attachRestingStatus(members, presence, today).filter(
-      (m) => !m.isResting
+      (m) => !m.isResting && !m.awaySince
     ).length;
     const isSolo = isSoloCircle(members.length);
     const signal = computeSignal({
@@ -588,9 +589,9 @@ export default function Today() {
           (p) => p.localDate === today && p.userId === session?.user?.id && p.kind === 'covered'
         );
         const inCount = inTodayUserIds.size;
-        // RS1 — see the single-circle branch above for the full note.
+        // RS1/RS2 — see the single-circle branch above for the full note.
         const activeMemberCount = attachRestingStatus(members, presence, today).filter(
-          (m) => !m.isResting
+          (m) => !m.isResting && !m.awaySince
         ).length;
         const isSolo = isSoloCircle(members.length);
         const signal = computeSignal({

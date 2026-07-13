@@ -315,7 +315,7 @@ Deno.serve(async (req) => {
     try {
       const { data: user } = await admin
         .from("users")
-        .select("timezone, last_seen_at")
+        .select("timezone, last_seen_at, away_since")
         .eq("id", row.user_id)
         .single();
       const { data: prefs } = await admin
@@ -326,6 +326,21 @@ Deno.serve(async (req) => {
 
       const timeZone = user?.timezone || "UTC";
       const localTime = localTimeString(now, timeZone);
+
+      // RS2 (Rally21-Glow-Spec.md §9) — universal away guard, belt-and-
+      // braces with the composers' own compose-time skip: a row can sit
+      // queued since before the recipient went away. Every kind is
+      // suppressed, no exceptions — a wave's WALL post already happened
+      // synchronously when it was sent, so this only ever holds back the
+      // email/push half.
+      if (user?.away_since) {
+        await admin
+          .from("notification_outbox")
+          .update({ suppressed_reason: "away", sent_at: now.toISOString() })
+          .eq("id", row.id);
+        summary.suppressed++;
+        continue;
+      }
 
       // A row can sit held by quiet hours across a real midnight rollover
       // (e.g. queued at 11:10pm, quiet hours don't end until 8am) — by

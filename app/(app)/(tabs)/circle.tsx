@@ -65,11 +65,17 @@ function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 }
 
-/** RS1 — resting members fade to the edge of the huddle; active members
- * stay in the warm center. A stable sort (guaranteed since ES2019)
- * preserves each group's own relative order otherwise. */
-function sortRestingLast<T extends { isResting: boolean }>(members: T[]): T[] {
-  return [...members].sort((a, b) => Number(a.isResting) - Number(b.isResting));
+/** RS1/RS2 — resting AND away members fade to the edge of the huddle;
+ * active members stay in the warm center. Away is an explicit, live
+ * state (not derived from quiet days like isResting), so it pushes to
+ * the edge immediately regardless of the 5-day threshold. A stable sort
+ * (guaranteed since ES2019) preserves each group's own relative order
+ * otherwise. */
+function isAtHuddleEdge(m: { isResting: boolean; awaySince: string | null }): boolean {
+  return m.isResting || !!m.awaySince;
+}
+function sortToHuddleEdge<T extends { isResting: boolean; awaySince: string | null }>(members: T[]): T[] {
+  return [...members].sort((a, b) => Number(isAtHuddleEdge(a)) - Number(isAtHuddleEdge(b)));
 }
 
 type ListCircleData = { members: CircleMember[]; presence: PresenceRow[] };
@@ -273,9 +279,10 @@ export default function YourCircle() {
             today,
             circleStartDate: c.startDate,
           });
-          // RS1 — resting members fade to the edge, so they're the ones
-          // pushed into "+N" overflow first, not an active member.
-          const orderedMembers = sortRestingLast(attachRestingStatus(data.members, data.presence, today));
+          // RS1/RS2 — resting or away members fade to the edge, so
+          // they're the ones pushed into "+N" overflow first, not an
+          // active member.
+          const orderedMembers = sortToHuddleEdge(attachRestingStatus(data.members, data.presence, today));
           const shown = orderedMembers.slice(0, MAX_AVATARS_SHOWN);
           const overflow = orderedMembers.length - shown.length;
           const inTodayIds = new Set(
@@ -366,13 +373,15 @@ export default function YourCircle() {
 
   // RS1 — a circle-mate quiet for 5+ days fades to the edge of the
   // huddle (never dropped, never told) rather than the circle ever
-  // reading as dead. Purely derived from data already fetched above;
-  // every "N of M" headcount line counts only non-resting members in M
-  // (they're still real members, just softly at the edge for now), and
-  // wave/cover stay fully reachable for them — they're exactly who those
-  // are for.
-  const orderedMembers = sortRestingLast(attachRestingStatus(members, presence, today));
-  const activeMemberCount = orderedMembers.filter((m) => !m.isResting).length;
+  // reading as dead. RS2 — a self-serve away pause takes the same edge
+  // slot, immediately (no 5-day wait), with a distinct sleeping-penguin
+  // treatment instead of the plain opacity fade. Purely derived from
+  // data already fetched above; every "N of M" headcount line counts
+  // only non-resting, non-away members in M (they're still real
+  // members, just softly at the edge for now), and wave/cover stay
+  // fully reachable for them — they're exactly who those are for.
+  const orderedMembers = sortToHuddleEdge(attachRestingStatus(members, presence, today));
+  const activeMemberCount = orderedMembers.filter((m) => !m.isResting && !m.awaySince).length;
   const shownMembers = orderedMembers.slice(0, MAX_AVATARS_SHOWN);
   const overflowCount = orderedMembers.length - shownMembers.length;
   const hasCoverableMember = shownMembers.some(
@@ -801,15 +810,22 @@ export default function YourCircle() {
               );
               const state = isCovered ? 'covered' : checkedIn ? 'done' : 'pending';
               const isMe = member.userId === session?.user?.id;
+              const isAway = !!member.awaySince;
               // W1 (7 July): a wave is always reachable for any circle-mate,
               // checked in or not — only self stays ungreetable. Covering
               // still only makes sense for someone who hasn't shown up yet.
               const isReachable = !isMe;
               return (
                 <View key={member.userId} style={styles.whoHereItem}>
-                  <View style={[styles.avatarWrap, member.isResting && styles.avatarWrapResting]}>
+                  <View style={[styles.avatarWrap, (member.isResting || isAway) && styles.avatarWrapResting]}>
                     <Avatar name={member.name} avatarUrl={member.avatarUrl} size={40} ring={state} />
-                    <CheckedInBadge state={state} />
+                    {isAway ? (
+                      <View style={styles.awayBadge}>
+                        <Text style={styles.awayBadgeText}>😴</Text>
+                      </View>
+                    ) : (
+                      <CheckedInBadge state={state} />
+                    )}
                   </View>
                   {isReachable && (
                     <TouchableOpacity
@@ -1372,8 +1388,29 @@ const styles = StyleSheet.create({
   // RS1 — soft fade to the edge of the huddle, opacity only (never a
   // grey filter, never a label — the resting member themselves must
   // never know, and nobody else sees why, just a quieter presence).
+  // RS2 reuses this same fade for an away member too, on top of the
+  // sleeping badge below.
   avatarWrapResting: {
     opacity: 0.5,
+  },
+  // RS2 — the sleeping-penguin treatment: a small calm badge instead of
+  // the usual done/covered checkmark, no duration ever shown.
+  awayBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: colors.bg,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  awayBadgeText: {
+    fontSize: 10,
+    lineHeight: 12,
   },
   coverPill: {
     marginTop: 6,
