@@ -55,7 +55,14 @@ import { blockUser, getMyBlocks, reportContent, unblockUser } from '@/lib/modera
 import { getMyProfile, markCoverHintSeen } from '@/lib/profile';
 import { extractYouTubeId, isHttpUrl } from '@/lib/resourceLink';
 import { computeSignal, PresenceRow } from '@/lib/signal';
-import { getWallPreview, subscribeToWall, WallPreviewItem } from '@/lib/wall';
+import {
+  FriendGestureKind,
+  getWallPreview,
+  isFriendNudgeEnabled,
+  sendFriendNudge,
+  subscribeToWall,
+  WallPreviewItem,
+} from '@/lib/wall';
 
 const MAX_CIRCLE_NAME_LENGTH = 40;
 
@@ -124,6 +131,21 @@ export default function YourCircle() {
   const [isSubmittingMemberAction, setIsSubmittingMemberAction] = useState(false);
   const [showMemberReportedNotice, setShowMemberReportedNotice] = useState(false);
   const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
+  // HW1: the two friend gestures on who's-here. Members who've opted out
+  // of nudges get NO gesture pills (the affordance is silently absent,
+  // never explained — Notifications spec §4b), so we track the disabled
+  // set; absent-from-set (including while loading) means reachable,
+  // matching cover.tsx's optimistic default.
+  const [nudgeDisabledIds, setNudgeDisabledIds] = useState<Set<string>>(new Set());
+  // Which gestures were sent this mount, per member — the pill quiets
+  // down once its gesture has landed. Keyed by userId.
+  const [sentGestures, setSentGestures] = useState<
+    Record<string, Partial<Record<FriendGestureKind, boolean>>>
+  >({});
+  const [sendingGestureKey, setSendingGestureKey] = useState<string | null>(null);
+  // Warm designed outcomes (already-sent, cap, blocked) — a small
+  // dialog, NEVER the screen-replacing `error` state.
+  const [gestureNotice, setGestureNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -167,6 +189,20 @@ export default function YourCircle() {
         setMyLastCelebratedDay(lastCelebratedDay);
         setPairStreaks(myPairStreaks);
         setBlockedIds(new Set(myBlocks.map((b) => b.blockedId)));
+        // HW1: one small parallel round for the gesture pills' opt-out
+        // check (the RPC is per-user; who's-here shows at most 8).
+        // Errors default to reachable, same as cover.tsx.
+        const nudgeStates = await Promise.all(
+          circleMembers
+            .filter((m) => m.userId !== session.user.id)
+            .map(
+              async (m) =>
+                [m.userId, await isFriendNudgeEnabled(m.userId).catch(() => true)] as const
+            )
+        );
+        setNudgeDisabledIds(
+          new Set(nudgeStates.filter(([, enabled]) => !enabled).map(([id]) => id))
+        );
         if (myCircle.completedAt) {
           const activation = await getWantActivationForCircle(myCircle.id).catch(() => null);
           setWantStatementForCircle(activation?.wantStatement ?? null);
@@ -378,11 +414,15 @@ export default function YourCircle() {
   // treatment instead of the plain opacity fade. Purely derived from
   // data already fetched above; every "N of M" headcount line counts
   // only non-resting, non-away members in M (they're still real
-  // members, just softly at the edge for now), and wave/cover stay
-  // fully reachable for them — they're exactly who those are for.
+  // members, just softly at the edge for now), and heart/wave/cover
+  // stay fully reachable for them — they're exactly who those are for.
   const orderedMembers = sortToHuddleEdge(attachRestingStatus(members, presence, today));
   const activeMemberCount = orderedMembers.filter((m) => !m.isResting && !m.awaySince).length;
   const shownMembers = orderedMembers.slice(0, MAX_AVATARS_SHOWN);
+  // HW1: in a fuller huddle the gesture pills shrink to their glyphs so
+  // the row never crowds at 390px — a gesture is never dropped, the
+  // words just move to the accessibility labels.
+  const useCompactGesturePills = shownMembers.length > 3;
   const overflowCount = orderedMembers.length - shownMembers.length;
   const hasCoverableMember = shownMembers.some(
     (member) => member.userId !== session?.user?.id && !inTodayUserIds.has(member.userId)
@@ -514,6 +554,59 @@ export default function YourCircle() {
       setError(e instanceof Error ? e.message : 'could not remove — try again');
     } finally {
       setIsRemovingMember(false);
+    }
+  };
+
+  // HW1: send a heart or a wave straight from the who's-here row — one
+  // tap, no intermediate screen (the heart is the lightest gesture in
+  // the app; the wave matches it). Both ride send_friend_nudge; every
+  // designed rejection maps to warm copy (W1's patterns), never an
+  // error state — a gesture never fails socially.
+  const handleGesture = async (member: CircleMember, kind: FriendGestureKind) => {
+    if (!session?.user) return;
+    const name = member.name ?? 'your circle-mate';
+    setSendingGestureKey(`${member.userId}:${kind}`);
+    try {
+      const result = await sendFriendNudge({
+        circleId: circle.id,
+        recipientId: member.userId,
+        localDate: getLocalDateString(),
+        kind,
+      });
+      if (result === 'sent') {
+        setSentGestures((prev) => ({
+          ...prev,
+          [member.userId]: { ...prev[member.userId], [kind]: true },
+        }));
+      } else if (result === 'already_nudged') {
+        setGestureNotice(
+          kind === 'heart' ? STRINGS.alreadyHeartedError(name) : STRINGS.alreadyNudgedError(name)
+        );
+      } else if (result === 'wave_cap_reached') {
+        // the cap is shared across kinds — the copy just matches the
+        // gesture that bumped into it
+        setGestureNotice(
+          kind === 'heart' ? STRINGS.heartCapReachedError : STRINGS.waveCapReachedError
+        );
+      } else if (result === 'blocked') {
+        setGestureNotice(
+          kind === 'heart' ? STRINGS.heartNotDeliveredError : STRINGS.waveNotDeliveredError
+        );
+      }
+    } catch (e) {
+      // "nudges disabled" can only reach here via a race (opted out
+      // between load and tap) since the pills are hidden whenever we
+      // already know it's off — same warm mapping as cover.tsx.
+      const message = e instanceof Error ? e.message : '';
+      if (message.includes('nudges disabled')) {
+        setGestureNotice(
+          kind === 'heart' ? STRINGS.heartOptedOutError(name) : STRINGS.waveOptedOutError(name)
+        );
+      } else {
+        setGestureNotice('something went wrong — try again');
+      }
+    } finally {
+      setSendingGestureKey(null);
     }
   };
 
@@ -811,10 +904,13 @@ export default function YourCircle() {
               const state = isCovered ? 'covered' : checkedIn ? 'done' : 'pending';
               const isMe = member.userId === session?.user?.id;
               const isAway = !!member.awaySince;
-              // W1 (7 July): a wave is always reachable for any circle-mate,
-              // checked in or not — only self stays ungreetable. Covering
-              // still only makes sense for someone who hasn't shown up yet.
+              // W1/HW1: every circle-mate offers both gestures — a heart
+              // and a wave — checked in or not, resting or away included;
+              // only self stays ungreetable. Covering still only makes
+              // sense for someone who hasn't shown up yet.
               const isReachable = !isMe;
+              const memberDisplayName = member.name ?? 'your circle-mate';
+              const sent = sentGestures[member.userId] ?? {};
               return (
                 <View key={member.userId} style={styles.whoHereItem}>
                   <View style={[styles.avatarWrap, (member.isResting || isAway) && styles.avatarWrapResting]}>
@@ -827,7 +923,7 @@ export default function YourCircle() {
                       <CheckedInBadge state={state} />
                     )}
                   </View>
-                  {isReachable && (
+                  {isReachable && !checkedIn && (
                     <TouchableOpacity
                       style={styles.coverPill}
                       onPress={() =>
@@ -836,19 +932,60 @@ export default function YourCircle() {
                           params: {
                             circleId: circle.id,
                             memberId: member.userId,
-                            memberName: member.name ?? 'your circle-mate',
+                            memberName: memberDisplayName,
                             memberAvatarUrl: member.avatarUrl ?? '',
                             myName,
-                            alreadyCheckedIn: checkedIn ? 'true' : undefined,
                           },
                         })
                       }
                       hitSlop={8}
                     >
-                      <Text style={styles.coverPillText}>
-                        {checkedIn ? STRINGS.waveAffordance : STRINGS.coverAffordance}
-                      </Text>
+                      <Text style={styles.coverPillText}>{STRINGS.coverAffordance}</Text>
                     </TouchableOpacity>
+                  )}
+                  {isReachable && !nudgeDisabledIds.has(member.userId) && (
+                    <View style={styles.gestureRow}>
+                      <TouchableOpacity
+                        style={[
+                          styles.gesturePill,
+                          styles.heartPill,
+                          sent.heart && styles.gesturePillSent,
+                        ]}
+                        onPress={() => handleGesture(member, 'heart')}
+                        disabled={!!sent.heart || sendingGestureKey === `${member.userId}:heart`}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={STRINGS.heartPillA11yLabel(memberDisplayName)}
+                      >
+                        <Text style={[styles.gesturePillText, styles.heartPillText]}>
+                          {sendingGestureKey === `${member.userId}:heart`
+                            ? '…'
+                            : useCompactGesturePills
+                              ? STRINGS.heartAffordanceCompact
+                              : STRINGS.heartAffordance}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.gesturePill,
+                          styles.wavePill,
+                          sent.wave && styles.gesturePillSent,
+                        ]}
+                        onPress={() => handleGesture(member, 'wave')}
+                        disabled={!!sent.wave || sendingGestureKey === `${member.userId}:wave`}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={STRINGS.wavePillA11yLabel(memberDisplayName)}
+                      >
+                        <Text style={[styles.gesturePillText, styles.wavePillText]}>
+                          {sendingGestureKey === `${member.userId}:wave`
+                            ? '…'
+                            : useCompactGesturePills
+                              ? STRINGS.waveAffordanceCompact
+                              : STRINGS.waveAffordance}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   )}
                   {isReachable && (
                     <TouchableOpacity
@@ -1125,6 +1262,12 @@ export default function YourCircle() {
         title={STRINGS.reportedConfirmationTitle}
         message={STRINGS.reportedConfirmationBody}
         onDismiss={() => setShowMemberReportedNotice(false)}
+      />
+      <MessageDialog
+        visible={!!gestureNotice}
+        title="hmm"
+        message={gestureNotice ?? ''}
+        onDismiss={() => setGestureNotice(null)}
       />
       <MessageDialog visible={!!error} title="hmm" message={error ?? ''} onDismiss={() => setError(null)} />
     </ScrollView>
@@ -1427,6 +1570,47 @@ const styles = StyleSheet.create({
   coverPillText: {
     fontSize: 11.5,
     fontWeight: '700',
+    color: colors.gold,
+  },
+  // HW1 — the two gesture pills, heart then wave, under every reachable
+  // circle-mate. The heart wears AC1's colors.heart (warmth between
+  // friends); the wave keeps the gold the wave affordance always had.
+  gestureRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 6,
+  },
+  gesturePill: {
+    minHeight: 28,
+    minWidth: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 7,
+    borderRadius: 99,
+    borderWidth: 1,
+  },
+  heartPill: {
+    backgroundColor: colors.heartSoft,
+    borderColor: colors.heart,
+  },
+  wavePill: {
+    backgroundColor: colors.goldSoft,
+    borderColor: colors.gold,
+  },
+  // Sent this visit — the pill quiets down rather than disappearing
+  // (nothing here may read as a failure or an empty slot).
+  gesturePillSent: {
+    opacity: 0.45,
+  },
+  gesturePillText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  heartPillText: {
+    color: colors.heart,
+  },
+  wavePillText: {
     color: colors.gold,
   },
   memberMoreLink: {

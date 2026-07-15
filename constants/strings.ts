@@ -160,10 +160,17 @@ export const STRINGS = {
   // copy anywhere should read as a score, an "owed", or guilt (see
   // CLAUDE.md's cover-a-friend rule).
   coverAffordance: '🧡 cover',
-  // W1 (7 July): a circle-mate who's already checked in today gets a
-  // wave-only affordance — you can't cover a day that's already done,
-  // but a hello is always welcome.
+  // HW1 (15 July): every circle-mate offers BOTH gestures, always —
+  // send a heart or a wave, checked in or not. The heart is an even
+  // lighter gesture than the wave: pure warmth, no ask attached. In a
+  // fuller huddle the pills shrink to their glyphs (never dropping a
+  // gesture); the words move to the accessibility labels.
+  heartAffordance: '🧡 heart',
   waveAffordance: '👋 wave',
+  heartAffordanceCompact: '🧡',
+  waveAffordanceCompact: '👋',
+  heartPillA11yLabel: (name: string) => `send ${name} a heart`,
+  wavePillA11yLabel: (name: string) => `wave at ${name}`,
   coverHintDiscovery: "you can log a friend's day for them — a gift, never a debt.",
   coverHeadline: (name: string) => `${name}'s been quiet`,
   coverSubtitle: "cover today — it's a gift, not a debt 🧡",
@@ -182,6 +189,18 @@ export const STRINGS = {
   waveCta: (name: string) => `Wave hello to ${name}`,
   waveCapReachedError: "you've sent a lot of waves today — give it a little rest and try again tomorrow 🧡",
   waveOptedOutError: (name: string) => `${name} isn't taking waves right now`,
+  // HW1 — the heart's warm outcomes, mirroring the wave's patterns
+  // above. A gesture never fails socially; every designed rejection
+  // maps to warm copy.
+  alreadyHeartedError: (name: string) => `someone's already sent ${name} a heart today 🧡`,
+  heartCapReachedError: "you've sent a lot of love today — give it a little rest and try again tomorrow 🧡",
+  heartOptedOutError: (name: string) => `${name} isn't taking hearts right now`,
+  heartNotDeliveredError: "this heart couldn't go through right now",
+  // The heart's wall line — composed server-side in send_friend_nudge
+  // from this exact template (same S1 F4 pattern as the wave's line);
+  // this entry is the copy's source of truth and must stay verbatim in
+  // sync with the migration.
+  wallHeartEntry: (senderName: string, name: string) => `${senderName} sent ${name} a heart 🧡`,
 
   coveredNoteToCoveredMember: (covererName: string) =>
     `${covererName} covered you today. No pressure, we've got you.`,

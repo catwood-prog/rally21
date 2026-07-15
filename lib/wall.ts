@@ -112,7 +112,11 @@ export async function isFriendNudgeEnabled(userId: string): Promise<boolean> {
   return data ?? true;
 }
 
-/** Sends a pre-written friend nudge (Notifications spec §4b; Security
+/** HW1 (15 July): the two friend gestures. The heart rides the wave's
+ * own server path — same RPC, same guards — it is never a fork. */
+export type FriendGestureKind = 'wave' | 'heart';
+
+/** Sends a pre-written friend gesture (Notifications spec §4b; Security
  * spec §S1 F4). Routed through a SECURITY DEFINER RPC — notification_outbox
  * has no client RLS access at all, and the email/wall copy is composed
  * server-side from a fixed template — the RPC never accepts client-
@@ -120,23 +124,32 @@ export async function isFriendNudgeEnabled(userId: string): Promise<boolean> {
  * arbitrary HTML email, or bypass the public-circle wall gate with
  * attacker-chosen text). W1 (7 July, Cat's ruling): the wave is a
  * connection tool, not only a check-in nudge — it never fails for
- * social reasons anymore. Returns 'already_nudged' (no error, no wall
- * post) if someone else got there first today (the real per-recipient
- * abuse guard, one received wave per person per day), or
+ * social reasons anymore. HW1 (15 July, Cat's ruling): `kind: 'heart'`
+ * is an even lighter gesture riding this same path — per-recipient
+ * daily dedupe applies PER KIND (a wave and a heart to the same friend
+ * the same day are both fine), the 10/day sender cap is SHARED across
+ * kinds, and a heart NEVER creates a notification_outbox row (no email,
+ * no future push) — it lands as a synchronous wall line only.
+ * Returns 'already_nudged' (no error, no wall post) if someone else got
+ * there first today with the same kind (the real per-recipient abuse
+ * guard, one received wave/heart per person per day), or
  * 'wave_cap_reached' if the SENDER has hit their own quiet daily send
  * cap, or 'blocked' (MOD1) if either side has blocked the other — none
- * of these are errors, all are designed, warm-copy outcomes. Nudge-
- * yourself/not-a-member/opted-out still raise, since the UI shouldn't
+ * of these are errors, all are designed, warm-copy outcomes. Gesture-
+ * at-yourself/not-a-member/opted-out still raise, since the UI shouldn't
  * let those happen at all. */
 export async function sendFriendNudge(params: {
   circleId: string;
   recipientId: string;
   localDate: string;
+  /** Defaults to 'wave' so the cover flow's existing call is unchanged. */
+  kind?: FriendGestureKind;
 }): Promise<'sent' | 'already_nudged' | 'wave_cap_reached' | 'blocked'> {
   const { data, error } = await supabase.rpc('send_friend_nudge', {
     p_circle_id: params.circleId,
     p_recipient_id: params.recipientId,
     p_local_date: params.localDate,
+    p_kind: params.kind ?? 'wave',
   });
   if (error) {
     captureError(error, { rpc: 'send_friend_nudge' });

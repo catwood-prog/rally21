@@ -275,7 +275,7 @@ describeIfConfigured('security hardening (S1)', () => {
       expect(Object.keys(rows[0].payload).sort()).toEqual(['circleName', 'local_date', 'senderName', 'waverId']);
     });
 
-    test('self-nudge, already-checked-in, and opted-out guards are unchanged', async () => {
+    test('self-nudge and opted-out guards are unchanged; a wave at a checked-in member succeeds (W1)', async () => {
       const sender = await createFakeUser();
       const recipient = await createFakeUser();
       const circleId = await seedCircle(sender, { memberIds: [recipient] });
@@ -285,15 +285,22 @@ describeIfConfigured('security hardening (S1)', () => {
         client.query('select send_friend_nudge($1, $2, $3)', [circleId, sender, '2026-07-08'])
       ).rejects.toThrow(/cannot nudge yourself/);
 
+      // W1 (7 July, spec §3.5): a wave must never fail for social
+      // reasons — waving at someone who already checked in is a valid,
+      // ordinary hello. (This test previously pinned the pre-W1
+      // "already checked in" rejection; fixed alongside HW1, which
+      // rewrites the function and keeps W1's semantics.)
       await elevated();
       await client.query(
         "insert into public.completions (circle_id, user_id, local_date, kind) values ($1, $2, $3, 'self')",
         [circleId, recipient, '2026-07-09']
       );
       await actAs(sender);
-      await expect(
-        client.query('select send_friend_nudge($1, $2, $3)', [circleId, recipient, '2026-07-09'])
-      ).rejects.toThrow(/already checked in/);
+      const { rows: checkedInWave } = await client.query(
+        'select send_friend_nudge($1, $2, $3) as result',
+        [circleId, recipient, '2026-07-09']
+      );
+      expect(checkedInWave[0].result).toBe('sent');
 
       await elevated();
       await client.query('update public.notification_prefs set friend_nudge_enabled = false where user_id = $1', [
@@ -326,6 +333,162 @@ describeIfConfigured('security hardening (S1)', () => {
         '2026-07-11',
       ]);
       expect(second[0].result).toBe('already_nudged');
+    });
+  });
+
+  // HW1 (15 July): the heart rides the same RPC with p_kind = 'heart'.
+  // Same guards; per-kind dedupe; shared sender cap; and — the hard
+  // rule — a heart NEVER writes a notification_outbox row.
+  describe('send_friend_nudge kind=heart (HW1)', () => {
+    async function outboxCountFor(recipient: string): Promise<number> {
+      await elevated();
+      const { rows } = await client.query(
+        'select count(*)::int as n from public.notification_outbox where user_id = $1',
+        [recipient]
+      );
+      return rows[0].n;
+    }
+
+    test('a heart lands a wall line and zero outbox rows, checked-in or not', async () => {
+      const sender = await createFakeUser('Heart Sender');
+      const quiet = await createFakeUser('Quiet Friend');
+      const checkedIn = await createFakeUser('Showed Up');
+      const circleId = await seedCircle(sender, { memberIds: [quiet, checkedIn] });
+      await client.query(
+        "insert into public.completions (circle_id, user_id, local_date, kind) values ($1, $2, $3, 'self')",
+        [circleId, checkedIn, '2026-07-15']
+      );
+
+      await actAs(sender);
+      for (const recipient of [quiet, checkedIn]) {
+        const { rows } = await client.query(
+          "select send_friend_nudge($1, $2, $3, 'heart') as result",
+          [circleId, recipient, '2026-07-15']
+        );
+        expect(rows[0].result).toBe('sent');
+        expect(await outboxCountFor(recipient)).toBe(0);
+        await actAs(sender);
+      }
+
+      await elevated();
+      const { rows: wallRows } = await client.query(
+        'select body from public.wall_messages where circle_id = $1 order by created_at',
+        [circleId]
+      );
+      expect(wallRows.map((r: any) => r.body)).toEqual([
+        'Heart Sender sent Quiet Friend a heart 🧡',
+        'Heart Sender sent Showed Up a heart 🧡',
+      ]);
+    });
+
+    test('dedupe is per kind: heart then wave to the same friend both land; a second heart is already_nudged and a wave after it still works', async () => {
+      const sender = await createFakeUser();
+      const otherSender = await createFakeUser();
+      const recipient = await createFakeUser();
+      const circleId = await seedCircle(sender, { memberIds: [otherSender, recipient] });
+
+      await actAs(sender);
+      const { rows: heart } = await client.query(
+        "select send_friend_nudge($1, $2, $3, 'heart') as result",
+        [circleId, recipient, '2026-07-15']
+      );
+      expect(heart[0].result).toBe('sent');
+
+      // a second heart to the same recipient the same day — from anyone
+      // (the pile-on guard, mirroring the wave's) — is the warm
+      // already-sent outcome
+      await actAs(otherSender);
+      const { rows: secondHeart } = await client.query(
+        "select send_friend_nudge($1, $2, $3, 'heart') as result",
+        [circleId, recipient, '2026-07-15']
+      );
+      expect(secondHeart[0].result).toBe('already_nudged');
+
+      // …but a WAVE to that same recipient the same day still succeeds
+      const { rows: wave } = await client.query(
+        "select send_friend_nudge($1, $2, $3, 'wave') as result",
+        [circleId, recipient, '2026-07-15']
+      );
+      expect(wave[0].result).toBe('sent');
+    });
+
+    test('the 10/day sender cap is shared across kinds (7 waves + 3 hearts, then the 11th gesture soft-fails)', async () => {
+      const sender = await createFakeUser('Prolific');
+      const recipients: string[] = [];
+      for (let i = 0; i < 11; i++) recipients.push(await createFakeUser(`Friend ${i}`));
+      const circleId = await seedCircle(sender, { memberIds: recipients });
+
+      await actAs(sender);
+      for (let i = 0; i < 7; i++) {
+        const { rows } = await client.query(
+          "select send_friend_nudge($1, $2, $3, 'wave') as result",
+          [circleId, recipients[i], '2026-07-15']
+        );
+        expect(rows[0].result).toBe('sent');
+      }
+      for (let i = 7; i < 10; i++) {
+        const { rows } = await client.query(
+          "select send_friend_nudge($1, $2, $3, 'heart') as result",
+          [circleId, recipients[i], '2026-07-15']
+        );
+        expect(rows[0].result).toBe('sent');
+      }
+      const { rows: eleventh } = await client.query(
+        "select send_friend_nudge($1, $2, $3, 'heart') as result",
+        [circleId, recipients[10], '2026-07-15']
+      );
+      expect(eleventh[0].result).toBe('wave_cap_reached');
+    });
+
+    test('a blocked pair rejects hearts in both directions; unblock restores', async () => {
+      const a = await createFakeUser();
+      const b = await createFakeUser();
+      const circleId = await seedCircle(a, { memberIds: [b] });
+      await elevated();
+      await client.query('insert into public.blocks (blocker_id, blocked_id) values ($1, $2)', [a, b]);
+
+      await actAs(a);
+      const { rows: fromBlocker } = await client.query(
+        "select send_friend_nudge($1, $2, $3, 'heart') as result",
+        [circleId, b, '2026-07-15']
+      );
+      expect(fromBlocker[0].result).toBe('blocked');
+
+      await actAs(b);
+      const { rows: fromBlocked } = await client.query(
+        "select send_friend_nudge($1, $2, $3, 'heart') as result",
+        [circleId, a, '2026-07-15']
+      );
+      expect(fromBlocked[0].result).toBe('blocked');
+
+      await elevated();
+      await client.query('delete from public.blocks where blocker_id = $1 and blocked_id = $2', [a, b]);
+      await actAs(a);
+      const { rows: restored } = await client.query(
+        "select send_friend_nudge($1, $2, $3, 'heart') as result",
+        [circleId, b, '2026-07-15']
+      );
+      expect(restored[0].result).toBe('sent');
+    });
+
+    test('self-heart and an unknown kind are rejected; a non-member forging the call is rejected', async () => {
+      const sender = await createFakeUser();
+      const recipient = await createFakeUser();
+      const stranger = await createFakeUser();
+      const circleId = await seedCircle(sender, { memberIds: [recipient] });
+
+      await actAs(sender);
+      await expect(
+        client.query("select send_friend_nudge($1, $2, $3, 'heart')", [circleId, sender, '2026-07-15'])
+      ).rejects.toThrow(/cannot nudge yourself/);
+      await expect(
+        client.query("select send_friend_nudge($1, $2, $3, 'confetti')", [circleId, recipient, '2026-07-15'])
+      ).rejects.toThrow(/unknown gesture kind/);
+
+      await actAs(stranger);
+      await expect(
+        client.query("select send_friend_nudge($1, $2, $3, 'heart')", [circleId, recipient, '2026-07-15'])
+      ).rejects.toThrow(/not a member of this circle/);
     });
   });
 
