@@ -159,14 +159,14 @@ export const STRINGS = {
   // Cover a friend — covering is a celebrated gift, never a debt. No
   // copy anywhere should read as a score, an "owed", or guilt (see
   // CLAUDE.md's cover-a-friend rule).
-  coverAffordance: '💛 cover',
+  coverAffordance: '🧡 cover',
   // W1 (7 July): a circle-mate who's already checked in today gets a
   // wave-only affordance — you can't cover a day that's already done,
   // but a hello is always welcome.
   waveAffordance: '👋 wave',
   coverHintDiscovery: "you can log a friend's day for them — a gift, never a debt.",
   coverHeadline: (name: string) => `${name}'s been quiet`,
-  coverSubtitle: "cover today — it's a gift, not a debt 💛",
+  coverSubtitle: "cover today — it's a gift, not a debt 🧡",
   coverNotePreview: (covererName: string) =>
     `They'll get a warm note: "${covererName} covered you today. No pressure, we've got you."`,
   // W1: shown instead of coverHeadline/coverSubtitle/coverNotePreview
@@ -176,24 +176,24 @@ export const STRINGS = {
   waveSubtitle: 'a wave is always welcome, even after they\'ve shown up',
   waveNotePreview: (waverName: string, name: string) =>
     `${name} will see: "${waverName} waved at ${name} 👋" on the circle wall.`,
-  coverActionLabel: '💛 Cover & send love',
+  coverActionLabel: '🧡 Cover & send love',
   waveActionLabel: '👋 Just a wave hello',
   coverCta: (name: string) => `Cover ${name} today`,
   waveCta: (name: string) => `Wave hello to ${name}`,
-  waveCapReachedError: "you've sent a lot of waves today — give it a little rest and try again tomorrow 💛",
+  waveCapReachedError: "you've sent a lot of waves today — give it a little rest and try again tomorrow 🧡",
   waveOptedOutError: (name: string) => `${name} isn't taking waves right now`,
 
   coveredNoteToCoveredMember: (covererName: string) =>
     `${covererName} covered you today. No pressure, we've got you.`,
   wallCoveredEntry: (covererName: string, coveredName: string) =>
-    `${covererName} covered ${coveredName} today 💛`,
+    `${covererName} covered ${coveredName} today 🧡`,
   // The wave's wall line (was wallWaveEntry) now composes server-side in
   // send_friend_nudge (security spec S1, F4) — the copy is unchanged,
   // just no longer client-composed.
 
-  circleYouCoveredCard: (name: string) => `You covered ${name} today 💛`,
+  circleYouCoveredCard: (name: string) => `You covered ${name} today 🧡`,
   circleYouCoveredCardBody: "The signal stays warm for everyone. That's the whole point.",
-  circleCoveredYouCard: (covererName: string) => `${covererName} covered you today 💛`,
+  circleCoveredYouCard: (covererName: string) => `${covererName} covered you today 🧡`,
   circleCoveredYouCardBody: "No pressure, we've got you.",
 
   // App sounds (mascot brief) — the single toggle governing both sounds
@@ -247,7 +247,7 @@ export const STRINGS = {
   // server-side now (security spec S1, F4) — send-notifications and
   // send_friend_nudge keep their own copies of this copy, same pattern as
   // NUDGE_WARM_LINES below.
-  alreadyNudgedError: (name: string) => `someone's already waved at ${name} today 💛`,
+  alreadyNudgedError: (name: string) => `someone's already waved at ${name} today 🧡`,
 
   // Open circles — wall permissions + host controls (multi-circle spec,
   // "Open circles" section). Members react until they've earned free-text
@@ -343,7 +343,7 @@ export const STRINGS = {
   // The personal glow (Rally21-Glow-Spec.md §1-2, §6).
   glowGlowingLabel: (n: number) => `${n} day${n === 1 ? '' : 's'} glowing`,
   glowEmbersLabel: 'your glow is down to embers — one small thing today rekindles it.',
-  glowHeldTodayNote: (name: string) => `${name} kept your glow warm today 💛`,
+  glowHeldTodayNote: (name: string) => `${name} kept your glow warm today 🧡`,
   glowDetailTitle: 'your glow',
   glowDetailBody:
     "your glow is the run of days you've shown up — anywhere, for anyone. a friend can cover you and it holds, up to a few times a month depending how far you've come. miss a day uncovered and it dims to embers for 48 hours — one small thing brings it right back.",

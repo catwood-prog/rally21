@@ -41,10 +41,10 @@ import {
   WallMessage,
 } from '@/lib/wall';
 
-const QUICK_REACTIONS = ['🎉', '👏', '💛', '🔥'];
+const QUICK_REACTIONS = ['🎉', '👏', '🧡', '🔥'];
 // Open circles restrict reactions (and free-text posting) to this curated
 // set — see the "Open circles" section of the multi-circle spec.
-const OPEN_CIRCLE_REACTIONS = ['💛', '👏', '🔥', '👋'];
+const OPEN_CIRCLE_REACTIONS = ['🧡', '👏', '🔥', '👋'];
 const VOICE_UNLOCK_COMPLETIONS = 7;
 
 function appendTranscript(existing: string, transcript: string): string {

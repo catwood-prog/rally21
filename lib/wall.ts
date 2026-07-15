@@ -14,6 +14,17 @@ export type CheckinReaction = {
   fromUserId: string;
 };
 
+/** AC1 (15 July): hearts went from gold to orange, but stored reaction
+ * rows are never migrated — a row inserted before the switch still holds
+ * the literal '💛' string. Every reaction read path maps it to '🧡' here,
+ * at render time, so historic reactions count toward the same chip and
+ * display the same as ones sent today; the curated pickers (wall.tsx's
+ * QUICK_REACTIONS/OPEN_CIRCLE_REACTIONS) only ever offer '🧡' going
+ * forward. */
+export function displayReactionEmoji(emoji: string): string {
+  return emoji === '💛' ? '🧡' : emoji;
+}
+
 export type CheckinFeedEntry = {
   userId: string;
   localDate: string;
@@ -21,7 +32,7 @@ export type CheckinFeedEntry = {
   reactions: CheckinReaction[];
   kind: 'self' | 'covered';
   /** Only set when kind is 'covered' — who gave the gift, so the wall
-   * can render "{coveredBy} covered {userId} today 💛" instead of the
+   * can render "{coveredBy} covered {userId} today 🧡" instead of the
    * plain "{userId} checked in" (see CLAUDE.md's cover-a-friend rule). */
   coveredBy: string | null;
 };
@@ -59,7 +70,10 @@ export async function getWallMessages(circleId: string): Promise<WallMessage[]> 
     userId: m.user_id,
     body: m.body,
     createdAt: m.created_at,
-    reactions: (m.wall_message_reactions ?? []).map((r) => ({ emoji: r.emoji, fromUserId: r.from_user_id })),
+    reactions: (m.wall_message_reactions ?? []).map((r) => ({
+      emoji: displayReactionEmoji(r.emoji),
+      fromUserId: r.from_user_id,
+    })),
   }));
 }
 
@@ -171,7 +185,7 @@ export async function getCheckinFeed(circleId: string): Promise<CheckinFeedEntry
     coveredBy: p.covered_by,
     reactions: (reactions ?? [])
       .filter((r) => r.target_user_id === p.user_id && r.target_local_date === p.local_date)
-      .map((r) => ({ emoji: r.emoji, fromUserId: r.from_user_id })),
+      .map((r) => ({ emoji: displayReactionEmoji(r.emoji), fromUserId: r.from_user_id })),
   }));
 }
 
@@ -214,7 +228,7 @@ export async function getWallPreview(circleId: string, limit = 3): Promise<WallP
         id: r.id,
         fromUserId: r.from_user_id,
         targetUserId: r.target_user_id,
-        emoji: r.emoji,
+        emoji: displayReactionEmoji(r.emoji),
         createdAt: r.created_at,
       })
     ),

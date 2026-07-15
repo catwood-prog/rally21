@@ -89,7 +89,7 @@ function WeekSlot({
       <Text style={styles.slotWeekday}>{weekdayInitial}</Text>
       <Animated.View style={[styles.slotPill, pillStyle, style]}>
         {day.state === 'earned' && <Animated.Text style={[styles.slotEarnedMark, markStyle]}>✓</Animated.Text>}
-        {day.state === 'held' && <Animated.Text style={[styles.slotHeldMark, markStyle]}>💛</Animated.Text>}
+        {day.state === 'held' && <Animated.Text style={[styles.slotHeldMark, markStyle]}>🧡</Animated.Text>}
         {day.state === 'none' && <View style={styles.slotNoneDot} />}
       </Animated.View>
     </View>

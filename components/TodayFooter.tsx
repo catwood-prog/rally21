@@ -87,7 +87,7 @@ function TodayDot({ day, isToday, oneShotEarned }: { day: WeekDay; isToday: bool
       style={[styles.dot, day.state === 'earned' && styles.dotEarned, day.state === 'held' && styles.dotHeld, animatedStyle]}
     >
       {day.state === 'earned' && <Text style={styles.dotEarnedMark}>✓</Text>}
-      {day.state === 'held' && <Text style={styles.dotHeldMark}>💛</Text>}
+      {day.state === 'held' && <Text style={styles.dotHeldMark}>🧡</Text>}
     </Animated.View>
   );
 }

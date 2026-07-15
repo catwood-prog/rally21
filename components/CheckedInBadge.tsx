@@ -4,14 +4,14 @@ import { colors } from '@/constants/theme';
 
 /** The small badge overlaid on an Avatar's corner — always paired with
  * `<Avatar ring={state === 'pending' ? 'pending' : state} />`. A covered
- * day gets its own gold 💛 rather than the green ✓, so it never reads as
+ * day gets its own orange 🧡 rather than the green ✓, so it never reads as
  * an ordinary checkmark (see CLAUDE.md's cover-a-friend rule — covered
  * is a distinct, celebrated state, not a quiet substitute for done). */
 export function CheckedInBadge({ state }: { state: 'done' | 'covered' | 'pending' }) {
   if (state === 'pending') return null;
   return (
     <Text style={[styles.badge, state === 'covered' && styles.badgeCovered]}>
-      {state === 'covered' ? '💛' : '✓'}
+      {state === 'covered' ? '🧡' : '✓'}
     </Text>
   );
 }

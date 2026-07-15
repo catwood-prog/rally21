@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   heartIconLiked: {
-    color: colors.gold,
+    color: colors.heart,
   },
   reactionText: {
     fontSize: 12.5,

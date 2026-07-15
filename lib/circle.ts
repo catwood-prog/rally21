@@ -358,7 +358,7 @@ export type PresenceKind = 'self' | 'covered';
  * Includes covered days (kind='covered') — a covered day counts toward
  * the circle's glow the same as a self check-in (see CLAUDE.md's
  * cover-a-friend rule). `kind`/`coveredBy` let the UI render a distinct
- * "covered 💛" state instead of a plain checkmark; computeSignal itself
+ * "covered 🧡" state instead of a plain checkmark; computeSignal itself
  * ignores them entirely, since the glow math only cares who showed up. */
 export async function getCirclePresence(
   circleId: string

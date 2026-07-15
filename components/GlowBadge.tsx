@@ -101,7 +101,7 @@ export function GlowBadge({
         <Text style={[styles.label, isEmbers && styles.labelEmbers]}>
           {isEmbers ? STRINGS.glowEmbersLabel : STRINGS.glowGlowingLabel(glow.glow)}
         </Text>
-        {!isEmbers && glow.heldToday && <Text style={styles.heart}>💛</Text>}
+        {!isEmbers && glow.heldToday && <Text style={styles.heart}>🧡</Text>}
       </TouchableOpacity>
       <GlowDetailSheet
         visible={showDetail}
