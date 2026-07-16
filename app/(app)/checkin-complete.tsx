@@ -188,21 +188,26 @@ export default function CheckInComplete() {
 
   useEffect(() => {
     if (Platform.OS === 'web' || !session?.user) return;
-    Promise.all([getPushPermissionStatus(), getMyProfile(session.user.id)])
+    const userId = session.user.id;
+    Promise.all([getPushPermissionStatus(), getMyProfile(userId)])
       .then(([status, profile]) => {
-        if (status === 'undetermined' && !profile?.has_seen_push_prompt) setShowPushAsk(true);
+        if (status === 'undetermined' && !profile?.has_seen_push_prompt) {
+          setShowPushAsk(true);
+          // PN1B: "not now" is gone, so showing the card IS the one shot —
+          // mark it seen immediately, not on interaction. Whatever the
+          // person does next (Turn on, Nice, navigate away, kill the app),
+          // the primer never comes back. Before this, only the two buttons
+          // marked it seen, so simply continuing let it reappear forever.
+          markPushPromptSeen(userId).catch(() => {});
+        }
       })
       .catch(() => {});
   }, [session?.user]);
 
-  const dismissPushAsk = () => {
-    setShowPushAsk(false);
-    if (session?.user) markPushPromptSeen(session.user.id).catch(() => {});
-  };
-
   const handleTurnOnPush = () => {
     if (!session?.user) return;
-    registerForPushNotificationsAsync(session.user.id).finally(() => dismissPushAsk());
+    // seen is already marked at show time — this only needs to hide the card
+    registerForPushNotificationsAsync(session.user.id).finally(() => setShowPushAsk(false));
   };
 
   useEffect(() => {
@@ -419,14 +424,9 @@ export default function CheckInComplete() {
       {showPushAsk && (
         <View style={styles.pushAskWrap}>
           <Text style={styles.pushAskLine}>{STRINGS.pushAskLine}</Text>
-          <View style={styles.pushAskRow}>
-            <TouchableOpacity onPress={handleTurnOnPush}>
-              <Text style={styles.pushAskCta}>{STRINGS.pushAskCta}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={dismissPushAsk}>
-              <Text style={styles.pushAskDismiss}>{STRINGS.pushAskDismiss}</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={handleTurnOnPush}>
+            <Text style={styles.pushAskCta}>{STRINGS.pushAskCta}</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -505,18 +505,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 6,
   },
-  pushAskRow: {
-    flexDirection: 'row',
-    gap: 18,
-  },
   pushAskCta: {
     fontSize: 12,
     fontWeight: '700',
     color: colors.green,
-  },
-  pushAskDismiss: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.muted,
   },
 });

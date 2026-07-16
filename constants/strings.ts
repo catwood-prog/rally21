@@ -54,9 +54,10 @@ export const STRINGS = {
 
   // PN1 (13 July) — the earned-moment pre-permission ask, shown once ever
   // on the check-in-success screen before the real iOS system dialog.
-  pushAskLine: "want a gentle nudge when it's time to check in?",
-  pushAskCta: 'Turn on',
-  pushAskDismiss: 'not now',
+  // PN1B (16 July, Cat's exact copy): the primer is one line + one green
+  // action — "not now" is gone; continuing without enabling dismisses it.
+  pushAskLine: 'Want a little nudge if you forget to check in?',
+  pushAskCta: 'Turn on notifications',
 
   // Glow milestones (Rally21-Glow-Spec.md §4) — a variant of the same
   // check-in success screen, no new assets or badges.
