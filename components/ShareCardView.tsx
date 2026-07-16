@@ -9,10 +9,17 @@ import { cardShadow, colors } from '@/constants/theme';
 /**
  * The one recognizable card shape (spec §5) — wordmark → quote (hero,
  * serif italic) → author (small caps, muted, only when traceable) →
- * plum accent rule → gloss (only when the bank entry has one). This is
- * exactly what gets captured to PNG — no screen chrome (Like/Share/"Not
- * for me") may ever live inside this component; those render around it
- * in app/(app)/share-card.tsx.
+ * plum accent rule → gloss (only when the bank entry has one). No
+ * screen chrome (Like/Share/"Not for me") may ever live inside this
+ * component; those render around it in app/(app)/share-card.tsx.
+ *
+ * Two renderings of the same card (SC1B, 15 July):
+ * - default (screen): just the white card, hugging its content, so the
+ *   feedback row can sit directly beneath it on /share-card.
+ * - `capture`: the card centered in the full 9:16 story-format field —
+ *   exactly what gets rendered to the shared/saved PNG. The field used
+ *   to be the on-screen rendering too, but its empty lower half (field
+ *   bg = screen bg) pushed the feedback row to the viewport bottom.
  *
  * Reuses the existing `Brandmark` component as the card's brand mark
  * rather than building a separate `CardBrandFooter` — the spec's 13 July
@@ -20,21 +27,26 @@ import { cardShadow, colors } from '@/constants/theme';
  * identical, and Brandmark is already this project's one canonical,
  * tokenized place to change the name (CLAUDE.md convention).
  */
-export const ShareCardView = forwardRef<View, { body: string; attribution: string | null; gloss: string | null }>(
-  function ShareCardView({ body, attribution, gloss }, ref) {
-    return (
-      <View ref={ref} style={styles.field} collapsable={false}>
-        <View style={[styles.card, cardShadow]}>
-          <Brandmark size={18} style={styles.brandmark} />
-          <Text style={styles.hero}>&ldquo;{body}&rdquo;</Text>
-          {hasAttributionLine(attribution) && <Text style={styles.attribution}>{attribution}</Text>}
-          <View style={styles.accentRule} />
-          {gloss && <Text style={styles.gloss}>{gloss}</Text>}
-        </View>
-      </View>
-    );
-  }
-);
+export const ShareCardView = forwardRef<
+  View,
+  { body: string; attribution: string | null; gloss: string | null; capture?: boolean }
+>(function ShareCardView({ body, attribution, gloss, capture = false }, ref) {
+  const card = (
+    <View style={[styles.card, cardShadow]}>
+      <Brandmark size={18} style={styles.brandmark} />
+      <Text style={styles.hero}>&ldquo;{body}&rdquo;</Text>
+      {hasAttributionLine(attribution) && <Text style={styles.attribution}>{attribution}</Text>}
+      <View style={styles.accentRule} />
+      {gloss && <Text style={styles.gloss}>{gloss}</Text>}
+    </View>
+  );
+
+  return (
+    <View ref={ref} style={capture ? styles.field : styles.screen} collapsable={false}>
+      {card}
+    </View>
+  );
+});
 
 const styles = StyleSheet.create({
   field: {
@@ -44,6 +56,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: '6%',
+  },
+  screen: {
+    width: '100%',
+    alignItems: 'center',
   },
   card: {
     width: '100%',

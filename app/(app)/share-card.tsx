@@ -22,10 +22,17 @@ import { recordCardEvent, setCardFlavorMuted } from '@/lib/shareCards';
  * full-screen, so there's no separate "opened" transition to record).
  * The small "×" (top-right) is the neutral one-tap skip from the
  * original slot spec — records 'dismissed', no rotation-weight effect.
- * "Not for me" at the bottom is the 13 July card-level resonance signal
- * — records 'passed', which DOES nudge this card's future weight down
- * slightly (spec §3 Rotation) — a different, slightly stronger signal
- * than the neutral skip, even though both simply leave the screen.
+ * "Not for me" is the 13 July card-level resonance signal — records
+ * 'passed', which DOES nudge this card's future weight down slightly
+ * (spec §3 Rotation) — a different, slightly stronger signal than the
+ * neutral skip, even though both simply leave the screen.
+ *
+ * SC1B (15 July, Cat's ruling from the live screenshot): the feedback
+ * row is Like · Share · Not for me, ONE row, directly under the white
+ * card, every control 50% larger than the SC1 sizing. The visible card
+ * is ShareCardView's screen rendering (card only); the 9:16 capture
+ * field renders once more off-screen and is what Share/Save snapshot —
+ * so the PNG keeps its story format while the screen hugs the card.
  */
 export default function ShareCard() {
   const router = useRouter();
@@ -134,7 +141,7 @@ export default function ShareCard() {
       </TouchableOpacity>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <ShareCardView ref={cardRef} body={body} attribution={attributionValue} gloss={glossValue} />
+        <ShareCardView body={body} attribution={attributionValue} gloss={glossValue} />
 
         <View style={styles.reactionRow}>
           <TouchableOpacity style={styles.reactionButton} onPress={handleLike} disabled={liked}>
@@ -144,6 +151,10 @@ export default function ShareCard() {
           <View style={styles.dividerDot} />
           <TouchableOpacity style={styles.reactionButton} onPress={handleShare} disabled={isSharing}>
             <Text style={styles.reactionText}>{isSharing ? '…' : STRINGS.shareCardShareCta}</Text>
+          </TouchableOpacity>
+          <View style={styles.dividerDot} />
+          <TouchableOpacity style={styles.reactionButton} onPress={handleNotForMe}>
+            <Text style={styles.notForMeText}>{STRINGS.shareCardNotForMeCta}</Text>
           </TouchableOpacity>
         </View>
 
@@ -158,9 +169,16 @@ export default function ShareCard() {
         </View>
       </ScrollView>
 
-      <TouchableOpacity style={styles.notForMe} onPress={handleNotForMe}>
-        <Text style={styles.notForMeText}>{STRINGS.shareCardNotForMeCta}</Text>
-      </TouchableOpacity>
+      <View
+        style={styles.captureClip}
+        pointerEvents="none"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
+        <View style={styles.captureSizer}>
+          <ShareCardView ref={cardRef} capture body={body} attribution={attributionValue} gloss={glossValue} />
+        </View>
+      </View>
 
       <MessageDialog
         visible={showMuteConfirm}
@@ -187,7 +205,7 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
     paddingTop: 56,
-    paddingBottom: 8,
+    paddingBottom: 24,
     alignItems: 'center',
   },
   skipButton: {
@@ -201,6 +219,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.muted,
   },
+  // SC1B: every control 50% larger than the SC1 sizing (text 12.5→18.75,
+  // heart 17→25.5, "Not for me" 11.5→17.25, padding 6/4→9/6). The gap
+  // between controls deliberately stays at 18 so all three fit one row
+  // at 390px; minHeight keeps tap targets ≥44px.
   reactionRow: {
     marginTop: 14,
     flexDirection: 'row',
@@ -211,19 +233,20 @@ const styles = StyleSheet.create({
   reactionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    gap: 9,
+    paddingVertical: 9,
+    paddingHorizontal: 6,
+    minHeight: 44,
   },
   heartIcon: {
-    fontSize: 17,
+    fontSize: 25.5,
     color: colors.muted,
   },
   heartIconLiked: {
     color: colors.heart,
   },
   reactionText: {
-    fontSize: 12.5,
+    fontSize: 18.75,
     color: colors.muted,
   },
   reactionTextLiked: {
@@ -251,12 +274,28 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: colors.muted,
   },
-  notForMe: {
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
   notForMeText: {
-    fontSize: 11.5,
+    fontSize: 17.25,
     color: colors.muted,
+  },
+  // The 9:16 story-format capture source (what Share/Save snapshot),
+  // hidden inside a 0×0 clip at normal page coordinates. It must NOT be
+  // parked off-screen (left: -10000): html2canvas — view-shot's web
+  // backend — crops from the element's page position, so negative
+  // coordinates break the web capture, while a clipped ancestor doesn't
+  // (both html2canvas and native snapshotting render the target view
+  // itself, ignoring ancestor clipping). Fixed 360×640 keeps the PNG
+  // layout deterministic across devices and upscales cleanly to
+  // 1080×1920.
+  captureClip: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 0,
+    height: 0,
+    overflow: 'hidden',
+  },
+  captureSizer: {
+    width: 360,
   },
 });

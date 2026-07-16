@@ -14,10 +14,29 @@ const CARD_WIDTH = 1080;
 const CARD_HEIGHT = 1920;
 
 export async function captureShareCard(viewRef: React.RefObject<View | null>): Promise<string> {
+  if (Platform.OS === 'web') {
+    // view-shot's captureRef is unusable on web: it unconditionally runs
+    // the ref through react-native-web's findNodeHandle, which since RNW
+    // 0.20 just throws ("findNodeHandle is not supported on web"). Found
+    // via SC1B (15 July) — every web Share/Save had been failing on it.
+    // So call html2canvas (view-shot's own web backend) directly: on
+    // react-native-web a View's ref IS its DOM element. The dynamic
+    // import keeps the browser-only module out of the native startup
+    // path.
+    const node = viewRef.current as unknown as HTMLElement | null;
+    if (!node) throw new Error('capture ref is empty');
+    const html2canvas = (await import('html2canvas')).default;
+    const rendered = await html2canvas(node);
+    const resized = document.createElement('canvas');
+    resized.width = CARD_WIDTH;
+    resized.height = CARD_HEIGHT;
+    resized.getContext('2d')?.drawImage(rendered, 0, 0, CARD_WIDTH, CARD_HEIGHT);
+    return resized.toDataURL('image/png');
+  }
   return captureRef(viewRef, {
     format: 'png',
     quality: 1,
-    result: Platform.OS === 'web' ? 'data-uri' : 'tmpfile',
+    result: 'tmpfile',
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
   });
