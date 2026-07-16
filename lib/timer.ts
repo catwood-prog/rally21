@@ -82,3 +82,30 @@ export async function clearPersistedTimer(key: string): Promise<void> {
     // later day
   }
 }
+
+/** BR1 (16 July) — whether this device has turned the breathing pacer
+ * off ("just the timer"). Per-device by design (Cat's ruling), so it's
+ * plain AsyncStorage like the deadline above, not a profile flag. On by
+ * default: only the OFF choice is ever stored, and any read failure just
+ * means the pacer shows. */
+const PACER_OFF_KEY = 'rally21:timer:pacerOff';
+
+export async function loadBreathingPacerOff(): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(PACER_OFF_KEY)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export async function saveBreathingPacerOff(off: boolean): Promise<void> {
+  try {
+    if (off) {
+      await AsyncStorage.setItem(PACER_OFF_KEY, '1');
+    } else {
+      await AsyncStorage.removeItem(PACER_OFF_KEY);
+    }
+  } catch {
+    // best-effort — worst case the preference doesn't stick this time
+  }
+}

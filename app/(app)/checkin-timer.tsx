@@ -4,6 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { Brandmark } from '@/components/Brandmark';
+import { BreathingPacer } from '@/components/BreathingPacer';
 import { LinkCard } from '@/components/LinkCard';
 import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
@@ -18,8 +19,10 @@ import {
   clearPersistedTimer,
   computeEndsAt,
   hasEnded,
+  loadBreathingPacerOff,
   loadPersistedTimer,
   remainingSeconds,
+  saveBreathingPacerOff,
   savePersistedTimer,
   timerStorageKey,
 } from '@/lib/timer';
@@ -113,6 +116,10 @@ export default function CheckinTimer() {
   const [caughtUp, setCaughtUp] = useState(false);
   const [showBackgroundHint, setShowBackgroundHint] = useState(false);
   const [hasSeenBackgroundHint, setHasSeenBackgroundHint] = useState(true);
+  // BR1: the breathing pacer's per-device "just the timer" preference —
+  // null until AsyncStorage resolves, so a device that turned it off
+  // never sees a one-frame flash of the halo.
+  const [pacerOff, setPacerOff] = useState<boolean | null>(null);
   // Tracks whether the tab has gone hidden at least once while this sit
   // was actively running — the honest-affordance hint (item 4) only ever
   // shows on return from *that*, never proactively.
@@ -153,6 +160,24 @@ export default function CheckinTimer() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!hasTimerUI) return;
+    let cancelled = false;
+    loadBreathingPacerOff().then((off) => {
+      if (!cancelled) setPacerOff(off);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handlePacerToggle = () => {
+    const next = !(pacerOff ?? false);
+    setPacerOff(next);
+    saveBreathingPacerOff(next);
+  };
 
   const handleToggleMute = () => {
     const next = !soundsEnabled;
@@ -261,6 +286,12 @@ export default function CheckinTimer() {
 
   const handleMarkDone = () => setPhase('done');
 
+  // BR1: the pacer breathes only while the sit is actually running —
+  // paused shows the plain ring, and the done branch (including T1's
+  // catch-up state, which owns that moment) returns before this is ever
+  // rendered.
+  const showPacer = hasTimerUI && phase === 'running' && pacerOff === false;
+
   const dismissBackgroundHint = () => {
     setShowBackgroundHint(false);
     setHasSeenBackgroundHint(true);
@@ -303,12 +334,25 @@ export default function CheckinTimer() {
         ) : resourceUrl ? (
           <>
             <LinkCard url={resourceUrl} style={styles.linkHero} light />
-            {hasTimerUI && <TimerRing remaining={remaining} totalSeconds={totalSeconds} />}
+            {hasTimerUI &&
+              (showPacer ? (
+                <BreathingPacer>
+                  <TimerRing remaining={remaining} totalSeconds={totalSeconds} />
+                </BreathingPacer>
+              ) : (
+                <TimerRing remaining={remaining} totalSeconds={totalSeconds} />
+              ))}
           </>
         ) : (
           <>
             <Text style={styles.prompt}>breathe, and let it settle</Text>
-            <TimerRing remaining={remaining} totalSeconds={totalSeconds} />
+            {showPacer ? (
+              <BreathingPacer>
+                <TimerRing remaining={remaining} totalSeconds={totalSeconds} />
+              </BreathingPacer>
+            ) : (
+              <TimerRing remaining={remaining} totalSeconds={totalSeconds} />
+            )}
           </>
         )}
 
@@ -316,6 +360,14 @@ export default function CheckinTimer() {
           <Text style={styles.footNote}>
             Timed practice · or just <Text style={styles.footNoteBold}>mark as done</Text>
           </Text>
+        )}
+
+        {hasTimerUI && pacerOff !== null && (
+          <TouchableOpacity onPress={handlePacerToggle} hitSlop={12} style={styles.pacerToggle}>
+            <Text style={styles.pacerToggleText}>
+              {pacerOff ? STRINGS.pacerTurnOn : STRINGS.pacerTurnOff}
+            </Text>
+          </TouchableOpacity>
         )}
 
         {showBackgroundHint && (
@@ -452,6 +504,19 @@ const styles = StyleSheet.create({
   footNoteBold: {
     fontWeight: '700',
     color: '#fff',
+  },
+  // BR1: a quiet text link, never a third button — hitSlop + padding
+  // carry the 44px target at this small type size.
+  pacerToggle: {
+    marginTop: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  pacerToggleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+    textDecorationLine: 'underline',
   },
   backgroundHintCard: {
     marginTop: 16,

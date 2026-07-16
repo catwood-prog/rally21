@@ -132,3 +132,35 @@ export const HAPTICS = {
   THUMP_MS: 25,
   SUCCESS_MS: 40,
 } as const;
+
+// --- 7. Breathing pacer (components/BreathingPacer.tsx, BR1 16 July) ---
+// Cat's timer-screen breathing circle (Apple-Breathe family): swells on
+// the in-breath, settles on the longer out-breath, continuously, for the
+// whole sit. Cadence v1 is 4s in / 6s out with no holds (longer exhale =
+// the calming pattern) — BREATH_IN_MS/BREATH_OUT_MS exist precisely so
+// Cat can retune after feeling it. Calm, not celebration: gentle scale,
+// soft gold, eased both ways (lib/breathing.ts's easeInOutSine — the
+// same curve as BREATHE_EASE above), no bounce.
+export const BREATHING_PACER = {
+  BREATH_IN_MS: 4000,
+  BREATH_OUT_MS: 6000,
+  // The halo sits behind the 186px timer ring: flush with it when
+  // settled, swelling past it to ~251px at a full breath.
+  CIRCLE_SIZE: 186,
+  SCALE_MIN: 1.0,
+  SCALE_MAX: 1.35,
+  // Fill is colors.gold; these opacities keep it in goldSoft territory
+  // (goldSoft itself is gold at 0.15) so the countdown stays the most
+  // readable thing on screen at every point of the cycle.
+  CIRCLE_OPACITY_MIN: 0.08,
+  CIRCLE_OPACITY_MAX: 0.18,
+  // prefers-reduced-motion: the whole pacer goes fully static (P1's
+  // convention — even the ember's opacity breathing stops) — one soft
+  // ring at the cycle's midpoint opacity, no scale, no phase labels
+  // (a frozen "breathe in/out" would be misleading guidance).
+  CIRCLE_OPACITY_STATIC: 0.13,
+  // The "breathe in"/"breathe out" label handover, starting exactly at
+  // each phase boundary — derived from the same clock as the scale so
+  // the two can never drift (lib/breathing.ts).
+  LABEL_FADE_MS: 500,
+} as const;

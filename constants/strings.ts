@@ -128,6 +128,14 @@ export const STRINGS = {
   timerCatchUpNote: 'your sit ended while you were away — it still counts',
   timerBackgroundHint: "keep this screen open to hear the chime — we'll keep it awake for you.",
 
+  // BR1 (16 July) — the breathing pacer on the timer screen. The two
+  // phase labels crossfade with the circle's swell/settle; the toggle is
+  // a quiet text link, remembered per device, on by default.
+  pacerBreatheIn: 'breathe in',
+  pacerBreatheOut: 'breathe out',
+  pacerTurnOff: 'just the timer',
+  pacerTurnOn: 'breathe with the timer',
+
   practiceStepQuestion: 'what will you do each day?',
   circleNameHelper: "this is your team's name — make it yours",
   // Solo-only "when's your first one?" choice on the commitment screen
