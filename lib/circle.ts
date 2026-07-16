@@ -198,17 +198,38 @@ export async function getCircleById(circleId: string, userId?: string): Promise<
   return mapCircleRow(data, myJoinSource);
 }
 
-/** RLS restricts this to the circle's creator (created_by = auth.uid()) —
- * there's no host-handover concept yet, so only the original creator can
- * rename, even if they later leave (see CLAUDE.md). */
-export async function renameCircle(circleId: string, name: string): Promise<void> {
-  const trimmed = name.trim();
-  if (!trimmed) return;
-  const { error } = await supabase.from('circles').update({ name: trimmed }).eq('id', circleId);
-  if (error) throw error;
+/** EC1 — the host edits their circle: name, time of day, resource link,
+ * and the practice wording/duration itself. Host-only is enforced inside
+ * the RPC (created_by = auth.uid(), the same rule as the circles UPDATE
+ * policy — no host handover, see CLAUDE.md). The RPC updates the practice
+ * row in place only when the host owns it and no other circle uses it;
+ * otherwise it clones a host-owned copy and repoints this circle, so a
+ * seeded or shared practice is never rewritten under other circles. The
+ * day counter (start_date/duration_days) is untouched by construction. */
+export async function editCircle(params: {
+  circleId: string;
+  name: string;
+  timeOfDay: string | null;
+  resourceUrl: string | null;
+  practiceName: string;
+  practiceDurationMinutes: number | null;
+}): Promise<void> {
+  const { error } = await supabase.rpc('edit_circle', {
+    p_circle_id: params.circleId,
+    p_name: params.name,
+    p_time_of_day: params.timeOfDay,
+    p_resource_url: params.resourceUrl,
+    p_practice_name: params.practiceName,
+    p_practice_duration_minutes: params.practiceDurationMinutes,
+  });
+  if (error) {
+    captureError(error, { rpc: 'edit_circle' });
+    throw error;
+  }
 }
 
-/** RLS-gated the same way as renameCircle — creator only. Pass null (or
+/** RLS restricts this to the circle's creator (created_by = auth.uid()) —
+ * creator only, no host handover (see CLAUDE.md). Pass null (or
  * an empty string) to remove the link. Non-empty values must be http(s);
  * the same rule is enforced by the `circles_resource_url_http_check` DB
  * constraint, so a bad value fails closed even if this check is bypassed. */
@@ -254,8 +275,8 @@ export async function removeMemberFromCircle(circleId: string, memberId: string)
 
 /** Host control (public circles): stop new joins (browse discovery and
  * invite-code joins alike) without kicking anyone already in. Uses the
- * same creator-only RLS UPDATE policy as renameCircle/setCircleResourceUrl
- * — no new policy needed for the write itself. */
+ * same creator-only RLS UPDATE policy as setCircleResourceUrl — no new
+ * policy needed for the write itself. */
 export async function setCircleClosedToJoins(circleId: string, closed: boolean): Promise<void> {
   const { error } = await supabase.from('circles').update({ closed_to_joins: closed }).eq('id', circleId);
   if (error) throw error;

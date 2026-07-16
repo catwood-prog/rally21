@@ -5,16 +5,22 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 
 import { Brandmark } from '@/components/Brandmark';
+import {
+  CircleNameField,
+  circleFormStyles,
+  ResourceLinkField,
+  TIME_OPTIONS,
+  TimeOfDayField,
+} from '@/components/CircleFormFields';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { activateWant } from '@/lib/blueprint';
 import { unlockAudioContext } from '@/lib/chime';
@@ -22,13 +28,6 @@ import { setCircleResourceUrl } from '@/lib/circle';
 import { createCircle } from '@/lib/circle-setup';
 import { getMyProfile } from '@/lib/profile';
 import { isHttpUrl } from '@/lib/resourceLink';
-
-const TIME_OPTIONS = [
-  { label: 'Morning', time: '08:00:00' },
-  { label: 'Midday', time: '12:00:00' },
-  { label: 'Evening', time: '18:00:00' },
-  { label: 'Night', time: '21:00:00' },
-];
 
 export default function TheCommitment() {
   const router = useRouter();
@@ -186,52 +185,31 @@ export default function TheCommitment() {
         )}
       </Text>
 
-      <Text style={styles.label}>name your circle</Text>
-      <Text style={styles.helperText}>{STRINGS.circleNameHelper}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="your circle's name"
-        placeholderTextColor={colors.muted}
-        value={circleName}
-        onChangeText={setCircleName}
-        autoCorrect={false}
-      />
+      <CircleNameField value={circleName} onChange={setCircleName} />
 
-      <Text style={[styles.label, styles.sectionSpacing]}>time of day</Text>
-      <View style={styles.chipRow}>
-        {TIME_OPTIONS.map((option) => {
-          const selected = option.time === selectedTime;
-          return (
-            <TouchableOpacity
-              key={option.time}
-              style={[styles.chip, selected && styles.chipSelected]}
-              onPress={() => setSelectedTime(option.time)}
-            >
-              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      <TimeOfDayField value={selectedTime} onChange={setSelectedTime} style={styles.sectionSpacing} />
 
       <Text style={styles.hint}>daily, for 21 days — a couple lines a day, that&apos;s it</Text>
 
       {isSolo && (
         <>
-          <Text style={[styles.label, styles.sectionSpacing]}>{STRINGS.soloFirstWhenLabel}</Text>
-          <View style={styles.chipRow}>
+          <Text style={[circleFormStyles.label, styles.sectionSpacing]}>
+            {STRINGS.soloFirstWhenLabel}
+          </Text>
+          <View style={circleFormStyles.chipRow}>
             <TouchableOpacity
-              style={[styles.chip, startFirstNow && styles.chipSelected]}
+              style={[circleFormStyles.chip, startFirstNow && circleFormStyles.chipSelected]}
               onPress={() => setStartFirstNow(true)}
             >
-              <Text style={[styles.chipText, startFirstNow && styles.chipTextSelected]}>
+              <Text style={[circleFormStyles.chipText, startFirstNow && circleFormStyles.chipTextSelected]}>
                 {STRINGS.soloFirstNow}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.chip, !startFirstNow && styles.chipSelected]}
+              style={[circleFormStyles.chip, !startFirstNow && circleFormStyles.chipSelected]}
               onPress={() => setStartFirstNow(false)}
             >
-              <Text style={[styles.chipText, !startFirstNow && styles.chipTextSelected]}>
+              <Text style={[circleFormStyles.chipText, !startFirstNow && circleFormStyles.chipTextSelected]}>
                 {STRINGS.soloFirstTomorrow(selectedTimeLabel)}
               </Text>
             </TouchableOpacity>
@@ -239,21 +217,11 @@ export default function TheCommitment() {
         </>
       )}
 
-      <Text style={[styles.label, styles.sectionSpacing]}>add a link (optional)</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="a video, article, or playlist your circle follows"
-        placeholderTextColor={colors.muted}
-        value={resourceUrl}
-        onChangeText={setResourceUrl}
-        autoCorrect={false}
-        autoCapitalize="none"
-        keyboardType="url"
-      />
+      <ResourceLinkField value={resourceUrl} onChange={setResourceUrl} style={styles.sectionSpacing} />
 
       {!isSolo && (
         <>
-          <Text style={[styles.label, styles.sectionSpacing]}>who can join</Text>
+          <Text style={[circleFormStyles.label, styles.sectionSpacing]}>who can join</Text>
 
           <TouchableOpacity
             style={[styles.visibilityCard, !isPublic && styles.visibilityCardSelected]}
@@ -333,53 +301,8 @@ const styles = StyleSheet.create({
     fontSize: 25,
     color: colors.green,
   },
-  label: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-    color: colors.green,
-    marginBottom: 8,
-  },
-  helperText: {
-    fontSize: 12,
-    color: colors.muted,
-    marginTop: -4,
-    marginBottom: 8,
-  },
   sectionSpacing: {
     marginTop: 24,
-  },
-  input: {
-    backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    borderRadius: 14,
-    padding: 14,
-    fontSize: 15,
-    color: colors.ink,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    ...chipShape,
-    backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-  },
-  chipSelected: {
-    backgroundColor: colors.green,
-    borderColor: colors.green,
-  },
-  chipText: {
-    ...chipTextShape,
-    color: colors.ink,
-  },
-  chipTextSelected: {
-    color: '#fff',
   },
   hint: {
     fontSize: 12,

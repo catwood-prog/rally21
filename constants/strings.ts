@@ -299,6 +299,21 @@ export const STRINGS = {
   hostCloseToJoinsLabel: 'closed to new joins',
   hostCloseToJoinsHelperOpen: 'anyone with the code or browsing open circles can join',
   hostCloseToJoinsHelperClosed: "you're not taking new members right now",
+
+  // EC1 (16 July) — hosts edit their circle from Host Controls or the ✎
+  // manage entry by the title. One quiet informative line (Cat's ruling:
+  // never scolding, never a confirmation maze); nothing on this screen
+  // can touch the day counter.
+  editCircleTitle: 'edit your circle',
+  editCircleQuietNote: 'your circle will see this change',
+  editCirclePracticeLabel: 'the practice',
+  editCirclePracticeHelper: 'what your circle does each day',
+  editCirclePracticeDurationPlaceholder: 'duration in minutes (optional)',
+  editCircleSaveCta: 'Save changes',
+  hostEditCircleLabel: 'edit circle',
+  hostEditCircleHelper: 'name, time of day, link, or the practice itself',
+  manageCircleAffordance: '✎ manage',
+  manageCircleA11yLabel: 'manage circle',
   hostDeleteWallMessageConfirm: 'Remove this from the wall?',
 
   // Pre-sign-in onboarding (rev-7 mockup screens 1–3) — signed-in users

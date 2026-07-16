@@ -34,7 +34,6 @@ import {
   listMyCircles,
   MyCircle,
   removeMemberFromCircle,
-  renameCircle,
   resolveCircleSelection,
   setCircleClosedToJoins,
   setCircleResourceUrl,
@@ -63,8 +62,6 @@ import {
   subscribeToWall,
   WallPreviewItem,
 } from '@/lib/wall';
-
-const MAX_CIRCLE_NAME_LENGTH = 40;
 
 const MAX_AVATARS_SHOWN = 8;
 
@@ -101,9 +98,6 @@ export default function YourCircle() {
   // than one circle — the tab's own root: a card per circle, tap through.
   const [listCircles, setListCircles] = useState<MyCircle[]>([]);
   const [listData, setListData] = useState<Record<string, ListCircleData>>({});
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState('');
-  const [isSavingName, setIsSavingName] = useState(false);
   const [isConfirmingLeave, setIsConfirmingLeave] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isEditingLink, setIsEditingLink] = useState(false);
@@ -430,28 +424,11 @@ export default function YourCircle() {
   const isCreator = circle.createdBy === session?.user?.id;
   const youtubeId = circle.resourceUrl ? extractYouTubeId(circle.resourceUrl) : null;
 
-  const startEditingName = () => {
-    setNameDraft(circle.name);
-    setIsEditingName(true);
-  };
-
-  const saveName = async () => {
-    const trimmed = nameDraft.trim();
-    if (!trimmed || trimmed === circle.name) {
-      setIsEditingName(false);
-      return;
-    }
-    setIsSavingName(true);
-    try {
-      await renameCircle(circle.id, trimmed);
-      setCircle({ ...circle, name: trimmed });
-      setIsEditingName(false);
-    } catch {
-      // leave editing open so they can retry
-    } finally {
-      setIsSavingName(false);
-    }
-  };
+  // EC1 — everything about the circle (name, time, link, the practice
+  // itself) is edited on the dedicated edit screen; the old inline
+  // rename lived here until 16 July.
+  const openEditCircle = () =>
+    router.push({ pathname: '/edit-circle', params: { circleId: circle.id } });
 
   const startEditingLink = () => {
     setLinkDraft(circle.resourceUrl ?? '');
@@ -726,33 +703,19 @@ export default function YourCircle() {
           </View>
         )}
 
-      {isEditingName ? (
-        <View style={styles.nameEditRow}>
-          <TextInput
-            style={styles.nameInput}
-            value={nameDraft}
-            onChangeText={setNameDraft}
-            maxLength={MAX_CIRCLE_NAME_LENGTH}
-            autoFocus
-            editable={!isSavingName}
-          />
-          <TouchableOpacity onPress={saveName} disabled={isSavingName}>
-            <Text style={styles.nameEditAction}>{isSavingName ? '…' : 'Save'}</Text>
+      <View style={styles.nameRow}>
+        <Text style={styles.title}>{circle.name}</Text>
+        {isCreator && !circle.completedAt && (
+          <TouchableOpacity
+            onPress={openEditCircle}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={STRINGS.manageCircleA11yLabel}
+          >
+            <Text style={styles.editPencil}>{STRINGS.manageCircleAffordance}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setIsEditingName(false)} disabled={isSavingName}>
-            <Text style={styles.nameEditActionMuted}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={styles.nameRow}>
-          <Text style={styles.title}>{circle.name}</Text>
-          {isCreator && !circle.completedAt && (
-            <TouchableOpacity onPress={startEditingName} hitSlop={10}>
-              <Text style={styles.editPencil}>✎</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
+        )}
+      </View>
       <Text style={styles.headerStatus}>
         {inTodayUserIds.size === activeMemberCount && activeMemberCount > 1
           ? STRINGS.groupAllInCelebration(activeMemberCount, circle.name)
@@ -818,20 +781,6 @@ export default function YourCircle() {
           isRallied={!!circle.ralliedOnAt && !circle.completedAt}
         />
       </View>
-
-      {!circle.completedAt && (
-        <TouchableOpacity
-          style={styles.inviteButton}
-          onPress={() =>
-            router.push({
-              pathname: '/onboarding/invite',
-              params: { circleId: circle.id, inviteCode: circle.inviteCode },
-            })
-          }
-        >
-          <Text style={styles.inviteButtonText}>✨ Invite someone</Text>
-        </TouchableOpacity>
-      )}
 
       <View style={styles.wallPreviewCard}>
         <Text style={styles.sectionLabel}>circle wall</Text>
@@ -1097,114 +1046,137 @@ export default function YourCircle() {
         </>
       )}
 
-      {isCreator && circle.isPublic && !circle.completedAt && (
+      {!circle.completedAt && (
+        <TouchableOpacity
+          style={styles.inviteButton}
+          onPress={() =>
+            router.push({
+              pathname: '/onboarding/invite',
+              params: { circleId: circle.id, inviteCode: circle.inviteCode },
+            })
+          }
+        >
+          <Text style={styles.inviteButtonText}>✨ Invite someone</Text>
+        </TouchableOpacity>
+      )}
+
+      {isCreator && !circle.completedAt && (
         <View style={styles.hostControlsCard}>
           <Text style={styles.sectionLabel}>host controls</Text>
 
-          <TouchableOpacity
-            style={styles.hostToggleRow}
-            onPress={handleToggleClosedToJoins}
-            disabled={isTogglingClosed}
-          >
-            <View style={styles.hostToggleTextWrap}>
-              <Text style={styles.hostToggleLabel}>{STRINGS.hostCloseToJoinsLabel}</Text>
-              <Text style={styles.hostToggleHelper}>
-                {circle.closedToJoins
-                  ? STRINGS.hostCloseToJoinsHelperClosed
-                  : STRINGS.hostCloseToJoinsHelperOpen}
-              </Text>
-            </View>
-            {isTogglingClosed ? (
-              <ActivityIndicator size="small" color={colors.green} />
-            ) : (
-              <View style={[styles.toggleTrack, circle.closedToJoins && styles.toggleTrackOn]}>
-                <View style={[styles.toggleThumb, circle.closedToJoins && styles.toggleThumbOn]} />
-              </View>
-            )}
+          {/* EC1 — every host can edit what they created; the toggle and
+              member management below stay public-circle-only. */}
+          <TouchableOpacity style={styles.hostEditRow} onPress={openEditCircle}>
+            <Text style={styles.hostToggleLabel}>{STRINGS.hostEditCircleLabel}</Text>
+            <Text style={styles.hostToggleHelper}>{STRINGS.hostEditCircleHelper}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setIsManagingMembers(!isManagingMembers)}>
-            <Text style={styles.hostManageMembersLink}>
-              {isManagingMembers ? 'hide members' : 'manage members'}
-            </Text>
-          </TouchableOpacity>
-
-          {isManagingMembers &&
-            members
-              .filter((m) => m.userId !== session?.user?.id)
-              .map((member) => (
-                <View key={member.userId} style={styles.hostMemberRow}>
-                  <Avatar name={member.name} avatarUrl={member.avatarUrl} size={26} />
-                  <Text style={styles.hostMemberName}>{member.name ?? 'circle-mate'}</Text>
-                  {removingMemberId !== member.userId && (
-                    <TouchableOpacity onPress={() => setRemovingMemberId(member.userId)} hitSlop={6}>
-                      <Text style={styles.hostMemberRemoveLink}>remove</Text>
-                    </TouchableOpacity>
-                  )}
+          {circle.isPublic && (
+            <>
+              <TouchableOpacity
+                style={styles.hostToggleRow}
+                onPress={handleToggleClosedToJoins}
+                disabled={isTogglingClosed}
+              >
+                <View style={styles.hostToggleTextWrap}>
+                  <Text style={styles.hostToggleLabel}>{STRINGS.hostCloseToJoinsLabel}</Text>
+                  <Text style={styles.hostToggleHelper}>
+                    {circle.closedToJoins
+                      ? STRINGS.hostCloseToJoinsHelperClosed
+                      : STRINGS.hostCloseToJoinsHelperOpen}
+                  </Text>
                 </View>
-              ))}
-          {isManagingMembers &&
-            removingMemberId &&
-            members.some((m) => m.userId === removingMemberId) && (
-              <View style={styles.hostMemberConfirmCard}>
-                <Text style={styles.hostMemberConfirmTitle}>
-                  {STRINGS.hostRemoveMemberConfirm(
-                    members.find((m) => m.userId === removingMemberId)?.name ?? 'this member'
-                  )}
+                {isTogglingClosed ? (
+                  <ActivityIndicator size="small" color={colors.green} />
+                ) : (
+                  <View style={[styles.toggleTrack, circle.closedToJoins && styles.toggleTrackOn]}>
+                    <View style={[styles.toggleThumb, circle.closedToJoins && styles.toggleThumbOn]} />
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => setIsManagingMembers(!isManagingMembers)}>
+                <Text style={styles.hostManageMembersLink}>
+                  {isManagingMembers ? 'hide members' : 'manage members'}
                 </Text>
-                <Text style={styles.hostMemberConfirmBody}>{STRINGS.hostRemoveMemberBody}</Text>
-                <View style={styles.hostMemberConfirmRow}>
+              </TouchableOpacity>
+
+              {isManagingMembers &&
+                members
+                  .filter((m) => m.userId !== session?.user?.id)
+                  .map((member) => (
+                    <View key={member.userId} style={styles.hostMemberRow}>
+                      <Avatar name={member.name} avatarUrl={member.avatarUrl} size={26} />
+                      <Text style={styles.hostMemberName}>{member.name ?? 'circle-mate'}</Text>
+                      {removingMemberId !== member.userId && (
+                        <TouchableOpacity onPress={() => setRemovingMemberId(member.userId)} hitSlop={6}>
+                          <Text style={styles.hostMemberRemoveLink}>remove</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+              {isManagingMembers &&
+                removingMemberId &&
+                members.some((m) => m.userId === removingMemberId) && (
+                  <View style={styles.hostMemberConfirmCard}>
+                    <Text style={styles.hostMemberConfirmTitle}>
+                      {STRINGS.hostRemoveMemberConfirm(
+                        members.find((m) => m.userId === removingMemberId)?.name ?? 'this member'
+                      )}
+                    </Text>
+                    <Text style={styles.hostMemberConfirmBody}>{STRINGS.hostRemoveMemberBody}</Text>
+                    <View style={styles.hostMemberConfirmRow}>
+                      <TouchableOpacity
+                        onPress={() => setRemovingMemberId(null)}
+                        disabled={isRemovingMember}
+                      >
+                        <Text style={styles.hostMemberCancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleRemoveMember(removingMemberId)}
+                        disabled={isRemovingMember}
+                      >
+                        <Text style={styles.hostDeleteConfirmText}>
+                          {isRemovingMember ? '…' : STRINGS.hostRemoveMemberCta}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+            </>
+          )}
+
+          {/* Rallied-on circles add the wind-down control (previously its
+              own second "host controls" card — one card now). */}
+          {!!circle.ralliedOnAt &&
+            (isConfirmingComplete ? (
+              <View style={styles.journeyCompleteHostConfirmCard}>
+                <Text style={styles.journeyCompleteHostConfirmTitle}>
+                  {STRINGS.journeyCompleteConfirmTitle(circle.name)}
+                </Text>
+                <Text style={styles.journeyCompleteHostConfirmBody}>
+                  {STRINGS.journeyCompleteConfirmBody}
+                </Text>
+                <View style={styles.journeyGateConfirmRow}>
                   <TouchableOpacity
-                    onPress={() => setRemovingMemberId(null)}
-                    disabled={isRemovingMember}
+                    onPress={() => setIsConfirmingComplete(false)}
+                    disabled={isCompleting}
                   >
-                    <Text style={styles.hostMemberCancelText}>Cancel</Text>
+                    <Text style={styles.leaveCancelText}>Cancel</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleRemoveMember(removingMemberId)}
-                    disabled={isRemovingMember}
-                  >
-                    <Text style={styles.hostDeleteConfirmText}>
-                      {isRemovingMember ? '…' : STRINGS.hostRemoveMemberCta}
+                  <TouchableOpacity onPress={handleCompleteCircle} disabled={isCompleting}>
+                    <Text style={styles.journeyGateCompleteConfirmText}>
+                      {isCompleting ? '…' : STRINGS.journeyGateCompleteCta}
                     </Text>
                   </TouchableOpacity>
                 </View>
               </View>
-            )}
-        </View>
-      )}
-
-      {isCreator && circle.ralliedOnAt && !circle.completedAt && (
-        <View style={styles.hostControlsCard}>
-          <Text style={styles.sectionLabel}>host controls</Text>
-          {isConfirmingComplete ? (
-            <View style={styles.journeyCompleteHostConfirmCard}>
-              <Text style={styles.journeyCompleteHostConfirmTitle}>
-                {STRINGS.journeyCompleteConfirmTitle(circle.name)}
-              </Text>
-              <Text style={styles.journeyCompleteHostConfirmBody}>
-                {STRINGS.journeyCompleteConfirmBody}
-              </Text>
-              <View style={styles.journeyGateConfirmRow}>
-                <TouchableOpacity
-                  onPress={() => setIsConfirmingComplete(false)}
-                  disabled={isCompleting}
-                >
-                  <Text style={styles.leaveCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleCompleteCircle} disabled={isCompleting}>
-                  <Text style={styles.journeyGateCompleteConfirmText}>
-                    {isCompleting ? '…' : STRINGS.journeyGateCompleteCta}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <TouchableOpacity onPress={() => setIsConfirmingComplete(true)}>
-              <Text style={styles.hostToggleLabel}>{STRINGS.journeyCompleteHostControlLabel}</Text>
-              <Text style={styles.hostToggleHelper}>{STRINGS.journeyCompleteHostControlHelper}</Text>
-            </TouchableOpacity>
-          )}
+            ) : (
+              <TouchableOpacity style={styles.hostEditRow} onPress={() => setIsConfirmingComplete(true)}>
+                <Text style={styles.hostToggleLabel}>{STRINGS.journeyCompleteHostControlLabel}</Text>
+                <Text style={styles.hostToggleHelper}>{STRINGS.journeyCompleteHostControlHelper}</Text>
+              </TouchableOpacity>
+            ))}
         </View>
       )}
 
@@ -1341,23 +1313,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
   },
+  // EC1 — the ✎ manage entry beside the title, host-only; opens the
+  // edit-circle screen (this was the inline-rename pencil before).
   editPencil: {
-    fontSize: 15,
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.muted,
-  },
-  nameEditRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  nameInput: {
-    flex: 1,
-    fontFamily: FONT_HEADER,
-    fontSize: 20,
-    color: colors.ink,
-    borderBottomWidth: 1.5,
-    borderBottomColor: colors.green,
-    paddingVertical: 4,
   },
   nameEditAction: {
     fontWeight: '700',
@@ -1703,6 +1664,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: 8,
+    marginBottom: 6,
+  },
+  // EC1 — plain label+helper rows in host controls (edit circle, and the
+  // rallied wind-down control that shares this card now).
+  hostEditRow: {
     paddingVertical: 8,
     marginBottom: 6,
   },
