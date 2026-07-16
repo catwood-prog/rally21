@@ -7,7 +7,7 @@ import { ShareCardView } from '@/components/ShareCardView';
 import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { captureShareCard, saveCardImage, shareCardImage } from '@/lib/shareCardExport';
-import { recordCardEvent, setCardFlavorMuted } from '@/lib/shareCards';
+import { recordCardEvent } from '@/lib/shareCards';
 
 /**
  * SC1 (13 July) — the card slot's full-screen view (spec §3). Reached
@@ -33,6 +33,19 @@ import { recordCardEvent, setCardFlavorMuted } from '@/lib/shareCards';
  * is ShareCardView's screen rendering (card only); the 9:16 capture
  * field renders once more off-screen and is what Share/Save snapshot —
  * so the PNG keeps its story format while the screen hugs the card.
+ *
+ * SC1C (15 July, Cat's ruling from seeing SC1B rendered): rev 2 of the
+ * action row. (a) Like and Share shrink 30% from the SC1B size (×0.7 on
+ * text/icon/padding — net ~+5% vs the SC1 original). (b) The main row is
+ * Like · Share ONLY. (c) "Not for me" drops beneath it as small, quiet,
+ * centered text — same 'passed' behavior (card-level resonance, weight
+ * nudge — spec §3), just no longer a peer button. (d) The old secondary
+ * "Save · Not my kind of thing" row is GONE. Save lost nothing: Share's
+ * own web path already falls back to the image download when no share
+ * sheet exists, and native Share offers Save Image — so there was no
+ * export capability only Save provided. The flavor-mute pref infra and
+ * its settings re-enable list stay; only this on-card mute entry point
+ * is removed (see the SC1C commit note: it was the sole mute-ON path).
  */
 export default function ShareCard() {
   const router = useRouter();
@@ -46,8 +59,6 @@ export default function ShareCard() {
 
   const [liked, setLiked] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [showMuteConfirm, setShowMuteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const attributionValue = attribution || null;
@@ -99,31 +110,6 @@ export default function ShareCard() {
     }
   };
 
-  const handleSave = async () => {
-    if (!cardKey) return;
-    setIsSaving(true);
-    try {
-      const uri = await captureShareCard(cardRef);
-      await saveCardImage(uri);
-      recordCardEvent('curated_quote', cardKey, 'saved').catch(() => {});
-    } catch {
-      setError(STRINGS.shareCardShareError);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleMute = async () => {
-    if (cardKey) recordCardEvent('curated_quote', cardKey, 'muted').catch(() => {});
-    try {
-      await setCardFlavorMuted('curated_quote', true);
-    } catch {
-      // The mute pref failing to save silently isn't worth blocking the
-      // dismiss over — this is a low-stakes, easily-retried preference.
-    }
-    setShowMuteConfirm(true);
-  };
-
   if (!cardKey || !body) {
     // Reached without valid params somehow (stale link, direct nav) —
     // fail quiet, not broken.
@@ -152,21 +138,11 @@ export default function ShareCard() {
           <TouchableOpacity style={styles.reactionButton} onPress={handleShare} disabled={isSharing}>
             <Text style={styles.reactionText}>{isSharing ? '…' : STRINGS.shareCardShareCta}</Text>
           </TouchableOpacity>
-          <View style={styles.dividerDot} />
-          <TouchableOpacity style={styles.reactionButton} onPress={handleNotForMe}>
-            <Text style={styles.notForMeText}>{STRINGS.shareCardNotForMeCta}</Text>
-          </TouchableOpacity>
         </View>
 
-        <View style={styles.secondaryRow}>
-          <TouchableOpacity onPress={handleSave} disabled={isSaving}>
-            <Text style={styles.secondaryText}>{isSaving ? '…' : STRINGS.shareCardSaveCta}</Text>
-          </TouchableOpacity>
-          <Text style={styles.secondaryDot}>·</Text>
-          <TouchableOpacity onPress={handleMute}>
-            <Text style={styles.secondaryText}>{STRINGS.shareCardMuteCta}</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.notForMeButton} onPress={handleNotForMe}>
+          <Text style={styles.notForMeText}>{STRINGS.shareCardNotForMeCta}</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       <View
@@ -180,12 +156,6 @@ export default function ShareCard() {
         </View>
       </View>
 
-      <MessageDialog
-        visible={showMuteConfirm}
-        title={STRINGS.shareCardMuteConfirmTitle}
-        message={STRINGS.shareCardMuteConfirmBody}
-        onDismiss={goToToday}
-      />
       <MessageDialog visible={!!error} title="hmm" message={error ?? ''} onDismiss={() => setError(null)} />
     </View>
   );
@@ -219,10 +189,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.muted,
   },
-  // SC1B: every control 50% larger than the SC1 sizing (text 12.5→18.75,
-  // heart 17→25.5, "Not for me" 11.5→17.25, padding 6/4→9/6). The gap
-  // between controls deliberately stays at 18 so all three fit one row
-  // at 390px; minHeight keeps tap targets ≥44px.
+  // SC1C: Like · Share shrink 30% from the SC1B size — text, icon and
+  // padding all ×0.7 (text 18.75→13.125, heart 25.5→17.85, padding
+  // 9/6→6.3/4.2). Net vs the SC1 original is ~+5%. minHeight keeps the
+  // tap targets ≥44px even though the type shrank.
   reactionRow: {
     marginTop: 14,
     flexDirection: 'row',
@@ -233,20 +203,20 @@ const styles = StyleSheet.create({
   reactionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
-    paddingVertical: 9,
-    paddingHorizontal: 6,
+    gap: 6.3,
+    paddingVertical: 6.3,
+    paddingHorizontal: 4.2,
     minHeight: 44,
   },
   heartIcon: {
-    fontSize: 25.5,
+    fontSize: 17.85,
     color: colors.muted,
   },
   heartIconLiked: {
     color: colors.heart,
   },
   reactionText: {
-    fontSize: 18.75,
+    fontSize: 13.125,
     color: colors.muted,
   },
   reactionTextLiked: {
@@ -259,23 +229,20 @@ const styles = StyleSheet.create({
     borderRadius: 1.5,
     backgroundColor: colors.line,
   },
-  secondaryRow: {
-    marginTop: 10,
-    flexDirection: 'row',
+  // SC1C (c): "Not for me" is now a quiet text link UNDER the row, small
+  // and muted so it never reads as a third button. Padding + minHeight
+  // carry the ≥44px tap target while the type stays subordinate.
+  notForMeButton: {
+    marginTop: 4,
+    alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-  },
-  secondaryText: {
-    fontSize: 11.5,
-    color: colors.muted,
-  },
-  secondaryDot: {
-    fontSize: 11.5,
-    color: colors.muted,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    minHeight: 44,
   },
   notForMeText: {
-    fontSize: 17.25,
+    fontSize: 11.5,
     color: colors.muted,
   },
   // The 9:16 story-format capture source (what Share/Save snapshot),

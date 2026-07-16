@@ -601,10 +601,11 @@ export const STRINGS = {
   shareCardLikeCta: 'Like',
   shareCardShareCta: 'Share',
   shareCardNotForMeCta: 'Not for me',
-  shareCardSaveCta: 'Save',
-  shareCardMuteCta: 'Not my kind of thing',
-  shareCardMuteConfirmTitle: 'quiet, for good',
-  shareCardMuteConfirmBody: "you won't see quote cards again — turn them back on anytime in settings.",
+  // SC1C (15 July) removed the on-card Save button and the "Not my kind
+  // of thing" flavor-mute entry point (with its confirm dialog), so
+  // shareCardSaveCta / shareCardMuteCta / shareCardMuteConfirm* are gone.
+  // The flavor-mute pref infra + the settings "muted card flavors" list
+  // (labels below) stay — they just have no on-card mute-ON path anymore.
   shareCardMutedFlavorsLabel: 'muted card flavors',
   shareCardMutedFlavorsEmpty: "you haven't muted any card flavors",
   shareCardFlavorCuratedQuote: 'quote cards',
