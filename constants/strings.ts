@@ -82,6 +82,22 @@ export const STRINGS = {
       ? `Join ${circleName} on Rally21! Sign in at https://rally21.vercel.app and enter code ${inviteCode} to hop in.`
       : `Join my Rally21 circle! Sign in at https://rally21.vercel.app and enter code ${inviteCode} to hop in.`,
 
+  // IN1 (15 July) — "Share invite" opens a channel chooser instead of
+  // silently copying. The message a channel carries is always
+  // inviteShareMessage above (one source of truth — lib/sharing.ts only
+  // encodes it); these strings are the chooser's own chrome plus the
+  // mail channel's subject line.
+  inviteMailSubject: (circleName: string | null) =>
+    circleName ? `come join ${circleName} on Rally21` : 'come join my Rally21 circle',
+  inviteChooserTitle: 'send it your way',
+  inviteChooserSubtitle: 'the invite message is ready to go',
+  inviteChannelMail: 'Mail',
+  inviteChannelWhatsApp: 'WhatsApp',
+  inviteChannelSms: 'Messages',
+  inviteChannelCopy: 'copy instead',
+  inviteChooserDismiss: 'not right now',
+  inviteCopiedNotice: 'copied — paste it to your people',
+
   emptyGroupTitle: 'Penguins huddle better together',
   emptyGroupBody: 'Invite a friend to start your rally.',
   emptyGroupCta: 'Join the huddle',

@@ -13,6 +13,7 @@ import {
 
 import { MASCOT } from '@/assets/mascot';
 import { Brandmark } from '@/components/Brandmark';
+import { InviteChannelChooser } from '@/components/InviteChannelChooser';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
@@ -36,6 +37,7 @@ export default function Invite() {
   const [pickerCircles, setPickerCircles] = useState<MyCircle[] | null>(null);
   const [isLoadingCode, setIsLoadingCode] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
+  const [chooserVisible, setChooserVisible] = useState(false);
 
   // Always refetches on focus (never trusts a cached name/code) — a
   // rename made elsewhere must show up here without a hard refresh.
@@ -70,24 +72,37 @@ export default function Invite() {
 
   const shareMessage = STRINGS.inviteShareMessage(circleName, inviteCode ?? '');
 
-  const handleShare = async () => {
+  const copyMessage = async () => {
+    await Clipboard.setStringAsync(shareMessage);
+    setNotice(STRINGS.inviteCopiedNotice);
+  };
+
+  // IN1 (15 July) — Share invite opens a how-to-send chooser instead of
+  // silently copying: the system share sheet wherever one exists (native;
+  // iOS Safari via navigator.share), the in-app channel chooser everywhere
+  // else. A cancelled sheet is silent — the person just changed their mind.
+  const handleShare = () => {
     if (!inviteCode) return;
 
     if (Platform.OS === 'web') {
-      // navigator.share is unreliable across browsers here, and awaiting it
-      // before falling back to a clipboard write loses the user-gesture
-      // context Safari/Chrome require to allow that write — copy directly.
-      await Clipboard.setStringAsync(shareMessage);
-      setNotice('copied — paste it to your people');
+      const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
+      if (typeof nav.share === 'function') {
+        // Called synchronously inside the tap gesture (Safari requires
+        // it); AbortError means cancelled, anything else falls back to
+        // the in-app chooser rather than surfacing an error.
+        nav.share({ text: shareMessage }).catch((err: unknown) => {
+          if ((err as Error | null)?.name === 'AbortError') return;
+          setChooserVisible(true);
+        });
+        return;
+      }
+      setChooserVisible(true);
       return;
     }
 
-    try {
-      await Share.share({ message: shareMessage });
-    } catch {
-      await Clipboard.setStringAsync(shareMessage);
-      setNotice('copied — paste it to your people');
-    }
+    // Native: the system sheet (cancelling resolves, never throws); only a
+    // genuine failure to present it falls back to the in-app chooser.
+    Share.share({ message: shareMessage }).catch(() => setChooserVisible(true));
   };
 
   const handleCopyCode = async () => {
@@ -164,6 +179,14 @@ export default function Invite() {
       <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace('/')}>
         <Text style={styles.secondaryButtonText}>Continue to my circle</Text>
       </TouchableOpacity>
+
+      <InviteChannelChooser
+        visible={chooserVisible}
+        message={shareMessage}
+        mailSubject={STRINGS.inviteMailSubject(circleName)}
+        onCopy={copyMessage}
+        onDismiss={() => setChooserVisible(false)}
+      />
 
       <MessageDialog
         visible={!!notice}
