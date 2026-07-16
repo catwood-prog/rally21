@@ -417,6 +417,20 @@ export const STRINGS = {
   askRallyComposerPlaceholder: 'ask Rally anything…',
   askRallySendCta: 'Send',
 
+  // PM1 (15 July) — the private map's starter-chip invitation into Ask
+  // Rally. A chip is the user's own question: it lands in the composer
+  // as plain text (the `prefill` param — never the pattern cards'
+  // About-this context wrapper) and is never sent on their behalf.
+  blueprintAskLabel: 'ASK RALLY',
+  blueprintAskLead: 'wonder what all this means?',
+  blueprintAskLeadEmpty: 'while your patterns form, Rally’s here to talk',
+  blueprintAskChips: [
+    'what are you noticing about me?',
+    'help me with my motivation',
+    'how do I get closer to what I’m reaching for?',
+    'I want to talk about how I’m feeling',
+  ],
+
   wallComposerPlaceholder: 'Message your circle…',
   hostDeleteWallMessageCancel: 'Cancel',
   hostDeleteWallMessageLink: 'remove',

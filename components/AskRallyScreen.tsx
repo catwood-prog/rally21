@@ -26,6 +26,16 @@ function appendTranscript(existing: string, transcript: string): string {
   return `${existing} ${transcript}`;
 }
 
+/** What the composer opens with. A pattern-card entry (`context`) is a
+ * pattern the user is reacting to, so it gets the About-this wrapper; a
+ * map starter chip (`prefill`, PM1) is the user's own question, so it
+ * lands verbatim. Context wins if both ever arrive. Null = no prefill. */
+export function buildPrefillDraft(contextParam?: string, prefillParam?: string): string | null {
+  if (contextParam) return `About this: "${contextParam}" — `;
+  if (prefillParam) return prefillParam;
+  return null;
+}
+
 // Ask Rally, part 1 — the real thing (Rally21-Ask-Rally-Spec.md). Every
 // authenticated user (A0's founder allowlist is gone). Conversations
 // persist server-side for continuity: 'start fresh' closes the current
@@ -38,9 +48,11 @@ function appendTranscript(existing: string, transcript: string): string {
 // front door — no context, no back link since it's already a tab).
 export function AskRallyScreen({
   contextParam,
+  prefillParam,
   showBackLink = false,
 }: {
   contextParam?: string;
+  prefillParam?: string;
   showBackLink?: boolean;
 }) {
   const router = useRouter();
@@ -75,12 +87,14 @@ export function AskRallyScreen({
     }, [load])
   );
 
-  // Entry from a blueprint card ("ask Rally about this") prefills the
-  // composer with that pattern as a starting point — never auto-sent on
-  // the user's behalf, they still choose what to actually ask.
-  if (contextParam && !prefilledFromContext.current && !isLoading) {
+  // Entry from a blueprint card ("ask Rally about this") or a map
+  // starter chip (PM1) prefills the composer as a starting point —
+  // never auto-sent on the user's behalf, they still choose what to
+  // actually ask (or edit first).
+  const prefillDraft = buildPrefillDraft(contextParam, prefillParam);
+  if (prefillDraft !== null && !prefilledFromContext.current && !isLoading) {
     prefilledFromContext.current = true;
-    setDraft(`About this: "${contextParam}" — `);
+    setDraft(prefillDraft);
   }
 
   const handleStartFresh = () => {

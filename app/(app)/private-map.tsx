@@ -43,6 +43,31 @@ function patternContextText(copy: { headline: string; accent: string }): string 
   return copy.accent ? `${copy.headline} ${copy.accent}` : copy.headline;
 }
 
+/** PM1: the map's invitation into Ask Rally — a warm lead plus starter
+ * questions, each opening the composer with that question sitting there
+ * as plain text (the `prefill` param, not the About-this `context`
+ * wrapper — a chip is a question the user is asking, not a pattern
+ * they're reacting to). Never auto-sent. One shared card for both the
+ * populated map and the empty state; only the lead line adapts. */
+function AskRallyInviteCard({ lead }: { lead: string }) {
+  const router = useRouter();
+  return (
+    <View style={styles.patternCard}>
+      <Text style={styles.patternLabel}>{STRINGS.blueprintAskLabel}</Text>
+      <Text style={styles.askLead}>{lead}</Text>
+      {STRINGS.blueprintAskChips.map((question) => (
+        <TouchableOpacity
+          key={question}
+          style={styles.askChip}
+          onPress={() => router.push({ pathname: '/ask-rally', params: { prefill: question } })}
+        >
+          <Text style={styles.askChipText}>{question}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
 export default function Blueprint() {
   const router = useRouter();
   const { session } = useAuth();
@@ -194,10 +219,13 @@ export default function Blueprint() {
       )}
 
       {!error && patterns.length === 0 && (
-        <View style={styles.emptyState}>
-          <MascotEntrance source={MASCOT.journalCompanion} style={styles.emptyStateImage} />
-          <Text style={styles.emptyStateText}>{STRINGS.blueprintEmptyText}</Text>
-        </View>
+        <>
+          <View style={styles.emptyState}>
+            <MascotEntrance source={MASCOT.journalCompanion} style={styles.emptyStateImage} />
+            <Text style={styles.emptyStateText}>{STRINGS.blueprintEmptyText}</Text>
+          </View>
+          <AskRallyInviteCard lead={STRINGS.blueprintAskLeadEmpty} />
+        </>
       )}
 
       {activePattern &&
@@ -343,6 +371,8 @@ export default function Blueprint() {
         </View>
       )}
 
+      {patterns.length > 0 && <AskRallyInviteCard lead={STRINGS.blueprintAskLead} />}
+
       {patterns.length > 0 && <Text style={styles.footer}>{STRINGS.blueprintFooter}</Text>}
     </ScrollView>
   );
@@ -459,6 +489,7 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     paddingTop: 24,
+    marginBottom: 24,
   },
   emptyStateImage: {
     width: 100,
@@ -549,6 +580,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.plum,
     marginTop: 12,
+  },
+  // PM1 — the invite card's own pieces. Chips are deliberately quieter
+  // than the active pattern card's Sounds right / Not quite row (no plum
+  // border, lighter weight): the map's one decision moment keeps primacy.
+  askLead: {
+    fontFamily: FONT_HEADER,
+    fontSize: 16,
+    color: colors.ink,
+    marginBottom: 4,
+  },
+  askChip: {
+    backgroundColor: colors.plumSoft,
+    borderRadius: 12,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    marginTop: 8,
+  },
+  askChipText: {
+    color: colors.plum,
+    fontWeight: '600',
+    fontSize: 13,
   },
   noteWrap: {
     marginTop: 16,
