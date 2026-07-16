@@ -28,10 +28,28 @@ import { getMyProfile, markPushPromptSeen } from '@/lib/profile';
 import { getPushPermissionStatus, registerForPushNotificationsAsync } from '@/lib/pushNotifications';
 import { getShareCardForToday, shouldOfferShareCard, type ShareCard } from '@/lib/shareCards';
 
-const CONFETTI_COUNT = 25;
 const CONFETTI_COLORS = [colors.gold, colors.green, '#7FBF7F'];
 const CONFETTI_LIFETIME_MS = 4000;
 const CONFETTI_FADE_MS = 700;
+
+// P2 (15 July, Cat's TestFlight review): the single flat confetti layer
+// becomes three depth layers — small/slow/dim far pieces behind, the
+// original layer in the middle (mid IS the pre-P2 behavior, untouched
+// ranges), and a few large/fast pieces drifting in FRONT of the penguin.
+// 12 + 15 + 8 = 35 pieces total (~3 animation values each).
+type ConfettiLayerRanges = {
+  count: number;
+  size: readonly [number, number];
+  fallDuration: readonly [number, number];
+  swayAmplitude: readonly [number, number];
+  maxOpacity: number;
+};
+
+const CONFETTI_LAYERS: Record<'back' | 'mid' | 'front', ConfettiLayerRanges> = {
+  back: { count: 12, size: [3, 5], fallDuration: [4000, 6000], swayAmplitude: [8, 22], maxOpacity: 0.5 },
+  mid: { count: 15, size: [4, 9], fallDuration: [2600, 4400], swayAmplitude: [8, 22], maxOpacity: 1 },
+  front: { count: 8, size: [9, 13], fallDuration: [1500, 2400], swayAmplitude: [12, 28], maxOpacity: 1 },
+};
 
 type ConfettiSpec = {
   left: `${number}%`;
@@ -42,26 +60,39 @@ type ConfettiSpec = {
   swayAmplitude: number;
   swayDuration: number;
   rotateDuration: number;
+  maxOpacity: number;
 };
 
-function makeConfettiSpecs(): ConfettiSpec[] {
-  return Array.from({ length: CONFETTI_COUNT }, () => ({
+function randBetween([min, max]: readonly [number, number]): number {
+  return min + Math.random() * (max - min);
+}
+
+function makeLayerSpecs(layer: ConfettiLayerRanges): ConfettiSpec[] {
+  return Array.from({ length: layer.count }, () => ({
     left: `${Math.random() * 100}%`,
-    size: 4 + Math.random() * 5,
+    size: randBetween(layer.size),
     color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
-    fallDuration: 2600 + Math.random() * 1800,
+    fallDuration: randBetween(layer.fallDuration),
     fallDelay: Math.random() * 1200,
-    swayAmplitude: 8 + Math.random() * 14,
+    swayAmplitude: randBetween(layer.swayAmplitude),
     swayDuration: 900 + Math.random() * 700,
     rotateDuration: 1600 + Math.random() * 1600,
+    maxOpacity: layer.maxOpacity,
   }));
+}
+
+function makeConfettiSpecs(): { behind: ConfettiSpec[]; front: ConfettiSpec[] } {
+  return {
+    behind: [...makeLayerSpecs(CONFETTI_LAYERS.back), ...makeLayerSpecs(CONFETTI_LAYERS.mid)],
+    front: makeLayerSpecs(CONFETTI_LAYERS.front),
+  };
 }
 
 function ConfettiPiece({ spec, fallDistance }: { spec: ConfettiSpec; fallDistance: number }) {
   const translateY = useSharedValue(-20);
   const translateX = useSharedValue(0);
   const rotate = useSharedValue(0);
-  const opacity = useSharedValue(1);
+  const opacity = useSharedValue(spec.maxOpacity);
 
   useEffect(() => {
     translateY.value = withDelay(
@@ -217,7 +248,9 @@ export default function CheckInComplete() {
       .finally(() => setMilestoneChecked(true));
   }, []);
 
-  const [confettiSpecs] = useState<ConfettiSpec[]>(() => (reduceMotion ? [] : makeConfettiSpecs()));
+  const [confetti] = useState<{ behind: ConfettiSpec[]; front: ConfettiSpec[] }>(() =>
+    reduceMotion ? { behind: [], front: [] } : makeConfettiSpecs()
+  );
 
   // Mascot brief: check-in success gets a slightly bouncier entrance (scale
   // 0.9 -> 1.05 -> 1.0) so the daily beat feels like a small pat on the
@@ -352,9 +385,9 @@ export default function CheckInComplete() {
     <View style={styles.container}>
       <Brandmark style={styles.brandmark} />
 
-      {confettiSpecs.length > 0 && (
+      {confetti.behind.length > 0 && (
         <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-          {confettiSpecs.map((spec, i) => (
+          {confetti.behind.map((spec, i) => (
             <ConfettiPiece key={i} spec={spec} fallDistance={windowHeight} />
           ))}
         </View>
@@ -396,6 +429,17 @@ export default function CheckInComplete() {
           </View>
         </View>
       )}
+
+      {/* P2 front depth layer — rendered after the penguin/text/button so
+          the big fast pieces drift in front of everything; pointerEvents
+          none keeps the CTA tappable underneath. */}
+      {confetti.front.length > 0 && (
+        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+          {confetti.front.map((spec, i) => (
+            <ConfettiPiece key={i} spec={spec} fallDistance={windowHeight} />
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -417,8 +461,10 @@ const styles = StyleSheet.create({
     // Restored to the pre-M1 size along with the original transparent
     // penguin-confetti asset (7 July, Cat's call — the sheet crop's opaque
     // cream background read as a box on the warm-grey page).
-    width: 130,
-    height: 134,
+    // P2 (15 July, Cat's TestFlight review): that size grown 50%, same
+    // aspect — the celebration's hero should read like one.
+    width: 195,
+    height: 201,
     marginBottom: 20,
   },
   title: {
