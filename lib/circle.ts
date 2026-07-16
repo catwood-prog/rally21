@@ -1,4 +1,5 @@
 import { getLocalDateString } from './date';
+import { createRealtimeStatusGate, subscribeToAppWake } from './realtimeRecovery';
 import { isHttpUrl } from './resourceLink';
 import { isResting } from './resting';
 import { captureError } from './sentry';
@@ -432,9 +433,16 @@ let presenceChannelSeq = 0;
  * subscribing to the same circleId would otherwise hand back the same
  * already-subscribed channel — and calling `.on()` on it a second time
  * throws. A unique topic per call keeps each screen's subscription
- * independent. */
+ * independent.
+ *
+ * RT1 (15 July) — resilience, via lib/realtimeRecovery.ts: onInsert also
+ * fires once when the channel recovers after a timeout/error (an INSERT
+ * during the gap was never delivered) and once when the app/tab returns
+ * to the foreground; a failure only reaches Sentry after
+ * REALTIME_REPORT_AFTER_FAILURES consecutive failed joins. */
 export function subscribeToCirclePresence(circleId: string, onInsert: () => void): () => void {
   const topic = `circle-presence-${circleId}-${++presenceChannelSeq}`;
+  const statusGate = createRealtimeStatusGate();
   const channel = supabase
     .channel(topic)
     .on(
@@ -443,12 +451,21 @@ export function subscribeToCirclePresence(circleId: string, onInsert: () => void
       onInsert
     )
     .subscribe((status) => {
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        captureError(new Error(`circle presence subscription ${status}`), { table: 'completions' });
+      const { refetch, reportFailureCount } = statusGate(status);
+      if (refetch) onInsert();
+      if (reportFailureCount !== null) {
+        captureError(
+          new Error(
+            `circle presence subscription ${status} after ${reportFailureCount} consecutive failures`
+          ),
+          { table: 'completions', consecutiveFailures: String(reportFailureCount) }
+        );
       }
     });
+  const stopWakeRefetch = subscribeToAppWake(onInsert);
 
   return () => {
+    stopWakeRefetch();
     supabase.removeChannel(channel);
   };
 }

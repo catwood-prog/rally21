@@ -1,3 +1,4 @@
+import { createRealtimeStatusGate, subscribeToAppWake } from './realtimeRecovery';
 import { captureError } from './sentry';
 import { supabase } from './supabase';
 
@@ -283,8 +284,13 @@ let wallChannelSeq = 0;
  *
  * Topic includes a per-call sequence number — see subscribeToCirclePresence
  * in lib/circle.ts for why a shared topic string is unsafe across
- * concurrently mounted screens. */
+ * concurrently mounted screens.
+ *
+ * RT1 (15 July) — same resilience treatment as subscribeToCirclePresence
+ * (see there / lib/realtimeRecovery.ts): refetch on channel recovery and
+ * on app wake, report to Sentry only after consecutive failed joins. */
 export function subscribeToWall(circleId: string, onChange: () => void): () => void {
+  const statusGate = createRealtimeStatusGate();
   const channel = supabase
     .channel(`circle-wall-${circleId}-${++wallChannelSeq}`)
     .on(
@@ -306,12 +312,19 @@ export function subscribeToWall(circleId: string, onChange: () => void): () => v
       onChange
     )
     .subscribe((status) => {
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        captureError(new Error(`wall subscription ${status}`), { table: 'wall_messages' });
+      const { refetch, reportFailureCount } = statusGate(status);
+      if (refetch) onChange();
+      if (reportFailureCount !== null) {
+        captureError(
+          new Error(`wall subscription ${status} after ${reportFailureCount} consecutive failures`),
+          { table: 'wall_messages', consecutiveFailures: String(reportFailureCount) }
+        );
       }
     });
+  const stopWakeRefetch = subscribeToAppWake(onChange);
 
   return () => {
+    stopWakeRefetch();
     supabase.removeChannel(channel);
   };
 }
