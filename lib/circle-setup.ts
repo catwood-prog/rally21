@@ -1,8 +1,11 @@
 import { CIRCLE_MEMBER_CAP } from './caps';
+import { PracticeDomain, PracticeTypeKey } from './practiceTaxonomy';
 import { captureError } from './sentry';
 import { supabase } from './supabase';
 
-export type PracticeCategory = 'move' | 'mind' | 'make' | 'learn';
+/** PT1: the category IS the taxonomy domain — six shelves, defined in
+ * lib/practiceTaxonomy.ts (the spec's source of truth). */
+export type PracticeCategory = PracticeDomain;
 
 export type Practice = {
   id: string;
@@ -10,6 +13,9 @@ export type Practice = {
   name: string;
   description: string | null;
   category: PracticeCategory;
+  /** PT1: the fixed type key under the domain — THE analytics unit;
+   * CHECK-constrained in the database to the spec's 29 permanent keys. */
+  practiceType: PracticeTypeKey;
   durationMinutes: number | null;
   createdBy: string | null;
   isArchived: boolean;
@@ -20,7 +26,7 @@ export type Practice = {
 };
 
 const PRACTICE_SELECT =
-  'id, key, name, description, category, duration_minutes, created_by, is_archived, is_shared';
+  'id, key, name, description, category, practice_type, duration_minutes, created_by, is_archived, is_shared';
 
 function mapPractice(row: {
   id: string;
@@ -28,6 +34,7 @@ function mapPractice(row: {
   name: string;
   description: string | null;
   category: PracticeCategory;
+  practice_type: PracticeTypeKey;
   duration_minutes: number | null;
   created_by: string | null;
   is_archived: boolean;
@@ -39,6 +46,7 @@ function mapPractice(row: {
     name: row.name,
     description: row.description,
     category: row.category,
+    practiceType: row.practice_type,
     durationMinutes: row.duration_minutes,
     createdBy: row.created_by,
     isArchived: row.is_archived,
@@ -46,12 +54,20 @@ function mapPractice(row: {
   };
 }
 
-export async function listPracticesByCategory(category: PracticeCategory): Promise<Practice[]> {
+/** The browse catalogue: curated system practices plus the caller's own
+ * customs, and nothing else (PT1 sharing ruling — someone else's custom
+ * practice never appears in browse, even where RLS lets the caller read
+ * it because a shared circle uses it). */
+export async function listPracticesByCategory(
+  category: PracticeCategory,
+  userId: string
+): Promise<Practice[]> {
   const { data, error } = await supabase
     .from('practices')
     .select(PRACTICE_SELECT)
     .eq('category', category)
     .eq('is_archived', false)
+    .or(`created_by.is.null,created_by.eq.${userId}`)
     .order('name');
 
   if (error) throw error;
@@ -61,6 +77,7 @@ export async function listPracticesByCategory(category: PracticeCategory): Promi
 export async function createPractice(params: {
   name: string;
   category: PracticeCategory;
+  practiceType: PracticeTypeKey;
   durationMinutes: number | null;
   createdBy: string;
 }): Promise<Practice> {
@@ -69,6 +86,7 @@ export async function createPractice(params: {
     .insert({
       name: params.name.trim(),
       category: params.category,
+      practice_type: params.practiceType,
       duration_minutes: params.durationMinutes,
       created_by: params.createdBy,
     })
@@ -95,13 +113,19 @@ export async function listMyPractices(userId: string): Promise<Practice[]> {
 
 export async function updatePractice(
   practiceId: string,
-  params: { name: string; category: PracticeCategory; durationMinutes: number | null }
+  params: {
+    name: string;
+    category: PracticeCategory;
+    practiceType: PracticeTypeKey;
+    durationMinutes: number | null;
+  }
 ): Promise<void> {
   const { error } = await supabase
     .from('practices')
     .update({
       name: params.name.trim(),
       category: params.category,
+      practice_type: params.practiceType,
       duration_minutes: params.durationMinutes,
     })
     .eq('id', practiceId);

@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { PracticePill } from '@/components/PracticePill';
+import { PracticeTypePicker, PracticeTypeSelection } from '@/components/PracticeTypePicker';
 import { CATEGORIES } from '@/constants/practices';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -58,6 +59,10 @@ export default function FindAPractice() {
   const [showCustomForm, setShowCustomForm] = useState(!!wantKey);
   const [customName, setCustomName] = useState(suggestedName ?? '');
   const [customDuration, setCustomDuration] = useState('');
+  // PT1 guided creation: the classifier-suggested (or hand-picked)
+  // domain + type. This selection is the ONLY category source for a new
+  // practice — the browse chip above never leaks in again.
+  const [customType, setCustomType] = useState<PracticeTypeSelection | null>(null);
   const [isCreatingPractice, setIsCreatingPractice] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -70,13 +75,14 @@ export default function FindAPractice() {
   }, [isSolo]);
 
   useEffect(() => {
+    if (!session?.user) return;
     setShowCustomForm(false);
     setIsLoadingPractices(true);
-    listPracticesByCategory(selectedCategory)
+    listPracticesByCategory(selectedCategory, session.user.id)
       .then(setPractices)
       .catch((e) => setError(e instanceof Error ? e.message : 'could not load practices'))
       .finally(() => setIsLoadingPractices(false));
-  }, [selectedCategory]);
+  }, [selectedCategory, session?.user?.id]);
 
   const goToCommitment = (practice: Practice) => {
     router.push({
@@ -112,13 +118,17 @@ export default function FindAPractice() {
   };
 
   const handleCreatePractice = async () => {
-    if (!session?.user || !customName.trim()) return;
+    if (!session?.user || !customName.trim() || !customType) return;
     setIsCreatingPractice(true);
     try {
       const durationMinutes = customDuration.trim() ? parseInt(customDuration.trim(), 10) : null;
+      // PT1: category/type come from the confirmed classifier selection,
+      // NEVER from selectedCategory (the browse chip) — that inheritance
+      // was the root cause of "Read before bed" landing in Move.
       const practice = await createPractice({
         name: customName.trim(),
-        category: selectedCategory,
+        category: customType.domain,
+        practiceType: customType.type,
         durationMinutes: durationMinutes && durationMinutes > 0 ? durationMinutes : null,
         createdBy: session.user.id,
       });
@@ -229,6 +239,7 @@ export default function FindAPractice() {
             onChangeText={setCustomName}
             autoCorrect={false}
           />
+          <PracticeTypePicker name={customName} value={customType} onChange={setCustomType} />
           <TextInput
             style={styles.input}
             placeholder="duration in minutes (optional)"
@@ -238,9 +249,9 @@ export default function FindAPractice() {
             keyboardType="number-pad"
           />
           <TouchableOpacity
-            style={[styles.addButton, !customName.trim() && styles.buttonDisabled]}
+            style={[styles.addButton, (!customName.trim() || !customType) && styles.buttonDisabled]}
             onPress={handleCreatePractice}
-            disabled={!customName.trim() || isCreatingPractice}
+            disabled={!customName.trim() || !customType || isCreatingPractice}
           >
             {isCreatingPractice ? (
               <ActivityIndicator color="#fff" />

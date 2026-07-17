@@ -57,7 +57,7 @@ describeIfConfigured('practice privacy', () => {
   ): Promise<{ id: string; key: string }> {
     await elevated();
     const { rows } = await client.query(
-      "insert into public.practices (name, category, created_by) values ($1, 'move', $2) returning id, key",
+      "insert into public.practices (name, category, practice_type, created_by) values ($1, 'move', 'walk', $2) returning id, key",
       [name, userId]
     );
     return rows[0];
@@ -71,15 +71,16 @@ describeIfConfigured('practice privacy', () => {
     practiceKey: string,
     circleName: string,
     isPublic: boolean
-  ): Promise<void> {
+  ): Promise<{ inviteCode: string }> {
     await elevated();
     await client.query("select set_config('request.jwt.claim.sub', $1, true)", [creatorId]);
-    await client.query('select * from create_circle($1, $2, $3, $4)', [
+    const { rows } = await client.query('select * from create_circle($1, $2, $3, $4)', [
       practiceKey,
       '08:00:00',
       circleName,
       isPublic,
     ]);
+    return { inviteCode: rows[0].invite_code };
   }
 
   async function isVisibleTo(userId: string, practiceId: string): Promise<boolean> {
@@ -109,6 +110,37 @@ describeIfConfigured('practice privacy', () => {
 
     expect(await isVisibleTo(owner, practice.id)).toBe(true);
     expect(await isVisibleTo(viewer, practice.id)).toBe(false);
+
+    await elevated();
+    const { rows } = await client.query('select is_shared from public.practices where id = $1', [
+      practice.id,
+    ]);
+    expect(rows[0].is_shared).toBe(false);
+  });
+
+  test('a circle member (non-creator) can read their circle\u2019s private custom practice (PT1)', async () => {
+    const owner = await createFakeUser();
+    const member = await createFakeUser();
+    const stranger = await createFakeUser();
+    const practice = await createPracticeAs(owner, 'Privacy Test \u2014 circle-mate read');
+
+    const { inviteCode } = await createCircleAs(
+      owner,
+      practice.key,
+      'Privacy Test Member Circle',
+      false
+    );
+
+    // Before joining: invisible, like any stranger.
+    expect(await isVisibleTo(member, practice.id)).toBe(false);
+
+    await actAs(member);
+    await client.query('select join_circle_by_code($1)', [inviteCode]);
+
+    // After joining: the circle-member arm of the SELECT policy applies,
+    // even though the practice stays is_shared = false.
+    expect(await isVisibleTo(member, practice.id)).toBe(true);
+    expect(await isVisibleTo(stranger, practice.id)).toBe(false);
 
     await elevated();
     const { rows } = await client.query('select is_shared from public.practices where id = $1', [

@@ -13,23 +13,26 @@ import {
 import { AppHeader } from '@/components/AppHeader';
 import { MessageDialog } from '@/components/MessageDialog';
 import { PracticePill } from '@/components/PracticePill';
+import { PracticeTypePicker, PracticeTypeSelection } from '@/components/PracticeTypePicker';
 import { CATEGORIES } from '@/constants/practices';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   archivePractice,
   createPractice,
   listMyPractices,
   Practice,
-  PracticeCategory,
   updatePractice,
 } from '@/lib/circle-setup';
 
-type FormState = { name: string; category: PracticeCategory; duration: string };
+// PT1: the manual four-domain chip row became the shared guided picker —
+// the classifier suggests a domain + type from the name, the person can
+// always override, and both labels are required to save.
+type FormState = { name: string; selection: PracticeTypeSelection | null; duration: string };
 
-const BLANK_FORM: FormState = { name: '', category: 'move', duration: '' };
+const BLANK_FORM: FormState = { name: '', selection: null, duration: '' };
 
 export default function MyPractices() {
   const router = useRouter();
@@ -64,7 +67,7 @@ export default function MyPractices() {
     setEditingId(practice.id);
     setForm({
       name: practice.name,
-      category: practice.category,
+      selection: { domain: practice.category, type: practice.practiceType },
       duration: practice.durationMinutes ? String(practice.durationMinutes) : '',
     });
   };
@@ -80,7 +83,7 @@ export default function MyPractices() {
   };
 
   const handleSave = async () => {
-    if (!session?.user || !form.name.trim()) return;
+    if (!session?.user || !form.name.trim() || !form.selection) return;
     setIsSaving(true);
     try {
       const durationMinutes = form.duration.trim() ? parseInt(form.duration.trim(), 10) : null;
@@ -89,14 +92,16 @@ export default function MyPractices() {
       if (editingId === 'new') {
         await createPractice({
           name: form.name,
-          category: form.category,
+          category: form.selection.domain,
+          practiceType: form.selection.type,
           durationMinutes: cleanDuration,
           createdBy: session.user.id,
         });
       } else if (editingId) {
         await updatePractice(editingId, {
           name: form.name,
-          category: form.category,
+          category: form.selection.domain,
+          practiceType: form.selection.type,
           durationMinutes: cleanDuration,
         });
       }
@@ -150,6 +155,7 @@ export default function MyPractices() {
               onSave={handleSave}
               onCancel={cancelEdit}
               isSaving={isSaving}
+              isEditing
             />
           );
         }
@@ -210,12 +216,14 @@ function PracticeForm({
   onSave,
   onCancel,
   isSaving,
+  isEditing = false,
 }: {
   form: FormState;
   setForm: (f: FormState) => void;
   onSave: () => void;
   onCancel: () => void;
   isSaving: boolean;
+  isEditing?: boolean;
 }) {
   return (
     <View style={styles.formCard}>
@@ -227,19 +235,12 @@ function PracticeForm({
         onChangeText={(name) => setForm({ ...form, name })}
         autoCorrect={false}
       />
-      <View style={styles.chipRow}>
-        {CATEGORIES.map((category) => (
-          <TouchableOpacity
-            key={category.key}
-            style={[styles.chip, form.category === category.key && styles.chipSelected]}
-            onPress={() => setForm({ ...form, category: category.key })}
-          >
-            <Text style={[styles.chipText, form.category === category.key && styles.chipTextSelected]}>
-              {category.emoji} {category.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <PracticeTypePicker
+        name={form.name}
+        value={form.selection}
+        onChange={(selection) => setForm({ ...form, selection })}
+        initiallyPicked={isEditing}
+      />
       <TextInput
         style={styles.input}
         placeholder="duration in minutes (optional)"
@@ -253,9 +254,9 @@ function PracticeForm({
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.saveButton, !form.name.trim() && styles.buttonDisabled]}
+          style={[styles.saveButton, (!form.name.trim() || !form.selection) && styles.buttonDisabled]}
           onPress={onSave}
-          disabled={!form.name.trim() || isSaving}
+          disabled={!form.name.trim() || !form.selection || isSaving}
         >
           {isSaving ? (
             <ActivityIndicator size="small" color="#fff" />
@@ -379,29 +380,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.ink,
     marginBottom: 10,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 10,
-  },
-  chip: {
-    ...chipShape,
-    backgroundColor: colors.bg,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-  },
-  chipSelected: {
-    backgroundColor: colors.green,
-    borderColor: colors.green,
-  },
-  chipText: {
-    ...chipTextShape,
-    color: colors.ink,
-  },
-  chipTextSelected: {
-    color: '#fff',
   },
   formActions: {
     flexDirection: 'row',

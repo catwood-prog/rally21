@@ -191,7 +191,7 @@ describeIfConfigured('security hardening (S1)', () => {
       const viewer = await createFakeUser();
       await actAs(owner);
       const { rows: created } = await client.query(
-        "insert into public.practices (name, category, created_by) values ('S1 private practice', 'move', $1) returning id",
+        "insert into public.practices (name, category, practice_type, created_by) values ('S1 private practice', 'move', 'walk', $1) returning id",
         [owner]
       );
       const practiceRowId = created[0].id;
@@ -207,7 +207,7 @@ describeIfConfigured('security hardening (S1)', () => {
     test('an orphaned unshared practice (created_by null, is_shared false) is invisible to everyone', async () => {
       await elevated();
       const { rows: orphan } = await client.query(
-        "insert into public.practices (name, category, created_by, is_shared) values ('S1 orphan practice', 'move', null, false) returning id"
+        "insert into public.practices (name, category, practice_type, created_by, is_shared) values ('S1 orphan practice', 'move', 'walk', null, false) returning id"
       );
       const orphanId = orphan[0].id;
 
@@ -536,11 +536,11 @@ describeIfConfigured('security hardening (S1)', () => {
       const otherOwner = await createFakeUser();
       await actAs(owner);
       const { rows: unreferenced } = await client.query(
-        "insert into public.practices (name, category, created_by) values ('S1 unreferenced', 'move', $1) returning id, key",
+        "insert into public.practices (name, category, practice_type, created_by) values ('S1 unreferenced', 'move', 'walk', $1) returning id, key",
         [owner]
       );
       const { rows: referenced } = await client.query(
-        "insert into public.practices (name, category, created_by, is_shared) values ('S1 referenced', 'move', $1, true) returning id, key",
+        "insert into public.practices (name, category, practice_type, created_by, is_shared) values ('S1 referenced', 'move', 'walk', $1, true) returning id, key",
         [owner]
       );
       await elevated();

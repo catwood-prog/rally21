@@ -140,6 +140,12 @@ export const STRINGS = {
   pacerTurnOn: 'breathe with the timer',
 
   practiceStepQuestion: 'what will you do each day?',
+  // PT1 guided creation — the classifier's one editable chip line, and
+  // the warm manual-pick prompt when nothing matches. Never a blocker.
+  practiceTypeSoundRight: 'sound right? tap to change',
+  practiceTypePickPrompt: 'where does this live? pick a shelf so your circle can find it',
+  practiceTypePickDomain: 'pick a shelf',
+  practiceTypePickType: 'and what kind?',
   circleNameHelper: "this is your team's name — make it yours",
   // Solo-only "when's your first one?" choice on the commitment screen
   // (SF1, Cat 7 July). Neither option is judged; "right now" is default so

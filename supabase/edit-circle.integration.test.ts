@@ -44,8 +44,8 @@ describeIfConfigured('edit_circle at the RPC boundary', () => {
     isShared?: boolean;
   }): Promise<string> {
     const { rows } = await client.query(
-      `insert into public.practices (name, category, duration_minutes, created_by, is_shared)
-       values ($1, 'mind', $2, $3, $4) returning id`,
+      `insert into public.practices (name, category, practice_type, duration_minutes, created_by, is_shared)
+       values ($1, 'mind', 'meditate', $2, $3, $4) returning id`,
       [opts.name, opts.durationMinutes ?? null, opts.createdBy ?? null, opts.isShared ?? true]
     );
     return rows[0].id;
