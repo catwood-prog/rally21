@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +11,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { PRACTICE_TILES } from '@/assets/images/practices';
 
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
@@ -198,9 +201,22 @@ export default function FindAPractice() {
                 style={styles.card}
                 onPress={() => handleSelectPractice(practice)}
               >
-                <View style={styles.cardImage}>
-                  <Text style={styles.cardImageEmoji}>{category?.emoji ?? '✨'}</Text>
-                </View>
+                {/* PT2: the photographic tile, keyed by type key. A type
+                    with no generated file (or any future key this bundle
+                    predates) falls back to the emoji-on-mint treatment —
+                    never a broken image. */}
+                {PRACTICE_TILES[practice.practiceType] ? (
+                  <Image
+                    source={PRACTICE_TILES[practice.practiceType]}
+                    style={styles.cardImage}
+                    resizeMode="cover"
+                    accessible={false}
+                  />
+                ) : (
+                  <View style={[styles.cardImage, styles.cardImageFallback]}>
+                    <Text style={styles.cardImageEmoji}>{category?.emoji ?? '✨'}</Text>
+                  </View>
+                )}
                 <View style={styles.cardBody}>
                   <Text style={styles.cardName} numberOfLines={1}>
                     {practice.name}
@@ -355,11 +371,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     ...cardShadow,
   },
+  // PT2: taller image area per the browse mockup (rev. of 13 July) so a
+  // photo reads as a photo, not a strip; width stays the card's own.
   cardImage: {
-    height: 74,
+    height: 118,
+    width: '100%',
     backgroundColor: colors.greenSoft,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cardImageFallback: {
+    backgroundColor: colors.greenSoft,
   },
   cardImageEmoji: {
     fontSize: 28,
