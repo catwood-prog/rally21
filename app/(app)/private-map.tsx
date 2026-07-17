@@ -27,6 +27,11 @@ import {
 } from '@/lib/blueprint';
 import { getCircleById, listMyCircles } from '@/lib/circle';
 import { getMyProfile } from '@/lib/profile';
+import { LikedCard, getMyLikedCards, hasAttributionLine, unlikeCard } from '@/lib/shareCards';
+
+/** PM2: the "quotes you love" list shows this many rows before the
+ * "see all N" expander takes over. */
+const LIKED_QUOTES_COLLAPSED_COUNT = 3;
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const EMPTY_DOCUMENT: BlueprintDocument = { traits: [], evolution: [], want: null };
@@ -85,6 +90,8 @@ export default function Blueprint() {
   const [isWantLive, setIsWantLive] = useState(false);
   const [activatedCircleName, setActivatedCircleName] = useState<string | null>(null);
   const [isActingOnWant, setIsActingOnWant] = useState(false);
+  const [likedCards, setLikedCards] = useState<LikedCard[]>([]);
+  const [showAllQuotes, setShowAllQuotes] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -92,15 +99,18 @@ export default function Blueprint() {
     setError(null);
     setIsActingOnWant(false);
     try {
-      const [myPatterns, myResponses, profile, myDocument] = await Promise.all([
+      const [myPatterns, myResponses, profile, myDocument, myLikedCards] = await Promise.all([
         getMyBlueprint(),
         getMyBlueprintResponses(session.user.id),
         getMyProfile(session.user.id),
         getMyBlueprintDocument(),
+        // PM2 — additive: a hiccup here must never take down the map.
+        getMyLikedCards().catch(() => [] as LikedCard[]),
       ]);
       setPatterns(myPatterns);
       setResponses(myResponses);
       setDocument(myDocument);
+      setLikedCards(myLikedCards);
 
       if (myDocument.want && myDocument.want.status === 'confirmed') {
         const activation = await getWantActivation(myDocument.want.key);
@@ -162,6 +172,20 @@ export default function Blueprint() {
       setError(e instanceof Error ? e.message : 'could not save that — try again');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  /** PM2 — un-like from the map: a real deletion of the user's own liked
+   * rows (RPC, owner-scoped), list updated optimistically; on failure the
+   * row comes back with the screen's usual error line. */
+  const handleUnlike = async (cardKey: string) => {
+    const previous = likedCards;
+    setLikedCards((prev) => prev.filter((c) => c.cardKey !== cardKey));
+    try {
+      await unlikeCard(cardKey);
+    } catch (e) {
+      setLikedCards(previous);
+      setError(e instanceof Error ? e.message : 'could not remove that — try again');
     }
   };
 
@@ -371,6 +395,38 @@ export default function Blueprint() {
         </View>
       )}
 
+      {/* PM2 — "quotes you love": after evolution, before PM1's invite
+          card, footer last (Cat's placement ruling). Quiet by design —
+          serif italic like the card face but muted, the pattern cards
+          keep visual primacy; absent entirely with no likes. */}
+      {likedCards.length > 0 && (
+        <View style={styles.quotesSection}>
+          <Text style={styles.sectionLabel}>{STRINGS.blueprintQuotesLabel}</Text>
+          {(showAllQuotes ? likedCards : likedCards.slice(0, LIKED_QUOTES_COLLAPSED_COUNT)).map((card) => (
+            <View key={card.cardKey} style={styles.quoteRow}>
+              <View style={styles.quoteTextWrap}>
+                <Text style={styles.quoteBody}>“{card.body}”</Text>
+                {hasAttributionLine(card.attribution) && (
+                  <Text style={styles.quoteAuthor}>— {card.attribution}</Text>
+                )}
+              </View>
+              <TouchableOpacity
+                style={styles.quoteRemove}
+                onPress={() => handleUnlike(card.cardKey)}
+                accessibilityLabel={`${STRINGS.blueprintQuotesRemove} “${card.body}”`}
+              >
+                <Text style={styles.quoteRemoveText}>{STRINGS.blueprintQuotesRemove}</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+          {!showAllQuotes && likedCards.length > LIKED_QUOTES_COLLAPSED_COUNT && (
+            <TouchableOpacity style={styles.quotesSeeAll} onPress={() => setShowAllQuotes(true)}>
+              <Text style={styles.quotesSeeAllText}>{STRINGS.blueprintQuotesSeeAll(likedCards.length)}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
       {patterns.length > 0 && <AskRallyInviteCard lead={STRINGS.blueprintAskLead} />}
 
       {patterns.length > 0 && <Text style={styles.footer}>{STRINGS.blueprintFooter}</Text>}
@@ -485,6 +541,53 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.errorRed,
     marginBottom: 12,
+  },
+  // PM2 — quotes you love: mirrors the evolution section's quiet list
+  // treatment (no card surface) so the plum pattern cards keep primacy.
+  quotesSection: {
+    marginBottom: 16,
+  },
+  quoteRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+    gap: 10,
+  },
+  quoteTextWrap: {
+    flex: 1,
+  },
+  quoteBody: {
+    fontFamily: FONT_SERIF_ITALIC,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.muted,
+  },
+  quoteAuthor: {
+    fontSize: 10.5,
+    color: colors.muted,
+    marginTop: 2,
+  },
+  quoteRemove: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  quoteRemoveText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  quotesSeeAll: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  quotesSeeAllText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: colors.plum,
   },
   emptyState: {
     alignItems: 'center',

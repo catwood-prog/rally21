@@ -62,6 +62,36 @@ export async function recordCardEvent(
   if (error) throw error;
 }
 
+// PM2 (17 July) — the private map's "quotes you love" section. Reads ride
+// get_my_liked_cards (SECURITY DEFINER — card_events' own SELECT stays
+// founder-only, Cat's ruling: scoped RPC, no policy widening); un-like is
+// unlike_card, a REAL deletion of the caller's own liked rows (never a
+// tombstone) so NQ2's nudge like-count respects it automatically.
+
+export type LikedCard = {
+  cardKey: string;
+  body: string;
+  attribution: string | null;
+  likedAt: string;
+};
+
+/** The caller's own Liked quotes — deduped by card (latest like wins the
+ * timestamp), joined to the active bank, most recent first (all done by
+ * the RPC). */
+export async function getMyLikedCards(): Promise<LikedCard[]> {
+  const { data, error } = await supabase.rpc('get_my_liked_cards');
+  if (error) throw error;
+  const rows = (data ?? []) as { card_key: string; body: string; attribution: string | null; liked_at: string }[];
+  return rows.map((r) => ({ cardKey: r.card_key, body: r.body, attribution: r.attribution, likedAt: r.liked_at }));
+}
+
+/** Undo a Like: deletes every one of the caller's own 'liked' rows for
+ * this card (a re-shown card can be liked twice — un-like clears all). */
+export async function unlikeCard(cardKey: string): Promise<void> {
+  const { error } = await supabase.rpc('unlike_card', { p_card_key: cardKey });
+  if (error) throw error;
+}
+
 export async function getMyMutedCardFlavors(): Promise<ShareCardFlavor[]> {
   const { data, error } = await supabase.rpc('get_my_card_prefs');
   if (error) throw error;
