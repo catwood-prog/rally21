@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
@@ -10,9 +11,17 @@ import { colors } from '@/constants/theme';
  * never see this, see app/index.tsx. */
 export default function PrivacyPromise() {
   const router = useRouter();
+  // NAV1 — every intro step gets a plain way back to its previous step.
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <TouchableOpacity
+        style={[styles.back, { top: 20 + insets.top }]}
+        onPress={() => router.replace('/welcome')}
+      >
+        <Text style={styles.backText}>← back</Text>
+      </TouchableOpacity>
       <View style={styles.body}>
         <View style={styles.iconWrap}>
           <Svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke={colors.green} strokeWidth={2}>
@@ -52,6 +61,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  back: {
+    position: 'absolute',
+    left: 24,
+    zIndex: 1,
+    paddingVertical: 8,
+  },
+  backText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.muted,
   },
   body: {
     flex: 1,

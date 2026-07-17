@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StyleProp, StyleSheet, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import { colors } from '@/constants/theme';
@@ -12,6 +13,14 @@ import { colors } from '@/constants/theme';
  * "← Today" text link. Each icon hides itself on the screen it would
  * navigate to — the house on Today (it IS home), the gear on Settings
  * — rather than linking a screen to itself.
+ *
+ * NAV1 (13 July) — the header also owns the top safe-area inset (status
+ * bar / Dynamic Island), so every screen that renders it is clear of
+ * the iOS clock with no per-screen work; a future screen picking up
+ * AppHeader can't forget the inset. Web resolves the inset to 0, so
+ * web is visually unchanged. Screens WITHOUT the header (the deliberate
+ * full-screen moments, intro/onboarding) apply the same
+ * useSafeAreaInsets() value themselves.
  */
 export function AppHeader({
   hideHouse = false,
@@ -23,9 +32,10 @@ export function AppHeader({
   style?: StyleProp<ViewStyle>;
 }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.row, style]}>
+    <View style={[styles.row, { paddingTop: insets.top }, style]}>
       <Brandmark />
       <View style={styles.icons}>
         {!hideHouse && (

@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 
-import { Brandmark } from '@/components/Brandmark';
+import { AppHeader } from '@/components/AppHeader';
 import { MessageDialog } from '@/components/MessageDialog';
 import { PracticePill } from '@/components/PracticePill';
 import { CATEGORIES } from '@/constants/practices';
@@ -128,7 +128,7 @@ export default function MyPractices() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Brandmark style={styles.brandmark} />
+      <AppHeader style={styles.brandmark} />
       <TouchableOpacity onPress={() => router.push('/settings')}>
         <Text style={styles.back}>← Settings</Text>
       </TouchableOpacity>

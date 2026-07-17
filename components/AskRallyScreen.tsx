@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 
 import { MASCOT } from '@/assets/mascot';
-import { Brandmark } from '@/components/Brandmark';
+import { AppHeader } from '@/components/AppHeader';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER } from '@/constants/fonts';
@@ -45,17 +45,16 @@ export function buildPrefillDraft(contextParam?: string, prefillParam?: string):
 // A2 (7 July): this is now the ONE Ask Rally component, shared by the
 // standalone /ask-rally route (deep-linked from blueprint cards and the
 // journal, with an optional prefill context) and the Rally tab (the
-// front door — no context, no back link since it's already a tab).
+// front door — no context). NAV1 (13 July): the old showBackLink
+// "← Today" is gone — AppHeader's house icon is the way back on both
+// entries, so the two variants now render identically.
 export function AskRallyScreen({
   contextParam,
   prefillParam,
-  showBackLink = false,
 }: {
   contextParam?: string;
   prefillParam?: string;
-  showBackLink?: boolean;
 }) {
-  const router = useRouter();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AskRallyMessage[]>([]);
   const [draft, setDraft] = useState('');
@@ -178,15 +177,9 @@ export function AskRallyScreen({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.header}>
-        <Brandmark style={styles.brandmark} />
+        <AppHeader style={styles.brandmark} />
         <View style={styles.headerRow}>
-          {showBackLink ? (
-            <TouchableOpacity onPress={() => router.push('/today')}>
-              <Text style={styles.back}>← Today</Text>
-            </TouchableOpacity>
-          ) : (
-            <Text style={styles.title}>{STRINGS.askRallyLinkLabel}</Text>
-          )}
+          <Text style={styles.title}>{STRINGS.askRallyLinkLabel}</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity onPress={handleStartFresh} hitSlop={8}>
               <Text style={styles.startFresh}>{STRINGS.askRallyStartFresh}</Text>
@@ -198,7 +191,6 @@ export function AskRallyScreen({
             )}
           </View>
         </View>
-        {showBackLink && <Text style={styles.title}>{STRINGS.askRallyLinkLabel}</Text>}
         <Text style={styles.subtitle}>{STRINGS.askRallySubtitle}</Text>
       </View>
 
@@ -288,11 +280,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-  },
-  back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
   },
   startFresh: {
     fontSize: 12,

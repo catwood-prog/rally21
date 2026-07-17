@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BirthdayPicker, BirthdayValue } from '@/components/BirthdayPicker';
 import { Brandmark } from '@/components/Brandmark';
@@ -50,6 +51,8 @@ function isNewAppleAccount(session: { user: { app_metadata?: Record<string, unkn
 
 export default function ProfileSetup() {
   const router = useRouter();
+  // NAV1 job 0 — the safe-area inset still applies without an AppHeader.
+  const insets = useSafeAreaInsets();
   const { session, signOut } = useAuth();
   const [name, setName] = useState(() => initialNameFromSession(session));
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -108,8 +111,8 @@ export default function ProfileSetup() {
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
     >
-      <Brandmark style={styles.brandmark} />
-      <TouchableOpacity style={styles.back} onPress={signOut}>
+      <Brandmark style={[styles.brandmark, { top: 20 + insets.top }]} />
+      <TouchableOpacity style={[styles.back, { top: 52 + insets.top }]} onPress={signOut}>
         <Text style={styles.backText}>← Sign out</Text>
       </TouchableOpacity>
 

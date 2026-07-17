@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 
 import { Brandmark } from '@/components/Brandmark';
@@ -286,6 +287,12 @@ export default function CheckinTimer() {
 
   const handleMarkDone = () => setPhase('done');
 
+  // NAV1 job 0 — the dark immersive timer is AppHeader-exempt, but its
+  // own chrome (brandmark, topbar, bottom controls) must still clear
+  // the status bar and home indicator.
+  const insets = useSafeAreaInsets();
+  const containerInsets = { paddingTop: 16 + insets.top, paddingBottom: 16 + insets.bottom };
+
   // BR1: the pacer breathes only while the sit is actually running —
   // paused shows the plain ring, and the done branch (including T1's
   // catch-up state, which owns that moment) returns before this is ever
@@ -304,7 +311,7 @@ export default function CheckinTimer() {
 
   if (phase === 'done') {
     return (
-      <View style={[styles.container, styles.doneContainer]}>
+      <View style={[styles.container, containerInsets, styles.doneContainer]}>
         <Text style={styles.doneEmoji}>✓</Text>
         <Text style={styles.doneText}>{STRINGS.timerDoneLabel}</Text>
         {caughtUp && <Text style={styles.catchUpNote}>{STRINGS.timerCatchUpNote}</Text>}
@@ -313,7 +320,7 @@ export default function CheckinTimer() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerInsets]}>
       <Brandmark light size={22.5} style={styles.brandmark} />
       <View style={styles.topbar}>
         <TouchableOpacity onPress={() => router.replace('/today')}>

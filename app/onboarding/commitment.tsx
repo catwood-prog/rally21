@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import {
@@ -31,6 +32,9 @@ import { isHttpUrl } from '@/lib/resourceLink';
 
 export default function TheCommitment() {
   const router = useRouter();
+  // NAV1 job 0 — no AppHeader on pre-signed-in-chrome screens, but the
+  // safe-area inset still applies.
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const { practiceKey, practiceName, practiceDurationMinutes, solo, fromToday, wantKey, wantStatement } =
     useLocalSearchParams<{
@@ -166,10 +170,23 @@ export default function TheCommitment() {
     TIME_OPTIONS.find((o) => o.time === selectedTime)?.label.toLowerCase() ?? '';
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: 24 + insets.top }]}
+    >
       <Brandmark style={styles.brandmark} />
       <View style={styles.topbar}>
-        <TouchableOpacity onPress={() => (isFromToday ? router.push('/today') : router.back())}>
+        {/* NAV1: back() keeps the practice browse state when there's
+            history; a cold-loaded URL falls back to the real parent. */}
+        <TouchableOpacity
+          onPress={() =>
+            isFromToday
+              ? router.push('/today')
+              : router.canGoBack()
+                ? router.back()
+                : router.push('/onboarding/create-circle')
+          }
+        >
           <Text style={styles.back}>{isFromToday ? '← Today' : '← Back'}</Text>
         </TouchableOpacity>
       </View>

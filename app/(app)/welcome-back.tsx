@@ -1,6 +1,7 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MASCOT } from '@/assets/mascot';
 import { Brandmark } from '@/components/Brandmark';
@@ -27,6 +28,8 @@ type CircleData = { members: CircleMember[]; presence: PresenceRow[]; awayMessag
 
 export default function WelcomeBack() {
   const router = useRouter();
+  // NAV1 job 0 — the re-entry moment is AppHeader-exempt, never safe-area-exempt.
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const { lastCompletionDate } = useLocalSearchParams<{ lastCompletionDate: string }>();
 
@@ -99,7 +102,10 @@ export default function WelcomeBack() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: 20 + insets.top }]}
+    >
       <Brandmark style={styles.brandmark} />
       <MascotEntrance source={MASCOT.theRestart} style={styles.mascot} />
       <Text style={styles.eyebrow}>welcome back</Text>

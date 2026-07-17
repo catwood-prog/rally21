@@ -12,7 +12,7 @@ import {
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { AccentedText } from '@/components/AccentedText';
-import { Brandmark } from '@/components/Brandmark';
+import { AppHeader } from '@/components/AppHeader';
 import { MessageDialog } from '@/components/MessageDialog';
 import { VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
@@ -170,10 +170,8 @@ export default function CheckIn() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Brandmark style={styles.brandmark} />
-      <TouchableOpacity onPress={() => router.push('/today')}>
-        <Text style={styles.back}>← Today</Text>
-      </TouchableOpacity>
+      {/* D6 pattern: the house icon IS the "← Today" affordance here */}
+      <AppHeader style={styles.brandmark} />
 
       <Text style={styles.title}>
         close your <Text style={styles.titleAccent}>{accent}</Text>
@@ -397,12 +395,6 @@ const styles = StyleSheet.create({
   },
   brandmark: {
     marginBottom: 14,
-  },
-  back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
-    marginBottom: 16,
   },
   title: {
     fontFamily: FONT_HEADER,

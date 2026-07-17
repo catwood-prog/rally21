@@ -38,6 +38,9 @@ export const STRINGS = {
   signInWithGoogleCta: 'Continue with Google',
   signInOrDivider: 'or',
   signInGoogleError: "couldn't sign in with Google — try again",
+  // NAV1: the "check your email" state's way back — a typo'd address
+  // must not strand the screen.
+  signInUseDifferentEmail: '← use a different email',
 
   // O1 (Apple slice, 12 July) — Apple sits above Google per Apple's own
   // button-prominence guideline. The hint line addresses the live-proven
@@ -375,6 +378,9 @@ export const STRINGS = {
   journeyGateCompleteCta: 'complete this circle',
   journeyGateCompleteHelper: 'celebrate what you built and archive it warmly.',
   journeyGateWaitingOnHost: "your host can complete the circle whenever they're ready.",
+  // NAV1: the gate must never dead-end — deciding later is always allowed
+  // (the circle screen carries the same choice as a card).
+  journeyGateNotNow: 'not now — back to Today',
   journeyGateCardTitle: (circleName: string) => `${circleName} hit 21 days`,
   journeyGateCardBody: 'rally on, or your host can complete it — whenever feels right.',
   // Shared by journey-gate.tsx and celebration.tsx — both resolve a circle

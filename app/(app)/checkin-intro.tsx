@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
@@ -22,6 +23,9 @@ export default function CheckinIntro() {
       resourceUrl?: string;
     }>();
   const [isSaving, setIsSaving] = useState(false);
+  // NAV1 job 0 — this one-shot consent moment is AppHeader-exempt, but
+  // exemption from the header is never exemption from safe areas.
+  const insets = useSafeAreaInsets();
 
   const goesToActivityScreen = (startTimer === 'true' && !!durationMinutes) || !!resourceUrl;
 
@@ -48,7 +52,14 @@ export default function CheckinIntro() {
 
   return (
     <View style={styles.container}>
-      <Brandmark style={styles.brandmark} />
+      <View style={[styles.topLeft, { top: 20 + insets.top }]}>
+        <Brandmark />
+        {/* NAV1: a mistaken "check in" tap needs a way out that isn't
+            the consent button — quiet, never blocks the moment. */}
+        <TouchableOpacity style={styles.back} onPress={() => router.replace('/today')}>
+          <Text style={styles.backText}>← Today</Text>
+        </TouchableOpacity>
+      </View>
       <View style={styles.lock}>
         <Text style={styles.lockText}>🔒 private</Text>
       </View>
@@ -81,10 +92,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 28,
   },
-  brandmark: {
+  topLeft: {
     position: 'absolute',
-    top: 20,
     left: 24,
+    alignItems: 'flex-start',
+  },
+  back: {
+    marginTop: 10,
+    paddingVertical: 4,
+  },
+  backText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.muted,
   },
   lock: {
     backgroundColor: colors.greenSoft,

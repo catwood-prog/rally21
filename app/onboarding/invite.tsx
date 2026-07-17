@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 
 import { MASCOT } from '@/assets/mascot';
-import { Brandmark } from '@/components/Brandmark';
+import { AppHeader } from '@/components/AppHeader';
 import { InviteChannelChooser } from '@/components/InviteChannelChooser';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { MessageDialog } from '@/components/MessageDialog';
@@ -122,19 +122,27 @@ export default function Invite() {
   if (pickerCircles) {
     return (
       <View style={styles.container}>
-        <Brandmark style={styles.brandmark} />
-        <Text style={styles.title}>invite to which circle?</Text>
-        <Text style={styles.subtitle}>you're in a few — pick the one to invite someone into</Text>
-        <View style={styles.pickerList}>
-          {pickerCircles.map((circle) => (
-            <TouchableOpacity
-              key={circle.id}
-              style={styles.pickerRow}
-              onPress={() => handlePick(circle)}
-            >
-              <Text style={styles.pickerRowText}>{circle.name}</Text>
-            </TouchableOpacity>
-          ))}
+        <AppHeader style={styles.header} />
+        {/* NAV1: the picker state had no way back at all — no circleId
+            param means "which circle?" is ambiguous, so Today is the
+            one safe parent. */}
+        <TouchableOpacity style={styles.back} onPress={() => router.push('/today')}>
+          <Text style={styles.backText}>← Today</Text>
+        </TouchableOpacity>
+        <View style={styles.body}>
+          <Text style={styles.title}>invite to which circle?</Text>
+          <Text style={styles.subtitle}>you're in a few — pick the one to invite someone into</Text>
+          <View style={styles.pickerList}>
+            {pickerCircles.map((circle) => (
+              <TouchableOpacity
+                key={circle.id}
+                style={styles.pickerRow}
+                onPress={() => handlePick(circle)}
+              >
+                <Text style={styles.pickerRowText}>{circle.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </View>
     );
@@ -142,7 +150,7 @@ export default function Invite() {
 
   return (
     <View style={styles.container}>
-      <Brandmark style={styles.brandmark} />
+      <AppHeader style={styles.header} />
       <TouchableOpacity
         style={styles.back}
         onPress={() =>
@@ -154,6 +162,7 @@ export default function Invite() {
         <Text style={styles.backText}>{isFromToday ? '← Today' : '← Your Circle'}</Text>
       </TouchableOpacity>
 
+      <View style={styles.body}>
       <MascotEntrance source={MASCOT.invitationHuddle} style={styles.mascot} />
       <Text style={styles.title}>invite your people</Text>
       <Text style={styles.subtitle}>
@@ -179,6 +188,7 @@ export default function Invite() {
       <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace('/')}>
         <Text style={styles.secondaryButtonText}>Continue to my circle</Text>
       </TouchableOpacity>
+      </View>
 
       <InviteChannelChooser
         visible={chooserVisible}
@@ -202,14 +212,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  // NAV1: header + back sit in flow at the top (AppHeader owns the
+  // safe-area inset); the old centered layout moves into `body`.
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+  },
+  body: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-  },
-  brandmark: {
-    position: 'absolute',
-    top: 20,
-    left: 24,
+    paddingBottom: 24,
   },
   mascot: {
     width: 150,
@@ -236,9 +251,9 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   back: {
-    position: 'absolute',
-    top: 52,
-    left: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
   },
   backText: {
     fontSize: 13,

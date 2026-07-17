@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -113,6 +114,8 @@ function WeekSlot({
  * true), so there's no sound to compose with the G3 milestone here. */
 export default function GlowBeat() {
   const router = useRouter();
+  // NAV1 job 0 — celebration screens are AppHeader-exempt, never safe-area-exempt.
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const reduceMotion = useReducedMotion();
   // Anchors the whole choreography's timing regardless of how fast/slow
@@ -238,7 +241,7 @@ export default function GlowBeat() {
 
   return (
     <View style={styles.container}>
-      <Brandmark style={styles.brandmark} />
+      <Brandmark style={[styles.brandmark, { top: 20 + insets.top }]} />
 
       <View style={styles.body}>
         <Animated.Text style={[styles.flame, flameStyle]}>🔥</Animated.Text>

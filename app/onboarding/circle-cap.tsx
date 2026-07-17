@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
@@ -10,13 +11,16 @@ const CAP_WORD: Record<number, string> = { 1: 'one', 2: 'two', 3: 'three' };
 
 export default function CircleCap() {
   const router = useRouter();
+  // NAV1 job 0 — no AppHeader on pre-signed-in-chrome screens, but the
+  // safe-area inset still applies.
+  const insets = useSafeAreaInsets();
   const { cap: capParam } = useLocalSearchParams<{ cap?: string }>();
   const cap = Number(capParam) || MAX_CIRCLES;
   const capWord = CAP_WORD[cap] ?? String(cap);
 
   return (
     <View style={styles.container}>
-      <Brandmark style={styles.brandmark} />
+      <Brandmark style={[styles.brandmark, { top: 20 + insets.top }]} />
       <Text style={styles.emoji}>🌱</Text>
       <Text style={styles.title}>
         {capWord} circles is <Text style={styles.titleAccent}>a full life</Text>

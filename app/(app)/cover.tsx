@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MASCOT } from '@/assets/mascot';
 import { Avatar } from '@/components/Avatar';
@@ -19,6 +20,9 @@ type Mode = 'cover' | 'wave';
 
 export default function CoverAFriend() {
   const router = useRouter();
+  // NAV1 job 0 only — the cover flow itself is deliberately untouched
+  // (Cat is reworking it separately); this is just the safe-area inset.
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const { circleId, memberId, memberName, memberAvatarUrl, myName, alreadyCheckedIn } = useLocalSearchParams<{
     circleId: string;
@@ -99,7 +103,7 @@ export default function CoverAFriend() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: 20 + insets.top, paddingBottom: 14 + insets.bottom }]}>
       <Brandmark style={styles.brandmark} />
       <TouchableOpacity onPress={goBackToCircle}>
         <Text style={styles.back}>← Circle</Text>

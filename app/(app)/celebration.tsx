@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -121,6 +122,8 @@ function ConfettiPiece({ spec, fallDistance }: { spec: ConfettiSpec; fallDistanc
 
 export default function Celebration() {
   const router = useRouter();
+  // NAV1 job 0 — celebration screens are AppHeader-exempt, never safe-area-exempt.
+  const insets = useSafeAreaInsets();
   const { circleId, day, isMajorStop } = useLocalSearchParams<{
     circleId: string;
     day: string;
@@ -233,7 +236,7 @@ export default function Celebration() {
 
   return (
     <View style={styles.container}>
-      <Brandmark style={styles.brandmark} />
+      <Brandmark style={[styles.brandmark, { top: 20 + insets.top }]} />
 
       {confettiSpecs.length > 0 && (
         <View style={StyleSheet.absoluteFillObject} pointerEvents="none">

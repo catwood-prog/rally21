@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
@@ -17,6 +18,9 @@ import { joinPublicCircle, listPublicCircles, PublicCircle } from '@/lib/circle-
 
 export default function PracticeCircles() {
   const router = useRouter();
+  // NAV1 job 0 — no AppHeader on pre-signed-in-chrome screens, but the
+  // safe-area inset still applies.
+  const insets = useSafeAreaInsets();
   const { practiceId, practiceKey, practiceName, fromToday } = useLocalSearchParams<{
     practiceId: string;
     practiceKey: string;
@@ -57,9 +61,22 @@ export default function PracticeCircles() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: 20 + insets.top }]}
+    >
       <Brandmark style={styles.brandmark} />
-      <TouchableOpacity onPress={() => (isFromToday ? router.push('/today') : router.back())}>
+      {/* NAV1: back() preserves the browse screen's state when there's
+          history, but a cold-loaded URL still needs a real parent. */}
+      <TouchableOpacity
+        onPress={() =>
+          isFromToday
+            ? router.push('/today')
+            : router.canGoBack()
+              ? router.back()
+              : router.push('/onboarding/create-circle')
+        }
+      >
         <Text style={styles.back}>{isFromToday ? '← Today' : '← Find a practice'}</Text>
       </TouchableOpacity>
 

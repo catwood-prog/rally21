@@ -1,4 +1,6 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
@@ -11,9 +13,20 @@ import { colors } from '@/constants/theme';
  * state or a specific onboarding sequence; this must load for anyone,
  * signed in or not, with no redirect. */
 export default function Privacy() {
+  const router = useRouter();
+  // NAV1 — reachable signed-out (TestFlight's privacy URL) and from the
+  // intro; back goes to the privacy-promise step, which bounces
+  // signed-in visitors safely to Today via the (intro) layout redirect.
+  const insets = useSafeAreaInsets();
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: 24 + insets.top }]}
+    >
       <Brandmark style={styles.brandmark} />
+      <TouchableOpacity style={styles.back} onPress={() => router.replace('/privacy-promise')}>
+        <Text style={styles.backText}>← back</Text>
+      </TouchableOpacity>
       <Text style={styles.title}>{STRINGS.privacyPolicyTitle}</Text>
       <Text style={styles.effectiveDate}>{STRINGS.privacyPolicyEffectiveDate}</Text>
       <Text style={styles.intro}>{STRINGS.privacyPolicyIntro}</Text>
@@ -38,7 +51,17 @@ const styles = StyleSheet.create({
     paddingBottom: 64,
   },
   brandmark: {
-    marginBottom: 20,
+    marginBottom: 14,
+  },
+  back: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    marginBottom: 12,
+  },
+  backText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.muted,
   },
   title: {
     fontFamily: FONT_HEADER,

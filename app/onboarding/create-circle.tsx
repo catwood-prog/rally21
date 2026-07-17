@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
@@ -28,6 +29,9 @@ import {
 
 export default function FindAPractice() {
   const router = useRouter();
+  // NAV1 job 0 — no AppHeader on pre-signed-in-chrome screens, but the
+  // safe-area inset still applies.
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const { solo, fromToday, wantKey, wantStatement, suggestedName } = useLocalSearchParams<{
     solo?: string;
@@ -133,7 +137,10 @@ export default function FindAPractice() {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: 20 + insets.top }]}
+    >
       <Brandmark style={styles.brandmark} />
       <TouchableOpacity onPress={() => router.push(isFromToday ? '/today' : '/onboarding/circle-setup')}>
         <Text style={styles.back}>{isFromToday ? '← Today' : '← Back'}</Text>

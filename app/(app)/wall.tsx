@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
-import { Brandmark } from '@/components/Brandmark';
+import { AppHeader } from '@/components/AppHeader';
 import { MessageDialog } from '@/components/MessageDialog';
 import { VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER } from '@/constants/fonts';
@@ -305,7 +305,7 @@ export default function CircleWall() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.backWrap}>
-        <Brandmark style={styles.brandmark} />
+        <AppHeader style={styles.brandmark} />
         <TouchableOpacity
           onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
         >

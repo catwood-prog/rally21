@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { StyleSheet, Text, TouchableWithoutFeedback, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -13,6 +14,8 @@ const AUTO_ADVANCE_MS = 1600;
  * a single tap skips straight to the welcome screen. */
 export default function Splash() {
   const router = useRouter();
+  // NAV1 job 0 — keep the bottom caption clear of the home indicator.
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const timer = setTimeout(() => router.replace('/welcome'), AUTO_ADVANCE_MS);
@@ -33,7 +36,7 @@ export default function Splash() {
           </Text>
           <Text style={styles.tagline}>{STRINGS.introSplashTagline}</Text>
         </View>
-        <Text style={styles.subtitle}>{STRINGS.introSplashSubtitle}</Text>
+        <Text style={[styles.subtitle, { bottom: 30 + insets.bottom }]}>{STRINGS.introSplashSubtitle}</Text>
       </View>
     </TouchableWithoutFeedback>
   );

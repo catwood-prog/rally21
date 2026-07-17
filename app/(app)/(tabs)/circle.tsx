@@ -12,7 +12,7 @@ import {
 
 import { MASCOT } from '@/assets/mascot';
 import { Avatar } from '@/components/Avatar';
-import { Brandmark } from '@/components/Brandmark';
+import { AppHeader } from '@/components/AppHeader';
 import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { LinkCard } from '@/components/LinkCard';
 import { MascotEntrance } from '@/components/MascotEntrance';
@@ -296,7 +296,7 @@ export default function YourCircle() {
     const today = getLocalDateString();
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Brandmark style={styles.brandmark} />
+        <AppHeader style={styles.brandmark} />
         <Text style={styles.title}>your circles</Text>
         <Text style={styles.subtitle}>tap one to see how it&apos;s going</Text>
 
@@ -642,7 +642,7 @@ export default function YourCircle() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Brandmark style={styles.brandmark} />
+      <AppHeader style={styles.brandmark} />
       <TouchableOpacity
         onPress={() =>
           fromTab === 'true'

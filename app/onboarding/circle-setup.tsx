@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
@@ -7,6 +8,9 @@ import { cardShadow, colors } from '@/constants/theme';
 
 export default function CircleSetup() {
   const router = useRouter();
+  // NAV1 job 0 — no AppHeader on pre-signed-in-chrome screens, but the
+  // safe-area inset still applies.
+  const insets = useSafeAreaInsets();
   const { fromToday, wantKey, wantStatement, suggestedName } = useLocalSearchParams<{
     fromToday?: string;
     wantKey?: string;
@@ -20,7 +24,7 @@ export default function CircleSetup() {
   const wantParams = wantKey ? { wantKey, wantStatement: wantStatement ?? '', suggestedName: suggestedName ?? '' } : {};
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <Brandmark style={styles.brandmark} />
       <TouchableOpacity
         style={styles.back}

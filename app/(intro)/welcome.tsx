@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MASCOT } from '@/assets/mascot';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
@@ -10,9 +11,12 @@ import { colors } from '@/constants/theme';
  * never see this, see app/index.tsx. */
 export default function Welcome() {
   const router = useRouter();
+  // NAV1 job 0. No back button here by design: splash auto-advances
+  // forward within ~1.6s, so this is the intro's first real step.
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <Image
         source={MASCOT.invitationHuddle}
         style={styles.image}

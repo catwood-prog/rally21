@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -42,6 +43,8 @@ type Decision = 'pending' | 'rallied' | 'completed';
 
 export default function JourneyGate() {
   const router = useRouter();
+  // NAV1 job 0 — ceremony screens are AppHeader-exempt, never safe-area-exempt.
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const { circleId } = useLocalSearchParams<{ circleId: string }>();
   const reduceMotion = useReducedMotion();
@@ -201,7 +204,7 @@ export default function JourneyGate() {
 
   return (
     <View style={styles.container}>
-      <Brandmark style={styles.brandmark} />
+      <Brandmark style={[styles.brandmark, { top: 20 + insets.top }]} />
 
       <ConfettiBurst count={CONFETTI_COUNT} colors={CONFETTI_COLORS} reduceMotion={reduceMotion} />
 
@@ -293,6 +296,14 @@ export default function JourneyGate() {
             {isCreator && !isConfirmingComplete && (
               <Text style={styles.helperText}>{STRINGS.journeyGateCompleteHelper}</Text>
             )}
+
+            {/* NAV1: the undecided state had no exit at all — a member
+                who isn't ready to choose (or isn't the host) needs a
+                quiet way out. The circle screen keeps offering the same
+                choice as a card, so nothing is lost by leaving. */}
+            <TouchableOpacity style={styles.notNowButton} onPress={() => router.replace('/today')}>
+              <Text style={styles.notNowText}>{STRINGS.journeyGateNotNow}</Text>
+            </TouchableOpacity>
           </Animated.View>
         </>
       )}
@@ -367,6 +378,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.muted,
     textDecorationLine: 'underline',
+  },
+  notNowButton: {
+    marginTop: 14,
+    paddingVertical: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  notNowText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.muted,
   },
   helperText: {
     fontSize: 12,

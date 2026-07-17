@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
@@ -18,6 +20,10 @@ import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 
 export default function SignIn() {
+  const router = useRouter();
+  // NAV1 — a plain intro-style back on both states, and the safe-area
+  // inset for the absolute-positioned top-left chrome.
+  const insets = useSafeAreaInsets();
   const { signInWithEmail, signInWithGoogle, signInWithApple } = useAuth();
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
@@ -68,7 +74,15 @@ export default function SignIn() {
   if (status === 'sent') {
     return (
       <View style={styles.container}>
-        <Brandmark style={styles.brandmark} />
+        <Brandmark style={[styles.brandmark, { top: 20 + insets.top }]} />
+        {/* NAV1: a typo'd address must not strand this state — back
+            returns to the form with everything still filled in. */}
+        <TouchableOpacity
+          style={[styles.back, { top: 52 + insets.top }]}
+          onPress={() => setStatus('idle')}
+        >
+          <Text style={styles.backText}>{STRINGS.signInUseDifferentEmail}</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>check your email</Text>
         <Text style={styles.subtitle}>
           we sent a link to{'\n'}
@@ -84,7 +98,13 @@ export default function SignIn() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Brandmark style={styles.brandmark} />
+      <Brandmark style={[styles.brandmark, { top: 20 + insets.top }]} />
+      <TouchableOpacity
+        style={[styles.back, { top: 52 + insets.top }]}
+        onPress={() => router.replace('/welcome')}
+      >
+        <Text style={styles.backText}>← back</Text>
+      </TouchableOpacity>
       <Text style={styles.title}>let&apos;s get your circle going</Text>
       <Text style={styles.subtitle}>no password — just a link to your email</Text>
 
@@ -157,6 +177,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     left: 24,
+  },
+  back: {
+    position: 'absolute',
+    left: 24,
+    zIndex: 1,
+    paddingVertical: 8,
+  },
+  backText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.muted,
   },
   title: {
     fontFamily: FONT_HEADER,

@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 
-import { Brandmark } from '@/components/Brandmark';
+import { AppHeader } from '@/components/AppHeader';
 import {
   CircleNameField,
   circleFormStyles,
@@ -123,7 +123,7 @@ export default function EditCircle() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Brandmark style={styles.brandmark} />
+      <AppHeader style={styles.brandmark} />
       <TouchableOpacity
         onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
       >

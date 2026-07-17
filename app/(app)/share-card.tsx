@@ -1,7 +1,8 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { AppHeader } from '@/components/AppHeader';
 import { MessageDialog } from '@/components/MessageDialog';
 import { ShareCardView } from '@/components/ShareCardView';
 import { STRINGS } from '@/constants/strings';
@@ -112,21 +113,24 @@ export default function ShareCard() {
 
   if (!cardKey || !body) {
     // Reached without valid params somehow (stale link, direct nav) —
-    // fail quiet, not broken.
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={colors.green} />
-      </View>
-    );
+    // NAV1: go home quietly instead of stranding a cold-loaded URL on
+    // an eternal spinner.
+    return <Redirect href="/today" />;
   }
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.skipButton} onPress={handleSkip} hitSlop={8}>
-        <Text style={styles.skipButtonText}>✕</Text>
-      </TouchableOpacity>
+      {/* NAV1: standard-screen chrome. The house is the plain way home;
+          the ✕ below keeps its distinct meaning (skip this card —
+          records 'dismissed'), moved in-flow so it doesn't collide with
+          the header icons. */}
+      <AppHeader style={styles.header} />
 
       <ScrollView contentContainerStyle={styles.content}>
+        <TouchableOpacity style={styles.skipButton} onPress={handleSkip} hitSlop={8}>
+          <Text style={styles.skipButtonText}>✕</Text>
+        </TouchableOpacity>
+
         <ShareCardView body={body} attribution={attributionValue} gloss={glossValue} />
 
         <View style={styles.reactionRow}>
@@ -166,24 +170,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bg,
+  header: {
+    paddingHorizontal: 24,
   },
   content: {
     padding: 24,
-    paddingTop: 56,
+    paddingTop: 0,
     paddingBottom: 24,
     alignItems: 'center',
   },
   skipButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    zIndex: 1,
+    alignSelf: 'flex-end',
     padding: 8,
+    marginBottom: 4,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   skipButtonText: {
     fontSize: 18,
