@@ -219,3 +219,145 @@ export function renderNudge(
 <p><a href="https://rally21.vercel.app">open Rally21</a></p>`,
   };
 }
+
+// ---------------------------------------------------------------------------
+// NQ2 (17 July) — "a line you loved": roughly weekly, deterministic per user,
+// the daily nudge's warm-line slot serves back a share-card quote the user
+// Liked. The whole decision layer sits ABOVE selectNudgeLine and never
+// touches it: on a loved-line day the composer simply sends the rendered
+// quote instead of the warm line selectNudgeLine chose. The NQ1 no-repeat
+// reconstruction stays internally consistent (it replays what selectNudgeLine
+// WOULD have said on every day, loved days included), and the "no warm line
+// twice within 10 days" invariant still holds for actually-sent warm lines —
+// the exclusion sets are a superset of what was really sent, never a subset.
+// Restart days are deliberately untouched: a loved line must never displace
+// the restart framing on a day after a miss — the section's slot is the
+// WARM-line slot, by name.
+// Phase 3 (cohort-loved lines) is deliberately NOT built — see DEFERRED.md.
+
+export const LOVED_LINE_PREFIX = 'a line you loved: ';
+/** Gate: only a user with a meaningful handful of likes ever gets a loved
+ * line (floor confirmed against live data 17 July — like volume is tiny, one
+ * user with 2 distinct likes, so nothing argued for a different floor). */
+export const LOVED_LINE_MIN_LIKES = 3;
+/** 1-in-7 day-hash, minus the consecutive-day exclusion below ⇒ each day has
+ * a (1/7)·(6/7) ≈ 12% chance of being a loved-line day — roughly weekly
+ * (one in ~8.2 days), deterministic per user, no stored state. */
+export const LOVED_LINE_HASH_MOD = 7;
+/** Cutoff for the WHOLE rendered push body (sentence + loved line), in
+ * characters. send-notifications delivers payload.push_body verbatim — no
+ * send-time truncation — so the composer enforces this itself. 220 keeps the
+ * body inside what iOS/Android reliably display in the expanded notification
+ * (roughly 4 lines) before the OS ellipsizes it mid-thought — the exact
+ * failure the length rule exists to prevent. The APNs 4KB payload cap is
+ * never the binding constraint; display truncation is. */
+export const NUDGE_PUSH_BODY_MAX_CHARS = 220;
+
+/** seededIndex with a murmur3-style avalanche finalizer. The loved-line
+ * PICK needs this instead of plain seededIndex: the pick seed and the
+ * day-gate seed share the same `${userId}-${localDate}` suffix, which makes
+ * the two raw 31-multiplier hashes affinely related — conditioning on "the
+ * gate fired" then skews the pick badly (measured: a 4-quote pool split
+ * ~330/40/35/310 across loved days instead of ~180 each). The finalizer
+ * breaks that relation; NQ1's seededIndex itself stays untouched because its
+ * shipped line choices are pinned by the reconstruction invariant. */
+export function mixedSeededIndex(seedStr: string, mod: number): number {
+  let h = 0;
+  for (let i = 0; i < seedStr.length; i++) h = (h * 31 + seedStr.charCodeAt(i)) >>> 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b) >>> 0;
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35) >>> 0;
+  // ^ yields a SIGNED 32-bit value — normalize before the modulo or negative
+  // hashes alias to index 0 (-0) and skew the pick.
+  h = (h ^ (h >>> 16)) >>> 0;
+  return h % mod;
+}
+
+/** Deterministic "is today a loved-line day for this user": the day-hash
+ * fires ~1 day in 7, and a day whose PREVIOUS day also fired is excluded, so
+ * two quote-nudges can never land on consecutive days — by construction, not
+ * by stored state. */
+export function isLovedLineDay(userId: string, localDate: string): boolean {
+  const fires = (d: string) => seededIndex(`loved-${userId}-${d}`, LOVED_LINE_HASH_MOD) === 0;
+  return fires(localDate) && !fires(shiftDate(localDate, -1));
+}
+
+/** One liked bank row, as the composer reads it (share_card_bank joined via
+ * card_events.card_key = share_card_bank.id). */
+export type LikedQuote = {
+  cardKey: string;
+  body: string;
+  attribution: string | null;
+  tier: string;
+};
+
+/** Same no-author-line rule as the cards (lib/shareCards.ts's
+ * hasAttributionLine — hand-copied, this Deno file has no access to the
+ * client's module graph): null AND the literal string 'Unknown' both mean
+ * "render no author". */
+function hasAuthorLine(attribution: string | null): boolean {
+  return !!attribution && attribution !== 'Unknown';
+}
+
+/** The fully rendered loved line: prefix + the quote + the author line when
+ * the bank row has one (PD 'Unknown'/null rows render none, same rule as the
+ * cards; MV-tier rows always have one — enforced by eligibility below). */
+export function renderLovedLine(quote: LikedQuote): string {
+  const author = hasAuthorLine(quote.attribution) ? ` — ${quote.attribution}` : '';
+  return `${LOVED_LINE_PREFIX}“${quote.body}”${author}`;
+}
+
+/**
+ * The whole NQ2 decision for one user+day. Returns the loved line to send in
+ * place of the warm line, or null for "plain pool today" (not a loved day,
+ * restart branch, gate not met, or the picked quote too long for push).
+ *
+ * Eligibility (from the caller's already-mute-filtered liked rows): deduped
+ * by cardKey, and an MV-tier (modern_voice_in_copyright) row without a
+ * renderable author line is excluded outright — the rights posture is that
+ * an MV quote ALWAYS carries its attribution wherever it renders, so one
+ * that can't is never served (defensive: live data has zero such rows).
+ * The pick is seeded per user+day over the cardKey-sorted eligible set, so
+ * the same inputs always choose the same quote.
+ *
+ * Length rule: a quote whose fully rendered push body would exceed the
+ * cutoff is SKIPPED for push — excluded from the pick, never truncated
+ * mid-thought — and only when NO liked quote fits does the day fall back to
+ * the plain pool. (Skipping only the picked quote was tried first and failed
+ * the section's own "~weekly" verification: a like-set with a couple of long
+ * quotes silently starved the cadence, with short loved quotes sitting right
+ * there.) The fallback applies to the day as a whole — email and push always
+ * carry the same body (the channel is a send-time decision the composer
+ * can't know, so splitting content between them would break Cat's
+ * one-template design).
+ */
+export function composeLovedNudge(params: {
+  userId: string;
+  localDate: string;
+  branch: NudgeBranch;
+  likedQuotes: LikedQuote[];
+  practiceNames: string[];
+}): { line: string; cardKey: string } | null {
+  if (params.branch !== 'warm') return null;
+  if (!isLovedLineDay(params.userId, params.localDate)) return null;
+
+  const byKey = new Map<string, LikedQuote>();
+  for (const q of params.likedQuotes) {
+    if (q.tier === 'modern_voice_in_copyright' && !hasAuthorLine(q.attribution)) continue;
+    if (!byKey.has(q.cardKey)) byKey.set(q.cardKey, q);
+  }
+  const eligible = [...byKey.values()].sort((a, b) => (a.cardKey < b.cardKey ? -1 : 1));
+  // The floor is about the LIKES being a meaningful handful, so it's checked
+  // before the length filter — three long likes still open the gate, they
+  // just can't serve until one fits.
+  if (eligible.length < LOVED_LINE_MIN_LIKES) return null;
+
+  const fitting = eligible.filter(
+    (q) => renderNudge(params.practiceNames, renderLovedLine(q)).pushBody.length <= NUDGE_PUSH_BODY_MAX_CHARS
+  );
+  if (fitting.length === 0) return null;
+
+  const picked = fitting[mixedSeededIndex(`loved-pick-${params.userId}-${params.localDate}`, fitting.length)];
+  return { line: renderLovedLine(picked), cardKey: picked.cardKey };
+}

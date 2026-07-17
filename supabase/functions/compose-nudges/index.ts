@@ -1,7 +1,15 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { computeSmartSendTime, hhmmToMinutes } from "./timing.ts";
-import { reconstructStartDate, renderNudge, selectNudgeLine, shiftDate } from "./nudge-lines.ts";
+import {
+  LOVED_LINE_MIN_LIKES,
+  composeLovedNudge,
+  isLovedLineDay,
+  reconstructStartDate,
+  renderNudge,
+  selectNudgeLine,
+  shiftDate,
+} from "./nudge-lines.ts";
 
 // The daily-nudge composer (Notifications spec §3, Part B). Runs on the
 // same 15-min pg_cron cadence as send-notifications but is a separate
@@ -285,11 +293,71 @@ Deno.serve(async (req) => {
         .eq("user_id", user.id)
         .gte("local_date", lookbackStart);
       const completedDates = new Set((lookbackCompletions ?? []).map((c: any) => c.local_date as string));
-      const { line } = selectNudgeLine({ userId: user.id, localDate, completedDates });
+      const { line, branch } = selectNudgeLine({ userId: user.id, localDate, completedDates });
+
+      // NQ2 (17 July) — "a line you loved": on a deterministic roughly-weekly
+      // day, the warm-line slot serves back a share-card quote this user
+      // Liked instead. Same slot, same row, same timing — never a new
+      // notification. The extra reads only happen on a loved-line day for a
+      // warm-branch user (~12% of users per day); everyone else costs
+      // nothing. Likes are card_events 'liked' rows (the share-card screen's
+      // Like control); a flavor the user muted after liking never comes back
+      // (user_card_prefs.muted_flavors, flavor-level — same granularity the
+      // mute itself has). The gate/pick/length rules live in
+      // composeLovedNudge (pure, unit-tested); a null anywhere falls back to
+      // NQ1's plain pool for the day.
+      let nudgeLine = line;
+      if (branch === "warm" && isLovedLineDay(user.id, localDate)) {
+        const { data: cardPrefs } = await admin
+          .from("user_card_prefs")
+          .select("muted_flavors")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        const mutedFlavors = new Set<string>((cardPrefs?.muted_flavors as string[] | undefined) ?? []);
+
+        const { data: likeRows } = await admin
+          .from("card_events")
+          .select("card_key, flavor")
+          .eq("user_id", user.id)
+          .eq("event", "liked");
+        const likedKeys = [
+          ...new Set(
+            (likeRows ?? [])
+              .filter((r: any) => !mutedFlavors.has(r.flavor as string))
+              .map((r: any) => r.card_key as string)
+          ),
+        ];
+
+        // Cheap pre-gate before the bank join — eligibility inside
+        // composeLovedNudge only ever shrinks this set, never grows it.
+        if (likedKeys.length >= LOVED_LINE_MIN_LIKES) {
+          const { data: bankRows } = await admin
+            .from("share_card_bank")
+            .select("id, body, attribution, tier")
+            .in("id", likedKeys)
+            .eq("active", true);
+          const loved = composeLovedNudge({
+            userId: user.id,
+            localDate,
+            branch,
+            likedQuotes: (bankRows ?? []).map((b: any) => ({
+              cardKey: b.id as string,
+              body: b.body as string,
+              attribution: (b.attribution as string | null) ?? null,
+              tier: b.tier as string,
+            })),
+            practiceNames,
+          });
+          if (loved) nudgeLine = loved.line;
+        }
+      }
 
       // NQ1 (job 4): Cat's exact template — one subject, a push body the
       // sender delivers verbatim, and the email html. No "with your circle".
-      const { subject, pushBody, html } = renderNudge(practiceNames, line);
+      // A loved-line day writes the fully rendered loved line (prefix +
+      // attribution) into push_body the same way, so the push reads
+      // title + the loved line.
+      const { subject, pushBody, html } = renderNudge(practiceNames, nudgeLine);
 
       const { error: insertError } = await admin
         .from("notification_outbox")
