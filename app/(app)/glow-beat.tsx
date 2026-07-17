@@ -23,7 +23,9 @@ import { didRekindleToday, getMyGlow, getMyWeek, WeekDay } from '@/lib/glow';
 import {
   GLOW_BEAT,
   GLOW_BEAT_COPY_START_MS,
+  GLOW_BEAT_NUMBER_LANDS_MS,
   GLOW_BEAT_WEEK_ROW_START_MS,
+  MASCOT_FX,
   WARM_EASE_IN_OUT,
   WARM_EASE_OUT,
 } from '@/lib/motion';
@@ -221,9 +223,52 @@ export default function GlowBeat() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // M2 (g) — the flame's one-shot organic flicker: EMBER_BREATHE's
+  // small-amplitude vocabulary as a DECAYING one-shot — small scale
+  // pulses plus a few degrees of tilt, amplitude falling linearly to
+  // zero over ~2s, timed to the count-up's settle, then perfectly
+  // still. (GlowBadge's ember state keeps the app's only idle loop.)
+  const flickerScale = useSharedValue(1);
+  const flickerTilt = useSharedValue(0);
+  useEffect(() => {
+    if (reduceMotion) return;
+    const scaleSteps = [];
+    const tiltSteps = [];
+    for (let i = 0; i < MASCOT_FX.FLAME_FLICKER_STEPS; i++) {
+      // Linear decay envelope: full amplitude on the first pulse, zero
+      // by the last; alternating direction reads as organic wobble.
+      const envelope = 1 - i / MASCOT_FX.FLAME_FLICKER_STEPS;
+      const sign = i % 2 === 0 ? 1 : -1;
+      scaleSteps.push(
+        withTiming(1 + sign * MASCOT_FX.FLAME_FLICKER_SCALE_AMPLITUDE * envelope, {
+          duration: MASCOT_FX.FLAME_FLICKER_STEP_MS,
+          easing: WARM_EASE_IN_OUT,
+        })
+      );
+      tiltSteps.push(
+        withTiming(sign * MASCOT_FX.FLAME_FLICKER_TILT_DEG * envelope, {
+          duration: MASCOT_FX.FLAME_FLICKER_STEP_MS,
+          easing: WARM_EASE_IN_OUT,
+        })
+      );
+    }
+    scaleSteps.push(withTiming(1, { duration: MASCOT_FX.FLAME_FLICKER_STEP_MS, easing: WARM_EASE_IN_OUT }));
+    tiltSteps.push(withTiming(0, { duration: MASCOT_FX.FLAME_FLICKER_STEP_MS, easing: WARM_EASE_IN_OUT }));
+    const elapsed = Date.now() - sequenceStartAt;
+    const delay = Math.max(0, GLOW_BEAT_NUMBER_LANDS_MS - elapsed);
+    flickerScale.value = withDelay(delay, withSequence(scaleSteps[0], ...scaleSteps.slice(1)));
+    flickerTilt.value = withDelay(delay, withSequence(tiltSteps[0], ...tiltSteps.slice(1)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const flameStyle = useAnimatedStyle(() => ({
     opacity: flameOpacity.value,
-    transform: [{ translateY: flameY.value }, { scale: flameScale.value }],
+    transform: [
+      { translateY: flameY.value },
+      { scale: flameScale.value },
+      { scale: flickerScale.value },
+      { rotate: `${flickerTilt.value}deg` },
+    ],
   }));
   const numberStyle = useAnimatedStyle(() => ({ transform: [{ scale: numberScale.value }] }));
 

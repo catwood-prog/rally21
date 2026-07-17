@@ -15,21 +15,24 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Brandmark } from '@/components/Brandmark';
+import { ConfettiBurst } from '@/components/ConfettiBurst';
 import { MASCOT } from '@/assets/mascot';
 import { STRINGS } from '@/constants/strings';
 import { FONT_HEADER } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { colors, CONFETTI_GREENS } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { playCheckinPop } from '@/lib/chime';
 import { getCircleById } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
 import { checkGlowMilestone, didRekindleToday, getMyWeek, shouldShowGlowBeat } from '@/lib/glow';
-import { MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
+import { frameSwapSchedule } from '@/lib/mascotFx';
+import { MASCOT_FX, MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
 import { getMyProfile, markPushPromptSeen } from '@/lib/profile';
 import { getPushPermissionStatus, registerForPushNotificationsAsync } from '@/lib/pushNotifications';
 import { getShareCardForToday, shouldOfferShareCard, type ShareCard } from '@/lib/shareCards';
 
-const CONFETTI_COLORS = [colors.gold, colors.green, '#7FBF7F'];
+// M2: always green (CONFETTI_GREENS is the one source of truth).
+const CONFETTI_COLORS = [...CONFETTI_GREENS];
 const CONFETTI_LIFETIME_MS = 4000;
 const CONFETTI_FADE_MS = 700;
 
@@ -343,6 +346,22 @@ export default function CheckInComplete() {
       });
   }, [session?.user?.id, earnedToday, milestoneChecked, glowMilestone]);
 
+  // M2 (a) — one quick wink once the entrance + puff/hop have settled:
+  // base → wink frame → base, quick swaps (never a crossfade — the frame
+  // pair carries generation jitter). Both frames stay mounted; the wink
+  // sits on top and toggles visibility, so there's no decode flash.
+  const [showWink, setShowWink] = useState(false);
+  useEffect(() => {
+    if (reduceMotion) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (const step of frameSwapSchedule(MASCOT_FX.WINK_DELAY_MS, MASCOT_FX.WINK_HOLD_MS, MASCOT_FX.WINK_SWAPS)) {
+      timers.push(setTimeout(() => setShowWink(true), step.showAltAtMs));
+      timers.push(setTimeout(() => setShowWink(false), step.showBaseAtMs));
+    }
+    return () => timers.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const penguinStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }, { scale: puffScale.value }, { translateY: hopY.value }],
   }));
@@ -402,13 +421,35 @@ export default function CheckInComplete() {
       )}
 
       <Animated.View style={penguinStyle}>
-        <Image
-          source={MASCOT.penguinConfetti}
-          style={styles.penguin}
-          resizeMode="contain"
-          accessible={false}
-          alt=""
-        />
+        {/* M2: confetti-free restyled art; the celebration sparkle now
+            comes from code — the P2 depth layers behind/in front, plus
+            this small banner-scoped green burst standing in for the
+            confetti that used to be baked into the old asset. */}
+        <View style={styles.penguinWrap}>
+          <View style={styles.bannerBurst} pointerEvents="none">
+            <ConfettiBurst
+              count={MASCOT_FX.CHECKIN_BANNER_CONFETTI_COUNT}
+              colors={CONFETTI_COLORS}
+              reduceMotion={reduceMotion}
+              lifetimeMs={2600}
+              fadeMs={600}
+            />
+          </View>
+          <Image
+            source={MASCOT.proudAfterShowingUp}
+            style={styles.penguin}
+            resizeMode="contain"
+            accessible={false}
+            alt=""
+          />
+          <Image
+            source={MASCOT.proudAfterShowingUpWink}
+            style={[styles.penguin, styles.winkFrame, { opacity: showWink ? 1 : 0 }]}
+            resizeMode="contain"
+            accessible={false}
+            alt=""
+          />
+        </View>
       </Animated.View>
 
       <Animated.Text style={[styles.title, headingStyle]}>
@@ -460,15 +501,37 @@ const styles = StyleSheet.create({
     top: 20,
     left: 24,
   },
+  penguinWrap: {
+    marginBottom: 20,
+  },
+  // M2: the wink frame sits exactly over the base; visibility-toggled
+  // for the quick swap (both mounted, so no decode flash).
+  winkFrame: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    marginBottom: 0,
+  },
+  // M2: the banner-scoped burst's clip box — a little wider than the
+  // penguin so pieces drift past its shoulders, but never the whole
+  // screen (that's the P2 layers' job).
+  bannerBurst: {
+    position: 'absolute',
+    top: -20,
+    left: -30,
+    right: -30,
+    bottom: 0,
+    overflow: 'hidden',
+  },
   penguin: {
     // Restored to the pre-M1 size along with the original transparent
     // penguin-confetti asset (7 July, Cat's call — the sheet crop's opaque
     // cream background read as a box on the warm-grey page).
     // P2 (15 July, Cat's TestFlight review): that size grown 50%, same
     // aspect — the celebration's hero should read like one.
+    // M2 (17 July): same box, restyled confetti-free art.
     width: 195,
     height: 201,
-    marginBottom: 20,
   },
   title: {
     fontFamily: FONT_HEADER,

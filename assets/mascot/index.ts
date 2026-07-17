@@ -12,11 +12,12 @@
 // general-purpose spares; gentlyEncouraging/sleepyButTrying are
 // deliberately benched (nudge/guilt-adjacent — see the brief).
 export const MASCOT = {
-  // Restored 7 July (Cat's call): the original pre-M1 confetti penguin —
-  // transparent background (the sheet crops are opaque cream, which shows
-  // as a box on the warm-grey page) and rendered larger. Kept as the
-  // check-in success image; proudAfterShowingUp stays for other uses.
-  penguinConfetti: require('./penguin-confetti.png'),
+  // M2 (17 July) — the restyled set (Rally21-Mascot-Brief.md → "The
+  // restyle"): same character, one notch more grown up; smaller head,
+  // plain dot eyes, softly shaded 2D, two green stripes on the scarf.
+  // Check-in success now uses proudAfterShowingUp (confetti-free — the
+  // celebration confetti comes from code, always green); the old
+  // penguin-confetti.png and baked-confetti day21 art are gone.
   proudAfterShowingUp: require('./proud-after-showing-up.png'),
   theRestart: require('./the-restart.png'),
   invitationHuddle: require('./invitation-huddle.png'),
@@ -24,7 +25,7 @@ export const MASCOT = {
   apologeticSlip: require('./apologetic-slip.png'),
   journalCompanion: require('./journal-companion.png'),
   cozyAndContent: require('./cozy-and-content.png'),
-  day21CelebrationHuddle: require('./day21-celebration-huddle.png'),
+  day21CelebrationHuddle: require('./day21-celebration-huddle-no-confetti.png'),
   pureWelcome: require('./pure-welcome.png'),
   threeQuarterView: require('./three-quarter-view.png'),
   gentlyEncouraging: require('./gently-encouraging.png'),
@@ -33,8 +34,13 @@ export const MASCOT = {
   // conversation exists, per the brief's scarcity principle.
   theListener: require('./the-listener.png'),
   // BD2 (8 July) — the once-a-year birthday moment on Today
-  // (components/BirthdayBanner.tsx). Party hat, cupcake + candle, gold
-  // scarf, confetti; verified real alpha (corners transparent, not a
-  // painted-opaque checkerboard) before this was wired in.
+  // (components/BirthdayBanner.tsx).
   birthdayPenguin: require('./birthday-penguin.png'),
+  // M2 gesture frames — each pairs with its base art above for a
+  // ONE-SHOT gesture (quick swaps for wink/wave, a small cropped-patch
+  // crossfade for flame/steam — see lib/mascotFx.ts). Never idle loops.
+  proudAfterShowingUpWink: require('./proud-after-showing-up-wink.png'),
+  birthdayPenguinFlicker: require('./birthday-penguin-flicker.png'),
+  theListenerSteam: require('./the-listener-steam.png'),
+  apologeticSlipWave: require('./apologetic-slip-wave.png'),
 };

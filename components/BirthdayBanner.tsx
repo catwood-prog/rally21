@@ -11,17 +11,20 @@ import Animated, {
 
 import { MASCOT } from '@/assets/mascot';
 import { ConfettiBurst } from '@/components/ConfettiBurst';
+import { MascotPatch } from '@/components/MascotPatch';
 import { FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { colors } from '@/constants/theme';
+import { colors, CONFETTI_GREENS } from '@/constants/theme';
 import { getLocalDateString } from '@/lib/date';
-import { MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
+import { BIRTHDAY_CANDLE_PATCH } from '@/lib/mascotFx';
+import { MASCOT_FX, MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
 import { hasPlayedTodayOneShot, markTodayOneShotPlayed } from '@/lib/todayOneShot';
 
 // A once-a-year moment earns a bigger burst than the daily check-in beat
 // — same weight as day-21's own ceremony, reusing its exact palette.
 const CONFETTI_COUNT = 34;
-const CONFETTI_COLORS = [colors.gold, colors.green, colors.ink];
+// M2: always green (CONFETTI_GREENS is the one source of truth).
+const CONFETTI_COLORS = [...CONFETTI_GREENS];
 
 /** BD2 (8 July) — the user's own birthday moment on Today, upgraded from
  * BD1's plain standard-entrance penguin to a once-a-year celebration
@@ -58,6 +61,10 @@ export function BirthdayBanner({ name }: { name: string | null }) {
   const rise = useSharedValue(playMotion ? MASCOT_GESTURE.BIRTHDAY_ENTRANCE_RISE_PX : 0);
   const hopY = useSharedValue(0);
   const wiggle = useSharedValue(0);
+  // M2 (c) — the candle flicker: ONLY the cropped flame patch crossfades
+  // between the two frames (the sanctioned patch exception — the body
+  // never moves), for ~2s once the entrance lands, then holds base.
+  const flickerOpacity = useSharedValue(0);
 
   useEffect(() => {
     if (!playMotion) return;
@@ -88,8 +95,22 @@ export function BirthdayBanner({ name }: { name: string | null }) {
         withTiming(0, { duration: MASCOT_GESTURE.BIRTHDAY_WIGGLE_STEP_MS, easing: WARM_EASE_IN_OUT })
       )
     );
+
+    // The candle flicker (M2): in/out patch crossfades, decidedly finite
+    // — CANDLE_FLICKER_CYCLES round trips, then 0 (base frame) forever.
+    const steps = [];
+    for (let i = 0; i < MASCOT_FX.CANDLE_FLICKER_CYCLES; i++) {
+      steps.push(withTiming(1, { duration: MASCOT_FX.CANDLE_FLICKER_STEP_MS, easing: WARM_EASE_IN_OUT }));
+      steps.push(withTiming(0, { duration: MASCOT_FX.CANDLE_FLICKER_STEP_MS, easing: WARM_EASE_IN_OUT }));
+    }
+    flickerOpacity.value = withDelay(
+      MASCOT_FX.CANDLE_FLICKER_DELAY_MS,
+      withSequence(steps[0], ...steps.slice(1))
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const flickerStyle = useAnimatedStyle(() => ({ opacity: flickerOpacity.value }));
 
   const mascotStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -102,7 +123,16 @@ export function BirthdayBanner({ name }: { name: string | null }) {
         <ConfettiBurst count={CONFETTI_COUNT} colors={CONFETTI_COLORS} reduceMotion={reduceMotion} />
       )}
       <Animated.View style={mascotStyle}>
-        <Image source={MASCOT.birthdayPenguin} style={styles.mascot} resizeMode="contain" accessible={false} alt="" />
+        <View style={styles.mascotBox}>
+          <Image source={MASCOT.birthdayPenguin} style={styles.mascot} resizeMode="contain" accessible={false} alt="" />
+          <MascotPatch
+            source={MASCOT.birthdayPenguinFlicker}
+            sourceSize={BIRTHDAY_CANDLE_PATCH.source}
+            patch={BIRTHDAY_CANDLE_PATCH.patch}
+            box={{ width: 150, height: 165 }}
+            animatedStyle={flickerStyle}
+          />
+        </View>
       </Animated.View>
       <Text style={styles.line}>{STRINGS.birthdaySelfLine(name)}</Text>
     </View>
@@ -120,6 +150,10 @@ const styles = StyleSheet.create({
   // pat-on-the-back, smaller than day-21's 180x160 hero, since a
   // birthday is a real but smaller-scale celebration than finishing all
   // 21 days.
+  mascotBox: {
+    width: 150,
+    height: 165,
+  },
   mascot: {
     width: 150,
     height: 165,

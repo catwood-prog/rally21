@@ -18,7 +18,7 @@ import { MASCOT } from '@/assets/mascot';
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { colors } from '@/constants/theme';
+import { colors, CONFETTI_GREENS } from '@/constants/theme';
 import { getCircleById, MyCircle } from '@/lib/circle';
 import { markCelebrationSeen, rallyNumber } from '@/lib/journey';
 
@@ -28,7 +28,8 @@ import { markCelebrationSeen, rallyNumber } from '@/lib/journey';
 // still no sound, still no question (Rally21-Glow-Spec.md §8).
 const RALLY_MARKER_CONFETTI_COUNT = 14;
 const MAJOR_STOP_CONFETTI_COUNT = 30;
-const CONFETTI_COLORS = [colors.gold, colors.green, colors.ink];
+// M2: always green (CONFETTI_GREENS is the one source of truth).
+const CONFETTI_COLORS = [...CONFETTI_GREENS];
 const CONFETTI_LIFETIME_MS = 3400;
 const CONFETTI_FADE_MS = 700;
 

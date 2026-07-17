@@ -2,11 +2,19 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { MASCOT } from '@/assets/mascot';
 import { Avatar } from '@/components/Avatar';
 import { Brandmark } from '@/components/Brandmark';
 import { MascotEntrance } from '@/components/MascotEntrance';
+import { MASCOT_FX, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -53,13 +61,31 @@ export default function CoverAFriend() {
 
   const goBackToCircle = () => router.replace({ pathname: '/circle', params: { circleId } });
 
+  // M2 (f) — one gentle squeeze on the art when a cover successfully
+  // lands (scale 1 → 0.98 → 1, ≤300ms), then the navigation proceeds.
+  // Under reduced motion the navigation is immediate.
+  const reduceMotion = useReducedMotion();
+  const squeezeScale = useSharedValue(1);
+  const squeezeStyle = useAnimatedStyle(() => ({ transform: [{ scale: squeezeScale.value }] }));
+  const squeezeThen = (done: () => void) => {
+    if (reduceMotion) {
+      done();
+      return;
+    }
+    squeezeScale.value = withSequence(
+      withTiming(MASCOT_FX.COVER_SQUEEZE_SCALE, { duration: MASCOT_FX.COVER_SQUEEZE_IN_MS, easing: WARM_EASE_OUT }),
+      withTiming(1, { duration: MASCOT_FX.COVER_SQUEEZE_OUT_MS, easing: WARM_EASE_IN_OUT })
+    );
+    setTimeout(done, MASCOT_FX.COVER_SQUEEZE_IN_MS + MASCOT_FX.COVER_SQUEEZE_OUT_MS + 20);
+  };
+
   const handleSubmit = async () => {
     if (!session?.user || !circleId || !memberId) return;
     setIsSaving(true);
     try {
       if (mode === 'cover') {
         await coverMember(circleId, memberId, session.user.id, getLocalDateString());
-        goBackToCircle();
+        squeezeThen(goBackToCircle);
       } else {
         // Security spec S1 (F4): the RPC composes the email + wall copy
         // server-side from a fixed template now — the client no longer
@@ -110,7 +136,9 @@ export default function CoverAFriend() {
       </TouchableOpacity>
 
       <View style={styles.content}>
-        <MascotEntrance source={MASCOT.coverAFriend} style={styles.mascot} />
+        <Animated.View style={squeezeStyle}>
+          <MascotEntrance source={MASCOT.coverAFriend} style={styles.mascot} />
+        </Animated.View>
         <Avatar name={name} avatarUrl={memberAvatarUrl} size={88} />
         <Text style={styles.headline}>
           {isWaveOnly ? STRINGS.waveHeadline(name) : STRINGS.coverHeadline(name)}

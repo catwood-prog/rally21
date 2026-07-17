@@ -113,6 +113,56 @@ export const MASCOT_GESTURE = {
   BIRTHDAY_WIGGLE_STEP_MS: 110,
 } as const;
 
+// --- 4b. M2 mascot gesture layer (17 July) — one-shot gestures on the
+// restyled set. Quick swaps for two-frame gestures (the frame pairs
+// carry slight generation jitter, so a crossfade would shimmer the whole
+// penguin); the candle flame and mug steam are the two sanctioned patch
+// CROSSFADES — only a small cropped region ever changes (rects +
+// geometry in lib/mascotFx.ts), so the body never moves. Everything
+// plays once per surface visit, then holds still; static under
+// prefers-reduced-motion; the ember breathe stays the app's only idle
+// loop.
+export const MASCOT_FX = {
+  // (a) Check-in success wink: starts once the bouncy entrance (380ms)
+  // AND the P1 puff/hop (380ms more) have settled; one quick swap to the
+  // wink frame and back.
+  WINK_DELAY_MS: 800,
+  WINK_HOLD_MS: 120,
+  WINK_SWAPS: 1,
+  // (a) The small banner-scoped green burst replacing the confetti that
+  // used to be baked into the art — deliberately smaller than the
+  // screen's own P2 depth layers so it reads as the penguin's own
+  // sparkle, not a second storm.
+  CHECKIN_BANNER_CONFETTI_COUNT: 10,
+  // (c) Birthday candle flicker: the cropped flame patch crossfades
+  // between the two frames for ~2s once the entrance lands, then holds
+  // on the base frame.
+  CANDLE_FLICKER_DELAY_MS: 600, // = BIRTHDAY_HOP_DELAY_MS, the entrance's landing
+  CANDLE_FLICKER_STEP_MS: 250,
+  CANDLE_FLICKER_CYCLES: 4, // 4 in/out crossfades ≈ 2000ms total
+  // (d) Ask Rally listener steam: the patch fades in once and holds on
+  // the steam frame.
+  STEAM_DELAY_MS: 350, // after the standard MascotEntrance settles
+  STEAM_FADE_MS: 2500,
+  // (e) 404 wave: two quick swaps to the wave frame and back.
+  WAVE_DELAY_MS: 350,
+  WAVE_HOLD_MS: 150,
+  WAVE_SWAPS: 2,
+  // (f) Cover screen: one gentle squeeze when a cover lands, ≤300ms
+  // total, then the navigation away proceeds.
+  COVER_SQUEEZE_SCALE: 0.98,
+  COVER_SQUEEZE_IN_MS: 130,
+  COVER_SQUEEZE_OUT_MS: 150,
+  // (g) Glow-beat flame flicker: a DECAYING one-shot on the 🔥 emoji —
+  // EMBER_BREATHE's small-amplitude vocabulary, but amplitude falls to
+  // zero instead of looping. Starts as the count-up settles
+  // (GLOW_BEAT_NUMBER_LANDS_MS), runs ~2s, then perfectly still.
+  FLAME_FLICKER_STEP_MS: 250,
+  FLAME_FLICKER_STEPS: 8, // ≈ 2000ms total
+  FLAME_FLICKER_SCALE_AMPLITUDE: 0.05, // decays linearly to 0
+  FLAME_FLICKER_TILT_DEG: 3, // decays with the same envelope
+} as const;
+
 // --- 5. Sound (lib/chime.ts) ---
 // A deeper single bowl strike replaces checkin-pop on an earning
 // check-in — G3 is a musical note (~196Hz), a full register below

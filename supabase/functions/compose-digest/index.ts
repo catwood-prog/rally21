@@ -39,7 +39,8 @@ function dayNumberAt(startDate: string, atMs: number): number {
 // (not just wall-message activity). Hash is content-addressed by the web
 // build; only changes if the source image itself is ever replaced.
 const COVER_A_FRIEND_IMAGE_URL =
-  "https://rally21.vercel.app/assets/assets/mascot/cover-a-friend.dbaae2c7f7e7900e543eef8727e86089.png";
+  // M2 (17 July): re-hashed for the restyled cover-a-friend art.
+  "https://rally21.vercel.app/assets/assets/mascot/cover-a-friend.85603766a2ce5ef07a45289bdbeb0ea1.png";
 
 function localDateString(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {

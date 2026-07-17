@@ -43,7 +43,8 @@ const REJOIN_EMAIL_QUIET_DAYS_THRESHOLD = 14;
 // image placement precedent is compose-digest's cover-a-friend.png, same
 // hosting pattern (the Vercel-exported web asset's own hashed URL).
 const THE_RESTART_IMAGE_URL =
-  "https://rally21.vercel.app/assets/assets/mascot/the-restart.f3720755916ad298942cb4161aadf321.png";
+  // M2 (17 July): re-hashed for the restyled the-restart art.
+  "https://rally21.vercel.app/assets/assets/mascot/the-restart.a40d438c1b066b8dca5439a35c5288a8.png";
 
 function localDateString(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {

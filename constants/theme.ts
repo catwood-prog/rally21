@@ -1,5 +1,12 @@
 // Palette lifted from the rev-7 mockup. Full type/font polish is a later
 // pass (build plan week 2); this just keeps early screens on-brand.
+// M2 (16 July colour ruling): celebration confetti is ALWAYS green —
+// gold stays the scarf/action colour, green owns "you did it." One
+// family around colors.green (#5BA85B): base, a lighter tint, a deeper
+// shade. THE source of truth for every ConfettiBurst/ConfettiPiece
+// caller (day-21, birthday, check-in success, celebration markers).
+export const CONFETTI_GREENS = ['#5BA85B', '#7FBF7F', '#3E7C3E'] as const;
+
 export const colors = {
   gold: '#F4C84B',
   green: '#5BA85B',

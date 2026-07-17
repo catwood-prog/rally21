@@ -17,7 +17,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { ConfettiBurst } from '@/components/ConfettiBurst';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { colors } from '@/constants/theme';
+import { colors, CONFETTI_GREENS } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { playDay21Flourish } from '@/lib/chime';
 import { getCircleById, MyCircle } from '@/lib/circle';
@@ -37,7 +37,8 @@ import { getMyProfile } from '@/lib/profile';
 // moment can reuse it rather than a second implementation — these
 // numbers are unchanged from before that extraction.
 const CONFETTI_COUNT = 34;
-const CONFETTI_COLORS = [colors.gold, colors.green, colors.ink];
+// M2: always green (CONFETTI_GREENS is the one source of truth).
+const CONFETTI_COLORS = [...CONFETTI_GREENS];
 
 type Decision = 'pending' | 'rallied' | 'completed';
 

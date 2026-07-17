@@ -1,5 +1,5 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -12,14 +12,60 @@ import {
   View,
 } from 'react-native';
 
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
+
 import { MASCOT } from '@/assets/mascot';
 import { AppHeader } from '@/components/AppHeader';
 import { MascotEntrance } from '@/components/MascotEntrance';
+import { MascotPatch } from '@/components/MascotPatch';
 import { VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { AskRallyMessage, deleteConversation, getActiveConversation, streamAskRally } from '@/lib/askRally';
+import { LISTENER_STEAM_PATCH } from '@/lib/mascotFx';
+import { MASCOT_FX } from '@/lib/motion';
+
+/** M2 (d) — the listener with its one-shot mug steam: standard entrance,
+ * then the steam patch (the frames differ only in a ~70×60px region
+ * above the mug) crossfades in once over ~2.5s and holds on the steam
+ * frame. Static under reduced motion (no steam at all). */
+const LISTENER_BOX = { width: 90, height: 106 };
+
+function ListenerMascot() {
+  const reduceMotion = useReducedMotion();
+  const steamOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    steamOpacity.value = withDelay(
+      MASCOT_FX.STEAM_DELAY_MS,
+      withTiming(1, { duration: MASCOT_FX.STEAM_FADE_MS })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const steamStyle = useAnimatedStyle(() => ({ opacity: steamOpacity.value }));
+
+  return (
+    <View style={styles.emptyMascotBox}>
+      <MascotEntrance source={MASCOT.theListener} style={styles.emptyMascot} />
+      <MascotPatch
+        source={MASCOT.theListenerSteam}
+        sourceSize={LISTENER_STEAM_PATCH.source}
+        patch={LISTENER_STEAM_PATCH.patch}
+        box={LISTENER_BOX}
+        animatedStyle={steamStyle}
+      />
+    </View>
+  );
+}
 
 function appendTranscript(existing: string, transcript: string): string {
   if (!existing || /\s$/.test(existing)) return existing + transcript;
@@ -202,7 +248,7 @@ export function AskRallyScreen({
       >
         {messages.length === 0 && (
           <View style={styles.emptyState}>
-            <MascotEntrance source={MASCOT.theListener} style={styles.emptyMascot} />
+            <ListenerMascot />
             <Text style={styles.emptyIntro}>{STRINGS.chatIntroMessage}</Text>
             <Text style={styles.emptyHook}>{STRINGS.askRallyEmptyHook}</Text>
           </View>
@@ -314,10 +360,14 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
   },
-  emptyMascot: {
+  emptyMascotBox: {
     width: 90,
     height: 106,
     marginBottom: 16,
+  },
+  emptyMascot: {
+    width: 90,
+    height: 106,
   },
   emptyIntro: {
     fontSize: 13.5,
