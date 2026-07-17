@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { computeSmartSendTime, hhmmToMinutes } from "./timing.ts";
+import { reconstructStartDate, renderNudge, selectNudgeLine, shiftDate } from "./nudge-lines.ts";
 
 // The daily-nudge composer (Notifications spec §3, Part B). Runs on the
 // same 15-min pg_cron cadence as send-notifications but is a separate
@@ -20,25 +21,10 @@ import { computeSmartSendTime, hhmmToMinutes } from "./timing.ts";
 // user per local date even though this function re-evaluates everyone
 // every 15 minutes.
 
-// Kept in exact sync by hand with constants/strings.ts's NUDGE_WARM_LINES
-// / NUDGE_RESTART_LINES — this edge function is a standalone Deno file
-// with no access to that module graph.
-const WARM_LINES = [
-  "no pressure — just today's little thing, whenever you get to it.",
-  'your circle showed up for you before. today, maybe you show up for them.',
-  "small and steady beats big and never. today's a small day.",
-  'nobody is keeping score. this is just an invitation.',
-  "a couple minutes, a couple lines — that's the whole ask.",
-  'the circle is quietly rooting for you, no pressure attached.',
-  "today's version of you only needs to do today's version of the thing.",
-  'showing up messy still counts as showing up.',
-];
-const RESTART_LINES = [
-  'Day 1s are allowed. Tonight counts.',
-  'every day is a fine day to start again.',
-  'no catching up required — just today.',
-  "today's a clean page. that's all it needs to be.",
-];
+// NQ1 (16 July) — the line pools, the deterministic no-repeat window, and
+// Cat's notification template all live in ./nudge-lines.ts (pure, so the
+// Jest suite unit-tests them and pins the pools byte-identical to
+// constants/strings.ts). This file no longer keeps its own line arrays.
 
 // RS1 (13 July) — the one warm rejoin email, after 14+ quiet days in a
 // still-ongoing circle. Kept in sync by hand with lib/resting.ts's
@@ -50,17 +36,6 @@ const REJOIN_EMAIL_QUIET_DAYS_THRESHOLD = 14;
 // hosting pattern (the Vercel-exported web asset's own hashed URL).
 const THE_RESTART_IMAGE_URL =
   "https://rally21.vercel.app/assets/assets/mascot/the-restart.f3720755916ad298942cb4161aadf321.png";
-
-// Kept in exact sync by hand with constants/strings.ts's
-// PRACTICE_VERB_STARTERS / isVerbPhrasePractice.
-const PRACTICE_VERB_STARTERS = [
-  'meditate', 'walk', 'run', 'write', 'stretch', 'sit', 'breathe', 'read',
-  'journal', 'draw', 'move', 'practice', 'do',
-];
-function isVerbPhrasePractice(practiceName: string): boolean {
-  const firstWord = practiceName.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]/g, '');
-  return !!firstWord && PRACTICE_VERB_STARTERS.includes(firstWord);
-}
 
 function localDateString(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -79,14 +54,6 @@ function localTimeString(date: Date, timeZone: string): string {
   const h = parts.find((p) => p.type === "hour")!.value;
   const min = parts.find((p) => p.type === "minute")!.value;
   return `${h}:${min}`;
-}
-
-/** One calendar day before `dateStr` (YYYY-MM-DD), computed in UTC so it's
- * never skewed by DST — mirrors lib/date.ts's daysBetween approach. */
-function dayBefore(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const prev = new Date(Date.UTC(y, m - 1, d - 1));
-  return `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, "0")}-${String(prev.getUTCDate()).padStart(2, "0")}`;
 }
 
 /** Calendar days between two YYYY-MM-DD strings — mirrors lib/date.ts's
@@ -116,14 +83,6 @@ function resolveSendTime(sendTime: string, quietStart: string, quietEnd: string)
   // "early" half (< end) clamps forward to when quiet hours end.
   if (start < end) return send >= start ? "skip" : end;
   return send >= start ? "skip" : end;
-}
-
-/** Simple deterministic index so the same user/day doesn't reshuffle
- * lines on a retried run within the same 15-min window. */
-function pick<T>(arr: T[], seedStr: string): T {
-  let seed = 0;
-  for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0;
-  return arr[seed % arr.length];
 }
 
 Deno.serve(async (req) => {
@@ -311,30 +270,26 @@ Deno.serve(async (req) => {
       }
 
       const practiceNames = activeCircles.map((c) => c.practiceName ?? 'your practice');
-      let subject: string;
-      if (practiceNames.length > 1) {
-        subject = 'two small things today 🔥';
-      } else {
-        const name = practiceNames[0];
-        subject = isVerbPhrasePractice(name)
-          ? `today you ${name.toLowerCase()} — with your circle 🔥`
-          : `today: ${name.toLowerCase()}, with your circle 🔥`;
-      }
 
-      const yesterday = dayBefore(localDate);
-      const { count: yesterdayCompletions } = await admin
+      // NQ1 (job 2/3): the warm/restart branch AND the no-repeat window are
+      // both decided by selectNudgeLine from the user's completion DATES —
+      // one query over the reconstruction span, no stored nudge history. The
+      // window reconstructs prior sent lines deterministically (anchored at
+      // a fixed epoch), so a line never repeats close enough to feel canned.
+      // Fetch one day before the reconstruction start so its own
+      // missed-yesterday branch can be derived.
+      const lookbackStart = shiftDate(reconstructStartDate(localDate), -1);
+      const { data: lookbackCompletions } = await admin
         .from("completions")
-        .select("id", { count: "exact", head: true })
+        .select("local_date")
         .eq("user_id", user.id)
-        .eq("local_date", yesterday);
-      const missedYesterday = (yesterdayCompletions ?? 0) === 0;
-      const line = missedYesterday ? pick(RESTART_LINES, dedupeKey) : pick(WARM_LINES, dedupeKey);
+        .gte("local_date", lookbackStart);
+      const completedDates = new Set((lookbackCompletions ?? []).map((c: any) => c.local_date as string));
+      const { line } = selectNudgeLine({ userId: user.id, localDate, completedDates });
 
-      const practiceList = practiceNames.map((n) => `<li>${n}</li>`).join("");
-      const html = `<p>${practiceNames.length > 1 ? 'Today, with your circles:' : 'Today, with your circle:'}</p>
-<ul>${practiceList}</ul>
-<p>${line}</p>
-<p><a href="https://rally21.vercel.app">open Rally21</a></p>`;
+      // NQ1 (job 4): Cat's exact template — one subject, a push body the
+      // sender delivers verbatim, and the email html. No "with your circle".
+      const { subject, pushBody, html } = renderNudge(practiceNames, line);
 
       const { error: insertError } = await admin
         .from("notification_outbox")
@@ -345,7 +300,9 @@ Deno.serve(async (req) => {
           // the recipient's calendar date has moved on — a row held by
           // quiet hours overnight must never arrive describing a day that
           // has already passed (see send-notifications' expiry check).
-          payload: { subject, html, local_date: localDate },
+          // push_body is Cat's template body; send-notifications prefers it
+          // over stripping the html for the push.
+          payload: { subject, html, push_body: pushBody, local_date: localDate },
           scheduled_for: now.toISOString(),
           dedupe_key: dedupeKey,
         });

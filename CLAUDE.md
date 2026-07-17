@@ -6,6 +6,16 @@
 > rescue (a friend) or a road back (embers). No notification ever
 > scolds. The penguin never guilt-trips — at most it looks hopeful.
 
+**Nudge copy voice (Cat, 16 July, via NQ1).** The daily nudge should
+*encourage and motivate, gently — never aggressively, and never so soft
+it excuses skipping the practice.* Warmth means no scolding and no
+shame, not no pull: a line may invite, cheer, or gently spur, but must
+still read warm at a bad moment and must never reference the miss (that
+is what the separate restart-line pool is for). "keep up and you will
+be kept up" is Cat's own motto and a permanent keeper. The line pools
+live in `constants/strings.ts` (`NUDGE_WARM_LINES` / `NUDGE_RESTART_LINES`,
+mirrored in `supabase/functions/compose-nudges/nudge-lines.ts`).
+
 ## Product conventions
 
 - **Every free-text input ships with the dictation affordance (Cat, 6 July, via B1).** Any free-form text box anywhere in the app — check-in's grateful/learned lines, the blueprint's "not quite" correction note, v2's short-text questions, Ask Rally's composer — gets a `VoiceMicButton` (`components/VoiceMicButton.tsx`) wired to append (never replace) into the field via the Web Speech API. Spoken answers are richer than typed ones, and corrections especially benefit. Reuse the component as-is; don't rebuild the mic affordance per-screen.

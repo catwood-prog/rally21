@@ -49,6 +49,11 @@ type OutboxRow = {
   payload: {
     subject?: string;
     html?: string;
+    // NQ1 (16 July): nudge_daily rows carry Cat's exact template body for
+    // the push, so the push isn't a stripped-html approximation. Every
+    // other kind (and older queued rows) omits it and falls back to
+    // stripHtmlToPushBody unchanged.
+    push_body?: string;
     local_date?: string;
     senderName?: string;
     circleName?: string;
@@ -544,7 +549,11 @@ Deno.serve(async (req) => {
       // falls through to email below (better a late email than silence);
       // any other push failure (network, Expo outage) does the same.
       try {
-        const pushResult = await sendExpoPush(admin, row.user_id, renderedSubject, stripHtmlToPushBody(renderedHtml));
+        // NQ1: prefer the composer's exact push body (nudge_daily) over
+        // stripping the email html; every other kind has no push_body and
+        // keeps the stripped-html behaviour.
+        const pushBody = row.payload?.push_body ?? stripHtmlToPushBody(renderedHtml);
+        const pushResult = await sendExpoPush(admin, row.user_id, renderedSubject, pushBody);
         if (pushResult) {
           const { ticket, token: pushToken } = pushResult;
           if (ticket.status === "ok") {

@@ -631,22 +631,58 @@ export const STRINGS = {
 // function (a standalone Deno file with no access to this module graph)
 // keeps its own literal copy of this exact array in sync by hand — see
 // the comment at its definition there.
+// NQ1 (16 July) — the pool grows to 31 warm / 12 restart lines, Cat's
+// final spreadsheet-approved copy (../Rally21-Nudge-Copy-Draft.md). The
+// compose-nudges edge function keeps a byte-identical copy in its own
+// nudge-lines.ts (Deno, no access to this module graph); nudge-lines.test.ts
+// pins the two arrays equal so they can never silently drift.
 export const NUDGE_WARM_LINES = [
-  "no pressure — just today's little thing, whenever you get to it.",
-  'your circle showed up for you before. today, maybe you show up for them.',
-  "small and steady beats big and never. today's a small day.",
-  'nobody is keeping score. this is just an invitation.',
-  "a couple minutes, a couple lines — that's the whole ask.",
-  'the circle is quietly rooting for you, no pressure attached.',
+  'just a reminder to check in with your circle.',
+  "there's a warm spot for you in the circle — come take it.",
+  "small and steady is the point, today's step can be tiny.",
+  'keep up and you will be kept up.',
+  "a couple of minutes, a couple of lines — that's all for today.",
+  'your circle is quietly rooting for you, with no pressure attached.',
   "today's version of you only needs to do today's version of the thing.",
-  'showing up messy still counts as showing up.',
+  'messy is most welcome here, showing up is what matters.',
+  "it doesn't have to be perfect, it just has to be yours.",
+  'the kettle takes longer to boil than this will.',
+  "you don't need the perfect moment, this one will do.",
+  'your future self is quietly cheering you on.',
+  "the huddle's warmer with you in it.",
+  "today's ask is small on purpose.",
+  'one small yes is enough for today.',
+  "penguins don't overthink the huddle. they just waddle in.",
+  'a wobbly little effort is still a lovely effort.',
+  "the little thing is little, that's the whole idea.",
+  "you don't need to feel ready, just a couple of minutes is enough.",
+  'the circle keeps a light on for you.',
+  'a quiet little win is waiting for you.',
+  'it fits in the gap between two scrolls.',
+  'a friendly wave from us — your practice is ready when you are.',
+  'your spot in the circle is always yours — come fill it today.',
+  'little things have a lovely way of adding up.',
+  'a couple of minutes can be its own little win.',
+  'consider this a wave from across the room.',
+  "you'll be glad you did it. you always are.",
+  'five minutes from now, this could already be done.',
+  "the hardest part is opening the app. you're basically there.",
+  'done today beats perfect someday.',
 ] as const;
 
 // Restart-framed only — never references a miss. Used instead of a warm
 // line when yesterday had no completion, so the copy never reads as guilt.
 export const NUDGE_RESTART_LINES = [
-  'Day 1s are allowed. Tonight counts.',
-  'every day is a fine day to start again.',
-  'no catching up required — just today.',
-  "today's a clean page. that's all it needs to be.",
+  'day ones are always welcome, tonight is a fine time to begin again.',
+  'any day is a good day to begin again.',
+  'no catching up required — just a little something today.',
+  "today is a clean page. that's all it needs to be.",
+  'a fresh start, zero paperwork.',
+  'beginning again is still a beginning.',
+  'day one energy is good energy.',
+  'no run-up needed, step in whenever you like.',
+  "starting again is a skill — and you're already practicing it.",
+  'clean page, small pen, plenty of possibility.',
+  'a fresh start begins with one small check-in.',
+  'today welcomes you just as you are — one small check-in starts it.',
 ] as const;
