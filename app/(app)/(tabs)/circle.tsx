@@ -41,7 +41,7 @@ import {
 } from '@/lib/circle';
 import { isBirthdayToday } from '@/lib/birthday';
 import { daysBetween, getLocalDateString, localDateStringInTimeZone } from '@/lib/date';
-import { getPairStreaks, PairStreak } from '@/lib/glow';
+import { getGlowForCircleMates, getPairStreaks, PairStreak } from '@/lib/glow';
 import {
   completeCircle,
   GATE_DAY,
@@ -91,6 +91,8 @@ export default function YourCircle() {
   const [circle, setCircle] = useState<MyCircle | null>(null);
   const [members, setMembers] = useState<CircleMember[]>([]);
   const [presence, setPresence] = useState<PresenceRow[]>([]);
+  // GS1 — the Who's Here glow ride-along (7+ days only; server-floored).
+  const [glowByUserId, setGlowByUserId] = useState<Map<string, number>>(new Map());
   const [wallPreview, setWallPreview] = useState<WallPreviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -166,7 +168,7 @@ export default function YourCircle() {
       const myCircle = selection.circle;
       setCircle(myCircle);
       if (myCircle) {
-        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay, myPairStreaks, myBlocks] =
+        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay, myPairStreaks, myBlocks, mateGlows] =
           await Promise.all([
             getCircleMembers(myCircle.id),
             getCirclePresence(myCircle.id),
@@ -175,9 +177,14 @@ export default function YourCircle() {
             getMyLastCelebratedDay(myCircle.id, session.user.id),
             getPairStreaks(myCircle.id).catch(() => []),
             getMyBlocks().catch(() => []),
+            // GS1: one batch call for the whole huddle, riding the same
+            // load — never a per-member fetch. Ambient pride only, so a
+            // failed fetch just means no flames this visit.
+            getGlowForCircleMates(myCircle.id).catch(() => new Map<string, number>()),
           ]);
         setMembers(circleMembers);
         setPresence(circlePresence);
+        setGlowByUserId(mateGlows);
         setWallPreview(preview);
         setHasSeenCoverHint(!!profile?.has_seen_cover_hint);
         setMyLastCelebratedDay(lastCelebratedDay);
@@ -872,6 +879,18 @@ export default function YourCircle() {
                       <CheckedInBadge state={state} />
                     )}
                   </View>
+                  {/* GS1 — ambient pride from 7 days: flame + count, or
+                      NOTHING at all (absence must read as "doesn't
+                      apply", never a gap — the server already floors and
+                      excludes away members; !isAway is belt only). */}
+                  {!isAway && glowByUserId.has(member.userId) && (
+                    <Text
+                      style={styles.glowFlameLine}
+                      accessibilityLabel={STRINGS.glowFlameA11yLabel(memberDisplayName, glowByUserId.get(member.userId)!)}
+                    >
+                      🔥 {glowByUserId.get(member.userId)}
+                    </Text>
+                  )}
                   {isReachable && !checkedIn && (
                     <TouchableOpacity
                       style={styles.coverPill}
@@ -1515,6 +1534,14 @@ const styles = StyleSheet.create({
   awayBadgeText: {
     fontSize: 10,
     lineHeight: 12,
+  },
+  // GS1 — the ambient flame line under a glowing member's avatar.
+  // Quiet by design: small, muted, no ranking treatment, and simply
+  // absent below 7 days.
+  glowFlameLine: {
+    fontSize: 9,
+    color: colors.muted,
+    marginTop: 2,
   },
   coverPill: {
     marginTop: 6,

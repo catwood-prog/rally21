@@ -185,6 +185,13 @@ export const STRINGS = {
   birthdaySave: 'Save birthday',
   birthdaySelfLine: (name: string | null) => `happy birthday${name ? `, ${name}` : ''} 🎂`,
   birthdayMemberLine: (name: string) => `it's ${name}'s birthday today 🎂`,
+  // GS1 — the glow goes social. The wall line itself is composed
+  // SERVER-SIDE in check_glow_milestone (S1's rule: a definer function
+  // never accepts client copy); this reference copy documents it and
+  // must stay verbatim-identical to the migration. The flame label is
+  // the Who's Here ride-along's own a11y text.
+  glowSocialWallLine: (name: string, days: number) => `${name} has been glowing ${days} days 🔥`,
+  glowFlameA11yLabel: (name: string, days: number) => `${name} has been glowing ${days} days`,
   publicShareDisclosure: 'public circles share their practice to the library, so others can start their own',
   myPracticesSubtitle: 'your practice library — reuse them in new circles. Shared ones can be picked by others.',
   practicePillShared: 'shared',
@@ -482,6 +489,13 @@ export const STRINGS = {
     'how do I get closer to what I’m reaching for?',
     'I want to talk about how I’m feeling',
   ],
+
+  // PM2 (17 July) — the private map's liked-quotes section. "quotes you
+  // love" is Cat's own wording (15 July). The section simply doesn't
+  // render with no likes — never an empty-state nag.
+  blueprintQuotesLabel: 'quotes you love',
+  blueprintQuotesSeeAll: (n: number) => `see all ${n}`,
+  blueprintQuotesRemove: 'remove',
 
   wallComposerPlaceholder: 'Message your circle…',
   hostDeleteWallMessageCancel: 'Cancel',

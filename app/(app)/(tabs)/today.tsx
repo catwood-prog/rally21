@@ -36,7 +36,7 @@ import {
 } from '@/lib/circle';
 import { isBirthdayToday } from '@/lib/birthday';
 import { daysBetween, getLocalDateString } from '@/lib/date';
-import { getMyGlow, getMyWeek, Glow, WeekDay } from '@/lib/glow';
+import { getGlowForCircleMates, getMyGlow, getMyWeek, Glow, WeekDay } from '@/lib/glow';
 import { getMyLastCelebratedDay, getNextMilestone, shouldShowJourneyGate } from '@/lib/journey';
 import { updateNotificationPrefs } from '@/lib/notifications';
 import { getMyProfile, markRemindersAskSeen } from '@/lib/profile';
@@ -56,7 +56,13 @@ function memberFullName(members: CircleMember[], userId: string | null | undefin
   return members.find((m) => m.userId === userId)?.name ?? 'someone in your circle';
 }
 
-type CircleData = { members: CircleMember[]; presence: PresenceRow[]; lastCelebratedDay: number };
+type CircleData = {
+  members: CircleMember[];
+  presence: PresenceRow[];
+  lastCelebratedDay: number;
+  // GS1 — circle-mates at 7+ days glowing (server-floored), by user id.
+  mateGlows: Map<string, number>;
+};
 
 export default function Today() {
   const router = useRouter();
@@ -133,12 +139,16 @@ export default function Today() {
 
       const entries = await Promise.all(
         myCircles.map(async (c): Promise<[string, CircleData]> => {
-          const [members, presence, lastCelebratedDay] = await Promise.all([
+          const [members, presence, lastCelebratedDay, mateGlows] = await Promise.all([
             getCircleMembers(c.id),
             getCirclePresence(c.id),
             getMyLastCelebratedDay(c.id, session.user.id),
+            // GS1: the Who's Here glow ride-along — one batch call per
+            // circle in the same Promise.all, never per member. Ambient
+            // only; a failed fetch just means no flames this visit.
+            getGlowForCircleMates(c.id).catch(() => new Map<string, number>()),
           ]);
-          return [c.id, { members, presence, lastCelebratedDay }];
+          return [c.id, { members, presence, lastCelebratedDay, mateGlows }];
         })
       );
       setCircleData(Object.fromEntries(entries));
@@ -207,6 +217,7 @@ export default function Today() {
               members: prev[id]?.members ?? [],
               presence,
               lastCelebratedDay: prev[id]?.lastCelebratedDay ?? 0,
+              mateGlows: prev[id]?.mateGlows ?? new Map<string, number>(),
             },
           }));
         });
@@ -349,8 +360,10 @@ export default function Today() {
   // ---- exactly one circle: identical to the pre-multi-circle Today ----
   if (circles.length === 1) {
     const circle = circles[0];
-    const data = circleData[circle.id] ?? { members: [], presence: [], lastCelebratedDay: 0 };
-    const { members, presence } = data;
+    const data =
+      circleData[circle.id] ??
+      { members: [], presence: [], lastCelebratedDay: 0, mateGlows: new Map<string, number>() };
+    const { members, presence, mateGlows } = data;
     const inTodayUserIds = new Set(
       presence.filter((p) => p.localDate === today).map((p) => p.userId)
     );
@@ -479,6 +492,16 @@ export default function Today() {
                 <Text style={styles.memberName} numberOfLines={1}>
                   {isMe ? 'You' : member.name ?? 'circle-mate'}
                 </Text>
+                {/* GS1 — ambient pride from 7 days; away members never
+                    reach the map (server-excluded). Absent below 7. */}
+                {!member.awaySince && mateGlows.has(member.userId) && (
+                  <Text
+                    style={styles.glowFlameLine}
+                    accessibilityLabel={STRINGS.glowFlameA11yLabel(member.name ?? 'circle-mate', mateGlows.get(member.userId)!)}
+                  >
+                    🔥 {mateGlows.get(member.userId)}
+                  </Text>
+                )}
               </View>
             );
           })}
@@ -579,8 +602,10 @@ export default function Today() {
       </Text>
 
       {circles.map((circle) => {
-        const data = circleData[circle.id] ?? { members: [], presence: [], lastCelebratedDay: 0 };
-        const { members, presence } = data;
+        const data =
+          circleData[circle.id] ??
+          { members: [], presence: [], lastCelebratedDay: 0, mateGlows: new Map<string, number>() };
+        const { members, presence, mateGlows } = data;
         const inTodayUserIds = new Set(
           presence.filter((p) => p.localDate === today).map((p) => p.userId)
         );
@@ -657,6 +682,15 @@ export default function Today() {
                     <Text style={styles.memberName} numberOfLines={1}>
                       {isMe ? 'You' : member.name ?? 'circle-mate'}
                     </Text>
+                    {/* GS1 — same ambient flame as the single-circle strip. */}
+                    {!member.awaySince && mateGlows.has(member.userId) && (
+                      <Text
+                        style={styles.glowFlameLine}
+                        accessibilityLabel={STRINGS.glowFlameA11yLabel(member.name ?? 'circle-mate', mateGlows.get(member.userId)!)}
+                      >
+                        🔥 {mateGlows.get(member.userId)}
+                      </Text>
+                    )}
                   </View>
                 );
               })}
@@ -855,6 +889,13 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: colors.muted,
     marginTop: 5,
+  },
+  // GS1 — the ambient flame under a glowing member's name. Quiet by
+  // design; simply absent below 7 days.
+  glowFlameLine: {
+    fontSize: 9,
+    color: colors.muted,
+    marginTop: 1,
   },
   cta: {
     backgroundColor: colors.gold,

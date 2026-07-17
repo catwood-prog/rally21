@@ -51,6 +51,27 @@ export async function checkGlowMilestone(): Promise<number | null> {
   return data ?? null;
 }
 
+// GS1 (17 July) — the glow goes social (Rally21-Glow-Spec.md §10).
+// Hand-synced with the gs1_glow_goes_social migration's own floor: the
+// server RPC ALREADY applies it (a sub-7 or away member is simply absent
+// from the result — no sub-threshold number ever crosses the API); this
+// client copy exists for display copy and future call sites, never as
+// the enforcement point.
+export const GLOW_SOCIAL_VISIBLE_FROM_DAYS = 7;
+
+/** Who's Here's glow ride-along: day counts for every circle-mate at
+ * 7+ days glowing (and not away), keyed by user id. Circle-mates only,
+ * enforced at the database — the RPC takes the circle id, derives the
+ * member list itself (no arbitrary-uuid reads), and returns nothing at
+ * all to a non-member. One batch call per circle, never per member. */
+export async function getGlowForCircleMates(circleId: string): Promise<Map<string, number>> {
+  const { data, error } = await supabase.rpc('get_glow_for_circle_mates', { p_circle_id: circleId });
+  if (error) throw error;
+  return new Map(
+    ((data ?? []) as { user_id: string; glow: number }[]).map((row) => [row.user_id, row.glow])
+  );
+}
+
 export async function getPairStreaks(circleId: string): Promise<PairStreak[]> {
   const { data, error } = await supabase.rpc('get_pair_streaks', { p_circle_id: circleId });
   if (error) throw error;
