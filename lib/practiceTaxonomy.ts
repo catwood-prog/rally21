@@ -12,15 +12,18 @@
  * grow over time from real miscategorisations — add here, with a test.
  */
 
-export type PracticeDomain = 'move' | 'mind' | 'learn' | 'make' | 'connect' | 'care';
+// PT3 (17 July) — the re-cut to Cat's 16 July table: 18 keys, five
+// domains (connect retired), affirm added, music moved make → learn.
+// The retired keys were proven row-free live before the cut (the
+// migration guards against replaying onto rows that use them).
+export type PracticeDomain = 'move' | 'mind' | 'learn' | 'make' | 'care';
 
 export type PracticeTypeKey =
   | 'walk' | 'run' | 'stretch' | 'strength' | 'sport' | 'dance'
-  | 'meditate' | 'breathe' | 'journal' | 'gratitude' | 'unplug'
-  | 'read' | 'language' | 'study' | 'listen'
-  | 'write' | 'art' | 'music' | 'craft' | 'build'
-  | 'reach-out' | 'quality-time' | 'kindness'
-  | 'sleep' | 'eat' | 'hydrate' | 'tidy' | 'money' | 'self-care';
+  | 'meditate' | 'breathe' | 'journal' | 'gratitude' | 'affirm'
+  | 'read' | 'language' | 'study' | 'music'
+  | 'write' | 'art'
+  | 'eat';
 
 export type PracticeType = {
   domain: PracticeDomain;
@@ -34,7 +37,6 @@ export const PRACTICE_DOMAINS: { key: PracticeDomain; display: string }[] = [
   { key: 'mind', display: 'Mind' },
   { key: 'learn', display: 'Learn' },
   { key: 'make', display: 'Make' },
-  { key: 'connect', display: 'Connect' },
   { key: 'care', display: 'Care' },
 ];
 
@@ -48,33 +50,27 @@ export const PRACTICE_DOMAINS: { key: PracticeDomain; display: string }[] = [
 export const PRACTICE_TYPES: PracticeType[] = [
   { domain: 'move', key: 'walk', display: 'Walk', keywords: ['walk', 'steps', 'stroll', 'hike'] },
   { domain: 'move', key: 'run', display: 'Run', keywords: ['run', 'jog', '5k', 'couch to'] },
-  { domain: 'move', key: 'stretch', display: 'Stretch & yoga', keywords: ['stretch', 'yoga', 'mobility', 'pilates'] },
+  { domain: 'move', key: 'stretch', display: 'Stretch & Yoga', keywords: ['stretch', 'yoga', 'mobility', 'pilates'] },
   { domain: 'move', key: 'strength', display: 'Strength', keywords: ['workout', 'gym', 'push up', 'weights', 'strength'] },
-  { domain: 'move', key: 'sport', display: 'Sport & swim', keywords: ['swim', 'bike', 'cycle', 'climb', 'tennis', 'football'] },
+  { domain: 'move', key: 'sport', display: 'Sport & Swim', keywords: ['swim', 'bike', 'cycle', 'climb', 'tennis', 'football'] },
   { domain: 'move', key: 'dance', display: 'Dance', keywords: ['dance', 'ballet'] },
   { domain: 'mind', key: 'meditate', display: 'Meditate', keywords: ['meditate', 'meditation', 'sit', 'mindfulness'] },
   { domain: 'mind', key: 'breathe', display: 'Breathwork', keywords: ['breath', 'breathe', 'breathing', 'pranayama'] },
   { domain: 'mind', key: 'journal', display: 'Journal', keywords: ['journal', 'diary', 'morning pages'] },
   { domain: 'mind', key: 'gratitude', display: 'Gratitude', keywords: ['gratitude', 'grateful', 'thankful'] },
-  { domain: 'mind', key: 'unplug', display: 'Unplug', keywords: ['no phone', 'screen free', 'offline', 'detox'] },
+  // 'affirmations' (plural) added beyond the spec's example set: the
+  // matcher is word-boundary exact, and the plural is how people
+  // actually name this practice ("morning affirmations").
+  { domain: 'mind', key: 'affirm', display: 'Affirmations', keywords: ['affirmation', 'affirmations', 'affirm', 'mantra', 'self-talk'] },
   { domain: 'learn', key: 'read', display: 'Read', keywords: ['read', 'book', 'pages', 'chapter'] },
   { domain: 'learn', key: 'language', display: 'Language', keywords: ['language', 'spanish', 'french', 'duolingo', 'vocab'] },
-  { domain: 'learn', key: 'study', display: 'Study & courses', keywords: ['study', 'course', 'lecture', 'revise', 'learn'] },
-  { domain: 'learn', key: 'listen', display: 'Listen & watch', keywords: ['podcast', 'audiobook', 'documentary'] },
+  { domain: 'learn', key: 'study', display: 'Study & Courses', keywords: ['study', 'course', 'lecture', 'revise', 'learn'] },
+  // music sits AFTER study on purpose: "music theory course" must hit
+  // Study & Courses first (spec boundary ruling).
+  { domain: 'learn', key: 'music', display: 'Music', keywords: ['guitar', 'piano', 'sing', 'practice scales', 'instrument', 'music'] },
   { domain: 'make', key: 'write', display: 'Write', keywords: ['write', 'writing', 'novel', 'blog', 'poem'] },
-  { domain: 'make', key: 'art', display: 'Draw & paint', keywords: ['draw', 'paint', 'sketch', 'art'] },
-  { domain: 'make', key: 'music', display: 'Music', keywords: ['guitar', 'piano', 'sing', 'practice scales', 'instrument'] },
-  { domain: 'make', key: 'craft', display: 'Craft', keywords: ['knit', 'sew', 'pottery', 'woodwork', 'craft', 'bake'] },
-  { domain: 'make', key: 'build', display: 'Build & code', keywords: ['code', 'coding', 'build', 'project', 'app'] },
-  { domain: 'connect', key: 'reach-out', display: 'Reach out', keywords: ['call', 'text', 'message', 'check in on', 'friend'] },
-  { domain: 'connect', key: 'quality-time', display: 'Quality time', keywords: ['family', 'kids', 'partner', 'date', 'together'] },
-  { domain: 'connect', key: 'kindness', display: 'Kindness', keywords: ['kind', 'kindness', 'compliment', 'help someone'] },
-  { domain: 'care', key: 'sleep', display: 'Sleep', keywords: ['sleep', 'bed by', 'bedtime', 'wind down', 'screens off'] },
-  { domain: 'care', key: 'eat', display: 'Eat well', keywords: ['cook', 'eat', 'vegetables', 'no sugar', 'meal'] },
-  { domain: 'care', key: 'hydrate', display: 'Hydrate', keywords: ['water', 'hydrate', 'litres'] },
-  { domain: 'care', key: 'tidy', display: 'Tidy', keywords: ['tidy', 'clean', 'declutter', 'make bed'] },
-  { domain: 'care', key: 'money', display: 'Money', keywords: ['budget', 'spending', 'money', 'save'] },
-  { domain: 'care', key: 'self-care', display: 'Self-care', keywords: ['skincare', 'bath', 'sunscreen', 'floss', 'vitamins'] },
+  { domain: 'make', key: 'art', display: 'Draw & Paint', keywords: ['draw', 'paint', 'sketch', 'art'] },
+  { domain: 'care', key: 'eat', display: 'Eat Well', keywords: ['cook', 'eat', 'vegetables', 'no sugar', 'meal', 'vitamins', 'medicine', 'meds', 'supplements'] },
 ];
 
 export function typesForDomain(domain: PracticeDomain): PracticeType[] {

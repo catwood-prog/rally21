@@ -1,8 +1,11 @@
 /**
- * PT1 — pins the taxonomy tables and the deterministic classifier,
+ * PT1/PT3 — pins the taxonomy tables and the deterministic classifier,
  * including every boundary ruling written into
  * Rally21-Practice-Taxonomy-Spec.md so future keyword additions can't
- * silently re-litigate them.
+ * silently re-litigate them. PT3 (17 July) re-cut the table to Cat's
+ * 18-key / five-domain ruling: names that used to match a retired type
+ * (call mum, no phone, bake, bed by ten…) now get NO pre-selection —
+ * the warm manual pick handles them, never an error.
  */
 import {
   classifyPracticeName,
@@ -12,21 +15,35 @@ import {
 } from './practiceTaxonomy';
 
 describe('the type table', () => {
-  it('has exactly the six domains and 29 permanent type keys', () => {
+  it('has exactly the five domains and 18 permanent type keys (PT3 re-cut)', () => {
     expect(PRACTICE_DOMAINS.map((d) => d.key)).toEqual([
-      'move', 'mind', 'learn', 'make', 'connect', 'care',
+      'move', 'mind', 'learn', 'make', 'care',
     ]);
-    expect(PRACTICE_TYPES).toHaveLength(29);
-    // Keys are permanent API — this list is the spec's, verbatim. If this
-    // test is failing you are renaming/removing a shipped key: don't.
+    expect(PRACTICE_TYPES).toHaveLength(18);
+    // Keys are permanent API — this list is the spec's 16 July table,
+    // verbatim. The 12 retired keys were proven row-free before the
+    // PT3 cut; don't rename/remove/re-add without a migration + ruling.
     expect(PRACTICE_TYPES.map((t) => t.key)).toEqual([
       'walk', 'run', 'stretch', 'strength', 'sport', 'dance',
-      'meditate', 'breathe', 'journal', 'gratitude', 'unplug',
-      'read', 'language', 'study', 'listen',
-      'write', 'art', 'music', 'craft', 'build',
-      'reach-out', 'quality-time', 'kindness',
-      'sleep', 'eat', 'hydrate', 'tidy', 'money', 'self-care',
+      'meditate', 'breathe', 'journal', 'gratitude', 'affirm',
+      'read', 'language', 'study', 'music',
+      'write', 'art',
+      'eat',
     ]);
+  });
+
+  it('music lives in learn (PT3: moved from make, display stays Music)', () => {
+    const music = PRACTICE_TYPES.find((t) => t.key === 'music');
+    expect(music?.domain).toBe('learn');
+    expect(music?.display).toBe('Music');
+  });
+
+  it('display names are Title Case on every word (Cat, 17 July)', () => {
+    for (const t of PRACTICE_TYPES) {
+      for (const word of t.display.split(/[\s&]+/).filter(Boolean)) {
+        expect(word[0]).toBe(word[0].toUpperCase());
+      }
+    }
   });
 
   it('every type belongs to a real domain and keys are unique', () => {
@@ -47,23 +64,40 @@ describe('the type table', () => {
 });
 
 describe('classifyPracticeName', () => {
-  it('classifies the PT1 acceptance examples', () => {
+  it('classifies the acceptance examples', () => {
     expect(classifyPracticeName('Read 10 pages before bed')).toEqual({ domain: 'learn', type: 'read' });
-    expect(classifyPracticeName('call mum')).toEqual({ domain: 'connect', type: 'reach-out' });
+    expect(classifyPracticeName('take my vitamins')).toEqual({ domain: 'care', type: 'eat' });
     expect(classifyPracticeName('zzxqv flurble')).toBeNull();
   });
 
-  it('holds the spec boundary rulings', () => {
+  it('gives retired-type names NO pre-selection (PT3 — manual pick, never an error)', () => {
+    // These all matched a type before the 17 July re-cut; the retired
+    // keywords went with their types, so they now fall to the warm
+    // manual pick.
+    expect(classifyPracticeName('call mum')).toBeNull(); // was connect/reach-out
+    expect(classifyPracticeName('No phone after dinner')).toBeNull(); // was mind/unplug
+    expect(classifyPracticeName('Bake sourdough')).toBeNull(); // was make/craft
+    expect(classifyPracticeName('In bed by 10:30')).toBeNull(); // was care/sleep
+    expect(classifyPracticeName('budget check')).toBeNull(); // was care/money
+    expect(classifyPracticeName('drink two litres of water')).toBeNull(); // was care/hydrate
+  });
+
+  it('classifies the new affirm type', () => {
+    expect(classifyPracticeName('morning affirmations')).toEqual({ domain: 'mind', type: 'affirm' });
+    expect(classifyPracticeName('say my mantra')).toEqual({ domain: 'mind', type: 'affirm' });
+    expect(classifyPracticeName('practice positive self-talk')).toEqual({ domain: 'mind', type: 'affirm' });
+  });
+
+  it('holds the spec boundary rulings that survive the re-cut', () => {
     // "Read before bed" is reading, not a bedtime routine.
     expect(classifyPracticeName('Read before bed')).toEqual({ domain: 'learn', type: 'read' });
-    // A screens-off bedtime routine IS care/sleep.
-    expect(classifyPracticeName('Screens off by 10')).toEqual({ domain: 'care', type: 'sleep' });
-    expect(classifyPracticeName('In bed by 10:30')).toEqual({ domain: 'care', type: 'sleep' });
-    // Creative cooking/baking → make/craft; eating habits → care/eat.
-    expect(classifyPracticeName('Bake sourdough')).toEqual({ domain: 'make', type: 'craft' });
+    // Eating habits → care/eat — now including the vitamins/meds set
+    // that moved over from retired self-care.
     expect(classifyPracticeName('Eat more vegetables')).toEqual({ domain: 'care', type: 'eat' });
-    // Playing an instrument → make/music; music theory course → learn/study.
-    expect(classifyPracticeName('Practice guitar 15 minutes')).toEqual({ domain: 'make', type: 'music' });
+    expect(classifyPracticeName('remember my meds')).toEqual({ domain: 'care', type: 'eat' });
+    // Playing an instrument → music (now learn); music theory course →
+    // learn/study (study sits before music in the table on purpose).
+    expect(classifyPracticeName('Practice guitar 15 minutes')).toEqual({ domain: 'learn', type: 'music' });
     expect(classifyPracticeName('Music theory course')).toEqual({ domain: 'learn', type: 'study' });
   });
 
@@ -74,7 +108,6 @@ describe('classifyPracticeName', () => {
     expect(classifyPracticeName('Sit quietly for 5 minutes')).toEqual({ domain: 'mind', type: 'meditate' });
     // Multi-word keywords match as phrases.
     expect(classifyPracticeName('Couch to 5k plan')).toEqual({ domain: 'move', type: 'run' });
-    expect(classifyPracticeName('No phone after dinner')).toEqual({ domain: 'mind', type: 'unplug' });
     expect(classifyPracticeName('Morning pages')).toEqual({ domain: 'mind', type: 'journal' });
     // "pages" alone (without the phrase) is learn/read.
     expect(classifyPracticeName('Ten pages a day')).toEqual({ domain: 'learn', type: 'read' });
@@ -88,7 +121,7 @@ describe('classifyPracticeName', () => {
     expect(b).toEqual(a);
   });
 
-  it('classifies the live cohort names the way the migration backfilled them', () => {
+  it('classifies the live cohort names the way the migrations filed them', () => {
     expect(classifyPracticeName('Stretching/Yoga moves')).toEqual({ domain: 'move', type: 'stretch' });
     expect(classifyPracticeName('Workout - no equipment needed')).toEqual({ domain: 'move', type: 'strength' });
     expect(classifyPracticeName('Breath of Fire & Fists of Anger')).toEqual({ domain: 'mind', type: 'breathe' });

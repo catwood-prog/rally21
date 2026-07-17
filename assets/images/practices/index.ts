@@ -12,12 +12,11 @@ import { ImageSourcePropType } from 'react-native';
 // treatment instead — never a broken image (see the browse grid's
 // fallback in create-circle.tsx).
 //
-// Deliberately keyed as a plain string map, not Record<PracticeTypeKey,…>:
-// the set Cat generated tracks the taxonomy spec's 16 July revision
-// (affirm added), which is one step ahead of the shipped 29-key
-// taxonomy — affirm.jpg is bundled and ready but unreachable until a
-// migration adds the 'affirm' key. eat.png was not in the drop; care/eat
-// falls back to emoji until it lands.
+// PT3 (17 July): the map now covers the full 18-key table — every type
+// has its tile (eat's master landed; unplug retired with its file, so
+// the browse never shows it again). Kept as a plain string map so a
+// bundle running ahead of (or behind) a schema change degrades to the
+// emoji fallback instead of a type error.
 export const PRACTICE_TILES: Record<string, ImageSourcePropType> = {
   walk: require('./walk.jpg'),
   run: require('./run.jpg'),
@@ -29,12 +28,12 @@ export const PRACTICE_TILES: Record<string, ImageSourcePropType> = {
   breathe: require('./breathe.jpg'),
   journal: require('./journal.jpg'),
   gratitude: require('./gratitude.jpg'),
-  unplug: require('./unplug.jpg'),
   affirm: require('./affirm.jpg'),
   read: require('./read.jpg'),
   language: require('./language.jpg'),
   study: require('./study.jpg'),
+  music: require('./music.jpg'),
   write: require('./write.jpg'),
   art: require('./art.jpg'),
-  music: require('./music.jpg'),
+  eat: require('./eat.jpg'),
 };
