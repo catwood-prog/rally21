@@ -1,5 +1,5 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
@@ -7,14 +7,16 @@ import { MessageDialog } from '@/components/MessageDialog';
 import { ShareCardView } from '@/components/ShareCardView';
 import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
+import { WeekDay } from '@/lib/glow';
 import { captureShareCard, saveCardImage, shareCardImage } from '@/lib/shareCardExport';
-import { recordCardEvent } from '@/lib/shareCards';
+import { isShareCardFlavor, recordCardEvent, ShareCardFlavor } from '@/lib/shareCards';
+import { dotStripLine } from '@/lib/shareCardTemplates';
 
 /**
  * SC1 (13 July) — the card slot's full-screen view (spec §3). Reached
  * only from checkin-complete.tsx's own composition check — never a
  * standalone route a user navigates to directly. Screen chrome (the
- * Like/Share row, Save, mute, the two dismiss affordances) is never
+ * Like/Share row, the dismiss affordances, SC2's name toggle) is never
  * part of the captured PNG; only <ShareCardView> itself gets captured.
  *
  * Event taxonomy note: 'shown' fires on mount here; 'opened' is a
@@ -28,46 +30,75 @@ import { recordCardEvent } from '@/lib/shareCards';
  * (spec §3 Rotation) — a different, slightly stronger signal than the
  * neutral skip, even though both simply leave the screen.
  *
- * SC1B (15 July, Cat's ruling from the live screenshot): the feedback
- * row is Like · Share · Not for me, ONE row, directly under the white
- * card, every control 50% larger than the SC1 sizing. The visible card
- * is ShareCardView's screen rendering (card only); the 9:16 capture
- * field renders once more off-screen and is what Share/Save snapshot —
- * so the PNG keeps its story format while the screen hugs the card.
+ * SC1B/SC1C (15 July, Cat's rulings): the action row is Like · Share,
+ * one row directly under the white card at the SC1C (×0.7-from-SC1B)
+ * sizing, "Not for me" quiet beneath it; the 9:16 capture field renders
+ * once more off-screen and is what Share/Save snapshot. Save lost
+ * nothing: Share's own web path falls back to the image download.
  *
- * SC1C (15 July, Cat's ruling from seeing SC1B rendered): rev 2 of the
- * action row. (a) Like and Share shrink 30% from the SC1B size (×0.7 on
- * text/icon/padding — net ~+5% vs the SC1 original). (b) The main row is
- * Like · Share ONLY. (c) "Not for me" drops beneath it as small, quiet,
- * centered text — same 'passed' behavior (card-level resonance, weight
- * nudge — spec §3), just no longer a peer button. (d) The old secondary
- * "Save · Not my kind of thing" row is GONE. Save lost nothing: Share's
- * own web path already falls back to the image download when no share
- * sheet exists, and native Share offers Save Image — so there was no
- * export capability only Save provided. The flavor-mute pref infra and
- * its settings re-enable list stay; only this on-card mute entry point
- * is removed (see the SC1C commit note: it was the sole mute-ON path).
+ * SC2 (18 July) — the two new flavors ride the same screen. A `flavor`
+ * param picks the rendering and stamps every card_event; warm_journey
+ * arrives with its body already slot-filled by checkin-complete plus a
+ * dayNumber for the big header; dot_strip arrives as data (the week
+ * JSON + weekNumber + practiceName) and composes its line HERE because
+ * of the name toggle — Cat's 17 July ruling on spec §9 Q3: the practice
+ * name is on the card by default, with a one-tap toggle to the generic
+ * "daily practice" right in the share preview, so consent happens in
+ * the moment, before anything leaves the app. The toggle drives both
+ * the on-screen card and the capture variant (same props), so the
+ * exported PNG always matches the preview.
  */
 export default function ShareCard() {
   const router = useRouter();
-  const { cardKey, body, attribution, gloss } = useLocalSearchParams<{
+  const params = useLocalSearchParams<{
+    flavor?: string;
     cardKey: string;
     body: string;
     attribution?: string;
     gloss?: string;
+    dayNumber?: string;
+    week?: string;
+    weekNumber?: string;
+    practiceName?: string;
   }>();
   const cardRef = useRef<View>(null);
+
+  const flavor: ShareCardFlavor = isShareCardFlavor(params.flavor) ? params.flavor : 'curated_quote';
+  const { cardKey } = params;
 
   const [liked, setLiked] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // SC2 — the dot-strip name consent (default ON per Cat's ruling); only
+  // meaningful when a practice name exists at all.
+  const [showPracticeName, setShowPracticeName] = useState(true);
 
-  const attributionValue = attribution || null;
-  const glossValue = gloss || null;
+  const attributionValue = params.attribution || null;
+  const glossValue = params.gloss || null;
+  const dayNumberValue = params.dayNumber ? Number(params.dayNumber) : null;
+  const practiceName = params.practiceName || null;
+
+  const week = useMemo<WeekDay[] | null>(() => {
+    if (flavor !== 'dot_strip' || !params.week) return null;
+    try {
+      const parsed = JSON.parse(params.week) as WeekDay[];
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+    } catch {
+      return null;
+    }
+  }, [flavor, params.week]);
+  const weekNumberValue = params.weekNumber ? Number(params.weekNumber) : null;
+
+  // The card body: quotes and journey lines arrive final; the dot strip
+  // composes under the toggle.
+  const body =
+    flavor === 'dot_strip' && weekNumberValue
+      ? dotStripLine(weekNumberValue, showPracticeName ? practiceName : null)
+      : params.body;
 
   useEffect(() => {
     if (!cardKey) return;
-    recordCardEvent('curated_quote', cardKey, 'shown').catch(() => {
+    recordCardEvent(flavor, cardKey, 'shown').catch(() => {
       // Best-effort — a missed 'shown' event only affects future tuning
       // data, never the card itself, which is already on screen.
     });
@@ -77,19 +108,19 @@ export default function ShareCard() {
   const goToToday = () => router.replace('/today');
 
   const handleSkip = () => {
-    if (cardKey) recordCardEvent('curated_quote', cardKey, 'dismissed').catch(() => {});
+    if (cardKey) recordCardEvent(flavor, cardKey, 'dismissed').catch(() => {});
     goToToday();
   };
 
   const handleNotForMe = () => {
-    if (cardKey) recordCardEvent('curated_quote', cardKey, 'passed').catch(() => {});
+    if (cardKey) recordCardEvent(flavor, cardKey, 'passed').catch(() => {});
     goToToday();
   };
 
   const handleLike = () => {
     if (liked || !cardKey) return;
     setLiked(true);
-    recordCardEvent('curated_quote', cardKey, 'liked').catch(() => {});
+    recordCardEvent(flavor, cardKey, 'liked').catch(() => {});
   };
 
   const handleShare = async () => {
@@ -99,10 +130,10 @@ export default function ShareCard() {
       const uri = await captureShareCard(cardRef);
       const shared = await shareCardImage(uri);
       if (shared) {
-        recordCardEvent('curated_quote', cardKey, 'shared').catch(() => {});
+        recordCardEvent(flavor, cardKey, 'shared').catch(() => {});
       } else {
         await saveCardImage(uri);
-        recordCardEvent('curated_quote', cardKey, 'saved').catch(() => {});
+        recordCardEvent(flavor, cardKey, 'saved').catch(() => {});
       }
     } catch {
       setError(STRINGS.shareCardShareError);
@@ -111,12 +142,23 @@ export default function ShareCard() {
     }
   };
 
-  if (!cardKey || !body) {
+  const paramsValid =
+    flavor === 'dot_strip' ? !!cardKey && !!week && !!weekNumberValue : !!cardKey && !!body;
+  if (!paramsValid) {
     // Reached without valid params somehow (stale link, direct nav) —
     // NAV1: go home quietly instead of stranding a cold-loaded URL on
     // an eternal spinner.
     return <Redirect href="/today" />;
   }
+
+  const cardProps = {
+    body,
+    attribution: attributionValue,
+    gloss: glossValue,
+    flavor,
+    dayNumber: dayNumberValue,
+    week,
+  };
 
   return (
     <View style={styles.container}>
@@ -131,7 +173,15 @@ export default function ShareCard() {
           <Text style={styles.skipButtonText}>✕</Text>
         </TouchableOpacity>
 
-        <ShareCardView body={body} attribution={attributionValue} gloss={glossValue} />
+        <ShareCardView {...cardProps} />
+
+        {flavor === 'dot_strip' && practiceName && (
+          <TouchableOpacity style={styles.nameToggle} onPress={() => setShowPracticeName((v) => !v)}>
+            <Text style={styles.nameToggleText}>
+              {showPracticeName ? STRINGS.shareCardHidePracticeName : STRINGS.shareCardShowPracticeName}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.reactionRow}>
           <TouchableOpacity style={styles.reactionButton} onPress={handleLike} disabled={liked}>
@@ -156,7 +206,7 @@ export default function ShareCard() {
         importantForAccessibility="no-hide-descendants"
       >
         <View style={styles.captureSizer}>
-          <ShareCardView ref={cardRef} capture body={body} attribution={attributionValue} gloss={glossValue} />
+          <ShareCardView ref={cardRef} capture {...cardProps} />
         </View>
       </View>
 
@@ -187,6 +237,22 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // SC2 — the dot strip's name toggle: quiet text chrome directly under
+  // the card, same subordinate register as "Not for me", never captured.
+  nameToggle: {
+    marginTop: 8,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    minHeight: 44,
+  },
+  nameToggleText: {
+    fontSize: 11.5,
+    color: colors.muted,
+    textDecorationLine: 'underline',
   },
   skipButtonText: {
     fontSize: 18,

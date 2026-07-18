@@ -316,11 +316,17 @@ Deno.serve(async (req) => {
           .maybeSingle();
         const mutedFlavors = new Set<string>((cardPrefs?.muted_flavors as string[] | undefined) ?? []);
 
+        // SC2: quotes ONLY — a Liked warm_journey card is a liked
+        // TEMPLATE (raw {slot} text, no tier) and a liked dot_strip has
+        // no bank row at all; neither may reach "a line you loved". The
+        // flavor filter also keeps the 3-distinct-likes gate counting
+        // liked QUOTES, which is what the NQ2 floor meant.
         const { data: likeRows } = await admin
           .from("card_events")
           .select("card_key, flavor")
           .eq("user_id", user.id)
-          .eq("event", "liked");
+          .eq("event", "liked")
+          .eq("flavor", "curated_quote");
         const likedKeys = [
           ...new Set(
             (likeRows ?? [])
@@ -336,7 +342,8 @@ Deno.serve(async (req) => {
             .from("share_card_bank")
             .select("id, body, attribution, tier")
             .in("id", likedKeys)
-            .eq("active", true);
+            .eq("active", true)
+            .eq("flavor", "curated_quote");
           const loved = composeLovedNudge({
             userId: user.id,
             localDate,

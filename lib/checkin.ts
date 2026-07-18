@@ -144,6 +144,26 @@ export async function hasAnyCompletionToday(params: { userId: string; localDate:
   return (data ?? []).length > 0;
 }
 
+/** SC2 — how many days the user has shown up for THIS circle themselves
+ * (kind = 'self': covered days are a friend's gift, deliberately not
+ * counted in a "you've kept a promise to yourself" claim — same honesty
+ * rule as getMyCompletions' weekly count). Feeds the journey card's
+ * count slots; the card templates must stay count-true, never rounded. */
+export async function countMyCircleCompletions(params: {
+  userId: string;
+  circleId: string;
+}): Promise<number> {
+  const { count, error } = await supabase
+    .from('completions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', params.userId)
+    .eq('circle_id', params.circleId)
+    .eq('kind', 'self');
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /** The day's mood/lines/question — one per person per local day, shared
  * across however many circles they're in. Re-saving the same day edits
  * this same row rather than creating another. */

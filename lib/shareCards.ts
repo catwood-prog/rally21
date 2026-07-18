@@ -1,12 +1,22 @@
 import { supabase } from './supabase';
 
 // SC1 (13 July) — share cards phase 1a: card slot + curated quote flavor.
-// Spec: ../Rally21-Share-Cards-Spec.md. Only flavor 4.1 (curated_quote,
-// including the NF-* facts sub-flavor) ships this pass.
+// Spec: ../Rally21-Share-Cards-Spec.md.
+// SC2 (18 July) — phase 1b: warm_journey (§4.2) and dot_strip (§4.3)
+// join the rotation. The server still owns cadence + flavor/template
+// selection; journey bodies come back with {slot} placeholders the
+// caller fills via lib/shareCardTemplates.ts, and a dot_strip result
+// carries no body at all (the card IS the caller's week, rendered
+// client-side).
 
-export type ShareCardFlavor = 'curated_quote';
+export type ShareCardFlavor = 'curated_quote' | 'warm_journey' | 'dot_strip';
+
+export function isShareCardFlavor(value: string | undefined): value is ShareCardFlavor {
+  return value === 'curated_quote' || value === 'warm_journey' || value === 'dot_strip';
+}
 
 export type ShareCard = {
+  flavor: ShareCardFlavor;
   cardKey: string;
   body: string;
   attribution: string | null;
@@ -37,16 +47,23 @@ export async function getShareCardForToday(params: {
   localDate: string;
   isRekindle?: boolean;
   isCovered?: boolean;
+  /** SC2 — the checked-in circle's journey day; without it the server
+   * serves quotes only (how pre-SC2 cached clients degrade too). */
+  journeyDay?: number | null;
+  /** SC2 — own self check-ins in that circle, for count-slot templates. */
+  timesShown?: number | null;
 }): Promise<ShareCard | null> {
   const { data, error } = await supabase.rpc('get_share_card_for_today', {
     p_local_date: params.localDate,
     p_is_rekindle: params.isRekindle ?? false,
     p_is_covered: params.isCovered ?? false,
+    p_journey_day: params.journeyDay ?? null,
+    p_times_shown: params.timesShown ?? null,
   });
   if (error) throw error;
-  const row = (data as { card_key: string; body: string; attribution: string | null; gloss: string | null }[])?.[0];
-  if (!row) return null;
-  return { cardKey: row.card_key, body: row.body, attribution: row.attribution, gloss: row.gloss };
+  const row = (data as { flavor: string; card_key: string; body: string; attribution: string | null; gloss: string | null }[])?.[0];
+  if (!row || !isShareCardFlavor(row.flavor)) return null;
+  return { flavor: row.flavor, cardKey: row.card_key, body: row.body, attribution: row.attribution, gloss: row.gloss };
 }
 
 export async function recordCardEvent(
@@ -77,7 +94,9 @@ export type LikedCard = {
 
 /** The caller's own Liked quotes — deduped by card (latest like wins the
  * timestamp), joined to the active bank, most recent first (all done by
- * the RPC). */
+ * the RPC). SC2: the RPC serves curated_quote rows only — a Liked
+ * journey/dot-strip card never reaches "quotes you love" (a journey
+ * template row would carry raw {slot} text). */
 export async function getMyLikedCards(): Promise<LikedCard[]> {
   const { data, error } = await supabase.rpc('get_my_liked_cards');
   if (error) throw error;

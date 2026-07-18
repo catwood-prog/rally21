@@ -21,6 +21,7 @@ import { STRINGS } from '@/constants/strings';
 import { FONT_HEADER } from '@/constants/fonts';
 import { colors, CONFETTI_GREENS } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { countMyCircleCompletions } from '@/lib/checkin';
 import { playCheckinPop } from '@/lib/chime';
 import { getCircleById } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
@@ -29,7 +30,8 @@ import { frameSwapSchedule } from '@/lib/mascotFx';
 import { MASCOT_FX, MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
 import { getMyProfile, markPushPromptSeen } from '@/lib/profile';
 import { getPushPermissionStatus, registerForPushNotificationsAsync } from '@/lib/pushNotifications';
-import { getShareCardForToday, shouldOfferShareCard, type ShareCard } from '@/lib/shareCards';
+import { getShareCardForToday, shouldOfferShareCard } from '@/lib/shareCards';
+import { buildShareCardNavParams } from '@/lib/shareCardTemplates';
 
 // M2: always green (CONFETTI_GREENS is the one source of truth).
 const CONFETTI_COLORS = [...CONFETTI_GREENS];
@@ -181,12 +183,21 @@ export default function CheckInComplete() {
   // at durationDays for display.
   const [isCeremonyDay, setIsCeremonyDay] = useState(false);
   const [glowMilestone, setGlowMilestone] = useState<number | null>(null);
+  // SC2 — the journey card's {practiceNoun} slot and the dot strip's
+  // named line both need this circle's practice name; fetched in the
+  // same getCircleById call that derives dayNumber.
+  const [practiceName, setPracticeName] = useState<string | null>(null);
   // P1: the sound-suppression check below needs to know whether a
   // milestone exists before it can decide whether this is a glow-beat
   // check-in — this flag distinguishes "not fetched yet" from "fetched,
   // no milestone" (both read as glowMilestone === null otherwise).
   const [milestoneChecked, setMilestoneChecked] = useState(false);
-  const [shareCard, setShareCard] = useState<ShareCard | null>(null);
+  // SC2 — the fully resolved /share-card route params (flavor picked by
+  // the server, journey slots already filled, dot-strip week baked in),
+  // ready for handleDismiss to push. Replaces SC1's raw ShareCard state:
+  // the two new flavors need circle facts resolved at fetch time, not
+  // at dismiss time.
+  const [cardNavParams, setCardNavParams] = useState<Record<string, string> | null>(null);
   // PN1 — the earned-moment pre-permission ask: only worth showing when
   // the OS hasn't been asked yet (native only) AND our own card hasn't
   // already been shown once, ever.
@@ -224,6 +235,7 @@ export default function CheckInComplete() {
         const raw = Math.max(1, daysBetween(circle.startDate, getLocalDateString()) + 1);
         setDayNumber(Math.min(raw, circle.durationDays));
         setIsCeremonyDay(raw >= circle.durationDays);
+        setPracticeName(circle.practiceName);
       })
       .catch(() => {});
   }, [circleId]);
@@ -235,6 +247,8 @@ export default function CheckInComplete() {
   // pre-fetched the same way.
   useEffect(() => {
     if (!session?.user || !milestoneChecked || dayNumber === null) return;
+    const userId = session.user.id;
+    const day = dayNumber;
     const earned = earnedToday === 'true';
     if (!shouldOfferShareCard({
       isCeremonyDay,
@@ -243,11 +257,32 @@ export default function CheckInComplete() {
     })) {
       return;
     }
-    getMyWeek()
-      .then((week) => getShareCardForToday({ localDate: getLocalDateString(), isRekindle: didRekindleToday(week) }))
-      .then(setShareCard)
-      .catch(() => setShareCard(null));
-  }, [session?.user, milestoneChecked, dayNumber, isCeremonyDay, glowMilestone, earnedToday]);
+    // SC2: the week (rekindle + covered + the dot strip's own content)
+    // and this circle's own-check-in count (journey count slots) ride
+    // the same fetch; a failed count degrades to null (count-slot
+    // templates just don't serve) rather than costing the day's card.
+    Promise.all([
+      getMyWeek(),
+      circleId ? countMyCircleCompletions({ userId, circleId }).catch(() => null) : Promise.resolve(null),
+    ])
+      .then(async ([week, timesShown]) => {
+        // A held 'today' in the week row means a friend covered this day
+        // (a self check-in after a cover upserts into the same
+        // completions key and is ignored) — spec §4.2's covered moment.
+        const isCovered = week.length > 0 && week[week.length - 1].state === 'held';
+        const card = await getShareCardForToday({
+          localDate: getLocalDateString(),
+          isRekindle: didRekindleToday(week),
+          isCovered,
+          journeyDay: day,
+          timesShown,
+        });
+        if (!card) return null;
+        return buildShareCardNavParams(card, { week, dayNumber: day, timesShown, practiceName });
+      })
+      .then((navParams) => setCardNavParams(navParams))
+      .catch(() => setCardNavParams(null));
+  }, [session?.user, milestoneChecked, dayNumber, isCeremonyDay, glowMilestone, earnedToday, circleId, practiceName]);
 
   // Glow milestones (Rally21-Glow-Spec.md §4) — detected once per this
   // screen's mount, right at check-in time; a monotonic server-side
@@ -389,16 +424,8 @@ export default function CheckInComplete() {
     // SC1 — the card slot: only the least important rung of the
     // composition ladder, so it only ever replaces the plain dismissal
     // below, never anything above it.
-    if (shareCard) {
-      router.replace({
-        pathname: '/share-card',
-        params: {
-          cardKey: shareCard.cardKey,
-          body: shareCard.body,
-          attribution: shareCard.attribution ?? '',
-          gloss: shareCard.gloss ?? '',
-        },
-      });
+    if (cardNavParams) {
+      router.replace({ pathname: '/share-card', params: cardNavParams });
       return;
     }
     if (router.canGoBack()) {

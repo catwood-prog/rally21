@@ -35,6 +35,8 @@ import { getMyMutedCardFlavors, setCardFlavorMuted, ShareCardFlavor } from '@/li
 
 const CARD_FLAVOR_LABELS: Record<ShareCardFlavor, string> = {
   curated_quote: STRINGS.shareCardFlavorCuratedQuote,
+  warm_journey: STRINGS.shareCardFlavorWarmJourney,
+  dot_strip: STRINGS.shareCardFlavorDotStrip,
 };
 
 const NUDGE_TIME_OPTIONS: { label: string; time: string | null }[] = [

@@ -635,8 +635,20 @@ export const STRINGS = {
   shareCardMutedFlavorsLabel: 'muted card flavors',
   shareCardMutedFlavorsEmpty: "you haven't muted any card flavors",
   shareCardFlavorCuratedQuote: 'quote cards',
+  shareCardFlavorWarmJourney: 'journey cards',
+  shareCardFlavorDotStrip: 'week-strip cards',
   shareCardReEnableCta: 'Turn back on',
   shareCardShareError: 'could not share that — try again',
+  // SC2 (18 July) — the two new flavors' screen chrome. The journey
+  // card's day header ("12 / DAYS") and the dot strip's kicker are card
+  // content; the toggle strings are preview-only chrome (never captured)
+  // implementing Cat's 17 July §9-Q3 ruling: practice name on the
+  // dot-strip card by default, generic one tap away, decided in the
+  // preview before anything leaves the app.
+  shareCardJourneyDayKicker: (day: number) => (day === 1 ? 'DAY' : 'DAYS'),
+  shareCardDotStripKicker: 'THIS WEEK',
+  shareCardHidePracticeName: 'hide practice name',
+  shareCardShowPracticeName: 'show practice name',
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one
