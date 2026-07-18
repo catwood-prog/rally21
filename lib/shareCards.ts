@@ -9,10 +9,12 @@ import { supabase } from './supabase';
 // carries no body at all (the card IS the caller's week, rendered
 // client-side).
 
-export type ShareCardFlavor = 'curated_quote' | 'warm_journey' | 'dot_strip';
+export type ShareCardFlavor = 'curated_quote' | 'warm_journey' | 'dot_strip' | 'wrapped';
 
 export function isShareCardFlavor(value: string | undefined): value is ShareCardFlavor {
-  return value === 'curated_quote' || value === 'warm_journey' || value === 'dot_strip';
+  return (
+    value === 'curated_quote' || value === 'warm_journey' || value === 'dot_strip' || value === 'wrapped'
+  );
 }
 
 export type ShareCard = {

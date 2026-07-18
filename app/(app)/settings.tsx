@@ -37,6 +37,10 @@ const CARD_FLAVOR_LABELS: Record<ShareCardFlavor, string> = {
   curated_quote: STRINGS.shareCardFlavorCuratedQuote,
   warm_journey: STRINGS.shareCardFlavorWarmJourney,
   dot_strip: STRINGS.shareCardFlavorDotStrip,
+  // SC3 — the ceremony keepsake isn't in the daily slot's rotation, so
+  // a mute never affects it; the label exists only so a (never
+  // expected) muted row could still render a sensible name.
+  wrapped: STRINGS.shareCardFlavorWrapped,
 };
 
 const NUDGE_TIME_OPTIONS: { label: string; time: string | null }[] = [

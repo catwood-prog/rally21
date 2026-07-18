@@ -34,6 +34,33 @@ export function isReflectionSubstantive(r: { mood: number | null; line1: string 
 /** The user's reflection for a given local day, if they've already done
  * one today — regardless of which circle triggered it, since reflection
  * is one-per-person-per-day, not one-per-circle. */
+/** SC3 — the Wrapped line picker's source: the caller's OWN reflection
+ * lines (line1/line2), newest first, within a local-date window (the
+ * journey being celebrated). RLS on reflections is owner-only, so this
+ * can never return anyone else's words — and per the share-cards spec
+ * (§4.5), this picker is the ONLY place reflection text can reach a
+ * card, always by explicit selection. */
+export async function listMyReflectionLines(
+  fromLocalDate: string,
+  toLocalDate: string
+): Promise<{ date: string; text: string }[]> {
+  const { data, error } = await supabase
+    .from('reflections')
+    .select('local_date, line1, line2')
+    .gte('local_date', fromLocalDate)
+    .lte('local_date', toLocalDate)
+    .order('local_date', { ascending: false });
+  if (error) throw error;
+  const lines: { date: string; text: string }[] = [];
+  for (const row of (data ?? []) as { local_date: string; line1: string | null; line2: string | null }[]) {
+    for (const text of [row.line1, row.line2]) {
+      const trimmed = text?.trim();
+      if (trimmed) lines.push({ date: row.local_date, text: trimmed });
+    }
+  }
+  return lines;
+}
+
 export async function getTodayReflection(localDate: string): Promise<TodayReflection | null> {
   const { data, error } = await supabase
     .from('reflections')

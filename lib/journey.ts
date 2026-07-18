@@ -97,6 +97,29 @@ export async function completeCircle(circleId: string): Promise<void> {
  * own per-member journal fact); the day-21 gate itself needs no kind —
  * completeCircle already wrote everyone's journal fact, and rally-on
  * needs no fact at all. */
+/** SC3 — the Wrapped offer's own monotonic marker (mirrors
+ * last_celebrated_day): the highest milestone day whose keepsake offer
+ * this member has already SEEN for this circle. Declined offers never
+ * reappear; the same machinery serves the 50/100/365 stops later. */
+export async function getMyLastWrappedOfferDay(circleId: string, userId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('memberships')
+    .select('last_wrapped_offer_day')
+    .eq('circle_id', circleId)
+    .eq('user_id', userId)
+    .maybeSingle<{ last_wrapped_offer_day: number }>();
+  if (error) throw error;
+  return data?.last_wrapped_offer_day ?? 0;
+}
+
+export async function markWrappedOffered(circleId: string, day: number): Promise<void> {
+  const { error } = await supabase.rpc('mark_wrapped_offered', {
+    p_circle_id: circleId,
+    p_day: day,
+  });
+  if (error) throw error;
+}
+
 export async function markCelebrationSeen(
   circleId: string,
   day: number,

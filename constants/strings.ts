@@ -636,6 +636,7 @@ export const STRINGS = {
   shareCardMutedFlavorsEmpty: "you haven't muted any card flavors",
   shareCardFlavorCuratedQuote: 'quote cards',
   shareCardFlavorWarmJourney: 'journey cards',
+  shareCardFlavorWrapped: 'day-21 keepsake cards',
   shareCardFlavorDotStrip: 'week-strip cards',
   shareCardReEnableCta: 'Turn back on',
   shareCardShareError: 'could not share that — try again',
@@ -647,6 +648,24 @@ export const STRINGS = {
   // preview before anything leaves the app.
   shareCardJourneyDayKicker: (day: number) => (day === 1 ? 'DAY' : 'DAYS'),
   shareCardDotStripKicker: 'THIS WEEK',
+  // SC3 — the day-21 mini-Wrapped (spec §4.5). Warmth law: every line
+  // celebrates what happened; nothing ever counts what didn't. The held
+  // line simply doesn't render at zero.
+  shareCardWrappedKicker: (days: number) => `${days} DAYS TOGETHER`,
+  wrappedShownUpLine: (n: number) => (n === 1 ? 'showed up 1 day' : `showed up ${n} days`),
+  wrappedHeldLine: (n: number) =>
+    n === 1 ? 'a friend held your place once' : `a friend held your place ${n} times`,
+  // The quiet offer inside the ceremony, after the decision.
+  wrappedOfferTitle: 'your 21 days, as a keepsake',
+  wrappedOfferBody: 'one card — your dots, your days, and (only if you choose) a line of yours.',
+  wrappedOfferCta: 'see your card',
+  // The line picker. Never pre-filled, never suggested — the card is
+  // complete without a line.
+  wrappedPickerTitle: 'add a line of yours? (optional)',
+  wrappedPickerHint: 'from your own reflections — only you can put one here.',
+  wrappedPickerNone: 'no line — the card is complete without one',
+  wrappedShareCta: 'Share',
+  wrappedDone: 'done',
   shareCardHidePracticeName: 'hide practice name',
   shareCardShowPracticeName: 'show practice name',
 } as const;

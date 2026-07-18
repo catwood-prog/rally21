@@ -41,6 +41,17 @@ export function localDateStringInTimeZone(timeZone: string | null | undefined, d
 
 /** Calendar days between two local-date strings (YYYY-MM-DD), built from
  * UTC(Y, M, D) so the subtraction is never skewed by DST. */
+/** Shift a YYYY-MM-DD date by whole days in UTC (DST-proof — the same
+ * derivation daysBetween below uses; mirrors the edge functions' own
+ * shiftDate). */
+export function shiftDate(dateStr: string, deltaDays: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const shifted = new Date(Date.UTC(y, m - 1, d + deltaDays));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(
+    shifted.getUTCDate()
+  ).padStart(2, '0')}`;
+}
+
 export function daysBetween(fromLocalDate: string, toLocalDate: string): number {
   const [fy, fm, fd] = fromLocalDate.split('-').map(Number);
   const [ty, tm, td] = toLocalDate.split('-').map(Number);

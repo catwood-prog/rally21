@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Brandmark } from '@/components/Brandmark';
 import { hasAttributionLine, ShareCardFlavor } from '@/lib/shareCards';
 import { WeekDay } from '@/lib/glow';
+import { WrappedDotState } from '@/lib/wrapped';
 import { STRINGS } from '@/constants/strings';
 import { FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { cardShadow, colors } from '@/constants/theme';
@@ -49,14 +50,60 @@ export const ShareCardView = forwardRef<
     dayNumber?: number | null;
     /** dot_strip only — the real week row (getMyWeek shape, today last). */
     week?: WeekDay[] | null;
+    /** wrapped only (SC3) — the journey's dots (day 1 first) + counts;
+     * `body` carries the optional self-picked line ('' = no line, and
+     * the card is complete without it). */
+    wrappedDots?: WrappedDotState[] | null;
+    wrappedShownUp?: number | null;
+    wrappedHeld?: number | null;
     capture?: boolean;
   }
 >(function ShareCardView(
-  { body, attribution, gloss, flavor = 'curated_quote', dayNumber = null, week = null, capture = false },
+  {
+    body,
+    attribution,
+    gloss,
+    flavor = 'curated_quote',
+    dayNumber = null,
+    week = null,
+    wrappedDots = null,
+    wrappedShownUp = null,
+    wrappedHeld = null,
+    capture = false,
+  },
   ref
 ) {
   const card =
-    flavor === 'warm_journey' ? (
+    flavor === 'wrapped' ? (
+      // SC3 (spec §4.5) — the peak artifact: wordmark → "{n} DAYS
+      // TOGETHER" kicker → the journey dot grid (same vocabulary as the
+      // week strip: earned gold ✓, held 🧡, missed the quiet neutral
+      // dot — never red, never a count of misses) → the true counts →
+      // the optional self-picked line → gold accent rule. With no line
+      // the card ends at the counts and reads complete, not broken.
+      <View style={[styles.card, cardShadow]}>
+        <Brandmark size={18} style={styles.brandmark} />
+        <Text style={styles.kicker}>{STRINGS.shareCardWrappedKicker(wrappedDots?.length ?? 0)}</Text>
+        <View style={styles.wrappedGrid}>
+          {(wrappedDots ?? []).map((state, i) => (
+            <View
+              key={i}
+              style={[styles.dotPill, styles.wrappedDot, state === 'earned' ? styles.dotPillEarned : styles.dotPillQuiet]}
+            >
+              {state === 'earned' && <Text style={styles.wrappedEarnedMark}>✓</Text>}
+              {state === 'held' && <Text style={styles.wrappedHeldMark}>🧡</Text>}
+              {state === 'none' && <View style={styles.dotNone} />}
+            </View>
+          ))}
+        </View>
+        <Text style={styles.wrappedCount}>{STRINGS.wrappedShownUpLine(wrappedShownUp ?? 0)}</Text>
+        {(wrappedHeld ?? 0) > 0 && (
+          <Text style={styles.wrappedCount}>{STRINGS.wrappedHeldLine(wrappedHeld ?? 0)}</Text>
+        )}
+        {!!body && <Text style={styles.wrappedLine}>&ldquo;{body}&rdquo;</Text>}
+        <View style={[styles.accentRule, styles.accentRuleGold]} />
+      </View>
+    ) : flavor === 'warm_journey' ? (
       <View style={[styles.card, cardShadow]}>
         <Brandmark size={18} style={styles.brandmark} />
         {dayNumber !== null && (
@@ -210,6 +257,44 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // SC3 — the 21-dot journey grid: 7 per row, 3 rows at day 21; the
+  // same pill vocabulary at a size that fits three rows on the card.
+  wrappedGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 7,
+    marginTop: 14,
+    maxWidth: 7 * 24 + 6 * 7,
+    alignSelf: 'center',
+  },
+  wrappedDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  wrappedEarnedMark: {
+    fontSize: 11,
+    color: colors.gold,
+    fontWeight: '700',
+  },
+  wrappedHeldMark: {
+    fontSize: 10,
+  },
+  wrappedCount: {
+    fontSize: 12.5,
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  wrappedLine: {
+    fontFamily: FONT_SERIF_ITALIC,
+    fontSize: 17,
+    lineHeight: 24,
+    color: colors.ink,
+    textAlign: 'center',
+    marginTop: 14,
   },
   dotPillEarned: {
     backgroundColor: colors.goldSoft,
