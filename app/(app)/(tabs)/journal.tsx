@@ -7,7 +7,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, colors } from '@/constants/theme';
+import { cardShadow, colors, FLOATING_TAB_BAR } from '@/constants/theme';
 import { MOOD_EMOJI } from '@/constants/mood';
 import { useAuth } from '@/lib/auth-context';
 import { getLocalDateString } from '@/lib/date';
@@ -156,7 +156,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 64,
+    // TB1: clear the floating pill.
+    paddingBottom: FLOATING_TAB_BAR.CLEARANCE,
   },
   header: {
     marginBottom: 16,

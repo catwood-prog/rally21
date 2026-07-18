@@ -7,6 +7,20 @@
 // caller (day-21, birthday, check-in success, celebration markers).
 export const CONFETTI_GREENS = ['#5BA85B', '#7FBF7F', '#3E7C3E'] as const;
 
+// TB1 (18 July) — the floating tab bar's geometry, shared between the
+// bar itself and every tab screen's bottom clearance (audit rule: any
+// scrolling tab screen pads with CLEARANCE so content never hides
+// under the pill; the composer uses its own tighter constant).
+export const FLOATING_TAB_BAR = {
+  HEIGHT: 56,
+  SIDE_MARGIN: 16,
+  BOTTOM_GAP: 12,
+  // Bar height + gap + a breathing row, sized to clear the pill even
+  // with a tall home-indicator inset beneath it.
+  CLEARANCE: 128,
+  COMPOSER_CLEARANCE: 80,
+} as const;
+
 export const colors = {
   gold: '#F4C84B',
   green: '#5BA85B',

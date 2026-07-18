@@ -19,7 +19,7 @@ import { SignalMeter } from '@/components/SignalMeter';
 import { TodayFooter } from '@/components/TodayFooter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { isVerbPhrasePractice, STRINGS } from '@/constants/strings';
-import { cardShadow, chipTextShape, colors } from '@/constants/theme';
+import { cardShadow, chipTextShape, colors, FLOATING_TAB_BAR } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { getMyCircleCap, MAX_CIRCLES } from '@/lib/caps';
 import { DailyQuestion, getDailyQuestion, getTodayReflection, isReflectionSubstantive } from '@/lib/checkin';
@@ -786,7 +786,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 64,
+    // TB1: clear the floating pill.
+    paddingBottom: FLOATING_TAB_BAR.CLEARANCE,
   },
   topbar: {
     flexDirection: 'row',

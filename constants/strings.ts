@@ -107,6 +107,12 @@ export const STRINGS = {
   emptyGroupCta: 'Join the huddle',
 
   chatTabLabel: 'Rally',
+  // TB1 — the icon-only floating bar's a11y labels (icons only on
+  // screen; every tab keeps a spoken name).
+  tabTodayLabel: 'Today',
+  tabCircleLabel: 'Circle',
+  tabJournalLabel: 'Journal',
+  tabPrivateMapLabel: 'Private Map',
   chatIntroMessage:
     "Hi there, feel free to come chat anytime you want to talk something through, about your practice or from life in general. The more time we spend together, and the more detailed your daily reflections, the more insightful I'll become.\n\n" +
     "This is a totally safe place, our chats are completely private and never shared.\n\n" +

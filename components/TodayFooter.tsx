@@ -58,10 +58,9 @@ export function TodayFooter({
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity style={styles.mapCard} onPress={() => router.push('/private-map')}>
-        <Text style={styles.mapCardLabel}>{STRINGS.blueprintLinkLabel}</Text>
-        <Text style={styles.mapCardChevron}>›</Text>
-      </TouchableOpacity>
+      {/* TB1: D6's private-map mini-card is gone — the Map lives in the
+          floating tab bar now (no duplicate doors). The week strip and
+          the "something we noticed" answer link stay. */}
     </View>
   );
 }
@@ -133,25 +132,6 @@ const styles = StyleSheet.create({
   },
   noticedLink: {
     fontFamily: FONT_SERIF_ITALIC,
-    fontSize: 14,
-    color: colors.plum,
-  },
-  mapCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    ...cardShadow,
-  },
-  mapCardLabel: {
-    fontFamily: FONT_SERIF_ITALIC,
-    fontSize: 14,
-    color: colors.plum,
-  },
-  mapCardChevron: {
     fontSize: 14,
     color: colors.plum,
   },

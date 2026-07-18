@@ -21,7 +21,7 @@ import { SignalMeter } from '@/components/SignalMeter';
 import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, chipTextShape, colors } from '@/constants/theme';
+import { cardShadow, chipTextShape, colors, FLOATING_TAB_BAR } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { deriveWantPhrase, getWantActivationForCircle } from '@/lib/blueprint';
 import {
@@ -1310,7 +1310,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 64,
+    // TB1: clear the floating pill.
+    paddingBottom: FLOATING_TAB_BAR.CLEARANCE,
   },
   brandmark: {
     marginBottom: 14,

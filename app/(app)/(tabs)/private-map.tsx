@@ -8,7 +8,7 @@ import { MascotEntrance } from '@/components/MascotEntrance';
 import { VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, colors } from '@/constants/theme';
+import { cardShadow, colors, FLOATING_TAB_BAR } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   BlueprintDocument,
@@ -447,7 +447,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 64,
+    // TB1: clear the floating pill.
+    paddingBottom: FLOATING_TAB_BAR.CLEARANCE,
   },
   header: {
     marginBottom: 16,
