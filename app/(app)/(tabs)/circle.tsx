@@ -811,13 +811,7 @@ export default function YourCircle() {
           <>
             {wallPreview.map((item) => (
               <Text key={item.id} style={styles.wallPreviewLine} numberOfLines={1}>
-                {item.kind === 'message'
-                  ? `${memberName(item.userId)}: ${truncate(item.body, 50)}`
-                  : `${memberName(item.fromUserId)} reacted ${item.emoji} to ${
-                      item.targetUserId === session?.user.id
-                        ? 'your'
-                        : `${memberName(item.targetUserId)}'s`
-                    } check-in`}
+                {`${memberName(item.userId)}: ${truncate(item.body, 50)}`}
               </Text>
             ))}
             <TouchableOpacity

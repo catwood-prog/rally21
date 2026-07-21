@@ -30,12 +30,10 @@ import {
   resolveCircleSelection,
 } from '@/lib/circle';
 import {
-  CheckinFeedEntry,
   deleteWallMessage,
-  getCheckinFeed,
+  getMyCircleCompletionCount,
   getWallMessages,
   postWallMessage,
-  setCheckinReaction,
   setWallMessageReaction,
   subscribeToWall,
   WallMessage,
@@ -52,19 +50,6 @@ function appendTranscript(existing: string, transcript: string): string {
   return `${existing} ${transcript}`;
 }
 
-type FeedItem =
-  | { kind: 'message'; id: string; userId: string; body: string; createdAt: string; reactions: CheckinFeedEntry['reactions'] }
-  | {
-      kind: 'checkin';
-      key: string;
-      userId: string;
-      localDate: string;
-      createdAt: string;
-      reactions: CheckinFeedEntry['reactions'];
-      completionKind: CheckinFeedEntry['kind'];
-      coveredBy: CheckinFeedEntry['coveredBy'];
-    };
-
 export default function CircleWall() {
   const router = useRouter();
   const { session } = useAuth();
@@ -72,7 +57,9 @@ export default function CircleWall() {
   const [circle, setCircle] = useState<MyCircle | null>(null);
   const [members, setMembers] = useState<CircleMember[]>([]);
   const [messages, setMessages] = useState<WallMessage[]>([]);
-  const [checkins, setCheckins] = useState<CheckinFeedEntry[]>([]);
+  // OC1's earned-voice gate mirror (browse joiners in public circles) —
+  // formerly derived from the wall's check-in feed, which WL1 removed.
+  const [myCompletionCount, setMyCompletionCount] = useState(0);
   const [draft, setDraft] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -93,12 +80,8 @@ export default function CircleWall() {
   const [showReportedNotice, setShowReportedNotice] = useState(false);
 
   const loadFeed = useCallback(async (circleId: string) => {
-    const [wallMessages, checkinFeed] = await Promise.all([
-      getWallMessages(circleId),
-      getCheckinFeed(circleId),
-    ]);
+    const wallMessages = await getWallMessages(circleId);
     setMessages(wallMessages);
-    setCheckins(checkinFeed);
   }, []);
 
   const load = useCallback(async () => {
@@ -119,6 +102,11 @@ export default function CircleWall() {
         await Promise.all([
           getCircleMembers(myCircle.id).then(setMembers),
           loadFeed(myCircle.id),
+          // The completion count only gates voice for browse joiners in
+          // public circles — everyone else skips the query entirely.
+          myCircle.isPublic && myCircle.myJoinSource === 'browse'
+            ? getMyCircleCompletionCount(myCircle.id, session.user.id).then(setMyCompletionCount)
+            : Promise.resolve(setMyCompletionCount(0)),
           myCircle.isPublic && myCircle.createdBy !== session.user.id
             ? hasSeenVoiceUnlockedHint(myCircle.id, session.user.id).then(setHasSeenUnlockHint)
             : Promise.resolve(setHasSeenUnlockHint(true)),
@@ -149,7 +137,6 @@ export default function CircleWall() {
   // from day one, matching the RLS policy exactly (private OR creator OR
   // join_source <> 'browse' OR 7+ completions).
   const isBrowseJoiner = circle?.myJoinSource === 'browse';
-  const myCompletionCount = checkins.filter((c) => c.userId === session?.user?.id).length;
   const isVoiceUnlocked =
     !circle?.isPublic || isCreator || !isBrowseJoiner || myCompletionCount >= VOICE_UNLOCK_COMPLETIONS;
   const showUnlockCelebration = !!circle?.isPublic && isBrowseJoiner && isVoiceUnlocked && !hasSeenUnlockHint;
@@ -179,22 +166,6 @@ export default function CircleWall() {
       setError(e instanceof Error ? e.message : 'could not send that — try again');
     } finally {
       setIsSending(false);
-    }
-  };
-
-  const handleReact = async (entry: FeedItem & { kind: 'checkin' }, emoji: string) => {
-    if (!circle || !session?.user) return;
-    try {
-      await setCheckinReaction({
-        circleId: circle.id,
-        targetUserId: entry.userId,
-        targetLocalDate: entry.localDate,
-        fromUserId: session.user.id,
-        emoji,
-      });
-      await loadFeed(circle.id);
-    } catch {
-      // reactions are low-stakes — fail silently rather than interrupt
     }
   };
 
@@ -276,29 +247,6 @@ export default function CircleWall() {
     );
   }
 
-  const feed: FeedItem[] = [
-    ...messages.map((m): FeedItem => ({
-      kind: 'message',
-      id: m.id,
-      userId: m.userId,
-      body: m.body,
-      createdAt: m.createdAt,
-      reactions: m.reactions,
-    })),
-    ...checkins.map(
-      (c): FeedItem => ({
-        kind: 'checkin',
-        key: `${c.userId}-${c.localDate}`,
-        userId: c.userId,
-        localDate: c.localDate,
-        createdAt: c.createdAt,
-        reactions: c.reactions,
-        completionKind: c.kind,
-        coveredBy: c.coveredBy,
-      })
-    ),
-  ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -331,144 +279,105 @@ export default function CircleWall() {
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         keyboardShouldPersistTaps="handled"
       >
-        {feed.length === 0 && (
+        {messages.length === 0 && (
           <Text style={styles.emptyState}>nothing here yet — say hi to your circle</Text>
         )}
 
-        {feed.map((item) => {
-          if (item.kind === 'message') {
-            const isMe = item.userId === session?.user.id;
-            const messageReactionCounts = item.reactions.reduce<Record<string, number>>((acc, r) => {
-              acc[r.emoji] = (acc[r.emoji] ?? 0) + 1;
-              return acc;
-            }, {});
-            const myMessageReaction = item.reactions.find((r) => r.fromUserId === session?.user.id)?.emoji;
-            const isConfirmingThisDelete = confirmingDeleteId === item.id;
-            return (
-              <View
-                key={item.id}
-                style={[styles.messageRow, isMe && styles.messageRowMe]}
-              >
-                {!isMe && (
-                  <View style={styles.senderRow}>
-                    <Avatar name={memberName(item.userId)} avatarUrl={memberAvatar(item.userId)} size={16} />
-                    <Text style={styles.senderName}>{memberName(item.userId)}</Text>
-                  </View>
-                )}
-                <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
-                  <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>{item.body}</Text>
-                </View>
-                <View style={[styles.reactionRow, isMe && styles.reactionRowMe]}>
-                  {reactionSet.map((emoji) => (
-                    <TouchableOpacity
-                      key={emoji}
-                      style={[styles.reactionChip, myMessageReaction === emoji && styles.reactionChipMine]}
-                      onPress={() => handleReactToMessage(item.id, emoji)}
-                    >
-                      <Text style={styles.reactionEmoji}>{emoji}</Text>
-                      {!!messageReactionCounts[emoji] && (
-                        <Text style={styles.reactionCount}>{messageReactionCounts[emoji]}</Text>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                  {isCreator &&
-                    (isConfirmingThisDelete ? (
-                      <>
-                        <TouchableOpacity onPress={() => handleDeleteMessage(item.id)} disabled={isDeleting}>
-                          <Text style={styles.hostDeleteConfirmText}>
-                            {isDeleting ? '…' : STRINGS.hostRemoveMemberCta}
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => setConfirmingDeleteId(null)} disabled={isDeleting}>
-                          <Text style={styles.hostDeleteCancelText}>{STRINGS.hostDeleteWallMessageCancel}</Text>
-                        </TouchableOpacity>
-                      </>
-                    ) : (
-                      <TouchableOpacity onPress={() => setConfirmingDeleteId(item.id)} hitSlop={6}>
-                        <Text style={styles.hostDeleteLink}>{STRINGS.hostDeleteWallMessageLink}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  {!isMe && reportingMessageId !== item.id && (
-                    <TouchableOpacity onPress={() => setReportingMessageId(item.id)} hitSlop={6}>
-                      <Text style={styles.hostDeleteLink}>{STRINGS.reportLink}</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                {reportingMessageId === item.id && (
-                  <View style={styles.reportPanel}>
-                    <View style={styles.reportInputRow}>
-                      <TextInput
-                        style={styles.reportInput}
-                        placeholder={STRINGS.reportReasonPlaceholder}
-                        placeholderTextColor={colors.muted}
-                        value={reportReason}
-                        onChangeText={setReportReason}
-                        multiline
-                      />
-                      {!reportMicDenied && (
-                        <VoiceMicButton
-                          style={styles.reportMicButton}
-                          onTranscript={(text) => setReportReason((prev) => appendTranscript(prev, text))}
-                          onPermissionDenied={() => setReportMicDenied(true)}
-                        />
-                      )}
-                    </View>
-                    <View style={styles.reportActionsRow}>
-                      <TouchableOpacity
-                        onPress={() => {
-                          setReportingMessageId(null);
-                          setReportReason('');
-                        }}
-                        disabled={isReporting}
-                      >
-                        <Text style={styles.hostDeleteCancelText}>{STRINGS.reportCancelCta}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleReportMessage(item.id)} disabled={isReporting}>
-                        <Text style={styles.hostDeleteConfirmText}>
-                          {isReporting ? '…' : STRINGS.reportSubmitCta}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-              </View>
-            );
-          }
-
-          const reactionCounts = item.reactions.reduce<Record<string, number>>((acc, r) => {
+        {messages.map((item) => {
+          const isMe = item.userId === session?.user.id;
+          const messageReactionCounts = item.reactions.reduce<Record<string, number>>((acc, r) => {
             acc[r.emoji] = (acc[r.emoji] ?? 0) + 1;
             return acc;
           }, {});
-          const myReaction = item.reactions.find((r) => r.fromUserId === session?.user.id)?.emoji;
-
+          const myMessageReaction = item.reactions.find((r) => r.fromUserId === session?.user.id)?.emoji;
+          const isConfirmingThisDelete = confirmingDeleteId === item.id;
           return (
-            <View key={item.key} style={styles.checkinRow}>
-              <View style={styles.checkinHeader}>
-                <Avatar name={memberName(item.userId)} avatarUrl={memberAvatar(item.userId)} size={22} />
-                <Text style={styles.checkinText}>
-                  {item.completionKind === 'covered' ? (
-                    STRINGS.wallCoveredEntry(memberName(item.coveredBy ?? ''), memberName(item.userId))
-                  ) : (
-                    <>
-                      <Text style={styles.checkinName}>{memberName(item.userId)}</Text> checked in
-                    </>
-                  )}
-                </Text>
+            <View
+              key={item.id}
+              style={[styles.messageRow, isMe && styles.messageRowMe]}
+            >
+              {!isMe && (
+                <View style={styles.senderRow}>
+                  <Avatar name={memberName(item.userId)} avatarUrl={memberAvatar(item.userId)} size={16} />
+                  <Text style={styles.senderName}>{memberName(item.userId)}</Text>
+                </View>
+              )}
+              <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
+                <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>{item.body}</Text>
               </View>
-              <View style={styles.reactionRow}>
+              <View style={[styles.reactionRow, isMe && styles.reactionRowMe]}>
                 {reactionSet.map((emoji) => (
                   <TouchableOpacity
                     key={emoji}
-                    style={[styles.reactionChip, myReaction === emoji && styles.reactionChipMine]}
-                    onPress={() => handleReact(item, emoji)}
+                    style={[styles.reactionChip, myMessageReaction === emoji && styles.reactionChipMine]}
+                    onPress={() => handleReactToMessage(item.id, emoji)}
                   >
                     <Text style={styles.reactionEmoji}>{emoji}</Text>
-                    {!!reactionCounts[emoji] && (
-                      <Text style={styles.reactionCount}>{reactionCounts[emoji]}</Text>
+                    {!!messageReactionCounts[emoji] && (
+                      <Text style={styles.reactionCount}>{messageReactionCounts[emoji]}</Text>
                     )}
                   </TouchableOpacity>
                 ))}
+                {isCreator &&
+                  (isConfirmingThisDelete ? (
+                    <>
+                      <TouchableOpacity onPress={() => handleDeleteMessage(item.id)} disabled={isDeleting}>
+                        <Text style={styles.hostDeleteConfirmText}>
+                          {isDeleting ? '…' : STRINGS.hostRemoveMemberCta}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setConfirmingDeleteId(null)} disabled={isDeleting}>
+                        <Text style={styles.hostDeleteCancelText}>{STRINGS.hostDeleteWallMessageCancel}</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity onPress={() => setConfirmingDeleteId(item.id)} hitSlop={6}>
+                      <Text style={styles.hostDeleteLink}>{STRINGS.hostDeleteWallMessageLink}</Text>
+                    </TouchableOpacity>
+                  ))}
+                {!isMe && reportingMessageId !== item.id && (
+                  <TouchableOpacity onPress={() => setReportingMessageId(item.id)} hitSlop={6}>
+                    <Text style={styles.hostDeleteLink}>{STRINGS.reportLink}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
+              {reportingMessageId === item.id && (
+                <View style={styles.reportPanel}>
+                  <View style={styles.reportInputRow}>
+                    <TextInput
+                      style={styles.reportInput}
+                      placeholder={STRINGS.reportReasonPlaceholder}
+                      placeholderTextColor={colors.muted}
+                      value={reportReason}
+                      onChangeText={setReportReason}
+                      multiline
+                    />
+                    {!reportMicDenied && (
+                      <VoiceMicButton
+                        style={styles.reportMicButton}
+                        onTranscript={(text) => setReportReason((prev) => appendTranscript(prev, text))}
+                        onPermissionDenied={() => setReportMicDenied(true)}
+                      />
+                    )}
+                  </View>
+                  <View style={styles.reportActionsRow}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setReportingMessageId(null);
+                        setReportReason('');
+                      }}
+                      disabled={isReporting}
+                    >
+                      <Text style={styles.hostDeleteCancelText}>{STRINGS.reportCancelCta}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleReportMessage(item.id)} disabled={isReporting}>
+                      <Text style={styles.hostDeleteConfirmText}>
+                        {isReporting ? '…' : STRINGS.reportSubmitCta}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </View>
           );
         })}
@@ -658,24 +567,6 @@ const styles = StyleSheet.create({
   },
   bubbleTextMe: {
     color: '#fff',
-  },
-  checkinRow: {
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  checkinHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  checkinText: {
-    fontSize: 11,
-    color: colors.muted,
-  },
-  checkinName: {
-    fontWeight: '700',
-    color: colors.ink,
   },
   reactionRow: {
     flexDirection: 'row',

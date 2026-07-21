@@ -253,8 +253,9 @@ export const STRINGS = {
 
   coveredNoteToCoveredMember: (covererName: string) =>
     `${covererName} covered you today. No pressure, we've got you.`,
-  wallCoveredEntry: (covererName: string, coveredName: string) =>
-    `${covererName} covered ${coveredName} today 🧡`,
+  // wallCoveredEntry retired with WL1: the wall no longer renders
+  // check-in rows, covered or plain — the cover screen and next-day note
+  // carry the gift's copy now.
   // The wave's wall line (was wallWaveEntry) now composes server-side in
   // send_friend_nudge (security spec S1, F4) — the copy is unchanged,
   // just no longer client-composed.

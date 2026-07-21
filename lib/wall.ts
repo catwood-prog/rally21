@@ -7,10 +7,10 @@ export type WallMessage = {
   userId: string;
   body: string;
   createdAt: string;
-  reactions: CheckinReaction[];
+  reactions: WallReaction[];
 };
 
-export type CheckinReaction = {
+export type WallReaction = {
   emoji: string;
   fromUserId: string;
 };
@@ -21,39 +21,28 @@ export type CheckinReaction = {
  * at render time, so historic reactions count toward the same chip and
  * display the same as ones sent today; the curated pickers (wall.tsx's
  * QUICK_REACTIONS/OPEN_CIRCLE_REACTIONS) only ever offer '🧡' going
- * forward. */
+ * forward. (Since WL1 the only reaction surface is human posts —
+ * wall_message_reactions; the retired checkin_reactions rows keep their
+ * stored emoji but no longer render anywhere.) */
 export function displayReactionEmoji(emoji: string): string {
   return emoji === '💛' ? '🧡' : emoji;
 }
 
-export type CheckinFeedEntry = {
-  userId: string;
-  localDate: string;
-  createdAt: string;
-  reactions: CheckinReaction[];
-  kind: 'self' | 'covered';
-  /** Only set when kind is 'covered' — who gave the gift, so the wall
-   * can render "{coveredBy} covered {userId} today 🧡" instead of the
-   * plain "{userId} checked in" (see CLAUDE.md's cover-a-friend rule). */
-  coveredBy: string | null;
-};
+export type WallPreviewItem = { id: string; userId: string; body: string; createdAt: string };
 
-export type WallPreviewItem =
-  | { kind: 'message'; id: string; userId: string; body: string; createdAt: string }
-  | {
-      kind: 'reaction';
-      id: string;
-      fromUserId: string;
-      targetUserId: string;
-      emoji: string;
-      createdAt: string;
-    };
+/** WL1 (21 July, Cat's ruling): the wall renders human posts and system
+ * celebration lines only. Wave/heart rows still live in wall_messages
+ * but are recipient-private — RLS already hides them from everyone but
+ * the recipient; this kind filter keeps the recipient's own warmth off
+ * the wall too (WL2's surfaces deliver it instead). */
+const WALL_VISIBLE_KINDS = ['post', 'celebration'];
 
 export async function getWallMessages(circleId: string): Promise<WallMessage[]> {
   const { data, error } = await supabase
     .from('wall_messages')
     .select('id, user_id, body, created_at, wall_message_reactions(from_user_id, emoji)')
     .eq('circle_id', circleId)
+    .in('kind', WALL_VISIBLE_KINDS)
     .order('created_at', { ascending: true })
     .returns<
       {
@@ -173,108 +162,41 @@ export async function postWallMessage(
   if (error) throw error;
 }
 
-/** Every completion in the circle (content-free — no mood/line/answer),
- * with whatever reactions have been left on each one. */
-export async function getCheckinFeed(circleId: string): Promise<CheckinFeedEntry[]> {
-  const [{ data: presence, error: presenceError }, { data: reactions, error: reactionsError }] =
-    await Promise.all([
-      supabase
-        .from('completions')
-        .select('user_id, local_date, created_at, kind, covered_by')
-        .eq('circle_id', circleId),
-      supabase
-        .from('checkin_reactions')
-        .select('target_user_id, target_local_date, from_user_id, emoji')
-        .eq('circle_id', circleId),
-    ]);
-
-  if (presenceError) throw presenceError;
-  if (reactionsError) throw reactionsError;
-
-  return (presence ?? []).map((p) => ({
-    userId: p.user_id,
-    localDate: p.local_date,
-    createdAt: p.created_at,
-    kind: p.kind as 'self' | 'covered',
-    coveredBy: p.covered_by,
-    reactions: (reactions ?? [])
-      .filter((r) => r.target_user_id === p.user_id && r.target_local_date === p.local_date)
-      .map((r) => ({ emoji: displayReactionEmoji(r.emoji), fromUserId: r.from_user_id })),
-  }));
-}
-
-/** The last `limit` wall events — messages and check-in reactions merged
- * into one chronological strip, oldest first (so the newest reads last,
- * bottom of a preview card). Powers the circle screen's wall preview. */
-export async function getWallPreview(circleId: string, limit = 3): Promise<WallPreviewItem[]> {
-  const [{ data: messages, error: messagesError }, { data: reactions, error: reactionsError }] =
-    await Promise.all([
-      supabase
-        .from('wall_messages')
-        .select('id, user_id, body, created_at')
-        .eq('circle_id', circleId)
-        .order('created_at', { ascending: false })
-        .limit(limit),
-      supabase
-        .from('checkin_reactions')
-        .select('id, from_user_id, target_user_id, emoji, created_at')
-        .eq('circle_id', circleId)
-        .order('created_at', { ascending: false })
-        .limit(limit),
-    ]);
-
-  if (messagesError) throw messagesError;
-  if (reactionsError) throw reactionsError;
-
-  const items: WallPreviewItem[] = [
-    ...(messages ?? []).map(
-      (m): WallPreviewItem => ({
-        kind: 'message',
-        id: m.id,
-        userId: m.user_id,
-        body: m.body,
-        createdAt: m.created_at,
-      })
-    ),
-    ...(reactions ?? []).map(
-      (r): WallPreviewItem => ({
-        kind: 'reaction',
-        id: r.id,
-        fromUserId: r.from_user_id,
-        targetUserId: r.target_user_id,
-        emoji: displayReactionEmoji(r.emoji),
-        createdAt: r.created_at,
-      })
-    ),
-  ];
-
-  return items
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, limit)
-    .reverse();
-}
-
-/** One reaction per person per check-in — picking a different emoji
- * replaces your previous one rather than stacking. */
-export async function setCheckinReaction(params: {
-  circleId: string;
-  targetUserId: string;
-  targetLocalDate: string;
-  fromUserId: string;
-  emoji: string;
-}): Promise<void> {
-  const { error } = await supabase.from('checkin_reactions').upsert(
-    {
-      circle_id: params.circleId,
-      target_user_id: params.targetUserId,
-      target_local_date: params.targetLocalDate,
-      from_user_id: params.fromUserId,
-      emoji: params.emoji,
-    },
-    { onConflict: 'circle_id,target_user_id,target_local_date,from_user_id' }
-  );
+/** OC1's earned-voice gate mirror: the caller's completion count in
+ * this circle, ALL kinds — a covered day counts toward voice exactly as
+ * it does in the RLS INSERT policy's own count. Formerly derived from
+ * the wall's check-in feed; WL1 removed that feed, so the gate reads
+ * the count directly. */
+export async function getMyCircleCompletionCount(
+  circleId: string,
+  userId: string
+): Promise<number> {
+  const { count, error } = await supabase
+    .from('completions')
+    .select('id', { count: 'exact', head: true })
+    .eq('circle_id', circleId)
+    .eq('user_id', userId);
 
   if (error) throw error;
+  return count ?? 0;
+}
+
+/** The last `limit` wall lines (posts + celebrations, same visibility
+ * rule as the wall itself), oldest first (so the newest reads last,
+ * bottom of a preview card). Powers the circle screen's wall preview. */
+export async function getWallPreview(circleId: string, limit = 3): Promise<WallPreviewItem[]> {
+  const { data, error } = await supabase
+    .from('wall_messages')
+    .select('id, user_id, body, created_at')
+    .eq('circle_id', circleId)
+    .in('kind', WALL_VISIBLE_KINDS)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data ?? [])
+    .map((m) => ({ id: m.id, userId: m.user_id, body: m.body, createdAt: m.created_at }))
+    .reverse();
 }
 
 let wallChannelSeq = 0;
@@ -296,11 +218,6 @@ export function subscribeToWall(circleId: string, onChange: () => void): () => v
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'wall_messages', filter: `circle_id=eq.${circleId}` },
-      onChange
-    )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'checkin_reactions', filter: `circle_id=eq.${circleId}` },
       onChange
     )
     .on(
