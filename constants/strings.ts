@@ -113,11 +113,6 @@ export const STRINGS = {
   tabCircleLabel: 'Circle',
   tabJournalLabel: 'Journal',
   tabPrivateMapLabel: 'Private Map',
-  chatIntroMessage:
-    "Hi there, feel free to come chat anytime you want to talk something through, about your practice or from life in general. The more time we spend together, and the more detailed your daily reflections, the more insightful I'll become.\n\n" +
-    "This is a totally safe place, our chats are completely private and never shared.\n\n" +
-    "One thing to be clear about: I'm a companion, not a therapist. If things feel heavy, please talk to someone qualified — and in a crisis, contact emergency services or a crisis line right away.",
-  askRallyEmptyHook: 'say anything — Rally already knows your patterns.',
 
   voiceDictationDeniedHint: 'you can also dictate with the keyboard mic 🎤',
   voiceMicDiscoveryHint: 'you can speak your answers 🎤 — often easier than typing',
@@ -476,7 +471,6 @@ export const STRINGS = {
   // Ask Rally, part 1 (A1, Rally21-Ask-Rally-Spec.md) — entry points.
   askRallyLinkLabel: 'Ask Rally',
   askRallyAboutThis: 'ask Rally about this',
-  askRallySubtitle: 'private to you — nothing here shapes your private map or circle',
   askRallyStartFresh: 'start fresh',
   askRallyDelete: 'delete',
   askRallyComposerPlaceholder: 'ask Rally anything…',
@@ -491,15 +485,54 @@ export const STRINGS = {
   // Rally. A chip is the user's own question: it lands in the composer
   // as plain text (the `prefill` param — never the pattern cards'
   // About-this context wrapper) and is never sent on their behalf.
+  // PM1B (21 July) — rev 2 chip set, Cat-approved verbatim (including
+  // lowercase style and "of myself"). Order matters: slot 2 is the one
+  // the missed-day recovery chip displaces (lib/starterChips.ts).
   blueprintAskLabel: 'ASK RALLY',
   blueprintAskLead: 'wonder what all this means?',
   blueprintAskLeadEmpty: 'while your patterns form, Rally’s here to talk',
   blueprintAskChips: [
     'what are you noticing about me?',
-    'help me with my motivation',
-    'how do I get closer to what I’m reaching for?',
-    'I want to talk about how I’m feeling',
+    "what's getting in my way lately?",
+    'am I expecting too much of myself?',
+    "I want to talk about how I'm feeling",
   ],
+  // PM1B — the missed-day recovery chip: swaps into slot 2 only on a
+  // genuinely missed-yesterday day (never for a checked-in or covered
+  // yesterday, never for a user with no yesterday to miss). The one
+  // failure mode this cannot have is a false "you lapsed" signal.
+  askRallyRecoveryChip: 'how do I get back on track?',
+
+  // PM1B — the Ask Rally screen itself (REV 4, Cat's final layout).
+  // Title: lowercase per the casing law, but Rally is a NAME and keeps
+  // its capital (Cat's ruling, 21 July — LC1 carries the same exception
+  // app-wide).
+  askRallyScreenTitle: 'ask Rally',
+  // The context line's two tap targets: "🔒 private" (green,
+  // safety-assurance — a conscious small use of green, noted for CH5's
+  // conventions sweep) opens /privacy; "using {N} reflections ›" (plum,
+  // the what-Rally-draws-from surface) opens the private map. Below
+  // N < 3 the private link renders alone, no count.
+  askRallyPrivateLink: '🔒 private',
+  askRallyReflectionsLink: (n: number) => `using ${n} reflections ›`,
+  // Rally speaks the greeting — Cat's copy VERBATIM (21 July), two short
+  // paragraphs, rendered as Rally's first message-style bubble with the
+  // listener penguin beside it.
+  askRallyGreetingP1: 'Hi there, feel free to come and chat anytime, about your practice or life in general.',
+  askRallyGreetingP2: 'The more you share in your daily reflections, the more personal my insights can be.',
+  // The safety line under the composer + the learn-more sheet it opens
+  // (REV 3 ruling 5's sheet): the safe-place line and the full
+  // companion-not-a-therapist disclaimer, both Cat's original verbatim
+  // copy relocated from the old empty-state explainer.
+  askRallySafetyLine: 'Rally is a companion, not a therapist.',
+  askRallySafetyLearnMore: 'learn more',
+  askRallySheetTitle: 'about Ask Rally',
+  askRallySheetSafePlace:
+    'This is a totally safe place, our chats are completely private and never shared.',
+  askRallySheetScope: 'private to you — nothing here shapes your private map or circle',
+  askRallySheetDisclaimer:
+    "One thing to be clear about: I'm a companion, not a therapist. If things feel heavy, please talk to someone qualified — and in a crisis, contact emergency services or a crisis line right away.",
+  askRallySheetCta: 'okay',
 
   // PM2 (17 July) — the private map's liked-quotes section. "quotes you
   // love" is Cat's own wording (15 July). The section simply doesn't

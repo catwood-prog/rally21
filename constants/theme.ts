@@ -53,6 +53,10 @@ export const colors = {
   // 🧡 mark, and the nav active state — never a CTA or a progress color.
   heart: '#C2410C',
   heartSoft: 'rgba(194, 65, 12, 0.15)',
+  // Quiet-but-readable ink for small print that must still pass AA on
+  // `bg` (muted at 0.5 lands ~4.2:1 at the blend, just under the 4.5:1
+  // floor) — the Ask Rally safety line (PM1B) is the first user.
+  mutedStrong: 'rgba(38, 38, 38, 0.68)',
   // Error/destructive text and borders — promoted from repeated literals.
   errorRed: '#B3261E',
   // Modal/sheet backdrop dim — promoted from a repeated literal.

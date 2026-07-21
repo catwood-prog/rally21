@@ -27,8 +27,10 @@ import {
   WantActivation,
 } from '@/lib/blueprint';
 import { getCircleById, listMyCircles } from '@/lib/circle';
+import { getMyWeek } from '@/lib/glow';
 import { getMyProfile } from '@/lib/profile';
 import { LikedCard, getMyLikedCards, hasAttributionLine, unlikeCard } from '@/lib/shareCards';
+import { buildStarterChips, missedYesterday } from '@/lib/starterChips';
 
 /** PM2: the "quotes you love" list shows this many rows before the
  * "see all N" expander takes over. */
@@ -54,14 +56,17 @@ function patternContextText(copy: { headline: string; accent: string }): string 
  * as plain text (the `prefill` param, not the About-this `context`
  * wrapper — a chip is a question the user is asking, not a pattern
  * they're reacting to). Never auto-sent. One shared card for both the
- * populated map and the empty state; only the lead line adapts. */
-function AskRallyInviteCard({ lead }: { lead: string }) {
+ * populated map and the empty state; only the lead line adapts. PM1B:
+ * the chip set arrives from lib/starterChips (rev-2 wording, with the
+ * missed-day recovery swap), so this card and the Ask Rally screen's own
+ * grid always agree. */
+function AskRallyInviteCard({ lead, chips }: { lead: string; chips: string[] }) {
   const router = useRouter();
   return (
     <View style={styles.patternCard}>
       <Text style={styles.patternLabel}>{STRINGS.blueprintAskLabel}</Text>
       <Text style={styles.askLead}>{lead}</Text>
-      {STRINGS.blueprintAskChips.map((question) => (
+      {chips.map((question) => (
         <TouchableOpacity
           key={question}
           style={styles.askChip}
@@ -95,6 +100,7 @@ export default function Blueprint() {
   const [isActingOnWant, setIsActingOnWant] = useState(false);
   const [likedCards, setLikedCards] = useState<LikedCard[]>([]);
   const [showAllQuotes, setShowAllQuotes] = useState(false);
+  const [askChips, setAskChips] = useState<string[]>(() => buildStarterChips(false));
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -102,18 +108,21 @@ export default function Blueprint() {
     setError(null);
     setIsActingOnWant(false);
     try {
-      const [myPatterns, myResponses, profile, myDocument, myLikedCards] = await Promise.all([
+      const [myPatterns, myResponses, profile, myDocument, myLikedCards, myWeek] = await Promise.all([
         getMyBlueprint(),
         getMyBlueprintResponses(session.user.id),
         getMyProfile(session.user.id),
         getMyBlueprintDocument(),
         // PM2 — additive: a hiccup here must never take down the map.
         getMyLikedCards().catch(() => [] as LikedCard[]),
+        // PM1B — the recovery-chip gate fails soft to the standard four.
+        getMyWeek().catch(() => []),
       ]);
       setPatterns(myPatterns);
       setResponses(myResponses);
       setDocument(myDocument);
       setLikedCards(myLikedCards);
+      setAskChips(buildStarterChips(missedYesterday(myWeek)));
 
       if (myDocument.want && myDocument.want.status === 'confirmed') {
         const activation = await getWantActivation(myDocument.want.key);
@@ -251,7 +260,7 @@ export default function Blueprint() {
             <MascotEntrance source={MASCOT.journalCompanion} style={styles.emptyStateImage} />
             <Text style={styles.emptyStateText}>{STRINGS.blueprintEmptyText}</Text>
           </View>
-          <AskRallyInviteCard lead={STRINGS.blueprintAskLeadEmpty} />
+          <AskRallyInviteCard lead={STRINGS.blueprintAskLeadEmpty} chips={askChips} />
         </>
       )}
 
@@ -430,7 +439,7 @@ export default function Blueprint() {
         </View>
       )}
 
-      {patterns.length > 0 && <AskRallyInviteCard lead={STRINGS.blueprintAskLead} />}
+      {patterns.length > 0 && <AskRallyInviteCard lead={STRINGS.blueprintAskLead} chips={askChips} />}
 
       {patterns.length > 0 && <Text style={styles.footer}>{STRINGS.blueprintFooter}</Text>}
     </ScrollView>

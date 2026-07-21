@@ -32,6 +32,19 @@ type ReflectionRow = {
   questions: { prompt: string } | null;
 };
 
+/** PM1B — the Ask Rally header's "using {N} reflections" count. Same
+ * substantive-reflection rule as the your-data summary (lib/yourData.ts,
+ * via isReflectionSubstantive) so the two surfaces never disagree about
+ * what "a reflection we hold" means. */
+export async function getMySubstantiveReflectionCount(userId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('reflections')
+    .select('mood, line1')
+    .eq('user_id', userId);
+  if (error) throw error;
+  return (data ?? []).filter((r) => isReflectionSubstantive({ mood: r.mood, line1: r.line1 })).length;
+}
+
 export async function getMyReflections(userId: string): Promise<Reflection[]> {
   const { data, error } = await supabase
     .from('reflections')
