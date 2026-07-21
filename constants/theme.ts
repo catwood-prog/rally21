@@ -47,9 +47,10 @@ export const colors = {
   // private picture" (see CLAUDE.md's color-roles convention).
   plum: '#7A6486',
   plumSoft: '#F0EBF3',
-  // Hearts — warmth between friends (AC1, 15 July; see CLAUDE.md's
-  // color-roles convention). Scarce and specific: only the heart gesture
-  // and its 🧡 mark, never a CTA or a status color.
+  // Hearts — warmth between friends (AC1, 15 July) — plus you-are-here,
+  // the tab bar's active state (Cat's TB2 ruling, 20 July; see CLAUDE.md's
+  // color-roles convention). Scarce and specific: the heart gesture, its
+  // 🧡 mark, and the nav active state — never a CTA or a progress color.
   heart: '#C2410C',
   heartSoft: 'rgba(194, 65, 12, 0.15)',
   // Error/destructive text and borders — promoted from repeated literals.

@@ -13,11 +13,22 @@ import { hasUnrespondedDayObservation } from '@/lib/reflections';
  * TB1 (18 July, Cat's Instagram-reference ask) — the floating pill tab
  * bar: five icon-only tabs (Today · Circle · Journal · Private Map ·
  * Rally), inset from the edges, fully rounded, a clear gap above the
- * home indicator (safe-area aware, per NAV1's job 0). Active tab gets
- * a soft NEUTRAL pill highlight behind the icon — never a role colour;
- * the icons themselves keep the colour roles (green everywhere except
- * the inner-life plum on Journal and the new Private Map tab, which IS
- * the inner-life door, elevated out of the Today footer for good).
+ * home indicator (safe-area aware, per NAV1's job 0).
+ *
+ * TB2 (20 July, Cat's on-device rulings) — two fixes on TB1:
+ * Geometry: the pill's insets are margins, not left/right offsets.
+ * React Navigation's own bar style pins `start: 0` / `end: 0`, and on
+ * native Yoga gives start/end precedence over left/right even when the
+ * user style comes later — so TB1's left/right rendered edge-to-edge
+ * on real iOS while web (where start resolves to left and the later
+ * style wins) looked correct. Margins have no competing internal
+ * value, so they hold on both platforms.
+ * Active state: variant C of the Cowork orange mockup — a heartSoft
+ * wash in the icon pill, icon tinted heart orange, on every tab. This
+ * is a conscious colour-role amendment (orange = hearts + you-are-here;
+ * see CLAUDE.md's colour-roles convention): the previous green/plum
+ * active tints and the neutral grey blob are gone. Plum on this bar
+ * now lives only in the Map tab's notification dot.
  *
  * Translucency: web gets backdrop-filter blur; native ships the
  * translucent-solid + hairline treatment (NO expo-blur — that's a new
@@ -60,13 +71,12 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarActiveTintColor: colors.green,
+        tabBarActiveTintColor: colors.heart,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
           position: 'absolute',
-          left: FLOATING_TAB_BAR.SIDE_MARGIN,
-          right: FLOATING_TAB_BAR.SIDE_MARGIN,
-          bottom: insets.bottom + FLOATING_TAB_BAR.BOTTOM_GAP,
+          marginHorizontal: FLOATING_TAB_BAR.SIDE_MARGIN,
+          marginBottom: insets.bottom + FLOATING_TAB_BAR.BOTTOM_GAP,
           height: FLOATING_TAB_BAR.HEIGHT,
           borderRadius: FLOATING_TAB_BAR.HEIGHT / 2,
           borderTopWidth: 0,
@@ -74,6 +84,10 @@ export default function TabsLayout() {
           borderColor: colors.line,
           paddingBottom: 0,
           paddingTop: 0,
+          // The library pads the bar by the horizontal safe-area insets;
+          // the pill already clears them via its margins, and any stray
+          // padding would skew the five slots off-centre.
+          paddingHorizontal: 0,
           backgroundColor: translucent
             ? Platform.OS === 'web'
               ? 'rgba(255, 255, 255, 0.55)'
@@ -113,8 +127,6 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="journal"
         options={{
-          // The inner-life plum, scarce by design (colour-roles rule).
-          tabBarActiveTintColor: colors.plum,
           tabBarAccessibilityLabel: STRINGS.tabJournalLabel,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="book-outline" color={color} focused={focused} />
@@ -124,10 +136,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="private-map"
         options={{
-          // Plum too — this tab IS the inner-life door. Icon: map-outline
-          // (picked over compass — a map reads calm and matches the
-          // screen's own name; a compass reads wayfinding/urgency).
-          tabBarActiveTintColor: colors.plum,
+          // Icon: map-outline (picked over compass — a map reads calm and
+          // matches the screen's own name; a compass reads wayfinding/
+          // urgency). The inner-life plum lives in the notification dot;
+          // the active tint is the shared you-are-here orange (TB2).
           tabBarAccessibilityLabel: STRINGS.tabPrivateMapLabel,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="map-outline" color={color} focused={focused} dot={mapDot} />
@@ -147,9 +159,9 @@ export default function TabsLayout() {
   );
 }
 
-/** One tab icon inside its (soft neutral, never role-coloured) active
- * highlight pill, with the optional plum notification dot. The wrapper
- * is the ≥44px tap surface. */
+/** One tab icon inside its heartSoft you-are-here active pill (TB2,
+ * variant C), with the optional plum notification dot. The wrapper is
+ * the ≥44px tap surface. */
 function TabIcon({
   name,
   color,
@@ -177,9 +189,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Soft neutral — deliberately not a role colour (hard rule).
+  // You-are-here orange (Cat's TB2 ruling, 20 July): the colour-roles
+  // convention consciously grew orange from "hearts only" to hearts +
+  // the nav active state — see CLAUDE.md. TB1's soft-neutral blob is
+  // superseded.
   iconPillActive: {
-    backgroundColor: 'rgba(38, 38, 38, 0.07)',
+    backgroundColor: colors.heartSoft,
   },
   // D6's "something we noticed", relocated: plum because it points at
   // the inner-life layer; clears via the layout's route-change refetch.
