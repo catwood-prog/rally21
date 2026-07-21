@@ -1,5 +1,5 @@
 import { ReactNode, useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -98,8 +98,22 @@ export function BreathingPacer({ children }: { children: ReactNode }) {
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
-        <Animated.Text style={[styles.label, inLabelStyle]}>{STRINGS.pacerBreatheIn}</Animated.Text>
-        <Animated.Text style={[styles.label, styles.labelOverlay, outLabelStyle]}>
+        {/* BR2: BOTH labels render as invisible in-flow sizers, so the
+            wrap is always as wide as the WIDEST string and neither
+            visible overlay can ever wrap to two lines — whichever label
+            happens to be longer (the old layout let the in-flow
+            "breathe in" set the width, wrapping "breathe out"). The
+            crossfade still runs off the shared phase clock, untouched. */}
+        <Text style={[styles.label, styles.labelSizer]} numberOfLines={1}>
+          {STRINGS.pacerBreatheIn}
+        </Text>
+        <Text style={[styles.label, styles.labelSizer]} numberOfLines={1}>
+          {STRINGS.pacerBreatheOut}
+        </Text>
+        <Animated.Text style={[styles.label, styles.labelOverlay, inLabelStyle]} numberOfLines={1}>
+          {STRINGS.pacerBreatheIn}
+        </Animated.Text>
+        <Animated.Text style={[styles.label, styles.labelOverlay, outLabelStyle]} numberOfLines={1}>
           {STRINGS.pacerBreatheOut}
         </Animated.Text>
       </View>
@@ -127,13 +141,23 @@ const styles = StyleSheet.create({
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    // The two stacked sizers are taller than this fixed box — that's
+    // fine, they're invisible; only their WIDTH matters.
+    overflow: 'hidden',
   },
   label: {
     fontFamily: FONT_SERIF_ITALIC,
     fontSize: 15,
     color: 'rgba(255,255,255,0.65)',
   },
+  // BR2: width-only ghosts of both labels (see the render comment).
+  labelSizer: {
+    opacity: 0,
+  },
   labelOverlay: {
     position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
   },
 });

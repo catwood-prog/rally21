@@ -238,10 +238,13 @@ export const BREATHING_PACER = {
   BREATH_IN_MS: 4000,
   BREATH_OUT_MS: 6000,
   // The halo sits behind the 186px timer ring: flush with it when
-  // settled, swelling past it to ~251px at a full breath.
+  // settled, swelling past it to ~316px at a full breath. BR2 (20 July,
+  // Cat's live feel of a real timed sit): amplitude doubled, 0.35 →
+  // 0.70 — "100% more exaggerated... expand wider in that time" — on
+  // the SAME 4s/6s clock.
   CIRCLE_SIZE: 186,
   SCALE_MIN: 1.0,
-  SCALE_MAX: 1.35,
+  SCALE_MAX: 1.7,
   // Fill is colors.gold; these opacities keep it in goldSoft territory
   // (goldSoft itself is gold at 0.15) so the countdown stays the most
   // readable thing on screen at every point of the cycle.
