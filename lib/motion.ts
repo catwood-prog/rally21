@@ -156,14 +156,54 @@ export const MASCOT_FX = {
   COVER_SQUEEZE_SCALE: 0.98,
   COVER_SQUEEZE_IN_MS: 130,
   COVER_SQUEEZE_OUT_MS: 150,
-  // (g) Glow-beat flame flicker: a DECAYING one-shot on the 🔥 emoji —
-  // EMBER_BREATHE's small-amplitude vocabulary, but amplitude falls to
-  // zero instead of looping. Starts as the count-up settles
-  // (GLOW_BEAT_NUMBER_LANDS_MS), runs ~2s, then perfectly still.
-  FLAME_FLICKER_STEP_MS: 250,
-  FLAME_FLICKER_STEPS: 8, // ≈ 2000ms total
-  FLAME_FLICKER_SCALE_AMPLITUDE: 0.05, // decays linearly to 0
-  FLAME_FLICKER_TILT_DEG: 3, // decays with the same envelope
+} as const;
+
+// --- 4c. FL1 (21 July) — the glow-beat flame FLICKERS, not wobbles.
+// Cat's on-device review of M2's (g): "flame just kind of wobbles rather
+// than flickers." The decaying rotation wobble is replaced by a real
+// flicker vocabulary: one brief FLARE timed exactly where the old wobble
+// triggered (the count-up settle, so the choreography's beat survives),
+// then irregular hand-authored keyframes layering quick scale-Y
+// stretches (the flame reaching), small rotation jitter, and an opacity
+// shimmer — uneven intervals, never a metronome, fully deterministic
+// (no Math.random at render). The whole thing decays to complete
+// stillness in ≈2.5s: still a ONE-shot per glow-beat, the 10s-stillness
+// law holds, and the ember breathe stays the app's only idle loop.
+// Reduced motion renders the flame fully static (glow-beat's guard).
+export const FLAME_FLICKER = {
+  // The flare: a single larger bloom, ~250ms total.
+  FLARE_SCALE: 1.15,
+  FLARE_UP_MS: 110,
+  FLARE_DOWN_MS: 140,
+  // Amplitude caps the step table's 0–1 fractions scale against.
+  STRETCH_MAX: 0.07, // scaleY 1.00–1.07
+  TILT_MAX_DEG: 3, // rotation jitter ≤ ±3°
+  OPACITY_MIN: 0.92, // shimmer floor
+  // The irregular keyframes, hand-authored: [durationMs, stretch, tilt,
+  // dim] — stretch/dim are 0–1 fractions of the caps, tilt is a SIGNED
+  // fraction of TILT_MAX_DEG. Uneven 80–200ms intervals are the point.
+  // A linear decay envelope (1 → 0 across the table) multiplies every
+  // amplitude, so the last frames are already near-still; the sequence
+  // then lands on exact identity. Durations sum to ~2200ms; with the
+  // 250ms flare the whole flicker is ≈2.5s.
+  STEPS: [
+    [90, 0.9, -0.6, 0.7],
+    [160, 0.35, 0.8, 0.2],
+    [80, 1.0, -0.3, 0.9],
+    [200, 0.25, 0.5, 0.3],
+    [120, 0.8, -0.9, 0.6],
+    [90, 0.5, 0.2, 1.0],
+    [180, 0.7, -0.5, 0.4],
+    [110, 0.3, 0.7, 0.8],
+    [150, 0.55, -0.8, 0.3],
+    [100, 0.35, 0.4, 0.6],
+    [170, 0.5, -0.2, 0.5],
+    [140, 0.25, 0.35, 0.4],
+    [190, 0.4, -0.45, 0.3],
+    [130, 0.2, 0.25, 0.5],
+    [140, 0.3, -0.3, 0.2],
+    [150, 0.15, 0.15, 0.3],
+  ],
 } as const;
 
 // --- 5. Sound (lib/chime.ts) ---

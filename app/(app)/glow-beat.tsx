@@ -21,11 +21,11 @@ import { playGlowBeatBowl } from '@/lib/chime';
 import * as haptics from '@/lib/haptics';
 import { didRekindleToday, getMyGlow, getMyWeek, WeekDay } from '@/lib/glow';
 import {
+  FLAME_FLICKER,
   GLOW_BEAT,
   GLOW_BEAT_COPY_START_MS,
   GLOW_BEAT_NUMBER_LANDS_MS,
   GLOW_BEAT_WEEK_ROW_START_MS,
-  MASCOT_FX,
   WARM_EASE_IN_OUT,
   WARM_EASE_OUT,
 } from '@/lib/motion';
@@ -223,50 +223,65 @@ export default function GlowBeat() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // M2 (g) — the flame's one-shot organic flicker: EMBER_BREATHE's
-  // small-amplitude vocabulary as a DECAYING one-shot — small scale
-  // pulses plus a few degrees of tilt, amplitude falling linearly to
-  // zero over ~2s, timed to the count-up's settle, then perfectly
-  // still. (GlowBadge's ember state keeps the app's only idle loop.)
-  const flickerScale = useSharedValue(1);
+  // FL1 (21 July, supersedes M2's (g) wobble) — a real FLICKER: one
+  // brief flare timed exactly where the old wobble triggered (the
+  // count-up settle, so the choreography's beat survives), then
+  // irregular deterministic keyframes layering quick scale-Y stretches
+  // (the flame reaching), small rotation jitter, and an opacity
+  // shimmer, all decaying to complete stillness in ≈2.5s. One-shot;
+  // the 10s-stillness law holds; GlowBadge's ember breathe stays the
+  // app's only idle loop. Table + caps in lib/motion.ts FLAME_FLICKER.
+  const flareScale = useSharedValue(1);
+  const flickerStretch = useSharedValue(1);
   const flickerTilt = useSharedValue(0);
+  const flickerOpacity = useSharedValue(1);
   useEffect(() => {
     if (reduceMotion) return;
-    const scaleSteps = [];
-    const tiltSteps = [];
-    for (let i = 0; i < MASCOT_FX.FLAME_FLICKER_STEPS; i++) {
-      // Linear decay envelope: full amplitude on the first pulse, zero
-      // by the last; alternating direction reads as organic wobble.
-      const envelope = 1 - i / MASCOT_FX.FLAME_FLICKER_STEPS;
-      const sign = i % 2 === 0 ? 1 : -1;
-      scaleSteps.push(
-        withTiming(1 + sign * MASCOT_FX.FLAME_FLICKER_SCALE_AMPLITUDE * envelope, {
-          duration: MASCOT_FX.FLAME_FLICKER_STEP_MS,
-          easing: WARM_EASE_IN_OUT,
-        })
-      );
-      tiltSteps.push(
-        withTiming(sign * MASCOT_FX.FLAME_FLICKER_TILT_DEG * envelope, {
-          duration: MASCOT_FX.FLAME_FLICKER_STEP_MS,
-          easing: WARM_EASE_IN_OUT,
-        })
-      );
+    const steps = FLAME_FLICKER.STEPS;
+    const stretchSeq = [];
+    const tiltSeq = [];
+    const dimSeq = [];
+    for (let i = 0; i < steps.length; i++) {
+      const [durationMs, stretch, tilt, dim] = steps[i];
+      // Linear decay envelope: full amplitude at the table's start,
+      // near-zero by its end — the flame burns down to stillness.
+      const envelope = 1 - i / steps.length;
+      const timing = { duration: durationMs, easing: WARM_EASE_IN_OUT };
+      stretchSeq.push(withTiming(1 + stretch * FLAME_FLICKER.STRETCH_MAX * envelope, timing));
+      tiltSeq.push(withTiming(tilt * FLAME_FLICKER.TILT_MAX_DEG * envelope, timing));
+      dimSeq.push(withTiming(1 - dim * (1 - FLAME_FLICKER.OPACITY_MIN) * envelope, timing));
     }
-    scaleSteps.push(withTiming(1, { duration: MASCOT_FX.FLAME_FLICKER_STEP_MS, easing: WARM_EASE_IN_OUT }));
-    tiltSteps.push(withTiming(0, { duration: MASCOT_FX.FLAME_FLICKER_STEP_MS, easing: WARM_EASE_IN_OUT }));
+    // Land on exact identity — perfectly still from here on.
+    const settle = { duration: 120, easing: WARM_EASE_IN_OUT };
+    stretchSeq.push(withTiming(1, settle));
+    tiltSeq.push(withTiming(0, settle));
+    dimSeq.push(withTiming(1, settle));
+
     const elapsed = Date.now() - sequenceStartAt;
     const delay = Math.max(0, GLOW_BEAT_NUMBER_LANDS_MS - elapsed);
-    flickerScale.value = withDelay(delay, withSequence(scaleSteps[0], ...scaleSteps.slice(1)));
-    flickerTilt.value = withDelay(delay, withSequence(tiltSteps[0], ...tiltSteps.slice(1)));
+    // The flare rides the same beat the old wobble did; the irregular
+    // steps run concurrently underneath it, so the flare reads as the
+    // first, biggest reach of a living flame rather than a separate move.
+    flareScale.value = withDelay(
+      delay,
+      withSequence(
+        withTiming(FLAME_FLICKER.FLARE_SCALE, { duration: FLAME_FLICKER.FLARE_UP_MS, easing: WARM_EASE_OUT }),
+        withTiming(1, { duration: FLAME_FLICKER.FLARE_DOWN_MS, easing: WARM_EASE_IN_OUT })
+      )
+    );
+    flickerStretch.value = withDelay(delay, withSequence(stretchSeq[0], ...stretchSeq.slice(1)));
+    flickerTilt.value = withDelay(delay, withSequence(tiltSeq[0], ...tiltSeq.slice(1)));
+    flickerOpacity.value = withDelay(delay, withSequence(dimSeq[0], ...dimSeq.slice(1)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const flameStyle = useAnimatedStyle(() => ({
-    opacity: flameOpacity.value,
+    opacity: flameOpacity.value * flickerOpacity.value,
     transform: [
       { translateY: flameY.value },
       { scale: flameScale.value },
-      { scale: flickerScale.value },
+      { scale: flareScale.value },
+      { scaleY: flickerStretch.value },
       { rotate: `${flickerTilt.value}deg` },
     ],
   }));
