@@ -522,6 +522,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+    // P3: confetti pieces swaying past the screen edge used to extend
+    // the web page's scroll area a few px sideways — clip at the
+    // container so the celebration never scrolls (beyond-viewport
+    // pieces were never visible anyway).
+    overflow: 'hidden',
   },
   brandmark: {
     position: 'absolute',
@@ -557,8 +562,12 @@ const styles = StyleSheet.create({
     // P2 (15 July, Cat's TestFlight review): that size grown 50%, same
     // aspect — the celebration's hero should read like one.
     // M2 (17 July): same box, restyled confetti-free art.
-    width: 195,
-    height: 201,
+    // P3 (21 July, Cat's on-device review): grown again, +60% from P2's
+    // 195×201 — the largest size that provably keeps the whole layout,
+    // push-ask variant included, inside 390×667 with no scroll
+    // (browser-measured at ship time).
+    width: 312,
+    height: 322,
   },
   title: {
     fontFamily: FONT_HEADER,

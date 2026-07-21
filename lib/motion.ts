@@ -123,11 +123,14 @@ export const MASCOT_GESTURE = {
 // prefers-reduced-motion; the ember breathe stays the app's only idle
 // loop.
 export const MASCOT_FX = {
-  // (a) Check-in success wink: starts once the bouncy entrance (380ms)
-  // AND the P1 puff/hop (380ms more) have settled; one quick swap to the
-  // wink frame and back.
-  WINK_DELAY_MS: 800,
-  WINK_HOLD_MS: 120,
+  // (a) Check-in success wink — P3 (21 July, Cat's on-device review:
+  // "it flashes so fast we don't really see it"). The ~120ms swap
+  // becomes a readable beat: the entrance (380ms) + puff/hop (380ms
+  // more) settle at ~760ms, then a ~300ms beat so the eye is already on
+  // the penguin, then the wink frame HOLDS ~400ms before swapping back.
+  // Still one shot, still stacked pre-mounted frames.
+  WINK_DELAY_MS: 1060,
+  WINK_HOLD_MS: 400,
   WINK_SWAPS: 1,
   // (a) The small banner-scoped green burst replacing the confetti that
   // used to be baked into the art — deliberately smaller than the
