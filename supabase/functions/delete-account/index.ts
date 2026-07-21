@@ -30,9 +30,17 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // (lib/account.ts), which is a real fetch() under the hood — needs the
 // same OPTIONS-preflight + CORS-header-on-every-response handling as
 // ask-rally, or it fails with "Failed to fetch" before ever reaching auth.
+//
+// 20 July: x-client-info added to the allow-list. Unlike ask-rally and
+// report-content (raw fetch, hand-picked headers), functions.invoke also
+// sends supabase-js's X-Client-Info header — so the preflight succeeded
+// (OPTIONS 204 in the logs) but the browser then refused to send the real
+// POST ("Failed to send a request to the Edge Function"; zero POSTs ever
+// logged). This function is the app's only functions.invoke call site,
+// which is why only account deletion broke.
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
