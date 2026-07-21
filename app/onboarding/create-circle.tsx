@@ -126,12 +126,13 @@ export default function FindAPractice() {
     setIsCreatingPractice(true);
     try {
       const durationMinutes = customDuration.trim() ? parseInt(customDuration.trim(), 10) : null;
-      // PT1: category/type come from the confirmed classifier selection,
+      // PT1: the type comes from the confirmed classifier selection,
       // NEVER from selectedCategory (the browse chip) — that inheritance
-      // was the root cause of "Read before bed" landing in Move.
+      // was the root cause of "Read before bed" landing in Move. CF1
+      // finished the job: the client no longer sends a category at all;
+      // the server derives the shelf from the type.
       const practice = await createPractice({
         name: customName.trim(),
-        category: customType.domain,
         practiceType: customType.type,
         durationMinutes: durationMinutes && durationMinutes > 0 ? durationMinutes : null,
         createdBy: session.user.id,
@@ -227,7 +228,7 @@ export default function FindAPractice() {
                     <PracticePill variant="only-you" />
                   )}
                   <Text style={styles.cardCount}>
-                    {!isSolo && count ? `${count} open circles` : ' '}
+                    {!isSolo && count ? STRINGS.openCirclesCount(count) : ' '}
                   </Text>
                 </View>
               </TouchableOpacity>

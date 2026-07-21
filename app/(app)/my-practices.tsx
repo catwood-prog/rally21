@@ -91,9 +91,10 @@ export default function MyPractices() {
       const cleanDuration = durationMinutes && durationMinutes > 0 ? durationMinutes : null;
 
       if (editingId === 'new') {
+        // CF1: no category sent — the server derives the shelf from the
+        // practice type.
         await createPractice({
           name: form.name,
-          category: form.selection.domain,
           practiceType: form.selection.type,
           durationMinutes: cleanDuration,
           createdBy: session.user.id,
@@ -101,7 +102,6 @@ export default function MyPractices() {
       } else if (editingId) {
         await updatePractice(editingId, {
           name: form.name,
-          category: form.selection.domain,
           practiceType: form.selection.type,
           durationMinutes: cleanDuration,
         });

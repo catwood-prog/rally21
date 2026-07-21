@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { joinPublicCircle, listPublicCircles, PublicCircle } from '@/lib/circle-setup';
 
@@ -86,7 +87,7 @@ export default function PracticeCircles() {
         <ActivityIndicator color={colors.green} style={styles.loadingSpinner} />
       ) : circles.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>no open circles yet — start the first one</Text>
+          <Text style={styles.emptyStateText}>{STRINGS.openCirclesNoneYetStartFirst}</Text>
         </View>
       ) : (
         <>

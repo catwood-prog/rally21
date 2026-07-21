@@ -323,6 +323,14 @@ export const STRINGS = {
   hostRemoveMemberCta: 'Remove',
   hostCloseToJoinsLabel: 'closed to new joins',
   hostCloseToJoinsHelperOpen: 'anyone with the code or browsing open circles can join',
+
+  // CF1 — one pluralization for every open-circle count surface:
+  // "1 open circle", "N open circles", "no open circles yet". The number
+  // itself is the caller-scoped joinable count (one server rule feeds
+  // both the tiles and the hub list — see the cf1 migration).
+  openCirclesCount: (n: number) =>
+    n === 0 ? 'no open circles yet' : n === 1 ? '1 open circle' : `${n} open circles`,
+  openCirclesNoneYetStartFirst: 'no open circles yet — start the first one',
   hostCloseToJoinsHelperClosed: "you're not taking new members right now",
 
   // EC1 (16 July) — hosts edit their circle from Host Controls or the ✎

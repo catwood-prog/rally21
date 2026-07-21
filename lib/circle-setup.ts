@@ -74,9 +74,12 @@ export async function listPracticesByCategory(
   return (data ?? []).map(mapPractice);
 }
 
+/** CF1: no category parameter — the shelf is DERIVED server-side from
+ * practice_type (practice_domain_of + the derive trigger), so a browse
+ * filter can never contaminate a save again. Callers pass the type; the
+ * returned row carries the server's derived category. */
 export async function createPractice(params: {
   name: string;
-  category: PracticeCategory;
   practiceType: PracticeTypeKey;
   durationMinutes: number | null;
   createdBy: string;
@@ -85,7 +88,6 @@ export async function createPractice(params: {
     .from('practices')
     .insert({
       name: params.name.trim(),
-      category: params.category,
       practice_type: params.practiceType,
       duration_minutes: params.durationMinutes,
       created_by: params.createdBy,
@@ -111,11 +113,12 @@ export async function listMyPractices(userId: string): Promise<Practice[]> {
   return (data ?? []).map(mapPractice);
 }
 
+/** CF1: same rule as createPractice — no category, the server derives
+ * it from the (possibly re-picked) practice_type. */
 export async function updatePractice(
   practiceId: string,
   params: {
     name: string;
-    category: PracticeCategory;
     practiceType: PracticeTypeKey;
     durationMinutes: number | null;
   }
@@ -124,7 +127,6 @@ export async function updatePractice(
     .from('practices')
     .update({
       name: params.name.trim(),
-      category: params.category,
       practice_type: params.practiceType,
       duration_minutes: params.durationMinutes,
     })
