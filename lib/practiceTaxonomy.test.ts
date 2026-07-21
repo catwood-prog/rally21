@@ -15,20 +15,21 @@ import {
 } from './practiceTaxonomy';
 
 describe('the type table', () => {
-  it('has exactly the five domains and 18 permanent type keys (PT3 re-cut)', () => {
+  it('has exactly the five domains and 19 permanent type keys (PT3 re-cut + PB1 selfcare)', () => {
     expect(PRACTICE_DOMAINS.map((d) => d.key)).toEqual([
       'move', 'mind', 'learn', 'make', 'care',
     ]);
-    expect(PRACTICE_TYPES).toHaveLength(18);
-    // Keys are permanent API — this list is the spec's 16 July table,
-    // verbatim. The 12 retired keys were proven row-free before the
-    // PT3 cut; don't rename/remove/re-add without a migration + ruling.
+    expect(PRACTICE_TYPES).toHaveLength(19);
+    // Keys are permanent API — the spec's 16 July table plus selfcare,
+    // REINSTATED by Cat's 21 July evening ruling (PB1; a conscious
+    // partial reversal of the prune). The other retired keys stay
+    // retired; don't rename/remove/re-add without a migration + ruling.
     expect(PRACTICE_TYPES.map((t) => t.key)).toEqual([
       'walk', 'run', 'stretch', 'strength', 'sport', 'dance',
       'meditate', 'breathe', 'journal', 'gratitude', 'affirm',
       'read', 'language', 'study', 'music',
       'write', 'art',
-      'eat',
+      'eat', 'selfcare',
     ]);
   });
 
@@ -80,6 +81,16 @@ describe('classifyPracticeName', () => {
     expect(classifyPracticeName('In bed by 10:30')).toBeNull(); // was care/sleep
     expect(classifyPracticeName('budget check')).toBeNull(); // was care/money
     expect(classifyPracticeName('drink two litres of water')).toBeNull(); // was care/hydrate
+  });
+
+  it('classifies the reinstated selfcare type (PB1 — Cat\'s ruled keywords)', () => {
+    expect(classifyPracticeName('Give yourself a massage')).toEqual({ domain: 'care', type: 'selfcare' });
+    expect(classifyPracticeName('lymphatic drainage self-massage')).toEqual({ domain: 'care', type: 'selfcare' });
+    expect(classifyPracticeName('30 minutes of me time')).toEqual({ domain: 'care', type: 'selfcare' });
+    expect(classifyPracticeName('daily self-care hour')).toEqual({ domain: 'care', type: 'selfcare' });
+    // The bank's own "Take time for yourself" carries none of the ruled
+    // keywords — the warm manual pick handles it, never an error.
+    expect(classifyPracticeName('Take time for yourself')).toBeNull();
   });
 
   it('classifies the new affirm type', () => {

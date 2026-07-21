@@ -16,7 +16,15 @@ export type Practice = {
   /** PT1: the fixed type key under the domain — THE analytics unit;
    * CHECK-constrained in the database to the spec's 29 permanent keys. */
   practiceType: PracticeTypeKey;
+  /** PB1: LEGACY as a read — the dose now lives on the circle
+   * (circles.duration_minutes, set at creation by copying this value
+   * until CF2's setup screens write it explicitly). Bank seeds carry
+   * null; customs may still set one as their default dose. */
   durationMinutes: number | null;
+  /** PB1 (Cat's timer rule): whether setup PRE-SUGGESTS a timer for
+   * this practice — nothing more. Any practice may take an optional
+   * duration at setup; none is forced. Never a hard split. */
+  timerSuggested: boolean;
   createdBy: string | null;
   isArchived: boolean;
   /** Seeded practices are always shared; a custom practice becomes
@@ -26,9 +34,11 @@ export type Practice = {
 };
 
 const PRACTICE_SELECT =
-  'id, key, name, description, category, practice_type, duration_minutes, created_by, is_archived, is_shared';
+  'id, key, name, description, category, practice_type, duration_minutes, timer_suggested, created_by, is_archived, is_shared';
 
-function mapPractice(row: {
+/** Exported for the unit test pinning timer_suggested's semantics —
+ * screens never call this directly. */
+export function mapPractice(row: {
   id: string;
   key: string;
   name: string;
@@ -36,6 +46,7 @@ function mapPractice(row: {
   category: PracticeCategory;
   practice_type: PracticeTypeKey;
   duration_minutes: number | null;
+  timer_suggested: boolean;
   created_by: string | null;
   is_archived: boolean;
   is_shared: boolean;
@@ -48,6 +59,7 @@ function mapPractice(row: {
     category: row.category,
     practiceType: row.practice_type,
     durationMinutes: row.duration_minutes,
+    timerSuggested: row.timer_suggested,
     createdBy: row.created_by,
     isArchived: row.is_archived,
     isShared: row.is_shared,

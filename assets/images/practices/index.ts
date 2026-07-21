@@ -17,6 +17,11 @@ import { ImageSourcePropType } from 'react-native';
 // the browse never shows it again). Kept as a plain string map so a
 // bundle running ahead of (or behind) a schema change degrades to the
 // emoji fallback instead of a type error.
+//
+// PB1 (21 July): 'selfcare' reinstated (19th key) with NO entry here on
+// purpose — it renders the emoji fallback until Cat generates
+// selfcare.jpg (Rally21-Practice-Imagery-Prompts.md carries the subject
+// line); add the require() below when the file lands.
 export const PRACTICE_TILES: Record<string, ImageSourcePropType> = {
   walk: require('./walk.jpg'),
   run: require('./run.jpg'),

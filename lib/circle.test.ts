@@ -1,4 +1,4 @@
-import { attachRestingStatus, CircleMember, isSoloCircle, MyCircle, resolveCircleSelection } from './circle';
+import { attachRestingStatus, CircleMember, isSoloCircle, mapCircleRow, MyCircle, resolveCircleSelection } from './circle';
 
 function fakeMember(overrides: Partial<CircleMember> = {}): CircleMember {
   return {
@@ -24,7 +24,7 @@ function fakeCircle(overrides: Partial<MyCircle> = {}): MyCircle {
     startDate: '2026-06-01',
     durationDays: 21,
     practiceName: 'Walk 20 minutes',
-    practiceDurationMinutes: 20,
+    durationMinutes: 20,
     inviteCode: 'ABC123',
     createdBy: 'user-1',
     resourceUrl: null,
@@ -36,6 +36,50 @@ function fakeCircle(overrides: Partial<MyCircle> = {}): MyCircle {
     ...overrides,
   };
 }
+
+describe('mapCircleRow — the circle-first duration read (PB1)', () => {
+  const baseRow = {
+    id: 'circle-1',
+    name: 'Daily Meditation',
+    time_of_day: '08:00:00',
+    start_date: '2026-06-01',
+    duration_days: 21,
+    invite_code: 'ABC123',
+    created_by: 'user-1',
+    resource_url: null,
+    is_public: false,
+    closed_to_joins: false,
+    rallied_on_at: null,
+    completed_at: null,
+  };
+
+  test('the circle\'s own duration wins over the practice\'s legacy value', () => {
+    const circle = mapCircleRow({
+      ...baseRow,
+      duration_minutes: 15,
+      practices: { name: 'Meditate', duration_minutes: 5 },
+    });
+    expect(circle.durationMinutes).toBe(15);
+  });
+
+  test('a circle predating the backfill falls back to the practice\'s legacy duration', () => {
+    const circle = mapCircleRow({
+      ...baseRow,
+      duration_minutes: null,
+      practices: { name: 'Meditate 10 minutes', duration_minutes: 10 },
+    });
+    expect(circle.durationMinutes).toBe(10);
+  });
+
+  test('no duration anywhere means no timer — null, never 0', () => {
+    const circle = mapCircleRow({
+      ...baseRow,
+      duration_minutes: null,
+      practices: { name: 'Take my vitamins', duration_minutes: null },
+    });
+    expect(circle.durationMinutes).toBeNull();
+  });
+});
 
 describe('resolveCircleSelection', () => {
   test('branch 1 — explicit circleId fetches that exact circle', async () => {

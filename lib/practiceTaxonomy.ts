@@ -16,6 +16,9 @@
 // domains (connect retired), affirm added, music moved make → learn.
 // The retired keys were proven row-free live before the cut (the
 // migration guards against replaying onto rows that use them).
+// PB1 (21 July) — selfcare REINSTATED under care (Cat's evening ruling,
+// a conscious partial reversal of the prune: 18 → 19 keys). Hand-synced
+// with practice_domain_of() in the pb1 migration.
 export type PracticeDomain = 'move' | 'mind' | 'learn' | 'make' | 'care';
 
 export type PracticeTypeKey =
@@ -23,7 +26,7 @@ export type PracticeTypeKey =
   | 'meditate' | 'breathe' | 'journal' | 'gratitude' | 'affirm'
   | 'read' | 'language' | 'study' | 'music'
   | 'write' | 'art'
-  | 'eat';
+  | 'eat' | 'selfcare';
 
 export type PracticeType = {
   domain: PracticeDomain;
@@ -71,6 +74,10 @@ export const PRACTICE_TYPES: PracticeType[] = [
   { domain: 'make', key: 'write', display: 'Write', keywords: ['write', 'writing', 'novel', 'blog', 'poem'] },
   { domain: 'make', key: 'art', display: 'Draw & Paint', keywords: ['draw', 'paint', 'sketch', 'art'] },
   { domain: 'care', key: 'eat', display: 'Eat Well', keywords: ['cook', 'eat', 'vegetables', 'no sugar', 'meal', 'vitamins', 'medicine', 'meds', 'supplements'] },
+  // PB1: reinstated (Cat's 21 July evening ruling — self-care time
+  // matters especially for mothers). Keyword set is her ruled list; the
+  // lymphatic/drainage pair keeps the general card name classifiable.
+  { domain: 'care', key: 'selfcare', display: 'Self-Care', keywords: ['self-care', 'massage', 'self-massage', 'lymphatic', 'drainage', 'me time'] },
 ];
 
 export function typesForDomain(domain: PracticeDomain): PracticeType[] {

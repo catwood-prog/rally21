@@ -274,7 +274,7 @@ export default function Today() {
   const atCap = circles.length >= circleCap;
 
   const goToCheckin = (circle: MyCircle, wantsTimer: boolean, dayNumber: number) => {
-    const wantsTimerWithDuration = wantsTimer && !!circle.practiceDurationMinutes;
+    const wantsTimerWithDuration = wantsTimer && !!circle.durationMinutes;
     // A circle's resource link (video or otherwise) always routes through
     // the activity screen — it's the hero of that screen regardless of
     // whether the user tapped "start timer" or not (see checkin-timer.tsx).
@@ -288,8 +288,8 @@ export default function Today() {
     const activityParams = goesToActivityScreen
       ? {
           startTimer: 'true',
-          ...(circle.practiceDurationMinutes
-            ? { durationMinutes: String(circle.practiceDurationMinutes) }
+          ...(circle.durationMinutes
+            ? { durationMinutes: String(circle.durationMinutes) }
             : {}),
           circleName: circle.name,
           dayNumber: String(Math.min(dayNumber, circle.durationDays)),
@@ -516,7 +516,7 @@ export default function Today() {
               {STRINGS.coveredNoteToCoveredMember(memberFullName(members, iWasCoveredToday.coveredBy))}
             </Text>
           </View>
-        ) : !iAmCheckedInToday && circle.practiceDurationMinutes && !circle.resourceUrl ? (
+        ) : !iAmCheckedInToday && circle.durationMinutes && !circle.resourceUrl ? (
           <View style={styles.timerChoiceRow}>
             <TouchableOpacity
               style={styles.markDoneButton}
@@ -705,7 +705,7 @@ export default function Today() {
                   {STRINGS.coveredNoteToCoveredMember(memberFullName(members, iWasCoveredToday.coveredBy))}
                 </Text>
               </View>
-            ) : !iAmCheckedInToday && circle.practiceDurationMinutes && !circle.resourceUrl ? (
+            ) : !iAmCheckedInToday && circle.durationMinutes && !circle.resourceUrl ? (
               <View style={styles.timerChoiceRow}>
                 <TouchableOpacity
                   style={styles.markDoneButton}

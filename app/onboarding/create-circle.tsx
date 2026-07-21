@@ -195,6 +195,11 @@ export default function FindAPractice() {
         <ActivityIndicator color={colors.green} style={styles.loadingSpinner} />
       ) : (
         <View style={styles.grid}>
+          {/* PB1 safety net: an empty shelf (a future prune, or a search
+              with no match) never reads as just a bare + card. */}
+          {visiblePractices.length === 0 && (
+            <Text style={styles.emptyShelfLine}>{STRINGS.browseEmptyShelf}</Text>
+          )}
           {visiblePractices.map((practice) => {
             const count = openCounts[practice.id];
             const category = CATEGORIES.find((c) => c.key === practice.category);
@@ -371,6 +376,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+  },
+  emptyShelfLine: {
+    width: '100%',
+    fontSize: 12,
+    color: colors.muted,
+    lineHeight: 17,
   },
   card: {
     width: '47%',

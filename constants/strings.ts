@@ -349,6 +349,10 @@ export const STRINGS = {
   // both the tiles and the hub list — see the cf1 migration).
   openCirclesCount: (n: number) =>
     n === 0 ? 'no open circles yet' : n === 1 ? '1 open circle' : `${n} open circles`,
+  // PB1 — the browse safety net: a domain (or a search within one) with
+  // no practices never renders as a bare create-your-own card; this warm
+  // line sits above it instead.
+  browseEmptyShelf: 'nothing here yet — create your own below and it can be the first.',
   openCirclesNoneYetStartFirst: 'no open circles yet — start the first one',
   hostCloseToJoinsHelperClosed: "you're not taking new members right now",
 

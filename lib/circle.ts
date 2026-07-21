@@ -12,7 +12,11 @@ export type MyCircle = {
   startDate: string;
   durationDays: number;
   practiceName: string | null;
-  practiceDurationMinutes: number | null;
+  /** PB1 (21 July): the dose lives on the CIRCLE (circles.duration_minutes,
+   * chosen at setup) — this is that value, falling back to the practice's
+   * legacy duration_minutes only for safety (old rows predating the
+   * backfill). Drives the check-in timer + chime routing on Today. */
+  durationMinutes: number | null;
   inviteCode: string;
   createdBy: string;
   resourceUrl: string | null;
@@ -79,13 +83,16 @@ type CircleRow = {
   closed_to_joins: boolean;
   rallied_on_at: string | null;
   completed_at: string | null;
+  duration_minutes: number | null;
   practices: { name: string; duration_minutes: number | null } | null;
 };
 
 const CIRCLE_SELECT =
-  'circles(id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, is_public, closed_to_joins, rallied_on_at, completed_at, practices(name, duration_minutes))';
+  'circles(id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, is_public, closed_to_joins, rallied_on_at, completed_at, duration_minutes, practices(name, duration_minutes))';
 
-function mapCircleRow(c: CircleRow, myJoinSource: MyCircle['myJoinSource'] = null): MyCircle {
+/** Exported for the unit test pinning the circle-first duration read —
+ * screens never call this directly. */
+export function mapCircleRow(c: CircleRow, myJoinSource: MyCircle['myJoinSource'] = null): MyCircle {
   return {
     id: c.id,
     name: c.name,
@@ -93,7 +100,9 @@ function mapCircleRow(c: CircleRow, myJoinSource: MyCircle['myJoinSource'] = nul
     startDate: c.start_date,
     durationDays: c.duration_days,
     practiceName: c.practices?.name ?? null,
-    practiceDurationMinutes: c.practices?.duration_minutes ?? null,
+    // Circle-first, practice as safety fallback only (PB1) — a circle
+    // predating the backfill still gets its practice's legacy dose.
+    durationMinutes: c.duration_minutes ?? c.practices?.duration_minutes ?? null,
     inviteCode: c.invite_code,
     createdBy: c.created_by,
     resourceUrl: c.resource_url,
@@ -176,7 +185,7 @@ export async function getCircleById(circleId: string, userId?: string): Promise<
   const { data, error } = await supabase
     .from('circles')
     .select(
-      'id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, is_public, closed_to_joins, rallied_on_at, completed_at, practices(name, duration_minutes)'
+      'id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, is_public, closed_to_joins, rallied_on_at, completed_at, duration_minutes, practices(name, duration_minutes)'
     )
     .eq('id', circleId)
     .maybeSingle<CircleRow>();
@@ -199,20 +208,23 @@ export async function getCircleById(circleId: string, userId?: string): Promise<
 }
 
 /** EC1 — the host edits their circle: name, time of day, resource link,
- * and the practice wording/duration itself. Host-only is enforced inside
- * the RPC (created_by = auth.uid(), the same rule as the circles UPDATE
- * policy — no host handover, see CLAUDE.md). The RPC updates the practice
- * row in place only when the host owns it and no other circle uses it;
- * otherwise it clones a host-owned copy and repoints this circle, so a
- * seeded or shared practice is never rewritten under other circles. The
- * day counter (start_date/duration_days) is untouched by construction. */
+ * the practice wording, and (since PB1) the CIRCLE's duration — the RPC
+ * writes circles.duration_minutes outright (null clears it) and only
+ * touches the practice row when its name changes: in place when the host
+ * owns it and no other circle uses it, otherwise a host-owned clone, so
+ * a seeded or shared practice is never rewritten under other circles.
+ * Host-only is enforced inside the RPC (created_by = auth.uid(), the
+ * same rule as the circles UPDATE policy — no host handover, see
+ * CLAUDE.md). The day counter (start_date/duration_days) is untouched by
+ * construction. The RPC parameter keeps its pre-PB1 name so cached
+ * clients keep working. */
 export async function editCircle(params: {
   circleId: string;
   name: string;
   timeOfDay: string | null;
   resourceUrl: string | null;
   practiceName: string;
-  practiceDurationMinutes: number | null;
+  durationMinutes: number | null;
 }): Promise<void> {
   const { error } = await supabase.rpc('edit_circle', {
     p_circle_id: params.circleId,
@@ -220,7 +232,7 @@ export async function editCircle(params: {
     p_time_of_day: params.timeOfDay,
     p_resource_url: params.resourceUrl,
     p_practice_name: params.practiceName,
-    p_practice_duration_minutes: params.practiceDurationMinutes,
+    p_practice_duration_minutes: params.durationMinutes,
   });
   if (error) {
     captureError(error, { rpc: 'edit_circle' });

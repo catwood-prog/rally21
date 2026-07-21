@@ -68,7 +68,7 @@ export default function EditCircle() {
         setTimeOfDay(c.timeOfDay ?? '');
         setPracticeName(c.practiceName ?? '');
         setPracticeDuration(
-          c.practiceDurationMinutes ? String(c.practiceDurationMinutes) : ''
+          c.durationMinutes ? String(c.durationMinutes) : ''
         );
         setResourceUrl(c.resourceUrl ?? '');
       })
@@ -97,7 +97,7 @@ export default function EditCircle() {
         timeOfDay: timeOfDay || null,
         resourceUrl: trimmedUrl || null,
         practiceName: practiceName.trim(),
-        practiceDurationMinutes: durationMinutes && durationMinutes > 0 ? durationMinutes : null,
+        durationMinutes: durationMinutes && durationMinutes > 0 ? durationMinutes : null,
       });
       router.push({ pathname: '/circle', params: { circleId: circle.id } });
     } catch (e) {
