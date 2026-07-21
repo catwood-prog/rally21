@@ -1,4 +1,7 @@
+import { File as NativeFile } from 'expo-file-system';
 import { Platform } from 'react-native';
+
+import { STRINGS } from '@/constants/strings';
 
 import { supabase } from './supabase';
 
@@ -173,12 +176,12 @@ const AVATAR_MAX_DIMENSION = 512;
  * what format is sitting in storage. Re-encoding once at upload time
  * fixes it for every future viewer, not just the uploader.
  *
- * Web only — this app has no native build target yet; native
- * re-encoding would use expo-image-manipulator instead (a go-native
- * task, see DEFERRED.md). Falls back to the original blob on any
- * failure (e.g. a browser that can't decode the source format either)
- * rather than blocking the upload — callers already treat a failed
- * avatar save as non-fatal. */
+ * Web only — native never reaches this (uploadAvatar gates to
+ * uploadAvatarNative first): the picker's allowsEditing crop already
+ * hands native a square JPEG, so there's nothing to re-encode there.
+ * Falls back to the original blob on any failure (e.g. a browser that
+ * can't decode the source format either) rather than blocking the
+ * upload — callers already treat a failed avatar save as non-fatal. */
 async function reencodeAsJpeg(blob: Blob): Promise<Blob> {
   if (Platform.OS !== 'web') return blob;
   try {
@@ -202,7 +205,54 @@ async function reencodeAsJpeg(blob: Blob): Promise<Blob> {
   }
 }
 
+function cacheBustedPublicUrl(path: string): string {
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+  // cache-bust so a replaced photo shows up immediately instead of the old
+  // cached image at the same path
+  return `${data.publicUrl}?t=${Date.now()}`;
+}
+
+/** PH1 — storage path/contentType for a native upload, straight from the
+ * picked asset's uri (there's no re-encoded blob to read a type from on
+ * native). Only formats every browser can display pass through; anything
+ * else (heic, no extension) defaults to jpeg, which is what the picker's
+ * allowsEditing crop actually emits. 'jpg' normalizes to 'jpeg' so the
+ * object path matches the web path's blob-derived extension — upsert then
+ * overwrites the same `avatar.jpeg` object across platforms instead of
+ * leaving a stale sibling behind. */
+export function avatarFilePartsFromUri(uri: string): { ext: string; contentType: string } {
+  const ext = /\.([A-Za-z0-9]+)(?:[?#]|$)/.exec(uri)?.[1]?.toLowerCase();
+  if (ext === 'png') return { ext: 'png', contentType: 'image/png' };
+  if (ext === 'webp') return { ext: 'webp', contentType: 'image/webp' };
+  return { ext: 'jpeg', contentType: 'image/jpeg' };
+}
+
+/** PH1 — the native upload path. `fetch(uri).blob()` on iOS silently
+ * yields a zero-byte blob for the picker's file:// uris, and storage
+ * happily accepts it — confirmed live: a 0-byte avatar.jpeg in the
+ * avatars bucket from the 21 July on-device attempt. So native reads the
+ * real bytes via expo-file-system (already in build 9's runtime — it
+ * ships with the expo package) and an empty read throws, so the caller's
+ * inline warning shows instead of a blank photo "saving" successfully. */
+async function uploadAvatarNative(userId: string, imageUri: string): Promise<string> {
+  const { ext, contentType } = avatarFilePartsFromUri(imageUri);
+  const bytes = await new NativeFile(imageUri).bytes();
+  if (bytes.byteLength === 0) {
+    throw new Error('picked image read back empty');
+  }
+
+  const path = `${userId}/avatar.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(path, bytes.buffer, { upsert: true, contentType });
+
+  if (uploadError) throw uploadError;
+  return cacheBustedPublicUrl(path);
+}
+
 async function uploadAvatar(userId: string, imageUri: string): Promise<string> {
+  if (Platform.OS !== 'web') return uploadAvatarNative(userId, imageUri);
+
   const response = await fetch(imageUri);
   const rawBlob = await response.blob();
   const blob = await reencodeAsJpeg(rawBlob);
@@ -218,11 +268,7 @@ async function uploadAvatar(userId: string, imageUri: string): Promise<string> {
     .upload(path, blob, { upsert: true, contentType: blob.type });
 
   if (uploadError) throw uploadError;
-
-  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-  // cache-bust so a replaced photo shows up immediately instead of the old
-  // cached image at the same path
-  return `${data.publicUrl}?t=${Date.now()}`;
+  return cacheBustedPublicUrl(path);
 }
 
 /** DC1 — "delete my picture (keep streaks)": removes the stored avatar
@@ -255,7 +301,7 @@ export async function saveProfile(
       avatarUrl = await uploadAvatar(userId, avatarUri);
     } catch {
       // photo is optional — never let a failed upload block saving the name
-      avatarWarning = "your photo didn't upload, but your name is saved — try again later from settings";
+      avatarWarning = STRINGS.profilePhotoUploadFailed;
     }
   }
 

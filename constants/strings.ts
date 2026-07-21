@@ -567,6 +567,13 @@ export const STRINGS = {
   yourDataDeleteCheckinCancelCta: 'Cancel',
   yourDataDeleteCheckinError: 'could not delete that — try again',
 
+  // PH1 — a failed avatar upload must speak (it shipped silent once: the
+  // native path was landing zero-byte objects with a "success"). Shown
+  // inline by both saveProfile callers (onboarding profile, settings);
+  // the name always still saves.
+  profilePhotoUploadFailed:
+    "your photo didn't upload, but your name is saved — try again later from settings",
+
   yourDataDeletePictureNoneYet: 'no photo to remove yet',
   yourDataDeletePictureConfirm: "remove your photo? your initials will show instead — nothing else changes.",
   yourDataDeletePictureConfirmCta: 'Remove photo',

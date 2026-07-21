@@ -51,6 +51,16 @@ jest.mock('expo-audio', () => ({
   })),
 }));
 
+// PH1 (21 July): expo-file-system's File class wraps a native
+// SharedObject that isn't registered under Jest's module registry (same
+// class of issue as expo-audio above) — lib/profile.ts imports it for the
+// native avatar-upload path, so any test that transitively imports
+// lib/profile.ts needs this stub. Tests set the constructor's
+// implementation per-case (e.g. what bytes() resolves to).
+jest.mock('expo-file-system', () => ({
+  File: jest.fn(),
+}));
+
 // GN1 (13 July): both native sign-in libraries wrap a native TurboModule
 // that isn't registered under Jest's module registry (same class of issue
 // as expo-audio above) — any test that transitively imports
