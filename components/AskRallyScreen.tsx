@@ -119,8 +119,8 @@ export function AskRallyScreen({
       const active = await getActiveConversation();
       setConversationId(active?.id ?? null);
       setMessages(active?.messages ?? []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not load your conversation');
+    } catch {
+      setError(STRINGS.askRallyLoadFailed);
     } finally {
       setIsLoading(false);
     }
@@ -155,8 +155,8 @@ export function AskRallyScreen({
     if (!conversationId) return;
     try {
       await deleteConversation(conversationId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not delete that — try again');
+    } catch {
+      setError(STRINGS.askRallyDeleteFailed);
       return;
     }
     setConversationId(null);
@@ -176,8 +176,8 @@ export function AskRallyScreen({
     const startFresh = pendingStartFresh.current;
     pendingStartFresh.current = false;
 
+    let assistantText = '';
     try {
-      let assistantText = '';
       let limited = false;
       await streamAskRally(
         text,
@@ -201,9 +201,21 @@ export function AskRallyScreen({
       // ever) and full history stay authoritative — never trust local
       // optimistic state as the source of truth for something persisted.
       await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not reach Ask Rally');
-      setMessages((prev) => prev.slice(0, -2));
+    } catch {
+      if (assistantText) {
+        // AR1: the reply (or part of it) already arrived — showing it
+        // beats an error line for an answer that exists. Reconcile with
+        // the persisted server copy; if even that fails, the optimistic
+        // render stands.
+        try {
+          await load();
+        } catch {
+          /* keep the optimistic render */
+        }
+      } else {
+        setError(STRINGS.askRallyUnavailable);
+        setMessages((prev) => prev.slice(0, -2));
+      }
     } finally {
       setIsSending(false);
     }
@@ -246,25 +258,40 @@ export function AskRallyScreen({
         contentContainerStyle={styles.messagesContent}
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
-        {messages.length === 0 && (
+        {messages.length === 0 && error ? (
+          // AR1, per the placement map (6 July, re-confirmed 21 July): a
+          // screen-level failure — an error with no conversation on
+          // screen — shows the apologetic slip above the warm line. A
+          // failure under a live conversation stays text-only below (one
+          // mascot per screen, never crowding a conversation), and the
+          // slip replaces the listener here for the same law.
           <View style={styles.emptyState}>
-            <ListenerMascot />
-            <Text style={styles.emptyIntro}>{STRINGS.chatIntroMessage}</Text>
-            <Text style={styles.emptyHook}>{STRINGS.askRallyEmptyHook}</Text>
+            <MascotEntrance source={MASCOT.apologeticSlip} style={styles.errorMascot} />
+            <Text style={styles.errorText}>{error}</Text>
           </View>
+        ) : (
+          <>
+            {messages.length === 0 && (
+              <View style={styles.emptyState}>
+                <ListenerMascot />
+                <Text style={styles.emptyIntro}>{STRINGS.chatIntroMessage}</Text>
+                <Text style={styles.emptyHook}>{STRINGS.askRallyEmptyHook}</Text>
+              </View>
+            )}
+            {messages.map((m, i) => (
+              <View
+                key={i}
+                style={[styles.bubble, m.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant]}
+              >
+                <Text style={styles.bubbleText}>
+                  {m.content || (isSending && i === messages.length - 1 ? '…' : '')}
+                </Text>
+              </View>
+            ))}
+            {limitMessage && <Text style={styles.limitText}>{limitMessage}</Text>}
+            {error && <Text style={styles.errorText}>{error}</Text>}
+          </>
         )}
-        {messages.map((m, i) => (
-          <View
-            key={i}
-            style={[styles.bubble, m.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant]}
-          >
-            <Text style={styles.bubbleText}>
-              {m.content || (isSending && i === messages.length - 1 ? '…' : '')}
-            </Text>
-          </View>
-        ))}
-        {limitMessage && <Text style={styles.limitText}>{limitMessage}</Text>}
-        {error && <Text style={styles.errorText}>{error}</Text>}
       </ScrollView>
 
       <View style={styles.inputWrap}>
@@ -412,6 +439,13 @@ const styles = StyleSheet.create({
     color: colors.errorRed,
     textAlign: 'center',
     marginTop: 8,
+  },
+  // The slip at the 404 page's medium size (150×88) — the two
+  // screen-level error surfaces stay visually consistent.
+  errorMascot: {
+    width: 150,
+    height: 88,
+    marginBottom: 6,
   },
   inputWrap: {
     flexDirection: 'row',

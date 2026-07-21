@@ -61,6 +61,13 @@ jest.mock('expo-file-system', () => ({
   File: jest.fn(),
 }));
 
+// AR1 (21 July): expo/fetch wraps the native ExpoFetchModule, which has
+// no Jest registration (same class of issue as expo-audio above) —
+// lib/askRally.ts imports it for the native streaming transport, so any
+// test that transitively imports lib/askRally.ts needs this stub.
+// Transport tests inject their own fetch via streamAskRally's deps.
+jest.mock('expo/fetch', () => ({ fetch: jest.fn() }));
+
 // GN1 (13 July): both native sign-in libraries wrap a native TurboModule
 // that isn't registered under Jest's module registry (same class of issue
 // as expo-audio above) — any test that transitively imports

@@ -481,6 +481,11 @@ export const STRINGS = {
   askRallyDelete: 'delete',
   askRallyComposerPlaceholder: 'ask Rally anything…',
   askRallySendCta: 'Send',
+  // AR1 (21 July) — failure copy, warmth law: warm words only, never a
+  // status code or a raw error message at a user.
+  askRallyUnavailable: "Rally couldn't answer just now — try again in a moment",
+  askRallyLoadFailed: 'could not load your conversation — try again in a moment',
+  askRallyDeleteFailed: 'could not delete that — try again',
 
   // PM1 (15 July) — the private map's starter-chip invitation into Ask
   // Rally. A chip is the user's own question: it lands in the composer
