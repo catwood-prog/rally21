@@ -7,8 +7,9 @@ import { AppHeader } from '@/components/AppHeader';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, colors, FLOATING_TAB_BAR } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
 import { MOOD_EMOJI } from '@/constants/mood';
+import { useTabBarClearance } from '@/hooks/use-tab-bar-clearance';
 import { useAuth } from '@/lib/auth-context';
 import { getLocalDateString } from '@/lib/date';
 import { goalsSetLabelForKey } from '@/lib/goalsSet';
@@ -34,6 +35,8 @@ function dateHeader(localDate: string, today: string): string {
 export default function Journal() {
   const router = useRouter();
   const { session } = useAuth();
+  // TB3 — inset-aware pill clearance.
+  const tabBarClearance = useTabBarClearance();
   const [reflections, setReflections] = useState<Reflection[]>([]);
   const [facts, setFacts] = useState<JournalFact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -83,7 +86,7 @@ export default function Journal() {
   ].sort((a, b) => b.localDate.localeCompare(a.localDate));
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
       <AppHeader style={styles.header} />
 
       <Text style={styles.title}>Your journal</Text>
@@ -164,8 +167,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    // TB1: clear the floating pill.
-    paddingBottom: FLOATING_TAB_BAR.CLEARANCE,
+    // TB3: the pill clearance is inset-aware, applied inline at the
+    // ScrollView via useTabBarClearance().
   },
   header: {
     marginBottom: 16,

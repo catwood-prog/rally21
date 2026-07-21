@@ -8,7 +8,8 @@ import { MascotEntrance } from '@/components/MascotEntrance';
 import { VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, colors, FLOATING_TAB_BAR } from '@/constants/theme';
+import { cardShadow, colors } from '@/constants/theme';
+import { useTabBarClearance } from '@/hooks/use-tab-bar-clearance';
 import { useAuth } from '@/lib/auth-context';
 import {
   BlueprintDocument,
@@ -76,6 +77,8 @@ function AskRallyInviteCard({ lead }: { lead: string }) {
 export default function Blueprint() {
   const router = useRouter();
   const { session } = useAuth();
+  // TB3 — inset-aware pill clearance.
+  const tabBarClearance = useTabBarClearance();
   const [patterns, setPatterns] = useState<BlueprintPattern[]>([]);
   const [responses, setResponses] = useState<BlueprintResponse[]>([]);
   const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -222,7 +225,7 @@ export default function Blueprint() {
     .filter((t): t is { trait: typeof document.traits[number]; word: NonNullable<ReturnType<typeof describeConfidence>> } => !!t.word);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
       <AppHeader style={styles.header} />
 
       <Text style={styles.title}>{STRINGS.blueprintTitle}</Text>
@@ -447,8 +450,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    // TB1: clear the floating pill.
-    paddingBottom: FLOATING_TAB_BAR.CLEARANCE,
+    // TB3: the pill clearance is inset-aware, applied inline at the
+    // ScrollView via useTabBarClearance().
   },
   header: {
     marginBottom: 16,

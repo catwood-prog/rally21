@@ -21,7 +21,8 @@ import { SignalMeter } from '@/components/SignalMeter';
 import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, chipTextShape, colors, FLOATING_TAB_BAR } from '@/constants/theme';
+import { cardShadow, chipTextShape, colors } from '@/constants/theme';
+import { useTabBarClearance } from '@/hooks/use-tab-bar-clearance';
 import { useAuth } from '@/lib/auth-context';
 import { deriveWantPhrase, getWantActivationForCircle } from '@/lib/blueprint';
 import {
@@ -87,6 +88,8 @@ type ListCircleData = { members: CircleMember[]; presence: PresenceRow[] };
 export default function YourCircle() {
   const router = useRouter();
   const { session } = useAuth();
+  // TB3 — inset-aware pill clearance; applied to both states' scrolls.
+  const tabBarClearance = useTabBarClearance();
   const { circleId, fromTab } = useLocalSearchParams<{ circleId?: string; fromTab?: string }>();
   const [circle, setCircle] = useState<MyCircle | null>(null);
   const [members, setMembers] = useState<CircleMember[]>([]);
@@ -302,7 +305,7 @@ export default function YourCircle() {
   if (listCircles.length > 0) {
     const today = getLocalDateString();
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
         <AppHeader style={styles.brandmark} />
         <Text style={styles.title}>your circles</Text>
         <Text style={styles.subtitle}>tap one to see how it&apos;s going</Text>
@@ -648,7 +651,7 @@ export default function YourCircle() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
       <AppHeader style={styles.brandmark} />
       <TouchableOpacity
         onPress={() =>
@@ -1310,8 +1313,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    // TB1: clear the floating pill.
-    paddingBottom: FLOATING_TAB_BAR.CLEARANCE,
+    // TB3: the pill clearance is inset-aware, applied inline at each
+    // ScrollView via useTabBarClearance().
   },
   brandmark: {
     marginBottom: 14,

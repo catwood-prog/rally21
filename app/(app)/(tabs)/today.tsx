@@ -19,7 +19,8 @@ import { SignalMeter } from '@/components/SignalMeter';
 import { TodayFooter } from '@/components/TodayFooter';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { isVerbPhrasePractice, STRINGS } from '@/constants/strings';
-import { cardShadow, chipTextShape, colors, FLOATING_TAB_BAR } from '@/constants/theme';
+import { cardShadow, chipTextShape, colors } from '@/constants/theme';
+import { useTabBarClearance } from '@/hooks/use-tab-bar-clearance';
 import { useAuth } from '@/lib/auth-context';
 import { getMyCircleCap, MAX_CIRCLES } from '@/lib/caps';
 import { DailyQuestion, getDailyQuestion, getTodayReflection, isReflectionSubstantive } from '@/lib/checkin';
@@ -67,6 +68,8 @@ type CircleData = {
 export default function Today() {
   const router = useRouter();
   const { session } = useAuth();
+  // TB3 — inset-aware pill clearance; applied to every state's scroll.
+  const tabBarClearance = useTabBarClearance();
   const [circles, setCircles] = useState<MyCircle[]>([]);
   const [circleData, setCircleData] = useState<Record<string, CircleData>>({});
   const [myName, setMyName] = useState<string | null>(null);
@@ -345,7 +348,7 @@ export default function Today() {
   // ---- zero circles: nothing to show but a way back in ----
   if (circles.length === 0) {
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
         <AppHeader hideHouse style={styles.topbar} />
         <Text style={styles.greeting}>{greeting(myName)}</Text>
         <GlowBadge glow={glow} flickerOnce={glowOneShot} />
@@ -395,7 +398,7 @@ export default function Today() {
     // toward the circle screen's archive view instead.
     if (circle.completedAt) {
       return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
           <AppHeader hideHouse style={styles.topbar} />
           <Text style={styles.greeting}>{greeting(myName)}</Text>
           <GlowBadge
@@ -419,7 +422,7 @@ export default function Today() {
     }
 
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
         <AppHeader hideHouse style={styles.topbar} />
 
         <Text style={styles.greeting}>{greeting(myName)}</Text>
@@ -588,7 +591,7 @@ export default function Today() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
       <AppHeader hideHouse style={styles.topbar} />
 
       <Text style={styles.greeting}>{greeting(myName)}</Text>
@@ -786,8 +789,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    // TB1: clear the floating pill.
-    paddingBottom: FLOATING_TAB_BAR.CLEARANCE,
+    // TB3: the pill clearance is inset-aware, applied inline at each
+    // ScrollView via useTabBarClearance().
   },
   topbar: {
     flexDirection: 'row',
