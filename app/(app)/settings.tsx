@@ -19,7 +19,7 @@ import { BirthdayPicker, BirthdayValue } from '@/components/BirthdayPicker';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
+import { cardShadow, chipShape, chipTextShape, colors, scaledLineHeight } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { returnFromAway, setAway } from '@/lib/away';
 import { isValidBirthday } from '@/lib/birthday';
@@ -78,7 +78,9 @@ export default function Settings() {
   const [isSavingBirthday, setIsSavingBirthday] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [savedNotice, setSavedNotice] = useState(false);
+  // YD1 — each save confirms what it actually saved: this holds the
+  // toast's message (the birthday save was reusing the name-save copy).
+  const [savedNotice, setSavedNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [blockedPeople, setBlockedPeople] = useState<BlockedPerson[]>([]);
   const [unblockingId, setUnblockingId] = useState<string | null>(null);
@@ -191,7 +193,7 @@ export default function Settings() {
       if (avatarWarning) {
         setError(avatarWarning);
       } else {
-        setSavedNotice(true);
+        setSavedNotice(STRINGS.settingsNameSaved);
       }
       setNewPhotoUri(null);
       await load();
@@ -223,7 +225,7 @@ export default function Settings() {
     setIsSavingBirthday(true);
     try {
       await saveBirthday(session.user.id, birthday);
-      setSavedNotice(true);
+      setSavedNotice(STRINGS.settingsBirthdaySaved);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not save that — try again');
     } finally {
@@ -511,6 +513,8 @@ export default function Settings() {
             );
           })}
         </View>
+
+        <Text style={styles.prefRowHelper}>{STRINGS.notificationsCapPromise}</Text>
       </View>
 
       <Text style={[styles.label, styles.sectionSpacing]}>{STRINGS.awaySectionLabel}</Text>
@@ -582,10 +586,10 @@ export default function Settings() {
       </TouchableOpacity>
 
       <MessageDialog
-        visible={savedNotice}
+        visible={!!savedNotice}
         title="saved"
-        message="your name has been updated"
-        onDismiss={() => setSavedNotice(false)}
+        message={savedNotice ?? ''}
+        onDismiss={() => setSavedNotice(null)}
       />
       <MessageDialog
         visible={!!error}
@@ -682,7 +686,7 @@ const styles = StyleSheet.create({
   birthdayWhy: {
     fontSize: 12.5,
     color: colors.muted,
-    lineHeight: 17,
+    lineHeight: scaledLineHeight(17),
     marginTop: -4,
     marginBottom: 14,
   },
@@ -760,10 +764,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.ink,
   },
+  // YD1 — scaledLineHeight, not a bare 16: with iOS Dynamic Type at
+  // larger text sizes a fixed lineHeight clips the tail of multi-line
+  // helpers (Cat's phone cut the away-pause sentence off mid-way; the
+  // away helper is the longest copy using this style).
   prefRowHelper: {
     fontSize: 11.5,
     color: colors.muted,
-    lineHeight: 16,
+    lineHeight: scaledLineHeight(16),
     marginTop: 2,
   },
   prefPill: {

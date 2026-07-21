@@ -59,7 +59,9 @@ export const STRINGS = {
   // on the check-in-success screen before the real iOS system dialog.
   // PN1B (16 July, Cat's exact copy): the primer is one line + one green
   // action — "not now" is gone; continuing without enabling dismisses it.
-  pushAskLine: 'Want a little nudge if you forget to check in?',
+  // YD1 (21 July) — the line carries the 2-a-day promise (Cat's ruling;
+  // semantics verified in send-notifications, see notificationsCapPromise).
+  pushAskLine: 'Want a little nudge if you forget to check in? Never more than 2 a day.',
   pushAskCta: 'Turn on notifications',
 
   // Glow milestones (Rally21-Glow-Spec.md §4) — a variant of the same
@@ -184,6 +186,11 @@ export const STRINGS = {
   birthdayCelebrateHelper:
     'when on, your circles see your birthday and can celebrate you on the day. off means it stays hidden — nothing shows anywhere.',
   birthdaySave: 'Save birthday',
+  // YD1 — each save on the settings screen confirms what it actually
+  // saved: the birthday save was reusing the name-save toast ("your name
+  // has been updated" after saving a birthday, Cat's on-device find).
+  settingsNameSaved: 'your name has been updated',
+  settingsBirthdaySaved: 'your birthday has been saved',
   birthdaySelfLine: (name: string | null) => `happy birthday${name ? `, ${name}` : ''} 🎂`,
   birthdayMemberLine: (name: string) => `it's ${name}'s birthday today 🎂`,
   // GS1 — the glow goes social. The wall line itself is composed
@@ -289,7 +296,18 @@ export const STRINGS = {
   pushToggleHelperDenied: 'turned off in iOS Settings — tap to open and turn it back on.',
   pushToggleHelperGranted: "you're all set — nudges arrive right on your phone.",
   quietHoursLabel: 'quiet hours',
-  quietHoursHelper: 'no emails between these hours, your local time.',
+  // YD1 — pre-push copy said "no emails"; quiet hours gate EVERY channel
+  // in send-notifications (the quiet-hours hold sits above both the push
+  // attempt and the email fallback), so the words name push, the channel
+  // people actually think in.
+  quietHoursHelper: 'no push notifications between these hours, your local time.',
+  // YD1 — the 2-a-day promise (Cat's ruling, 21 July). Verified real in
+  // send-notifications before wording it: every kind passes the generic
+  // deliveredToday >= 2 gate before either channel fires, counted per
+  // recipient local day, so ≤2 total/day is enforced, not aspirational.
+  // Keep the numeral "2" in every home of this promise — no
+  // numerals-vs-words drift (pushAskLine, remindersAskBody carry it too).
+  notificationsCapPromise: 'never more than 2 a day — and none during your quiet hours.',
   quietHoursFromLabel: 'from',
   quietHoursUntilLabel: 'until',
 
@@ -368,7 +386,10 @@ export const STRINGS = {
   introPrivacyBullets: [
     'Only you ever see your reflections. Your circle sees just what you choose.',
     'We never sell your data. No ads, ever.',
-    'You can correct or delete anything, anytime.',
+    // YD1 (21 July) — "correct or delete anything" leaned on the
+    // single-check-in delete (gone, Cat's 20 July ruling); this names
+    // what the your-data screen actually offers so it never overpromises.
+    'You can see, export, or delete your data, anytime.',
   ],
   introPrivacyCta: 'Sounds good',
   introPrivacyReadFullLink: 'Read the full privacy policy',
@@ -381,7 +402,10 @@ export const STRINGS = {
   remindersAskTitleLead: "don't leave your ",
   remindersAskTitleAccent: 'circle',
   remindersAskTitleTrail: ' hanging',
-  remindersAskBody: "A gentle nudge when it's time to check in, and when your circle could use you. No noise, no spam.",
+  // YD1 (21 July) — gains the 2-a-day promise, same numeral as
+  // notificationsCapPromise and pushAskLine.
+  remindersAskBody:
+    "A gentle nudge when it's time to check in, and when your circle could use you. No noise, no spam — never more than 2 a day.",
   remindersAskCta: 'Turn on reminders',
   remindersAskMaybeLater: 'Maybe later',
 
@@ -596,14 +620,17 @@ export const STRINGS = {
   // anytime) made operable.
   yourDataSettingsRow: 'Your data & privacy',
   yourDataTitle: 'Your data & privacy',
+  // YD1 (21 July) — "picture" here was pre-N1 drift; the decided
+  // user-facing term is "your private map" (N1; Cat re-confirmed 20
+  // July). "photo" is reserved for the profile photo so the two can
+  // never read as the same thing on this screen.
   yourDataReassurance:
-    'Your reflections are yours. Only you see your picture. Your circle sees only what you choose. We never sell your data.',
+    'Your reflections are yours. Only you see your private map. Your circle sees only what you choose. We never sell your data.',
   yourDataSectionLabel: 'You can, anytime:',
   yourDataSeeEverything: 'See everything we keep',
   yourDataExport: 'Export it all',
-  yourDataDeleteCheckin: 'Delete a single check-in',
-  yourDataDeletePicture: 'Delete my picture',
-  yourDataDeletePictureNote: '(keep streaks)',
+  yourDataDeletePhoto: 'Delete my photo',
+  yourDataDeletePhotoNote: '(keep streaks)',
   yourDataFooterNote: 'Deletions and exports happen right away — nothing is queued or delayed.',
 
   yourDataSummaryJoined: (date: string) => `joined ${date}`,
@@ -620,13 +647,10 @@ export const STRINGS = {
   yourDataExportPreparing: 'preparing your export…',
   yourDataExportError: 'could not export right now — try again',
 
-  yourDataDeleteCheckinEmpty: 'no check-ins yet to delete',
-  yourDataDeleteCheckinRowLabel: (circleName: string, dateLabel: string) => `${circleName} — ${dateLabel}`,
-  yourDataDeleteCheckinConfirm:
-    "delete this check-in? this may change your glow — it recomputes from what's left. reflections from that day stay put.",
-  yourDataDeleteCheckinConfirmCta: 'Delete',
-  yourDataDeleteCheckinCancelCta: 'Cancel',
-  yourDataDeleteCheckinError: 'could not delete that — try again',
+  // YD1 (21 July) — the "Delete a single check-in" section is gone (Cat's
+  // ruling, 20 July); its strings family went with it. The completions
+  // DELETE RLS policy stays — the ruling was about the UI surface, not
+  // the schema.
 
   // PH1 — a failed avatar upload must speak (it shipped silent once: the
   // native path was landing zero-byte objects with a "success"). Shown
@@ -635,11 +659,11 @@ export const STRINGS = {
   profilePhotoUploadFailed:
     "your photo didn't upload, but your name is saved — try again later from settings",
 
-  yourDataDeletePictureNoneYet: 'no photo to remove yet',
-  yourDataDeletePictureConfirm: "remove your photo? your initials will show instead — nothing else changes.",
-  yourDataDeletePictureConfirmCta: 'Remove photo',
-  yourDataDeletePictureCancelCta: 'Cancel',
-  yourDataDeletePictureError: 'could not remove that — try again',
+  yourDataDeletePhotoNoneYet: 'no photo to remove yet',
+  yourDataDeletePhotoConfirm: "remove your photo? your initials will show instead — nothing else changes.",
+  yourDataDeletePhotoConfirmCta: 'Remove photo',
+  yourDataDeletePhotoCancelCta: 'Cancel',
+  yourDataDeletePhotoError: 'could not remove that — try again',
 
   yourDataDangerZoneLabel: 'danger zone',
   yourDataDeleteAccountCta: 'Delete my account',
@@ -687,7 +711,7 @@ export const STRINGS = {
     },
     {
       heading: 'Seeing, correcting, or deleting your data',
-      body: "Open Settings → Your data & privacy any time you're signed in to: see a plain summary of what we hold, export everything as a file, delete a single check-in, remove your profile photo, or delete your account entirely (which removes your profile, check-ins, and reflections for good — circles you started stay with whoever's left in them). All of it happens immediately, nothing is queued or reviewed first.",
+      body: "Open Settings → Your data & privacy any time you're signed in to: see a plain summary of what we hold, export everything as a file, remove your profile photo, or delete your account entirely (which removes your profile, check-ins, and reflections for good — circles you started stay with whoever's left in them). All of it happens immediately, nothing is queued or reviewed first.",
     },
     {
       heading: 'Questions',

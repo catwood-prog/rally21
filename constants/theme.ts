@@ -1,3 +1,5 @@
+import { PixelRatio, Platform } from 'react-native';
+
 // Palette lifted from the rev-7 mockup. Full type/font polish is a later
 // pass (build plan week 2); this just keeps early screens on-brand.
 // M2 (16 July colour ruling): celebration confetti is ALWAYS green —
@@ -89,3 +91,16 @@ export const chipTextShape = {
   fontSize: 11.5,
   fontWeight: '700',
 } as const;
+
+// YD1 (21 July, Cat's on-device find: the away-pause card's sentence cut
+// off mid-way) — iOS never scales a fixed lineHeight with Dynamic Type:
+// glyphs grow with the user's text size but the line boxes don't, so a
+// multi-line Text measured at N unscaled lines clips its tail, worst on
+// the longest copy. Android treats lineHeight as SP (already scaled) and
+// web ignores fontScale, so only iOS needs the multiply. Any fixed
+// lineHeight on wrapping copy goes through this. Reads the scale once at
+// module load — a mid-session text-size change needs an app restart to
+// re-measure, which is how the rest of the layout behaves anyway.
+export function scaledLineHeight(lineHeight: number): number {
+  return Platform.OS === 'ios' ? Math.round(lineHeight * PixelRatio.getFontScale()) : lineHeight;
+}

@@ -53,46 +53,10 @@ export async function getDataSummary(userId: string): Promise<DataSummary> {
   };
 }
 
-export type DeletableCompletion = {
-  id: string;
-  circleId: string;
-  circleName: string;
-  localDate: string;
-  kind: 'self' | 'covered';
-};
-
-const RECENT_COMPLETIONS_LOOKBACK = 30;
-
-/** The picker for "delete a single check-in" — the caller's own
- * completions rows only (RLS enforces this regardless), most recent
- * first, joined with the circle's name for a readable list. */
-export async function getRecentCompletionsForDeletion(userId: string): Promise<DeletableCompletion[]> {
-  const { data, error } = await supabase
-    .from('completions')
-    .select('id, circle_id, local_date, kind, circles(name)')
-    .eq('user_id', userId)
-    .order('local_date', { ascending: false })
-    .limit(RECENT_COMPLETIONS_LOOKBACK)
-    .returns<{ id: string; circle_id: string; local_date: string; kind: string; circles: { name: string } | null }[]>();
-
-  if (error) throw error;
-
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    circleId: row.circle_id,
-    circleName: row.circles?.name ?? 'a circle',
-    localDate: row.local_date,
-    kind: row.kind === 'covered' ? 'covered' : 'self',
-  }));
-}
-
-/** A real hard delete of exactly one completions row — RLS scopes this to
- * the caller's own rows regardless of what id is passed. Glow/signal
- * recompute live from what's left; nothing else references this row. */
-export async function deleteMyCompletion(completionId: string): Promise<void> {
-  const { error } = await supabase.from('completions').delete().eq('id', completionId);
-  if (error) throw error;
-}
+// YD1 (21 July) — the "delete a single check-in" pickers/deleter that
+// lived here are gone with their UI section (Cat's 20 July ruling). The
+// owner-scoped DELETE RLS policy on completions stays — the ruling was
+// about the surface, not the schema.
 
 /** Assembles the caller's own data into a plain object for the "export it
  * all" download — owner-scoped reads only, nothing about other people

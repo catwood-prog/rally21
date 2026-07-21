@@ -7,20 +7,13 @@ import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollV
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, colors } from '@/constants/theme';
+import { cardShadow, colors, scaledLineHeight } from '@/constants/theme';
 import { deleteMyAccount } from '@/lib/account';
 import { useAuth } from '@/lib/auth-context';
 import { removeAvatar } from '@/lib/profile';
-import {
-  DataSummary,
-  DeletableCompletion,
-  deleteMyCompletion,
-  exportMyData,
-  getDataSummary,
-  getRecentCompletionsForDeletion,
-} from '@/lib/yourData';
+import { DataSummary, exportMyData, getDataSummary } from '@/lib/yourData';
 
-type Section = 'summary' | 'deleteCheckin' | 'deletePicture' | null;
+type Section = 'summary' | 'deletePhoto' | null;
 
 function formatDateLabel(localDate: string): string {
   const [y, m, d] = localDate.split('-').map(Number);
@@ -28,9 +21,11 @@ function formatDateLabel(localDate: string): string {
 }
 
 /** DC1 — "your data & privacy" (MVP Screens mockup #23): where the
- * privacy-promise screen's "see, correct, or delete anytime" becomes
+ * privacy-promise screen's "see, export, or delete anytime" becomes
  * real. Reached from Settings; the danger-zone delete-account flow lives
- * here now (moved from settings.tsx) rather than split across screens. */
+ * here now (moved from settings.tsx) rather than split across screens.
+ * YD1 (21 July) dropped the single-check-in delete section (Cat's
+ * ruling) and moved the blurb onto private-map vocabulary. */
 export default function YourData() {
   const router = useRouter();
   const { session, signOut } = useAuth();
@@ -41,13 +36,8 @@ export default function YourData() {
   const [openSection, setOpenSection] = useState<Section>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [completions, setCompletions] = useState<DeletableCompletion[] | null>(null);
-  const [isLoadingCompletions, setIsLoadingCompletions] = useState(false);
-  const [confirmingCompletionId, setConfirmingCompletionId] = useState<string | null>(null);
-  const [isDeletingCompletion, setIsDeletingCompletion] = useState(false);
-
-  const [confirmingDeletePicture, setConfirmingDeletePicture] = useState(false);
-  const [isDeletingPicture, setIsDeletingPicture] = useState(false);
+  const [confirmingDeletePhoto, setConfirmingDeletePhoto] = useState(false);
+  const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
 
   const [isExporting, setIsExporting] = useState(false);
 
@@ -74,23 +64,8 @@ export default function YourData() {
     }, [load])
   );
 
-  const toggleSection = async (section: Exclude<Section, null>) => {
-    if (openSection === section) {
-      setOpenSection(null);
-      return;
-    }
-    setOpenSection(section);
-    if (section === 'deleteCheckin' && !completions && userId) {
-      setIsLoadingCompletions(true);
-      try {
-        const rows = await getRecentCompletionsForDeletion(userId);
-        setCompletions(rows);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : STRINGS.yourDataDeleteCheckinError);
-      } finally {
-        setIsLoadingCompletions(false);
-      }
-    }
+  const toggleSection = (section: Exclude<Section, null>) => {
+    setOpenSection(openSection === section ? null : section);
   };
 
   const handleExport = async () => {
@@ -117,30 +92,16 @@ export default function YourData() {
     }
   };
 
-  const handleDeleteCompletion = async (completionId: string) => {
-    setIsDeletingCompletion(true);
-    try {
-      await deleteMyCompletion(completionId);
-      setCompletions((prev) => (prev ? prev.filter((c) => c.id !== completionId) : prev));
-      setConfirmingCompletionId(null);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : STRINGS.yourDataDeleteCheckinError);
-    } finally {
-      setIsDeletingCompletion(false);
-    }
-  };
-
-  const handleRemovePicture = async () => {
+  const handleRemovePhoto = async () => {
     if (!userId) return;
-    setIsDeletingPicture(true);
+    setIsDeletingPhoto(true);
     try {
       await removeAvatar(userId);
-      setConfirmingDeletePicture(false);
+      setConfirmingDeletePhoto(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : STRINGS.yourDataDeletePictureError);
+      setError(e instanceof Error ? e.message : STRINGS.yourDataDeletePhotoError);
     } finally {
-      setIsDeletingPicture(false);
+      setIsDeletingPhoto(false);
     }
   };
 
@@ -229,92 +190,41 @@ export default function YourData() {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.row} onPress={() => toggleSection('deleteCheckin')}>
-          <Text style={styles.rowText}>🗑 {STRINGS.yourDataDeleteCheckin}</Text>
-          <Text style={styles.rowChevron}>{openSection === 'deleteCheckin' ? '⌄' : '›'}</Text>
-        </TouchableOpacity>
-        {openSection === 'deleteCheckin' && (
-          <View style={styles.expandedPanel}>
-            {isLoadingCompletions ? (
-              <ActivityIndicator color={colors.green} />
-            ) : completions && completions.length === 0 ? (
-              <Text style={styles.emptyText}>{STRINGS.yourDataDeleteCheckinEmpty}</Text>
-            ) : (
-              (completions ?? []).map((c) => (
-                <View key={c.id} style={styles.completionRow}>
-                  <Text style={styles.completionRowText}>
-                    {STRINGS.yourDataDeleteCheckinRowLabel(c.circleName, formatDateLabel(c.localDate))}
-                  </Text>
-                  {confirmingCompletionId === c.id ? (
-                    <View style={styles.inlineConfirm}>
-                      <Text style={styles.inlineConfirmText}>{STRINGS.yourDataDeleteCheckinConfirm}</Text>
-                      <View style={styles.confirmRow}>
-                        <TouchableOpacity
-                          style={styles.cancelButton}
-                          onPress={() => setConfirmingCompletionId(null)}
-                          disabled={isDeletingCompletion}
-                        >
-                          <Text style={styles.cancelButtonText}>{STRINGS.yourDataDeleteCheckinCancelCta}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.confirmDeleteButton}
-                          onPress={() => handleDeleteCompletion(c.id)}
-                          disabled={isDeletingCompletion}
-                        >
-                          {isDeletingCompletion ? (
-                            <ActivityIndicator size="small" color="#fff" />
-                          ) : (
-                            <Text style={styles.confirmDeleteText}>{STRINGS.yourDataDeleteCheckinConfirmCta}</Text>
-                          )}
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    <TouchableOpacity onPress={() => setConfirmingCompletionId(c.id)} hitSlop={6}>
-                      <Text style={styles.deleteLink}>delete</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))
-            )}
-          </View>
-        )}
-
-        <TouchableOpacity style={styles.row} onPress={() => toggleSection('deletePicture')}>
+        <TouchableOpacity style={styles.row} onPress={() => toggleSection('deletePhoto')}>
           <Text style={[styles.rowText, styles.rowTextWarn]}>
-            ❌ {STRINGS.yourDataDeletePicture} <Text style={styles.rowTextNote}>{STRINGS.yourDataDeletePictureNote}</Text>
+            ❌ {STRINGS.yourDataDeletePhoto} <Text style={styles.rowTextNote}>{STRINGS.yourDataDeletePhotoNote}</Text>
           </Text>
-          <Text style={styles.rowChevron}>{openSection === 'deletePicture' ? '⌄' : '›'}</Text>
+          <Text style={styles.rowChevron}>{openSection === 'deletePhoto' ? '⌄' : '›'}</Text>
         </TouchableOpacity>
-        {openSection === 'deletePicture' && (
+        {openSection === 'deletePhoto' && (
           <View style={styles.expandedPanel}>
-            {confirmingDeletePicture ? (
+            {confirmingDeletePhoto ? (
               <View style={styles.inlineConfirm}>
-                <Text style={styles.inlineConfirmText}>{STRINGS.yourDataDeletePictureConfirm}</Text>
+                <Text style={styles.inlineConfirmText}>{STRINGS.yourDataDeletePhotoConfirm}</Text>
                 <View style={styles.confirmRow}>
                   <TouchableOpacity
                     style={styles.cancelButton}
-                    onPress={() => setConfirmingDeletePicture(false)}
-                    disabled={isDeletingPicture}
+                    onPress={() => setConfirmingDeletePhoto(false)}
+                    disabled={isDeletingPhoto}
                   >
-                    <Text style={styles.cancelButtonText}>{STRINGS.yourDataDeletePictureCancelCta}</Text>
+                    <Text style={styles.cancelButtonText}>{STRINGS.yourDataDeletePhotoCancelCta}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.confirmDeleteButton}
-                    onPress={handleRemovePicture}
-                    disabled={isDeletingPicture}
+                    onPress={handleRemovePhoto}
+                    disabled={isDeletingPhoto}
                   >
-                    {isDeletingPicture ? (
+                    {isDeletingPhoto ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <Text style={styles.confirmDeleteText}>{STRINGS.yourDataDeletePictureConfirmCta}</Text>
+                      <Text style={styles.confirmDeleteText}>{STRINGS.yourDataDeletePhotoConfirmCta}</Text>
                     )}
                   </TouchableOpacity>
                 </View>
               </View>
             ) : (
-              <TouchableOpacity onPress={() => setConfirmingDeletePicture(true)}>
-                <Text style={styles.deleteLink}>{STRINGS.yourDataDeletePictureConfirmCta}</Text>
+              <TouchableOpacity onPress={() => setConfirmingDeletePhoto(true)}>
+                <Text style={styles.deleteLink}>{STRINGS.yourDataDeletePhotoConfirmCta}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -415,7 +325,7 @@ const styles = StyleSheet.create({
   },
   reassuranceText: {
     fontSize: 12,
-    lineHeight: 18,
+    lineHeight: scaledLineHeight(18),
     color: colors.ink,
   },
   sectionLabel: {
@@ -465,19 +375,7 @@ const styles = StyleSheet.create({
   summaryLine: {
     fontSize: 12,
     color: colors.ink,
-    lineHeight: 18,
-  },
-  emptyText: {
-    fontSize: 12,
-    color: colors.muted,
-    fontStyle: 'italic',
-  },
-  completionRow: {
-    gap: 6,
-  },
-  completionRowText: {
-    fontSize: 12,
-    color: colors.ink,
+    lineHeight: scaledLineHeight(18),
   },
   deleteLink: {
     fontSize: 11.5,
@@ -493,7 +391,7 @@ const styles = StyleSheet.create({
   inlineConfirmText: {
     fontSize: 11.5,
     color: colors.ink,
-    lineHeight: 16,
+    lineHeight: scaledLineHeight(16),
   },
   confirmRow: {
     flexDirection: 'row',
@@ -533,7 +431,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: 'center',
     marginTop: 14,
-    lineHeight: 15,
+    lineHeight: scaledLineHeight(15),
   },
   dangerZoneLabel: {
     marginTop: 28,
@@ -562,7 +460,7 @@ const styles = StyleSheet.create({
   confirmText: {
     fontSize: 12.5,
     color: colors.ink,
-    lineHeight: 18,
+    lineHeight: scaledLineHeight(18),
     marginBottom: 14,
   },
   typeToConfirmLabel: {
