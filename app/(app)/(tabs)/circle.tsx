@@ -2,6 +2,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +14,7 @@ import {
 import { MASCOT } from '@/assets/mascot';
 import { Avatar } from '@/components/Avatar';
 import { AppHeader } from '@/components/AppHeader';
+import { MicTextInput } from '@/components/MicTextInput';
 import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { LinkCard } from '@/components/LinkCard';
 import { MascotEntrance } from '@/components/MascotEntrance';
@@ -651,7 +653,12 @@ export default function YourCircle() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      keyboardShouldPersistTaps="handled"
+    >
       <AppHeader style={styles.brandmark} />
       <TouchableOpacity
         onPress={() =>
@@ -1006,7 +1013,7 @@ export default function YourCircle() {
 
                   {memberActionMode === 'report' && (
                     <>
-                      <TextInput
+                      <MicTextInput
                         style={styles.memberReportInput}
                         placeholder={STRINGS.reportReasonPlaceholder}
                         placeholderTextColor={colors.muted}

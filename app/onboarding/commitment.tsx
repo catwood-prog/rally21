@@ -2,7 +2,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -11,6 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
+import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
 import {
   CircleNameField,
   circleFormStyles,
@@ -170,7 +170,7 @@ export default function TheCommitment() {
     TIME_OPTIONS.find((o) => o.time === selectedTime)?.label.toLowerCase() ?? '';
 
   return (
-    <ScrollView
+    <KeyboardFriendlyScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingTop: 24 + insets.top }]}
     >
@@ -279,7 +279,7 @@ export default function TheCommitment() {
         message={error ?? ''}
         onDismiss={() => setError(null)}
       />
-    </ScrollView>
+    </KeyboardFriendlyScrollView>
   );
 }
 

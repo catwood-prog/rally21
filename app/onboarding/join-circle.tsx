@@ -2,7 +2,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,6 +11,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
+import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
+import { MicTextInput } from '@/components/MicTextInput';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -89,7 +90,7 @@ export default function JoinCircle() {
   };
 
   return (
-    <ScrollView
+    <KeyboardFriendlyScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingTop: 24 + insets.top }]}
     >
@@ -166,7 +167,7 @@ export default function JoinCircle() {
             </View>
             {reportingCircleId === circle.circleId && (
               <View style={styles.circleReportPanel}>
-                <TextInput
+                <MicTextInput
                   style={styles.circleReportInput}
                   placeholder={STRINGS.reportReasonPlaceholder}
                   placeholderTextColor={colors.muted}
@@ -208,7 +209,7 @@ export default function JoinCircle() {
         message={error ?? ''}
         onDismiss={() => setError(null)}
       />
-    </ScrollView>
+    </KeyboardFriendlyScrollView>
   );
 }
 

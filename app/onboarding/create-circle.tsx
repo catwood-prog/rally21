@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -15,6 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PRACTICE_TILES } from '@/assets/images/practices';
 
 import { Brandmark } from '@/components/Brandmark';
+import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
+import { MicTextInput } from '@/components/MicTextInput';
 import { MessageDialog } from '@/components/MessageDialog';
 import { PracticePill } from '@/components/PracticePill';
 import { PracticeTypePicker, PracticeTypeSelection } from '@/components/PracticeTypePicker';
@@ -150,7 +151,7 @@ export default function FindAPractice() {
   );
 
   return (
-    <ScrollView
+    <KeyboardFriendlyScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingTop: 20 + insets.top }]}
     >
@@ -163,7 +164,8 @@ export default function FindAPractice() {
 
       <View style={styles.searchBar}>
         <Text style={styles.searchIcon}>🔍</Text>
-        <TextInput
+        <MicTextInput
+          containerStyle={styles.searchInputRow}
           style={styles.searchInput}
           placeholder="Find a practice"
           placeholderTextColor={colors.muted}
@@ -247,7 +249,7 @@ export default function FindAPractice() {
       {showCustomForm && (
         <View style={styles.customForm}>
           <Text style={styles.customFormTitle}>{STRINGS.practiceStepQuestion}</Text>
-          <TextInput
+          <MicTextInput
             style={styles.input}
             placeholder="e.g. Walk 20 minutes"
             placeholderTextColor={colors.muted}
@@ -284,7 +286,7 @@ export default function FindAPractice() {
         message={error ?? ''}
         onDismiss={() => setError(null)}
       />
-    </ScrollView>
+    </KeyboardFriendlyScrollView>
   );
 }
 
@@ -326,6 +328,11 @@ const styles = StyleSheet.create({
   },
   searchIcon: {
     fontSize: 12,
+  },
+  // KB1: the mic row fills the search bar's flexible slot; the input
+  // keeps flex:1 inside it via MicTextInput's own row styles.
+  searchInputRow: {
+    flex: 1,
   },
   searchInput: {
     flex: 1,

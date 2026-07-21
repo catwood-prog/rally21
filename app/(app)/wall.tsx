@@ -325,7 +325,12 @@ export default function CircleWall() {
         </View>
       )}
 
-      <ScrollView style={styles.feed} contentContainerStyle={styles.feedContent}>
+      <ScrollView
+        style={styles.feed}
+        contentContainerStyle={styles.feedContent}
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        keyboardShouldPersistTaps="handled"
+      >
         {feed.length === 0 && (
           <Text style={styles.emptyState}>nothing here yet — say hi to your circle</Text>
         )}

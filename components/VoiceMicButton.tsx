@@ -25,6 +25,16 @@ type SpeechRecognitionLike = {
   stop: () => void;
 };
 
+/** Appends a dictated transcript to existing text with a single space
+ * seam — never replaces what's already typed (the convention's append
+ * rule). KB1 promoted this here as the shared copy; the per-screen
+ * duplicates in checkin/AskRallyScreen/private-map predate it (CH5
+ * candidate to migrate them). */
+export function appendTranscript(existing: string, transcript: string): string {
+  if (!existing || /\s$/.test(existing)) return existing + transcript;
+  return `${existing} ${transcript}`;
+}
+
 function getSpeechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
   if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
   const w = window as any;

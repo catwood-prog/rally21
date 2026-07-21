@@ -1,5 +1,6 @@
 import { StyleProp, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle } from 'react-native';
 
+import { MicTextInput } from '@/components/MicTextInput';
 import { STRINGS } from '@/constants/strings';
 import { chipShape, chipTextShape, colors } from '@/constants/theme';
 
@@ -28,7 +29,7 @@ export function CircleNameField({ value, onChange, style }: FieldProps) {
     <View style={style}>
       <Text style={circleFormStyles.label}>name your circle</Text>
       <Text style={circleFormStyles.helperText}>{STRINGS.circleNameHelper}</Text>
-      <TextInput
+      <MicTextInput
         style={circleFormStyles.input}
         placeholder="your circle's name"
         placeholderTextColor={colors.muted}

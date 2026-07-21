@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { MASCOT } from '@/assets/mascot';
 import { AppHeader } from '@/components/AppHeader';
@@ -248,6 +248,8 @@ export default function Blueprint() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      keyboardShouldPersistTaps="handled"
     >
       <AppHeader style={styles.header} />
 

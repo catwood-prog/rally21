@@ -2,7 +2,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,6 +10,8 @@ import {
 } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
+import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
+import { MicTextInput } from '@/components/MicTextInput';
 import { MessageDialog } from '@/components/MessageDialog';
 import { PracticePill } from '@/components/PracticePill';
 import { PracticeTypePicker, PracticeTypeSelection } from '@/components/PracticeTypePicker';
@@ -132,7 +133,7 @@ export default function MyPractices() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardFriendlyScrollView style={styles.container} contentContainerStyle={styles.content}>
       <AppHeader style={styles.brandmark} />
       <TouchableOpacity onPress={() => router.push('/settings')}>
         <Text style={styles.back}>← Settings</Text>
@@ -206,7 +207,7 @@ export default function MyPractices() {
         message={error ?? ''}
         onDismiss={() => setError(null)}
       />
-    </ScrollView>
+    </KeyboardFriendlyScrollView>
   );
 }
 
@@ -227,7 +228,7 @@ function PracticeForm({
 }) {
   return (
     <View style={styles.formCard}>
-      <TextInput
+      <MicTextInput
         style={styles.input}
         placeholder="e.g. Walk 20 minutes"
         placeholderTextColor={colors.muted}

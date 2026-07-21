@@ -2,7 +2,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +12,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import { AccentedText } from '@/components/AccentedText';
 import { AppHeader } from '@/components/AppHeader';
+import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
 import { MessageDialog } from '@/components/MessageDialog';
 import { VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
@@ -180,7 +180,9 @@ export default function CheckIn() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    // KB1: the reported screen — keyboard-friendly scroll (drag/tap to
+    // dismiss, one-tap saves, focused input stays above the keyboard).
+    <KeyboardFriendlyScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* D6 pattern: the house icon IS the "← Today" affordance here */}
       <AppHeader style={styles.brandmark} />
 
@@ -298,7 +300,7 @@ export default function CheckIn() {
         message={error ?? ''}
         onDismiss={() => setError(null)}
       />
-    </ScrollView>
+    </KeyboardFriendlyScrollView>
   );
 }
 

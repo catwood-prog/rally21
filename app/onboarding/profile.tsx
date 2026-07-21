@@ -4,10 +4,8 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -15,6 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BirthdayPicker, BirthdayValue } from '@/components/BirthdayPicker';
 import { Brandmark } from '@/components/Brandmark';
+import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
+import { MicTextInput } from '@/components/MicTextInput';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -106,10 +106,9 @@ export default function ProfileSetup() {
   const initial = name.trim().charAt(0).toUpperCase();
 
   return (
-    <ScrollView
+    <KeyboardFriendlyScrollView
       style={styles.scroll}
       contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
     >
       <Brandmark style={[styles.brandmark, { top: 20 + insets.top }]} />
       <TouchableOpacity style={[styles.back, { top: 52 + insets.top }]} onPress={signOut}>
@@ -138,7 +137,7 @@ export default function ProfileSetup() {
       </TouchableOpacity>
       <Text style={styles.hint}>add a photo so your circle knows it&apos;s you</Text>
 
-      <TextInput
+      <MicTextInput
         style={styles.input}
         placeholder="your name"
         placeholderTextColor={colors.muted}
@@ -180,7 +179,7 @@ export default function ProfileSetup() {
           router.replace('/onboarding/circle-setup');
         }}
       />
-    </ScrollView>
+    </KeyboardFriendlyScrollView>
   );
 }
 

@@ -1,8 +1,9 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
+import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -164,7 +165,7 @@ export default function YourData() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardFriendlyScrollView style={styles.container} contentContainerStyle={styles.content}>
       <AppHeader style={styles.brandmark} />
       <TouchableOpacity onPress={() => router.push('/settings')}>
         <Text style={styles.back}>← Settings</Text>
@@ -370,7 +371,7 @@ export default function YourData() {
       )}
 
       <MessageDialog visible={!!error} title="hmm" message={error ?? ''} onDismiss={() => setError(null)} />
-    </ScrollView>
+    </KeyboardFriendlyScrollView>
   );
 }
 

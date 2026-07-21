@@ -2,7 +2,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,6 +10,8 @@ import {
 } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
+import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
+import { MicTextInput } from '@/components/MicTextInput';
 import {
   CircleNameField,
   circleFormStyles,
@@ -122,7 +123,7 @@ export default function EditCircle() {
   const canSave = !!name.trim() && !!practiceName.trim();
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardFriendlyScrollView style={styles.container} contentContainerStyle={styles.content}>
       <AppHeader style={styles.brandmark} />
       <TouchableOpacity
         onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
@@ -139,7 +140,7 @@ export default function EditCircle() {
       <View style={styles.sectionSpacing}>
         <Text style={circleFormStyles.label}>{STRINGS.editCirclePracticeLabel}</Text>
         <Text style={circleFormStyles.helperText}>{STRINGS.editCirclePracticeHelper}</Text>
-        <TextInput
+        <MicTextInput
           style={circleFormStyles.input}
           placeholder="e.g. Walk 20 minutes"
           placeholderTextColor={colors.muted}
@@ -179,7 +180,7 @@ export default function EditCircle() {
         message={error ?? ''}
         onDismiss={() => setError(null)}
       />
-    </ScrollView>
+    </KeyboardFriendlyScrollView>
   );
 }
 

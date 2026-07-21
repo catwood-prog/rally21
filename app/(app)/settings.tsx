@@ -5,15 +5,15 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
+import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
+import { MicTextInput } from '@/components/MicTextInput';
 import { AppHeader } from '@/components/AppHeader';
 import { BirthdayPicker, BirthdayValue } from '@/components/BirthdayPicker';
 import { MessageDialog } from '@/components/MessageDialog';
@@ -287,7 +287,7 @@ export default function Settings() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardFriendlyScrollView style={styles.container} contentContainerStyle={styles.content}>
       <AppHeader style={styles.header} hideGear />
 
       <Text style={styles.title}>Settings</Text>
@@ -301,7 +301,7 @@ export default function Settings() {
       <Text style={styles.photoHint}>tap to change your photo</Text>
 
       <Text style={styles.label}>your name</Text>
-      <TextInput
+      <MicTextInput
         style={styles.input}
         value={name}
         onChangeText={setName}
@@ -593,7 +593,7 @@ export default function Settings() {
         message={error ?? ''}
         onDismiss={() => setError(null)}
       />
-    </ScrollView>
+    </KeyboardFriendlyScrollView>
   );
 }
 
