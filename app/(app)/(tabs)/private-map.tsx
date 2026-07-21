@@ -27,10 +27,11 @@ import {
   WantActivation,
 } from '@/lib/blueprint';
 import { getCircleById, listMyCircles } from '@/lib/circle';
+import { getLocalDateString } from '@/lib/date';
 import { getMyWeek } from '@/lib/glow';
 import { getMyProfile } from '@/lib/profile';
 import { LikedCard, getMyLikedCards, hasAttributionLine, unlikeCard } from '@/lib/shareCards';
-import { buildStarterChips, missedYesterday } from '@/lib/starterChips';
+import { buildStarterChips, derivePersonalChip, missedYesterday, StarterChip } from '@/lib/starterChips';
 
 /** PM2: the "quotes you love" list shows this many rows before the
  * "see all N" expander takes over. */
@@ -60,19 +61,20 @@ function patternContextText(copy: { headline: string; accent: string }): string 
  * the chip set arrives from lib/starterChips (rev-2 wording, with the
  * missed-day recovery swap), so this card and the Ask Rally screen's own
  * grid always agree. */
-function AskRallyInviteCard({ lead, chips }: { lead: string; chips: string[] }) {
+function AskRallyInviteCard({ lead, chips }: { lead: string; chips: StarterChip[] }) {
   const router = useRouter();
   return (
     <View style={styles.patternCard}>
       <Text style={styles.patternLabel}>{STRINGS.blueprintAskLabel}</Text>
       <Text style={styles.askLead}>{lead}</Text>
-      {chips.map((question) => (
+      {chips.map((chip) => (
         <TouchableOpacity
-          key={question}
-          style={styles.askChip}
-          onPress={() => router.push({ pathname: '/ask-rally', params: { prefill: question } })}
+          key={chip.text}
+          style={[styles.askChip, chip.personal && styles.askChipFeatured]}
+          onPress={() => router.push({ pathname: '/ask-rally', params: { prefill: chip.text } })}
         >
-          <Text style={styles.askChipText}>{question}</Text>
+          {chip.personal && <Text style={styles.askChipFeaturedLabel}>{STRINGS.personalChipLabel}</Text>}
+          <Text style={styles.askChipText}>{chip.text}</Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -100,7 +102,9 @@ export default function Blueprint() {
   const [isActingOnWant, setIsActingOnWant] = useState(false);
   const [likedCards, setLikedCards] = useState<LikedCard[]>([]);
   const [showAllQuotes, setShowAllQuotes] = useState(false);
-  const [askChips, setAskChips] = useState<string[]>(() => buildStarterChips(false));
+  const [askChips, setAskChips] = useState<StarterChip[]>(() =>
+    buildStarterChips({ hasMissedYesterday: false })
+  );
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -122,7 +126,14 @@ export default function Blueprint() {
       setResponses(myResponses);
       setDocument(myDocument);
       setLikedCards(myLikedCards);
-      setAskChips(buildStarterChips(missedYesterday(myWeek)));
+      setAskChips(
+        buildStarterChips({
+          hasMissedYesterday: missedYesterday(myWeek),
+          // PM1C — same deterministic derivation as the Ask Rally screen,
+          // from the same already-loaded pattern rows.
+          personalQuestion: derivePersonalChip(myPatterns, session.user.id, getLocalDateString()),
+        })
+      );
 
       if (myDocument.want && myDocument.want.status === 'confirmed') {
         const activation = await getWantActivation(myDocument.want.key);
@@ -234,7 +245,10 @@ export default function Blueprint() {
     .filter((t): t is { trait: typeof document.traits[number]; word: NonNullable<ReturnType<typeof describeConfidence>> } => !!t.word);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+    >
       <AppHeader style={styles.header} />
 
       <Text style={styles.title}>{STRINGS.blueprintTitle}</Text>
@@ -719,6 +733,19 @@ const styles = StyleSheet.create({
     color: colors.plum,
     fontWeight: '600',
     fontSize: 13,
+  },
+  // PM1C — the personal chip's featured treatment on the map card: the
+  // base chips are already plum-tinted here, so featured = a quiet plum
+  // outline plus the green transparency label.
+  askChipFeatured: {
+    borderWidth: 1.5,
+    borderColor: colors.plum,
+  },
+  askChipFeaturedLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: colors.green,
+    marginBottom: 2,
   },
   noteWrap: {
     marginTop: 16,

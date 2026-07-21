@@ -32,11 +32,13 @@ import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { AskRallyMessage, deleteConversation, getActiveConversation, streamAskRally } from '@/lib/askRally';
 import { useAuth } from '@/lib/auth-context';
+import { getMyBlueprint } from '@/lib/blueprint';
+import { getLocalDateString } from '@/lib/date';
 import { getMyWeek } from '@/lib/glow';
 import { LISTENER_STEAM_PATCH } from '@/lib/mascotFx';
 import { MASCOT_FX } from '@/lib/motion';
 import { getMySubstantiveReflectionCount } from '@/lib/reflections';
-import { buildStarterChips, missedYesterday } from '@/lib/starterChips';
+import { buildStarterChips, derivePersonalChip, missedYesterday, StarterChip } from '@/lib/starterChips';
 
 /** M2 (d) — the listener with its one-shot mug steam: standard entrance,
  * then the steam patch (the frames differ only in a ~70×60px region
@@ -129,7 +131,9 @@ export function AskRallyScreen({
   const [error, setError] = useState<string | null>(null);
   const [limitMessage, setLimitMessage] = useState<string | null>(null);
   const [micDenied, setMicDenied] = useState(false);
-  const [chips, setChips] = useState<string[]>(() => buildStarterChips(false));
+  const [chips, setChips] = useState<StarterChip[]>(() =>
+    buildStarterChips({ hasMissedYesterday: false })
+  );
   const [reflectionCount, setReflectionCount] = useState(0);
   const [showLearnMore, setShowLearnMore] = useState(false);
   const pendingStartFresh = useRef(false);
@@ -141,17 +145,23 @@ export function AskRallyScreen({
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      // The chip gate and the reflections count are ambient garnish —
+      // The chip gates and the reflections count are ambient garnish —
       // each fails soft (standard four chips / lock-link alone), never
       // taking down the conversation itself.
-      const [active, week, count] = await Promise.all([
+      const [active, week, count, patterns] = await Promise.all([
         getActiveConversation(),
         getMyWeek().catch(() => []),
         userId ? getMySubstantiveReflectionCount(userId).catch(() => 0) : Promise.resolve(0),
+        getMyBlueprint().catch(() => []),
       ]);
       setConversationId(active?.id ?? null);
       setMessages(active?.messages ?? []);
-      setChips(buildStarterChips(missedYesterday(week)));
+      setChips(
+        buildStarterChips({
+          hasMissedYesterday: missedYesterday(week),
+          personalQuestion: derivePersonalChip(patterns, userId ?? '', getLocalDateString()),
+        })
+      );
       setReflectionCount(count);
     } catch {
       setError(STRINGS.askRallyLoadFailed);
@@ -372,13 +382,20 @@ export function AskRallyScreen({
           // never sends (PM1's law — it matters more when messages are
           // capped).
           <View style={styles.chipGrid}>
-            {chips.map((question) => (
+            {chips.map((chip) => (
               <TouchableOpacity
-                key={question}
-                style={[styles.chip, singleColumnChips ? styles.chipFull : styles.chipHalf]}
-                onPress={() => setDraft(question)}
+                key={chip.text}
+                style={[
+                  styles.chip,
+                  singleColumnChips ? styles.chipFull : styles.chipHalf,
+                  chip.personal && styles.chipFeatured,
+                ]}
+                onPress={() => setDraft(chip.text)}
               >
-                <Text style={styles.chipText}>{question}</Text>
+                {chip.personal && (
+                  <Text style={styles.chipFeaturedLabel}>{STRINGS.personalChipLabel}</Text>
+                )}
+                <Text style={styles.chipText}>{chip.text}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -621,6 +638,18 @@ const styles = StyleSheet.create({
     color: colors.plum,
     lineHeight: 21,
     textAlign: 'left',
+  },
+  // PM1C — the personal chip's featured treatment (the approved comp's
+  // .feat): soft plum-tinted fill instead of white, plus the green
+  // transparency label above the question.
+  chipFeatured: {
+    backgroundColor: colors.plumSoft,
+  },
+  chipFeaturedLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.green,
+    marginBottom: 3,
   },
   // The doubled composer: plum outline, mic first-class inside right,
   // small gold Send inside bottom-right (all ≥44px targets via hitSlop).

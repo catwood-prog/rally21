@@ -503,6 +503,21 @@ export const STRINGS = {
   // failure mode this cannot have is a false "you lapsed" signal.
   askRallyRecoveryChip: 'how do I get back on track?',
 
+  // PM1C — the personal chip's transparency label and its template
+  // table: one fixed phrasing per deterministic pattern type (lowercase
+  // style, first-person, always a question), filled only from the
+  // blueprint's own structured fields — never free-composed from raw
+  // data, never another person's name, never a mood number. Synthesis
+  // patterns have no entry here on purpose: their statements are
+  // model-written prose, so a template can't ask about them without
+  // free-composing.
+  personalChipLabel: 'from your check-ins',
+  personalChipWeekdayLow: (weekdayPlural: string) => `why do ${weekdayPlural} run me down?`,
+  personalChipWeekdayHigh: (weekdayPlural: string) => `why do ${weekdayPlural} lift me up?`,
+  personalChipBeforeNoon: 'why am I brighter before noon?',
+  personalChipAfterNoon: 'why am I brighter later in the day?',
+  personalChipConsistency: (hourLabel: string) => `why does checking in before ${hourLabel} work for me?`,
+
   // PM1B — the Ask Rally screen itself (REV 4, Cat's final layout).
   // Title: lowercase per the casing law, but Rally is a NAME and keeps
   // its capital (Cat's ruling, 21 July — LC1 carries the same exception

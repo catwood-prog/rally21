@@ -6,7 +6,15 @@ import { supabase } from './supabase';
 // RPC's structured fields; it never computes evidence itself.
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const WEEKDAY_PLURAL = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
+// Exported for PM1C's personal-chip templates (lowercased there per the
+// chips' casing style) — one list, so a weekday can never render two ways.
+export const WEEKDAY_PLURAL = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
+
+/** "9am"/"12pm"-style label for a consistency pattern's cutoff hour —
+ * shared by the pattern card's evidence line and PM1C's personal chip. */
+export function formatCutoffHourLabel(hour: number): string {
+  return hour === 0 ? '12am' : hour < 12 ? `${hour}am` : hour === 12 ? '12pm' : `${hour - 12}pm`;
+}
 
 export type BlueprintPattern = {
   patternKey: string;
@@ -73,7 +81,7 @@ export function describeBlueprintPattern(p: BlueprintPattern): { headline: strin
     };
   }
   const hour = p.cutoffHour ?? 9;
-  const label = hour === 0 ? '12am' : hour < 12 ? `${hour}am` : hour === 12 ? '12pm' : `${hour - 12}pm`;
+  const label = formatCutoffHourLabel(hour);
   return {
     headline: 'Most of your check-ins land',
     accent: `before ${label}`,
