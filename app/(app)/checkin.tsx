@@ -34,6 +34,7 @@ import {
 import { getCircleById } from '@/lib/circle';
 import { unlockAudioContext } from '@/lib/chime';
 import { getLocalDateString } from '@/lib/date';
+import { getGoalsSetQuestion } from '@/lib/goalsSet';
 import * as haptics from '@/lib/haptics';
 import { deriveCheckinAccent } from '@/lib/practice-accent';
 import { getMyProfile, markVoiceHintSeen } from '@/lib/profile';
@@ -120,6 +121,15 @@ export default function CheckIn() {
     })();
   }, [circleId, today, session?.user?.id, router]);
 
+  // GQ1: the second slot's question for today — deterministic from the
+  // account-creation date (already on the auth session) and today's
+  // local date, so a same-day re-open shows the same question with no
+  // stored state. Skippable by simply leaving it blank; the key is
+  // recorded either way (an empty answer IS the skip log).
+  const goalsQuestion = session?.user?.created_at
+    ? getGoalsSetQuestion(session.user.created_at, today)
+    : null;
+
   const canSave = !!session?.user && !!circleId && mood !== null && line.trim().length > 0;
 
   const handleSave = async () => {
@@ -145,6 +155,7 @@ export default function CheckIn() {
         mood,
         line1: line.trim(),
         line2: line2.trim() || null,
+        line2PromptKey: goalsQuestion?.key ?? null,
         questionId: question?.id ?? null,
         questionAnswer: questionSkipped ? null : questionAnswer.trim() || null,
         questionSkipped,
@@ -218,11 +229,18 @@ export default function CheckIn() {
         </TouchableOpacity>
       )}
 
-      <Text style={styles.label}>learned (optional)</Text>
+      {/* GQ1: one goals-set question per day in the second slot (was
+          "learned (optional)" every day). Cat's wording is verbatim and
+          lowercase, so this line deliberately skips the label style's
+          uppercase transform; the placeholder does the compassion work,
+          and leaving it blank is the skip — never a confirmation. */}
+      <Text style={styles.goalsQuestion}>
+        {goalsQuestion?.question ?? 'learned (optional)'}
+      </Text>
       <View style={styles.inputWrap}>
         <TextInput
           style={styles.inputWithMic}
-          placeholder="anything you noticed"
+          placeholder={goalsQuestion?.placeholder ?? 'anything you noticed'}
           placeholderTextColor={colors.muted}
           value={line2}
           onChangeText={setLine2}
@@ -413,6 +431,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     textTransform: 'uppercase',
     color: colors.green,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  // GQ1's second-slot question: the label slot's rhythm (green, bold,
+  // above its input) but sentence-sized and never uppercased — the
+  // cycle's wording is Cat's, verbatim and lowercase.
+  goalsQuestion: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: colors.green,
+    lineHeight: 17,
     marginBottom: 8,
     marginTop: 4,
   },

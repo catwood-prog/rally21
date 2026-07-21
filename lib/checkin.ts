@@ -200,6 +200,10 @@ export async function saveReflection(params: {
   mood: number;
   line1: string;
   line2: string | null;
+  // GQ1: the goals-set key for the day's second-slot question — written
+  // whether or not line2 was answered (an empty answer next to a
+  // recorded key IS the skip log; skips are signal).
+  line2PromptKey: string | null;
   questionId: string | null;
   questionAnswer: string | null;
   questionSkipped: boolean;
@@ -211,6 +215,7 @@ export async function saveReflection(params: {
       mood: params.mood,
       line1: params.line1,
       line2: params.line2,
+      line2_prompt_key: params.line2PromptKey,
       question_id: params.questionId,
       question_answer: params.questionAnswer,
       question_skipped: params.questionSkipped,

@@ -12,6 +12,9 @@ export type Reflection = {
   mood: number | null;
   line1: string | null;
   line2: string | null;
+  // GQ1: which goals-set question the day's line2 answered (or skipped);
+  // null on pre-GQ1 rows, which render under the "learned" label.
+  line2PromptKey: string | null;
   questionPrompt: string | null;
   questionAnswer: string | null;
   createdAt: string;
@@ -23,6 +26,7 @@ type ReflectionRow = {
   mood: number | null;
   line1: string | null;
   line2: string | null;
+  line2_prompt_key: string | null;
   question_answer: string | null;
   created_at: string;
   questions: { prompt: string } | null;
@@ -31,7 +35,7 @@ type ReflectionRow = {
 export async function getMyReflections(userId: string): Promise<Reflection[]> {
   const { data, error } = await supabase
     .from('reflections')
-    .select('id, local_date, mood, line1, line2, question_answer, created_at, questions(prompt)')
+    .select('id, local_date, mood, line1, line2, line2_prompt_key, question_answer, created_at, questions(prompt)')
     .eq('user_id', userId)
     .order('local_date', { ascending: false })
     .returns<ReflectionRow[]>();
@@ -49,6 +53,7 @@ export async function getMyReflections(userId: string): Promise<Reflection[]> {
       mood: r.mood,
       line1: r.line1,
       line2: r.line2,
+      line2PromptKey: r.line2_prompt_key,
       questionPrompt: r.questions?.prompt ?? null,
       questionAnswer: r.question_answer,
       createdAt: r.created_at,

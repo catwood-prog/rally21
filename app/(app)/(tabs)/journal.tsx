@@ -11,6 +11,7 @@ import { cardShadow, colors, FLOATING_TAB_BAR } from '@/constants/theme';
 import { MOOD_EMOJI } from '@/constants/mood';
 import { useAuth } from '@/lib/auth-context';
 import { getLocalDateString } from '@/lib/date';
+import { goalsSetLabelForKey } from '@/lib/goalsSet';
 import { getMyJournalFacts, JournalFact } from '@/lib/journey';
 import { getMyReflections, Reflection } from '@/lib/reflections';
 
@@ -123,9 +124,16 @@ export default function Journal() {
                     <Text style={styles.lineLabel}>grateful</Text> · {entry.reflection.line1}
                   </Text>
                 )}
+                {/* GQ1: line2 is labelled by its day's goals-set key — a
+                    month reads goal · step · win · honest, which is the
+                    feature's whole point. Null-key (pre-GQ1) rows keep
+                    "learned". */}
                 {!!entry.reflection.line2 && (
                   <Text style={styles.line}>
-                    <Text style={styles.lineLabel}>learned</Text> · {entry.reflection.line2}
+                    <Text style={styles.lineLabel}>
+                      {goalsSetLabelForKey(entry.reflection.line2PromptKey)}
+                    </Text>{' '}
+                    · {entry.reflection.line2}
                   </Text>
                 )}
                 {!!entry.reflection.questionAnswer && !!entry.reflection.questionPrompt && (
