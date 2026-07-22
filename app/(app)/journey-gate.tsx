@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
@@ -232,142 +232,152 @@ export default function JourneyGate() {
 
       <ConfettiBurst count={CONFETTI_COUNT} colors={CONFETTI_COLORS} reduceMotion={reduceMotion} />
 
-      <Animated.View style={heroStyle}>
-        <Image
-          source={MASCOT.day21CelebrationHuddle}
-          style={styles.hero}
-          resizeMode="contain"
-          accessible={false}
-          alt=""
-        />
-      </Animated.View>
+      {/* OD1 job 17b — this screen has no scroll fallback when Dynamic
+          Type grows the title/body/confirm-card content past the
+          viewport: content becomes literally unreachable (no way to
+          reach the rally-on/complete buttons), worst mid-decision with
+          the complete-confirm card open. 17a's shape (flexGrow:1 content
+          container, still centers when it fits) applied here only —
+          Brandmark/ConfettiBurst stay outside as fixed viewport overlays,
+          same as AppHeader sits outside the ScrollView elsewhere. */}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Animated.View style={heroStyle}>
+          <Image
+            source={MASCOT.day21CelebrationHuddle}
+            style={styles.hero}
+            resizeMode="contain"
+            accessible={false}
+            alt=""
+          />
+        </Animated.View>
 
-      {decision === 'completed' ? (
-        <>
-          <Animated.Text style={[styles.title, headingStyle]}>
-            {STRINGS.journeyCompletedTitle(circle.name)}
-          </Animated.Text>
-          <Animated.Text style={[styles.body, bodyStyle]}>{STRINGS.journeyCompletedBody}</Animated.Text>
-          <Animated.View style={[styles.actionsWrap, actionsStyle]}>
-            {/* SC3 — the keepsake offer, a quiet addition after the
-                decision; continuing past it IS declining, and the marker
-                (bumped at show) means it never reappears. */}
-            {wrappedOfferable && (
-              <View style={styles.wrappedOfferCard}>
-                <Text style={styles.wrappedOfferTitle}>{STRINGS.wrappedOfferTitle}</Text>
-                <Text style={styles.wrappedOfferBody}>{STRINGS.wrappedOfferBody}</Text>
-                <TouchableOpacity
-                  style={styles.wrappedOfferButton}
-                  onPress={() =>
-                    router.replace({
-                      pathname: '/wrapped',
-                      params: { circleId: circle.id, milestone: String(GATE_DAY) },
-                    })
-                  }
-                >
-                  <Text style={styles.wrappedOfferButtonText}>{STRINGS.wrappedOfferCta}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            <TouchableOpacity style={styles.primaryButton} onPress={handleContinue}>
-              <Text style={styles.primaryButtonText}>{STRINGS.journeyCompletedCta}</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </>
-      ) : decision === 'rallied' ? (
-        <>
-          <Animated.Text style={[styles.title, headingStyle]}>{STRINGS.journeyGateTitle}</Animated.Text>
-          <Animated.Text style={[styles.body, bodyStyle]}>
-            {STRINGS.journeyRalliedOnCard(circle.name)}
-          </Animated.Text>
-          <Animated.View style={[styles.actionsWrap, actionsStyle]}>
-            {wrappedOfferable && (
-              <View style={styles.wrappedOfferCard}>
-                <Text style={styles.wrappedOfferTitle}>{STRINGS.wrappedOfferTitle}</Text>
-                <Text style={styles.wrappedOfferBody}>{STRINGS.wrappedOfferBody}</Text>
-                <TouchableOpacity
-                  style={styles.wrappedOfferButton}
-                  onPress={() =>
-                    router.replace({
-                      pathname: '/wrapped',
-                      params: { circleId: circle.id, milestone: String(GATE_DAY) },
-                    })
-                  }
-                >
-                  <Text style={styles.wrappedOfferButtonText}>{STRINGS.wrappedOfferCta}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            <TouchableOpacity style={styles.primaryButton} onPress={handleContinue}>
-              <Text style={styles.primaryButtonText}>{STRINGS.journeyCompletedCta}</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </>
-      ) : (
-        <>
-          <Animated.Text style={[styles.title, headingStyle]}>{STRINGS.journeyGateTitle}</Animated.Text>
-          <Animated.Text style={[styles.body, bodyStyle]}>{STRINGS.journeyGateBody}</Animated.Text>
-
-          <Animated.View style={[styles.actionsWrap, actionsStyle]}>
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={handleRallyOn}
-              disabled={isRallying}
-            >
-              {isRallying ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.primaryButtonText}>{STRINGS.journeyGateRallyOnCta}</Text>
-              )}
-            </TouchableOpacity>
-            <Text style={styles.helperText}>{STRINGS.journeyGateRallyOnHelper}</Text>
-
-            {isCreator ? (
-              isConfirmingComplete ? (
-                <View style={styles.completeConfirmCard}>
-                  <Text style={styles.completeConfirmTitle}>
-                    {STRINGS.journeyCompleteConfirmTitle(circle.name)}
-                  </Text>
-                  <Text style={styles.completeConfirmBody}>{STRINGS.journeyCompleteConfirmBody}</Text>
-                  <View style={styles.completeConfirmRow}>
-                    <TouchableOpacity
-                      onPress={() => setIsConfirmingComplete(false)}
-                      disabled={isCompleting}
-                    >
-                      <Text style={styles.completeCancelText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleComplete} disabled={isCompleting}>
-                      <Text style={styles.completeConfirmActionText}>
-                        {isCompleting ? '…' : STRINGS.journeyGateCompleteCta}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+        {decision === 'completed' ? (
+          <>
+            <Animated.Text style={[styles.title, headingStyle]}>
+              {STRINGS.journeyCompletedTitle(circle.name)}
+            </Animated.Text>
+            <Animated.Text style={[styles.body, bodyStyle]}>{STRINGS.journeyCompletedBody}</Animated.Text>
+            <Animated.View style={[styles.actionsWrap, actionsStyle]}>
+              {/* SC3 — the keepsake offer, a quiet addition after the
+                  decision; continuing past it IS declining, and the marker
+                  (bumped at show) means it never reappears. */}
+              {wrappedOfferable && (
+                <View style={styles.wrappedOfferCard}>
+                  <Text style={styles.wrappedOfferTitle}>{STRINGS.wrappedOfferTitle}</Text>
+                  <Text style={styles.wrappedOfferBody}>{STRINGS.wrappedOfferBody}</Text>
+                  <TouchableOpacity
+                    style={styles.wrappedOfferButton}
+                    onPress={() =>
+                      router.replace({
+                        pathname: '/wrapped',
+                        params: { circleId: circle.id, milestone: String(GATE_DAY) },
+                      })
+                    }
+                  >
+                    <Text style={styles.wrappedOfferButtonText}>{STRINGS.wrappedOfferCta}</Text>
+                  </TouchableOpacity>
                 </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.secondaryButton}
-                  onPress={() => setIsConfirmingComplete(true)}
-                >
-                  <Text style={styles.secondaryButtonText}>{STRINGS.journeyGateCompleteCta}</Text>
-                </TouchableOpacity>
-              )
-            ) : (
-              <Text style={styles.helperTextMuted}>{STRINGS.journeyGateWaitingOnHost}</Text>
-            )}
-            {isCreator && !isConfirmingComplete && (
-              <Text style={styles.helperText}>{STRINGS.journeyGateCompleteHelper}</Text>
-            )}
+              )}
+              <TouchableOpacity style={styles.primaryButton} onPress={handleContinue}>
+                <Text style={styles.primaryButtonText}>{STRINGS.journeyCompletedCta}</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </>
+        ) : decision === 'rallied' ? (
+          <>
+            <Animated.Text style={[styles.title, headingStyle]}>{STRINGS.journeyGateTitle}</Animated.Text>
+            <Animated.Text style={[styles.body, bodyStyle]}>
+              {STRINGS.journeyRalliedOnCard(circle.name)}
+            </Animated.Text>
+            <Animated.View style={[styles.actionsWrap, actionsStyle]}>
+              {wrappedOfferable && (
+                <View style={styles.wrappedOfferCard}>
+                  <Text style={styles.wrappedOfferTitle}>{STRINGS.wrappedOfferTitle}</Text>
+                  <Text style={styles.wrappedOfferBody}>{STRINGS.wrappedOfferBody}</Text>
+                  <TouchableOpacity
+                    style={styles.wrappedOfferButton}
+                    onPress={() =>
+                      router.replace({
+                        pathname: '/wrapped',
+                        params: { circleId: circle.id, milestone: String(GATE_DAY) },
+                      })
+                    }
+                  >
+                    <Text style={styles.wrappedOfferButtonText}>{STRINGS.wrappedOfferCta}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              <TouchableOpacity style={styles.primaryButton} onPress={handleContinue}>
+                <Text style={styles.primaryButtonText}>{STRINGS.journeyCompletedCta}</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </>
+        ) : (
+          <>
+            <Animated.Text style={[styles.title, headingStyle]}>{STRINGS.journeyGateTitle}</Animated.Text>
+            <Animated.Text style={[styles.body, bodyStyle]}>{STRINGS.journeyGateBody}</Animated.Text>
 
-            {/* NAV1: the undecided state had no exit at all — a member
-                who isn't ready to choose (or isn't the host) needs a
-                quiet way out. The circle screen keeps offering the same
-                choice as a card, so nothing is lost by leaving. */}
-            <TouchableOpacity style={styles.notNowButton} onPress={() => router.replace('/today')}>
-              <Text style={styles.notNowText}>{STRINGS.journeyGateNotNow}</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </>
-      )}
+            <Animated.View style={[styles.actionsWrap, actionsStyle]}>
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={handleRallyOn}
+                disabled={isRallying}
+              >
+                {isRallying ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>{STRINGS.journeyGateRallyOnCta}</Text>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.helperText}>{STRINGS.journeyGateRallyOnHelper}</Text>
+
+              {isCreator ? (
+                isConfirmingComplete ? (
+                  <View style={styles.completeConfirmCard}>
+                    <Text style={styles.completeConfirmTitle}>
+                      {STRINGS.journeyCompleteConfirmTitle(circle.name)}
+                    </Text>
+                    <Text style={styles.completeConfirmBody}>{STRINGS.journeyCompleteConfirmBody}</Text>
+                    <View style={styles.completeConfirmRow}>
+                      <TouchableOpacity
+                        onPress={() => setIsConfirmingComplete(false)}
+                        disabled={isCompleting}
+                      >
+                        <Text style={styles.completeCancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={handleComplete} disabled={isCompleting}>
+                        <Text style={styles.completeConfirmActionText}>
+                          {isCompleting ? '…' : STRINGS.journeyGateCompleteCta}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.secondaryButton}
+                    onPress={() => setIsConfirmingComplete(true)}
+                  >
+                    <Text style={styles.secondaryButtonText}>{STRINGS.journeyGateCompleteCta}</Text>
+                  </TouchableOpacity>
+                )
+              ) : (
+                <Text style={styles.helperTextMuted}>{STRINGS.journeyGateWaitingOnHost}</Text>
+              )}
+              {isCreator && !isConfirmingComplete && (
+                <Text style={styles.helperText}>{STRINGS.journeyGateCompleteHelper}</Text>
+              )}
+
+              {/* NAV1: the undecided state had no exit at all — a member
+                  who isn't ready to choose (or isn't the host) needs a
+                  quiet way out. The circle screen keeps offering the same
+                  choice as a card, so nothing is lost by leaving. */}
+              <TouchableOpacity style={styles.notNowButton} onPress={() => router.replace('/today')}>
+                <Text style={styles.notNowText}>{STRINGS.journeyGateNotNow}</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -376,6 +386,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
+  },
+  // OD1 job 17b — was the plain container's own alignItems/justifyContent/
+  // paddingHorizontal; moved onto the ScrollView's content container so it
+  // still centers when content fits, but scrolls (rather than clipping)
+  // when Dynamic Type or the confirm-card state makes it taller than the
+  // screen. flexGrow:1 (not flex:1) is what lets a ScrollView's content
+  // container both fill and center short content.
+  content: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
