@@ -189,16 +189,23 @@ Deno.serve(async (req) => {
         .eq("payload->>local_date", localDate);
 
       if ((friendNudgeReceivedToday ?? 0) > 0) {
-        const { error: suppressInsertError } = await admin.from("notification_outbox").insert({
-          user_id: user.id,
-          kind: "nudge_daily",
-          payload: { local_date: localDate },
-          scheduled_for: now.toISOString(),
-          sent_at: now.toISOString(),
-          suppressed_reason: "suppressed_friend_nudge_already",
-          dedupe_key: dedupeKey,
-        });
-        if (suppressInsertError && suppressInsertError.code !== "23505") {
+        // CH5: ON CONFLICT DO NOTHING at the database (ignoreDuplicates)
+        // — the old plain INSERT still raised a 23505 ERROR into the
+        // Postgres log on every later 15-min tick even though the client
+        // tolerated it; the dedupe is expected behavior, not an error.
+        const { error: suppressInsertError } = await admin.from("notification_outbox").upsert(
+          {
+            user_id: user.id,
+            kind: "nudge_daily",
+            payload: { local_date: localDate },
+            scheduled_for: now.toISOString(),
+            sent_at: now.toISOString(),
+            suppressed_reason: "suppressed_friend_nudge_already",
+            dedupe_key: dedupeKey,
+          },
+          { onConflict: "dedupe_key", ignoreDuplicates: true }
+        );
+        if (suppressInsertError) {
           console.error(`Could not record friend-nudge suppression for user ${user.id}:`, suppressInsertError.message);
         }
         continue;
@@ -244,21 +251,30 @@ Deno.serve(async (req) => {
 <p>it's protecting ${glow.glow} day${glow.glow === 1 ? "" : "s"} of showing up.</p>
 <p><a href="https://rally21.vercel.app">open Rally21</a></p>`;
 
-            const { error: emberInsertError } = await admin.from("notification_outbox").insert({
-              user_id: user.id,
-              kind: "ember_nudge",
-              payload: {
-                subject: "your glow is down to embers 🕯️",
-                html: emberHtml,
-                local_date: localDateString(now, timeZone),
-              },
-              scheduled_for: now.toISOString(),
-              dedupe_key: emberDedupeKey,
-            });
+            // CH5: DO NOTHING on the dedupe key — no more 23505 ERROR
+            // noise in the Postgres log; .select() returns only really-
+            // inserted rows so the enqueued count stays honest.
+            const { data: emberInserted, error: emberInsertError } = await admin
+              .from("notification_outbox")
+              .upsert(
+                {
+                  user_id: user.id,
+                  kind: "ember_nudge",
+                  payload: {
+                    subject: "your glow is down to embers 🕯️",
+                    html: emberHtml,
+                    local_date: localDateString(now, timeZone),
+                  },
+                  scheduled_for: now.toISOString(),
+                  dedupe_key: emberDedupeKey,
+                },
+                { onConflict: "dedupe_key", ignoreDuplicates: true }
+              )
+              .select("id");
 
-            if (emberInsertError && emberInsertError.code !== "23505") {
+            if (emberInsertError) {
               console.error(`Could not enqueue ember nudge for user ${user.id}:`, emberInsertError.message);
-            } else if (!emberInsertError) {
+            } else if ((emberInserted ?? []).length > 0) {
               summary.enqueued++;
             }
           }
@@ -367,30 +383,36 @@ Deno.serve(async (req) => {
       // title + the loved line.
       const { subject, pushBody, html } = renderNudge(practiceNames, nudgeLine);
 
-      const { error: insertError } = await admin
+      // CH5: DO NOTHING on the dedupe key at the database — the old
+      // plain INSERT raised a 23505 ERROR into the Postgres log on every
+      // 15-min tick after the first (the recorded ERROR bursts), even
+      // though the client treated it as expected. .select() returns only
+      // really-inserted rows, so enqueued still counts real enqueues.
+      const { data: inserted, error: insertError } = await admin
         .from("notification_outbox")
-        .insert({
-          user_id: user.id,
-          kind: "nudge_daily",
-          // local_date lets send-notifications refuse to deliver this once
-          // the recipient's calendar date has moved on — a row held by
-          // quiet hours overnight must never arrive describing a day that
-          // has already passed (see send-notifications' expiry check).
-          // push_body is Cat's template body; send-notifications prefers it
-          // over stripping the html for the push.
-          payload: { subject, html, push_body: pushBody, local_date: localDate },
-          scheduled_for: now.toISOString(),
-          dedupe_key: dedupeKey,
-        });
+        .upsert(
+          {
+            user_id: user.id,
+            kind: "nudge_daily",
+            // local_date lets send-notifications refuse to deliver this once
+            // the recipient's calendar date has moved on — a row held by
+            // quiet hours overnight must never arrive describing a day that
+            // has already passed (see send-notifications' expiry check).
+            // push_body is Cat's template body; send-notifications prefers it
+            // over stripping the html for the push.
+            payload: { subject, html, push_body: pushBody, local_date: localDate },
+            scheduled_for: now.toISOString(),
+            dedupe_key: dedupeKey,
+          },
+          { onConflict: "dedupe_key", ignoreDuplicates: true }
+        )
+        .select("id");
 
-      // A unique-violation here just means another run already enqueued
-      // today's nudge for this user — not an error, exactly the dedupe
-      // this key exists to guarantee.
-      if (insertError && insertError.code !== "23505") {
+      if (insertError) {
         console.error(`Could not enqueue nudge for user ${user.id}:`, insertError.message);
         continue;
       }
-      if (!insertError) summary.enqueued++;
+      if ((inserted ?? []).length > 0) summary.enqueued++;
     } catch (e) {
       console.error(`Unhandled error composing nudge for user ${user.id}:`, e instanceof Error ? e.message : e);
     }
@@ -482,26 +504,32 @@ Deno.serve(async (req) => {
 <p>no streak lost, no catching up required — just today, whenever you're ready.</p>
 <p><a href="https://rally21.vercel.app">open Rally21</a></p>`;
 
-      const { error: rejoinInsertError } = await admin.from("notification_outbox").insert({
-        user_id: membership.user_id,
-        kind: "rest_rejoin",
-        payload: {
-          subject: "the huddle kept your spot warm 💛",
-          html,
-          circleId: membership.circle_id,
-        },
-        scheduled_for: now.toISOString(),
-        dedupe_key: dedupeKey,
-      });
+      // CH5: DO NOTHING on the dedupe key — the dedupe is the design,
+      // never a Postgres ERROR log line; .select() keeps the count real.
+      const { data: rejoinInserted, error: rejoinInsertError } = await admin
+        .from("notification_outbox")
+        .upsert(
+          {
+            user_id: membership.user_id,
+            kind: "rest_rejoin",
+            payload: {
+              subject: "the huddle kept your spot warm 💛",
+              html,
+              circleId: membership.circle_id,
+            },
+            scheduled_for: now.toISOString(),
+            dedupe_key: dedupeKey,
+          },
+          { onConflict: "dedupe_key", ignoreDuplicates: true }
+        )
+        .select("id");
 
-      // A unique-violation just means this exact spell already got its
-      // one email — not an error, exactly the dedupe this key guarantees.
-      if (rejoinInsertError && rejoinInsertError.code !== "23505") {
+      if (rejoinInsertError) {
         console.error(
           `Could not enqueue rest_rejoin for user ${membership.user_id} in circle ${membership.circle_id}:`,
           rejoinInsertError.message
         );
-      } else if (!rejoinInsertError) {
+      } else if ((rejoinInserted ?? []).length > 0) {
         summary.rejoinEnqueued++;
       }
     } catch (e) {

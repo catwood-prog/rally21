@@ -364,21 +364,29 @@ Deno.serve(async (req) => {
         remaining > 0 ? `<p>+ ${remaining} more moment${remaining === 1 ? "" : "s"} waiting</p>` : ""
       }<p><a href="https://rally21.vercel.app">open Rally21</a></p>`;
 
-      const { error: insertError } = await admin.from("notification_outbox").insert({
-        user_id: user.id,
-        kind: "social_digest",
-        payload: { subject: "a few moments in your circle today 💛", html, local_date: localDate },
-        scheduled_for: now.toISOString(),
-        dedupe_key: dedupeKey,
-      });
+      // CH5: DO NOTHING on the dedupe key at the database — the old
+      // plain INSERT still raised a 23505 ERROR into the Postgres log on
+      // every re-run even though the client tolerated it; dedupe is the
+      // design, not an error. .select() keeps the enqueued count real.
+      const { data: inserted, error: insertError } = await admin
+        .from("notification_outbox")
+        .upsert(
+          {
+            user_id: user.id,
+            kind: "social_digest",
+            payload: { subject: "a few moments in your circle today 💛", html, local_date: localDate },
+            scheduled_for: now.toISOString(),
+            dedupe_key: dedupeKey,
+          },
+          { onConflict: "dedupe_key", ignoreDuplicates: true }
+        )
+        .select("id");
 
-      // A unique-violation just means another run already enqueued
-      // today's digest for this user — the dedupe key doing its job.
-      if (insertError && insertError.code !== "23505") {
+      if (insertError) {
         console.error(`Could not enqueue digest for user ${user.id}:`, insertError.message);
         continue;
       }
-      if (!insertError) summary.enqueued++;
+      if ((inserted ?? []).length > 0) summary.enqueued++;
     } catch (e) {
       console.error(`Unhandled error composing digest for user ${user.id}:`, e instanceof Error ? e.message : e);
     }
