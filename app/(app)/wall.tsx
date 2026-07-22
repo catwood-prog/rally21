@@ -15,7 +15,7 @@ import {
 import { Avatar } from '@/components/Avatar';
 import { AppHeader } from '@/components/AppHeader';
 import { MessageDialog } from '@/components/MessageDialog';
-import { VoiceMicButton } from '@/components/VoiceMicButton';
+import { appendTranscript, VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
@@ -46,10 +46,6 @@ const QUICK_REACTIONS = ['🎉', '👏', '🧡', '🔥'];
 const OPEN_CIRCLE_REACTIONS = ['🧡', '👏', '🔥', '👋'];
 const VOICE_UNLOCK_COMPLETIONS = 7;
 
-function appendTranscript(existing: string, transcript: string): string {
-  if (!existing || /\s$/.test(existing)) return existing + transcript;
-  return `${existing} ${transcript}`;
-}
 
 export default function CircleWall() {
   const router = useRouter();

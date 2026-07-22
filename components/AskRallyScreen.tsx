@@ -26,7 +26,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { AskRallyLearnMoreSheet } from '@/components/AskRallyLearnMoreSheet';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { MascotPatch } from '@/components/MascotPatch';
-import { VoiceMicButton } from '@/components/VoiceMicButton';
+import { appendTranscript, VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
@@ -77,10 +77,6 @@ function ListenerMascot() {
   );
 }
 
-function appendTranscript(existing: string, transcript: string): string {
-  if (!existing || /\s$/.test(existing)) return existing + transcript;
-  return `${existing} ${transcript}`;
-}
 
 /** What the composer opens with. A pattern-card entry (`context`) is a
  * pattern the user is reacting to, so it gets the About-this wrapper; a

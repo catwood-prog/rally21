@@ -6,7 +6,7 @@ import { MASCOT } from '@/assets/mascot';
 import { AppHeader } from '@/components/AppHeader';
 import { ErrorSlip } from '@/components/ErrorSlip';
 import { MascotEntrance } from '@/components/MascotEntrance';
-import { VoiceMicButton } from '@/components/VoiceMicButton';
+import { appendTranscript, VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
@@ -41,10 +41,6 @@ const LIKED_QUOTES_COLLAPSED_COUNT = 3;
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const EMPTY_DOCUMENT: BlueprintDocument = { traits: [], evolution: [], want: null };
 
-function appendTranscript(existing: string, transcript: string): string {
-  if (!existing || /\s$/.test(existing)) return existing + transcript;
-  return `${existing} ${transcript}`;
-}
 
 /** A1 entry point: "ask Rally about this" on any pattern card, prefilling
  * the composer with that pattern as a starting point (never auto-sent —

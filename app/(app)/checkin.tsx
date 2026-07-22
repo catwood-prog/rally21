@@ -14,7 +14,7 @@ import { AccentedText } from '@/components/AccentedText';
 import { AppHeader } from '@/components/AppHeader';
 import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
 import { MessageDialog } from '@/components/MessageDialog';
-import { VoiceMicButton } from '@/components/VoiceMicButton';
+import { appendTranscript, VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { MOOD_EMOJI, MOOD_VALUES } from '@/constants/mood';
 import { STRINGS } from '@/constants/strings';
@@ -39,10 +39,6 @@ import * as haptics from '@/lib/haptics';
 import { deriveCheckinAccent } from '@/lib/practice-accent';
 import { getMyProfile, markVoiceHintSeen } from '@/lib/profile';
 
-function appendTranscript(existing: string, transcript: string): string {
-  if (!existing || /\s$/.test(existing)) return existing + transcript;
-  return `${existing} ${transcript}`;
-}
 
 export default function CheckIn() {
   const router = useRouter();

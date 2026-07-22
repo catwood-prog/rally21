@@ -441,7 +441,6 @@ export const STRINGS = {
   // never a raw error message or status code (AR1's warmth rule,
   // generalized app-wide; raw errors still go to Sentry, not the user).
   loadFailedLine: (what: string) => `${what} couldn't load just now — give it a moment and try again`,
-  openCirclesNoneYetStartFirst: 'no open circles yet — start the first one',
   hostCloseToJoinsHelperClosed: "you're not taking new members right now",
 
   // EC1 (16 July) — hosts edit their circle from Host Controls or the ✎
@@ -476,7 +475,6 @@ export const STRINGS = {
   practiceInstructionsViewLinkLabel: 'the link',
   manageCircleAffordance: '✎ manage',
   manageCircleA11yLabel: 'manage circle',
-  hostDeleteWallMessageConfirm: 'Remove this from the wall?',
 
   // Pre-sign-in onboarding (rev-7 mockup screens 1–3) — signed-in users
   // never see these; a signed-out visit to the app starts here.
@@ -598,7 +596,6 @@ export const STRINGS = {
   blueprintNoteSkip: 'Skip',
   blueprintConfirmedText: '✓ you said this sounds right',
   blueprintSeeYourBlueprint: 'see your private map →',
-  blueprintLinkLabel: 'Your private map',
   somethingWeNoticedLinkLabel: 'Something we noticed',
 
   // Blueprint v2 (B3, Rally21-Blueprint-Notes.md wants layer) — traits,
@@ -719,7 +716,6 @@ export const STRINGS = {
   blockCancelCta: 'Cancel',
   unblockCta: 'Unblock',
   blockedPeopleSectionLabel: 'blocked people',
-  blockedPeopleEmpty: "you haven't blocked anyone",
   // W2 (13 July) — send_friend_nudge returns 'blocked' for BOTH directions
   // of a block (the blocked person waving at their blocker included), so
   // this copy must never assert who blocked whom — the client genuinely
@@ -755,7 +751,6 @@ export const STRINGS = {
   yourDataSummaryNotificationsOn: 'on',
   yourDataSummaryNotificationsOff: 'off',
 
-  yourDataExportPreparing: 'preparing your export…',
   yourDataExportError: 'could not export right now — try again',
 
   // YD1 (21 July) — the "Delete a single check-in" section is gone (Cat's
@@ -770,7 +765,6 @@ export const STRINGS = {
   profilePhotoUploadFailed:
     "your photo didn't upload, but your name is saved — try again later from settings",
 
-  yourDataDeletePhotoNoneYet: 'no photo to remove yet',
   yourDataDeletePhotoConfirm: "remove your photo? your initials will show instead — nothing else changes.",
   yourDataDeletePhotoConfirmCta: 'Remove photo',
   yourDataDeletePhotoCancelCta: 'Cancel',
@@ -842,7 +836,6 @@ export const STRINGS = {
   // The flavor-mute pref infra + the settings "muted card flavors" list
   // (labels below) stay — they just have no on-card mute-ON path anymore.
   shareCardMutedFlavorsLabel: 'muted card flavors',
-  shareCardMutedFlavorsEmpty: "you haven't muted any card flavors",
   shareCardFlavorCuratedQuote: 'quote cards',
   shareCardFlavorWarmJourney: 'journey cards',
   shareCardFlavorWrapped: 'day-21 keepsake cards',

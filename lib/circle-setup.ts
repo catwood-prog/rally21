@@ -67,28 +67,9 @@ export function mapPractice(row: {
   };
 }
 
-/** The browse catalogue: curated system practices plus the caller's own
- * customs, and nothing else (PT1 sharing ruling — someone else's custom
- * practice never appears in browse, even where RLS lets the caller read
- * it because a shared circle uses it). */
-export async function listPracticesByCategory(
-  category: PracticeCategory,
-  userId: string
-): Promise<Practice[]> {
-  const { data, error } = await supabase
-    .from('practices')
-    .select(PRACTICE_SELECT)
-    .eq('category', category)
-    .eq('is_archived', false)
-    .or(`created_by.is.null,created_by.eq.${userId}`)
-    .order('name');
-
-  if (error) throw error;
-  return (data ?? []).map(mapPractice);
-}
-
 /** CF2 — the choose-a-practice screen loads the whole catalogue once
- * (bank + own customs, same visibility rule as listPracticesByCategory)
+ * (bank + own customs — PT1's browse visibility rule: curated system
+ * practices plus the caller's own, never someone else's custom)
  * so the domain chips can filter CLIENT-side and search can match
  * across every domain, including classifier-synonym hits ("yoga" finds
  * Stretch & Yoga regardless of which chip is active). */
@@ -214,7 +195,7 @@ export async function createCircle(
  * copies the practice's legacy default, so the explicit write makes the
  * user's choice — including "no timer" — authoritative), then the
  * optional resource link. The link write never blocks the circle
- * existing (same forgiveness as the old commitment screen). */
+ * existing (same forgiveness the setup screens have always given the link write). */
 export async function createCircleWithDose(params: {
   practiceKey: string;
   timeOfDay: string;
