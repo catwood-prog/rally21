@@ -61,8 +61,20 @@ Deno.serve(async (req) => {
     return page("something went wrong", "please try again in a moment.", 500);
   }
 
-  const expected = await signToken(secret, userId, kind);
-  if (expected !== token) {
+  // CH5 (22 July): rotation-safe verification. New links are signed with
+  // the CURRENT secret; links in emails sent before a rotation carry the
+  // PREVIOUS one, which Vault keeps as 'notifications_secret_prev' — an
+  // unsubscribe link must keep working across a rotation (it's the one
+  // signed artifact that lives on in people's inboxes). Exactly one
+  // generation back is honored, never a chain.
+  let verified = (await signToken(secret, userId, kind)) === token;
+  if (!verified) {
+    const { data: prevSecret } = await admin.rpc("get_notifications_secret_prev");
+    if (prevSecret) {
+      verified = (await signToken(prevSecret, userId, kind)) === token;
+    }
+  }
+  if (!verified) {
     return page("that link isn't quite right", "double-check you copied the whole link from the email.", 400);
   }
 
