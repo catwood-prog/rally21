@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   tagline: {
     fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(38, 38, 38, 0.65)',
+    color: colors.mutedStrong,
     marginTop: 4,
   },
   subtitle: {
@@ -92,6 +92,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.4,
-    color: 'rgba(38, 38, 38, 0.5)',
+    color: colors.muted,
   },
 });

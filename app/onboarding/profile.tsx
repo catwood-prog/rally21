@@ -139,7 +139,7 @@ export default function ProfileSetup() {
 
       <MicTextInput
         style={styles.input}
-        placeholder="your name"
+        placeholder={STRINGS.profileNamePlaceholder}
         placeholderTextColor={colors.muted}
         value={name}
         onChangeText={setName}
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     borderRadius: 52,
   },
   photoPlaceholder: {
-    backgroundColor: '#ddd',
+    backgroundColor: colors.placeholderGrey,
     alignItems: 'center',
     justifyContent: 'center',
   },

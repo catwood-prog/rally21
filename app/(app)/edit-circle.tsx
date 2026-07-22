@@ -171,7 +171,7 @@ export default function EditCircle() {
         <Text style={circleFormStyles.helperText}>{STRINGS.editCirclePracticeHelper}</Text>
         <MicTextInput
           style={circleFormStyles.input}
-          placeholder="e.g. Walk 20 minutes"
+          placeholder={STRINGS.practiceNamePlaceholder}
           placeholderTextColor={colors.muted}
           value={practiceName}
           onChangeText={setPracticeName}

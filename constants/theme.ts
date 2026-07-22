@@ -59,6 +59,9 @@ export const colors = {
   // `bg` (muted at 0.5 lands ~4.2:1 at the blend, just under the 4.5:1
   // floor) — the Ask Rally safety line (PM1B) is the first user.
   mutedStrong: 'rgba(38, 38, 38, 0.68)',
+  // CH5 — the photo/avatar placeholder grey, promoted from '#ddd'
+  // repeated in profile.tsx and Avatar.tsx.
+  placeholderGrey: '#ddd',
   // Error/destructive text and borders — promoted from repeated literals.
   errorRed: '#B3261E',
   // Modal/sheet backdrop dim — promoted from a repeated literal.

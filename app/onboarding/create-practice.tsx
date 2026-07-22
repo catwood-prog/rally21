@@ -106,7 +106,7 @@ export default function CreateAPractice() {
       <Text style={styles.label}>{STRINGS.practiceStepQuestion}</Text>
       <MicTextInput
         style={styles.input}
-        placeholder="e.g. Walk 20 minutes"
+        placeholder={STRINGS.practiceNamePlaceholder}
         placeholderTextColor={colors.muted}
         value={name}
         onChangeText={setName}

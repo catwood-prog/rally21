@@ -207,7 +207,7 @@ export default function CheckIn() {
       <View style={styles.inputWrap}>
         <TextInput
           style={styles.inputWithMic}
-          placeholder="one small thing today"
+          placeholder={STRINGS.checkinGratefulPlaceholder}
           placeholderTextColor={colors.muted}
           value={line}
           onChangeText={setLine}
@@ -237,12 +237,12 @@ export default function CheckIn() {
           uppercase transform; the placeholder does the compassion work,
           and leaving it blank is the skip — never a confirmation. */}
       <Text style={styles.goalsQuestion}>
-        {goalsQuestion?.question ?? 'learned (optional)'}
+        {goalsQuestion?.question ?? STRINGS.checkinLearnedFallbackLabel}
       </Text>
       <View style={styles.inputWrap}>
         <TextInput
           style={styles.inputWithMic}
-          placeholder={goalsQuestion?.placeholder ?? 'anything you noticed'}
+          placeholder={goalsQuestion?.placeholder ?? STRINGS.checkinLearnedFallbackPlaceholder}
           placeholderTextColor={colors.muted}
           value={line2}
           onChangeText={setLine2}

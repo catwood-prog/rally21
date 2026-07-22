@@ -147,6 +147,21 @@ export const STRINGS = {
   // verbatim from Cat's approved redesign: choose the practice, then
   // choose how to practise it. Titles lowercase per LC1.
   choosePracticeTitle: 'choose a practice',
+  // CH5 conventions sweep — user-facing copy that had drifted inline
+  // across the flow screens, moved home. Same words, one place.
+  joinCircleTitle: 'got a code?',
+  joinCircleSubtitle: 'enter the 6-character code your friend sent you',
+  circleNameLabel: 'name your circle',
+  circleNamePlaceholder: "your circle's name",
+  resourceLinkLabel: 'add a link (optional)',
+  resourceLinkPlaceholder: 'a video, article, or playlist your circle follows',
+  checkinGratefulPlaceholder: 'one small thing today',
+  checkinLearnedFallbackLabel: 'learned (optional)',
+  checkinLearnedFallbackPlaceholder: 'anything you noticed',
+  practiceNamePlaceholder: 'e.g. Walk 20 minutes',
+  practiceDurationPlaceholder: 'duration in minutes (optional)',
+  findPracticePlaceholder: 'Find a practice',
+  profileNamePlaceholder: 'your name',
   createPracticeRow: '+ create a practice',
   inviteCodeRow: 'have an invite code?',
   createPracticeTitle: 'create a practice',

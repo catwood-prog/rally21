@@ -148,7 +148,7 @@ export default function ChooseAPractice() {
         <MicTextInput
           containerStyle={styles.searchInputRow}
           style={styles.searchInput}
-          placeholder="Find a practice"
+          placeholder={STRINGS.findPracticePlaceholder}
           placeholderTextColor={colors.muted}
           value={searchText}
           onChangeText={setSearchText}
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     ...chipShape,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.green,
   },

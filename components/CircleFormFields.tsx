@@ -28,11 +28,11 @@ type FieldProps = {
 export function CircleNameField({ value, onChange, style }: FieldProps) {
   return (
     <View style={style}>
-      <Text style={circleFormStyles.label}>name your circle</Text>
+      <Text style={circleFormStyles.label}>{STRINGS.circleNameLabel}</Text>
       <Text style={circleFormStyles.helperText}>{STRINGS.circleNameHelper}</Text>
       <MicTextInput
         style={circleFormStyles.input}
-        placeholder="your circle's name"
+        placeholder={STRINGS.circleNamePlaceholder}
         placeholderTextColor={colors.muted}
         value={value}
         onChangeText={onChange}
@@ -70,10 +70,10 @@ export function TimeOfDayField({ value, onChange, style }: FieldProps) {
 export function ResourceLinkField({ value, onChange, style }: FieldProps) {
   return (
     <View style={style}>
-      <Text style={circleFormStyles.label}>add a link (optional)</Text>
+      <Text style={circleFormStyles.label}>{STRINGS.resourceLinkLabel}</Text>
       <TextInput
         style={circleFormStyles.input}
-        placeholder="a video, article, or playlist your circle follows"
+        placeholder={STRINGS.resourceLinkPlaceholder}
         placeholderTextColor={colors.muted}
         value={value}
         onChangeText={onChange}

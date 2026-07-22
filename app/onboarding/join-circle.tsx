@@ -99,8 +99,8 @@ export default function JoinCircle() {
         <Text style={styles.back}>{isFromToday ? '← today' : '← back'}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>got a code?</Text>
-      <Text style={styles.subtitle}>enter the 6-character code your friend sent you</Text>
+      <Text style={styles.title}>{STRINGS.joinCircleTitle}</Text>
+      <Text style={styles.subtitle}>{STRINGS.joinCircleSubtitle}</Text>
 
       <TextInput
         style={styles.input}

@@ -570,6 +570,6 @@ const styles = StyleSheet.create({
   doneButtonText: {
     fontWeight: '700',
     fontSize: 14,
-    color: '#262626',
+    color: colors.ink,
   },
 });

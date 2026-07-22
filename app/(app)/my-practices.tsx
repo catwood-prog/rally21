@@ -231,7 +231,7 @@ function PracticeForm({
     <View style={styles.formCard}>
       <MicTextInput
         style={styles.input}
-        placeholder="e.g. Walk 20 minutes"
+        placeholder={STRINGS.practiceNamePlaceholder}
         placeholderTextColor={colors.muted}
         value={form.name}
         onChangeText={(name) => setForm({ ...form, name })}
@@ -245,7 +245,7 @@ function PracticeForm({
       />
       <TextInput
         style={styles.input}
-        placeholder="duration in minutes (optional)"
+        placeholder={STRINGS.practiceDurationPlaceholder}
         placeholderTextColor={colors.muted}
         value={form.duration}
         onChangeText={(text) => setForm({ ...form, duration: text.replace(/[^0-9]/g, '') })}

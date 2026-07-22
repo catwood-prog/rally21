@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   ringDone: {
-    backgroundColor: '#ddd',
+    backgroundColor: colors.placeholderGrey,
   },
   ringCovered: {
     backgroundColor: 'rgba(244, 200, 75, 0.25)',
