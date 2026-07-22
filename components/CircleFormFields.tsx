@@ -1,6 +1,7 @@
 import { StyleProp, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle } from 'react-native';
 
 import { MicTextInput } from '@/components/MicTextInput';
+import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { chipShape, chipTextShape, colors } from '@/constants/theme';
 
@@ -126,6 +127,34 @@ export function PracticeInstructionsField({
   );
 }
 
+// RF1 job 1c — the journey ladder's first four rungs. 21 is always the
+// highlighted one here: this strip only ever renders at commitment,
+// before a circle exists, so there is no "current" milestone to mark.
+const FIRST_RALLY_MILESTONES = [21, 50, 100, 365];
+
+/** RF1 job 1 — the commitment frame: header + supporting line + a quiet
+ * milestone strip (21 highlighted gold). ONE shared component so
+ * solo-setup and start-circle can never read differently; static, no
+ * animation, no new deps. */
+export function FirstRallyStrip({ style }: { style?: StyleProp<ViewStyle> }) {
+  return (
+    <View style={style}>
+      <Text style={circleFormStyles.firstRallyHeader}>{STRINGS.firstRallyHeader}</Text>
+      <Text style={circleFormStyles.firstRallySupportingLine}>{STRINGS.firstRallySupportingLine}</Text>
+      <View style={circleFormStyles.milestoneRow}>
+        {FIRST_RALLY_MILESTONES.map((n, i) => (
+          <View key={n} style={circleFormStyles.milestoneItem}>
+            <Text style={[circleFormStyles.milestoneNumber, n === 21 && circleFormStyles.milestoneNumberActive]}>
+              {n}
+            </Text>
+            {i < FIRST_RALLY_MILESTONES.length - 1 && <Text style={circleFormStyles.milestoneDot}>·</Text>}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 /** Exported for the fields the setup screens keep local (the solo
  * now/tomorrow chips, the duration input) and edit-circle's practice
  * inputs — same label, input, and chip vocabulary, one stylesheet. */
@@ -215,5 +244,41 @@ export const circleFormStyles = StyleSheet.create({
     fontWeight: '400',
     color: colors.muted,
     marginLeft: 10,
+  },
+  // RF1 job 1 — the first-rally commitment frame.
+  firstRallyHeader: {
+    fontFamily: FONT_HEADER,
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.ink,
+  },
+  firstRallySupportingLine: {
+    fontFamily: FONT_SERIF_ITALIC,
+    fontSize: 12.5,
+    color: colors.muted,
+    marginTop: 2,
+  },
+  milestoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  milestoneItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  milestoneNumber: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  milestoneNumberActive: {
+    fontWeight: '800',
+    color: colors.gold,
+  },
+  milestoneDot: {
+    fontSize: 11.5,
+    color: colors.muted,
+    marginHorizontal: 6,
   },
 });

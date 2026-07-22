@@ -7,6 +7,7 @@ import { Brandmark } from '@/components/Brandmark';
 import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
 import {
   circleFormStyles,
+  FirstRallyStrip,
   PracticeInstructionsField,
   TIME_OPTIONS,
   TimeOfDayField,
@@ -208,6 +209,8 @@ export default function SoloSetup() {
         {grouping && <Text style={styles.summaryGrouping}>{grouping}</Text>}
         <Text style={styles.summaryDays}>{STRINGS.soloSetupSummaryDays}</Text>
       </View>
+
+      <FirstRallyStrip style={styles.sectionSpacing} />
 
       <Text style={[circleFormStyles.label, styles.sectionSpacing]}>{STRINGS.durationLabel}</Text>
       {params.timerSuggested === 'true' && (

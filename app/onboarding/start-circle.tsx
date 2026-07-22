@@ -8,6 +8,7 @@ import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollV
 import {
   CircleNameField,
   circleFormStyles,
+  FirstRallyStrip,
   PracticeInstructionsField,
   TIME_OPTIONS,
   TimeOfDayField,
@@ -175,6 +176,8 @@ export default function StartCircle() {
         </Text>
         {grouping && <Text style={styles.summaryGrouping}>{grouping}</Text>}
       </View>
+
+      <FirstRallyStrip style={styles.sectionSpacing} />
 
       <CircleNameField value={circleName} onChange={setCircleName} style={styles.sectionSpacing} />
 

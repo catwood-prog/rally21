@@ -184,9 +184,18 @@ export const STRINGS = {
   hubStartCircleBody: 'do it together — invite friends, or open it up',
   hubOpenCirclesLabel: 'open public circles',
   soloSetupAccent: 'a circle of one',
-  soloSetupSummaryDays: '21 days, daily',
-  soloStartCta: 'start my 21 days',
+  // RF1 job 1 — the "21 days" duration now lives in firstRallyHeader
+  // below the summary card, so this caption only needs to carry cadence.
+  soloSetupSummaryDays: 'daily',
+  soloStartCta: 'start my first 21 days',
   circleSetupTitle: 'start a circle',
+  // RF1 job 1 — the commitment frame at solo-setup and start-circle
+  // (Cat's wording, verbatim, 22 July): 21 is the first rung of the
+  // journey ladder, never the whole thing. The supporting line stays
+  // short on purpose — the milestone strip below it already shows
+  // 50/100/365, so naming them again here would say it twice.
+  firstRallyHeader: 'your first rally: 21 days',
+  firstRallySupportingLine: '21 is the first stop, not the last',
   durationLabel: 'how long each day? (optional)',
   durationSuggestedHelper: 'a timer helps this one — change or clear it freely',
   // The chosen dose's one rendering shape, everywhere it appears
