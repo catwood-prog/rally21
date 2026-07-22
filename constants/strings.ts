@@ -143,6 +143,44 @@ export const STRINGS = {
   pacerTurnOn: 'breathe with the timer',
 
   practiceStepQuestion: 'what will you do each day?',
+  // CF2 — the rebuilt circle flow's copy. Governing mental model,
+  // verbatim from Cat's approved redesign: choose the practice, then
+  // choose how to practise it. Titles lowercase per LC1.
+  choosePracticeTitle: 'choose a practice',
+  createPracticeRow: '+ create a practice',
+  inviteCodeRow: 'have an invite code?',
+  createPracticeTitle: 'create a practice',
+  suggestedGroupingLabel: 'suggested grouping',
+  suggestedGroupingProvenance: 'Rally suggested this from your practice name',
+  createPracticeContinue: 'continue',
+  hubHowQuestion: 'how do you want to practise?',
+  hubGoSoloTitle: 'go solo',
+  hubGoSoloBody: 'just you, for now — your circle can grow later',
+  hubStartCircleTitle: 'start a circle',
+  hubStartCircleBody: 'do it together — invite friends, or open it up',
+  hubOpenCirclesLabel: 'open public circles',
+  soloSetupAccent: 'a circle of one',
+  soloSetupSummaryDays: '21 days, daily',
+  soloStartCta: 'start my 21 days',
+  circleSetupTitle: 'start a circle',
+  durationLabel: 'how long each day? (optional)',
+  durationSuggestedHelper: 'a timer helps this one — change or clear it freely',
+  // The chosen dose's one rendering shape, everywhere it appears
+  // ("Walk · 15 min").
+  practiceDose: (name: string, minutes: number) => `${name} · ${minutes} min`,
+  visibilityQuestion: 'who can join?',
+  visibilityPrivateTitle: '🔒 private',
+  visibilityPrivateBody: 'invite link or code only · not searchable',
+  visibilityPublicTitle: '🌍 public',
+  visibilityPublicBody: 'listed under this practice · anyone can join',
+  // PT1's is_shared model: creating a PUBLIC circle on a private custom
+  // practice makes the practice itself visible to others — its own
+  // explicit confirm step, never buried in visibility copy.
+  shareFlipConfirmTitle: 'one thing before you open it up',
+  shareFlipConfirmBody: (practiceName: string) =>
+    `a public circle lists “${practiceName}” for other people to find and use — right now only you can see it. all good?`,
+  shareFlipConfirmCta: 'yes, share my practice',
+  shareFlipCancel: 'keep it private',
   // PT1 guided creation — the classifier's one editable chip line, and
   // the warm manual-pick prompt when nothing matches. Never a blocker.
   practiceTypeSoundRight: 'sound right? tap to change',
@@ -203,7 +241,10 @@ export const STRINGS = {
   publicShareDisclosure: 'public circles share their practice to the library, so others can start their own',
   myPracticesSubtitle: 'your practice library — reuse them in new circles. Shared ones can be picked by others.',
   practicePillShared: 'shared',
-  practicePillOnlyYou: 'only you',
+  // CF2: "only you" reworded warmer — same logic (a custom practice
+  // visible to nobody else), the badge just reads as belonging, not
+  // exclusion.
+  practicePillOnlyYou: 'your practice',
 
   // Cover a friend — covering is a celebrated gift, never a debt. No
   // copy anywhere should read as a score, an "owed", or guilt (see

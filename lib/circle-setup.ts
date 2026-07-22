@@ -86,6 +86,39 @@ export async function listPracticesByCategory(
   return (data ?? []).map(mapPractice);
 }
 
+/** CF2 — the choose-a-practice screen loads the whole catalogue once
+ * (bank + own customs, same visibility rule as listPracticesByCategory)
+ * so the domain chips can filter CLIENT-side and search can match
+ * across every domain, including classifier-synonym hits ("yoga" finds
+ * Stretch & Yoga regardless of which chip is active). */
+export async function listAllPractices(userId: string): Promise<Practice[]> {
+  const { data, error } = await supabase
+    .from('practices')
+    .select(PRACTICE_SELECT)
+    .eq('is_archived', false)
+    .or(`created_by.is.null,created_by.eq.${userId}`)
+    .order('name');
+
+  if (error) throw error;
+  return (data ?? []).map(mapPractice);
+}
+
+/** CF2/PB1 — the setup screens write the CIRCLE's dose explicitly (the
+ * dose lives on circles.duration_minutes; create_circle only copies the
+ * practice's legacy default). Plain update under the existing
+ * creator-only RLS UPDATE policy — same pattern as setCircleResourceUrl.
+ * Null clears it (an untimed circle). */
+export async function setCircleDurationMinutes(
+  circleId: string,
+  minutes: number | null
+): Promise<void> {
+  const { error } = await supabase
+    .from('circles')
+    .update({ duration_minutes: minutes })
+    .eq('id', circleId);
+  if (error) throw error;
+}
+
 /** CF1: no category parameter — the shelf is DERIVED server-side from
  * practice_type (practice_domain_of + the derive trigger), so a browse
  * filter can never contaminate a save again. Callers pass the type; the
@@ -172,6 +205,39 @@ export async function createCircle(
     throw error;
   }
   return { circleId: data.circle_id, inviteCode: data.invite_code };
+}
+
+/** CF2 — both setup screens (solo + circle) create through this one
+ * path: create_circle, then write the CIRCLE's own dose explicitly
+ * (PB1: the dose lives on circles.duration_minutes; create_circle only
+ * copies the practice's legacy default, so the explicit write makes the
+ * user's choice — including "no timer" — authoritative), then the
+ * optional resource link. The link write never blocks the circle
+ * existing (same forgiveness as the old commitment screen). */
+export async function createCircleWithDose(params: {
+  practiceKey: string;
+  timeOfDay: string;
+  circleName: string;
+  isPublic: boolean;
+  durationMinutes: number | null;
+  resourceUrl: string | null;
+}): Promise<{ circleId: string; inviteCode: string }> {
+  const created = await createCircle(
+    params.practiceKey,
+    params.timeOfDay,
+    params.circleName,
+    params.isPublic
+  );
+  await setCircleDurationMinutes(created.circleId, params.durationMinutes).catch(() => {
+    // the circle exists and the legacy-copied dose is a sane fallback
+  });
+  if (params.resourceUrl) {
+    const { setCircleResourceUrl } = await import('./circle');
+    await setCircleResourceUrl(created.circleId, params.resourceUrl).catch(() => {
+      // non-blocking — they can add the link later from the circle screen
+    });
+  }
+  return created;
 }
 
 export async function joinCircleByCode(code: string): Promise<string> {

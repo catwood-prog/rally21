@@ -92,6 +92,15 @@ export function domainDisplay(domain: PracticeDomain): string {
   return PRACTICE_DOMAINS.find((d) => d.key === domain)?.display ?? domain;
 }
 
+/** CF2 — the one "Learn · Read" grouping line every flow surface renders
+ * (browse cards, the create screen's suggestion, the hub, both setup
+ * summaries). Null for an unknown key so callers can simply omit the
+ * line rather than print a raw key. */
+export function groupingLine(key: string): string | null {
+  const t = getPracticeType(key);
+  return t ? `${domainDisplay(t.domain)} · ${t.display}` : null;
+}
+
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

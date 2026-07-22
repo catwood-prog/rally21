@@ -4,10 +4,11 @@ import { MicTextInput } from '@/components/MicTextInput';
 import { STRINGS } from '@/constants/strings';
 import { chipShape, chipTextShape, colors } from '@/constants/theme';
 
-/** The circle form's shared fields — create (onboarding/commitment.tsx)
- * and edit (edit-circle.tsx, EC1) render the same labels, inputs, and
- * chips from here so the two forms can never drift (EC1's hard rule:
- * reuse create-circle's components, no second form). */
+/** The circle form's shared fields — the CF2 setup screens
+ * (onboarding/solo-setup.tsx, onboarding/start-circle.tsx) and edit
+ * (edit-circle.tsx, EC1) render the same labels, inputs, and chips from
+ * here so the forms can never drift (EC1's hard rule: one form
+ * vocabulary, no second implementation). */
 
 export const MAX_CIRCLE_NAME_LENGTH = 40;
 
@@ -84,9 +85,9 @@ export function ResourceLinkField({ value, onChange, style }: FieldProps) {
   );
 }
 
-/** Exported for the fields commitment.tsx keeps local (the solo
- * now/tomorrow chips) and edit-circle's practice inputs — same label,
- * input, and chip vocabulary, one stylesheet. */
+/** Exported for the fields the setup screens keep local (the solo
+ * now/tomorrow chips, the duration input) and edit-circle's practice
+ * inputs — same label, input, and chip vocabulary, one stylesheet. */
 export const circleFormStyles = StyleSheet.create({
   label: {
     fontSize: 11,

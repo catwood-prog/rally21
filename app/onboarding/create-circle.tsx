@@ -1,14 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PRACTICE_TILES } from '@/assets/images/practices';
@@ -18,7 +10,6 @@ import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollV
 import { MicTextInput } from '@/components/MicTextInput';
 import { MessageDialog } from '@/components/MessageDialog';
 import { PracticePill } from '@/components/PracticePill';
-import { PracticeTypePicker, PracticeTypeSelection } from '@/components/PracticeTypePicker';
 import { CATEGORIES } from '@/constants/practices';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -26,13 +17,27 @@ import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme'
 import { useAuth } from '@/lib/auth-context';
 import {
   countOpenCirclesByPractice,
-  createPractice,
-  listPracticesByCategory,
+  listAllPractices,
   Practice,
   PracticeCategory,
 } from '@/lib/circle-setup';
+import { classifyPracticeName, groupingLine } from '@/lib/practiceTaxonomy';
 
-export default function FindAPractice() {
+/**
+ * CF2 screen 1 — "choose a practice" (Cat's approved redesign, 21 July).
+ * The governing mental model: choose the PRACTICE, then choose HOW to
+ * practise it (solo / circle / join — all of that lives on the practice
+ * hub, not here). Creating a practice is an explicit utility row, never
+ * a browse result — the old create-your-own tile is gone. The domain
+ * chips are FILTER ONLY: provably disconnected from creation (the create
+ * row carries no domain, and CF1 removed the category param from the
+ * save path entirely).
+ *
+ * Solo intent (SF1's fork card) rides through as ?solo=true: counts stay
+ * hidden and tapping a practice goes straight to solo setup — the "how"
+ * was already chosen, so the hub would only add a tap.
+ */
+export default function ChooseAPractice() {
   const router = useRouter();
   // NAV1 job 0 — no AppHeader on pre-signed-in-chrome screens, but the
   // safe-area inset still applies.
@@ -47,109 +52,84 @@ export default function FindAPractice() {
   }>();
   const isSolo = solo === 'true';
   const isFromToday = fromToday === 'true';
-  // The wants act flow ("make this your next 21 days") lands here with a
-  // suggested name already in hand — a want is inherently a personal,
-  // one-off practice, so it opens straight into "create your own" rather
-  // than the catalog grid, prefilled but fully editable (SCOPE: prefill
-  // the existing flow as-is, don't restructure it).
-  const wantParams = wantKey ? { wantKey, wantStatement: wantStatement ?? '' } : undefined;
+
+  const carriedParams = {
+    ...(isSolo ? { solo: 'true' } : {}),
+    ...(isFromToday ? { fromToday: 'true' } : {}),
+  };
+
+  // The wants act flow ("make this your next 21 days") — a want is
+  // inherently a personal, one-off practice, so it opens straight into
+  // the dedicated create screen, prefilled but fully editable.
+  useEffect(() => {
+    if (!wantKey) return;
+    router.replace({
+      pathname: '/onboarding/create-practice',
+      params: {
+        ...carriedParams,
+        wantKey,
+        wantStatement: wantStatement ?? '',
+        ...(suggestedName ? { suggestedName } : {}),
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantKey]);
 
   const [selectedCategory, setSelectedCategory] = useState<PracticeCategory>('move');
   const [searchText, setSearchText] = useState('');
   const [practices, setPractices] = useState<Practice[]>([]);
   const [openCounts, setOpenCounts] = useState<Record<string, number>>({});
-  const [isLoadingPractices, setIsLoadingPractices] = useState(true);
-
-  const [showCustomForm, setShowCustomForm] = useState(!!wantKey);
-  const [customName, setCustomName] = useState(suggestedName ?? '');
-  const [customDuration, setCustomDuration] = useState('');
-  // PT1 guided creation: the classifier-suggested (or hand-picked)
-  // domain + type. This selection is the ONLY category source for a new
-  // practice — the browse chip above never leaks in again.
-  const [customType, setCustomType] = useState<PracticeTypeSelection | null>(null);
-  const [isCreatingPractice, setIsCreatingPractice] = useState(false);
-
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isSolo) return; // solo circles never show open-circle counts to join
-    countOpenCirclesByPractice().catch(() => {
-      // the picker still works perfectly well without the count line
-    }).then((counts) => counts && setOpenCounts(counts));
+    if (isSolo) return; // solo never shows other people's circles to join
+    countOpenCirclesByPractice()
+      .catch(() => {
+        // the picker still works perfectly well without the count line
+      })
+      .then((counts) => counts && setOpenCounts(counts));
   }, [isSolo]);
 
   useEffect(() => {
     if (!session?.user) return;
-    setShowCustomForm(false);
-    setIsLoadingPractices(true);
-    listPracticesByCategory(selectedCategory, session.user.id)
+    listAllPractices(session.user.id)
       .then(setPractices)
       .catch((e) => setError(e instanceof Error ? e.message : 'could not load practices'))
-      .finally(() => setIsLoadingPractices(false));
-  }, [selectedCategory, session?.user?.id]);
+      .finally(() => setIsLoading(false));
+  }, [session?.user?.id]);
 
-  const goToCommitment = (practice: Practice) => {
+  const practiceNavParams = (practice: Practice) => ({
+    practiceId: practice.id,
+    practiceKey: practice.key,
+    practiceName: practice.name,
+    practiceType: practice.practiceType,
+    ...(practice.timerSuggested ? { timerSuggested: 'true' } : {}),
+    ...(practice.durationMinutes ? { defaultDuration: String(practice.durationMinutes) } : {}),
+    ...(!practice.isShared && practice.createdBy === session?.user?.id
+      ? { privateCustom: 'true' }
+      : {}),
+    ...carriedParams,
+  });
+
+  const handleSelectPractice = (practice: Practice) => {
     router.push({
-      pathname: '/onboarding/commitment',
-      params: {
-        practiceKey: practice.key,
-        practiceName: practice.name,
-        // Carried through so a solo "right now" check-in can route into the
-        // timer/activity screen for a timed practice (see commitment.tsx).
-        ...(practice.durationMinutes ? { practiceDurationMinutes: String(practice.durationMinutes) } : {}),
-        ...(isSolo ? { solo: 'true' } : {}),
-        ...(isFromToday ? { fromToday: 'true' } : {}),
-        ...(wantParams ?? {}),
-      },
+      pathname: isSolo ? '/onboarding/solo-setup' : '/onboarding/practice-hub',
+      params: practiceNavParams(practice),
     });
   };
 
-  const handleSelectPractice = (practice: Practice) => {
-    if (isSolo) {
-      // solo mode never shows other people's circles to join
-      goToCommitment(practice);
-    } else {
-      router.push({
-        pathname: '/onboarding/practice-circles',
-        params: {
-          practiceId: practice.id,
-          practiceKey: practice.key,
-          practiceName: practice.name,
-          ...(isFromToday ? { fromToday: 'true' } : {}),
-        },
-      });
-    }
-  };
-
-  const handleCreatePractice = async () => {
-    if (!session?.user || !customName.trim() || !customType) return;
-    setIsCreatingPractice(true);
-    try {
-      const durationMinutes = customDuration.trim() ? parseInt(customDuration.trim(), 10) : null;
-      // PT1: the type comes from the confirmed classifier selection,
-      // NEVER from selectedCategory (the browse chip) — that inheritance
-      // was the root cause of "Read before bed" landing in Move. CF1
-      // finished the job: the client no longer sends a category at all;
-      // the server derives the shelf from the type.
-      const practice = await createPractice({
-        name: customName.trim(),
-        practiceType: customType.type,
-        durationMinutes: durationMinutes && durationMinutes > 0 ? durationMinutes : null,
-        createdBy: session.user.id,
-      });
-      // a practice that was just created can't have any open circles yet
-      // — go straight to setting up the first one rather than showing an
-      // empty-state screen just to click through it.
-      goToCommitment(practice);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not save that — try again');
-      setIsCreatingPractice(false);
-    }
-  };
-
-  const visiblePractices = practices.filter((p) =>
-    p.name.toLowerCase().includes(searchText.trim().toLowerCase())
-  );
+  // Search matches across EVERY domain — by name, or by the classifier's
+  // own keyword tables ("yoga" finds Stretch & Yoga even from the Move
+  // chip; one synonym system, never a second). While a search is live
+  // the chips step back; clearing it returns to the chip's shelf.
+  const search = searchText.trim().toLowerCase();
+  const synonymType = search ? classifyPracticeName(search)?.type : undefined;
+  const visiblePractices = search
+    ? practices.filter(
+        (p) => p.name.toLowerCase().includes(search) || (synonymType && p.practiceType === synonymType)
+      )
+    : practices.filter((p) => p.category === selectedCategory);
 
   return (
     <KeyboardFriendlyScrollView
@@ -161,7 +141,7 @@ export default function FindAPractice() {
         <Text style={styles.back}>{isFromToday ? '← Today' : '← Back'}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>{isSolo ? 'find your practice' : 'Start a circle'}</Text>
+      <Text style={styles.title}>{STRINGS.choosePracticeTitle}</Text>
 
       <View style={styles.searchBar}>
         <Text style={styles.searchIcon}>🔍</Text>
@@ -176,14 +156,38 @@ export default function FindAPractice() {
         />
       </View>
 
+      {/* The two explicit utility rows — creating an object and using a
+          code are ACTIONS, not browse results. The invite-code row reuses
+          the existing code-entry flow: one implementation, ever. */}
+      <TouchableOpacity
+        style={[styles.utilityRow, styles.utilityRowCreate]}
+        onPress={() => router.push({ pathname: '/onboarding/create-practice', params: carriedParams })}
+      >
+        <Text style={styles.utilityRowCreateText}>{STRINGS.createPracticeRow}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.utilityRow}
+        onPress={() =>
+          router.push({
+            pathname: '/onboarding/join-circle',
+            params: isFromToday ? { fromToday: 'true' } : {},
+          })
+        }
+      >
+        <Text style={styles.utilityRowText}>{STRINGS.inviteCodeRow}</Text>
+      </TouchableOpacity>
+
       <View style={styles.chipRow}>
         {CATEGORIES.map((category) => {
-          const active = category.key === selectedCategory;
+          const active = !search && category.key === selectedCategory;
           return (
             <TouchableOpacity
               key={category.key}
               style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setSelectedCategory(category.key)}
+              onPress={() => {
+                setSearchText('');
+                setSelectedCategory(category.key);
+              }}
             >
               <Text style={[styles.chipText, active && styles.chipTextActive]}>{category.label}</Text>
             </TouchableOpacity>
@@ -191,28 +195,25 @@ export default function FindAPractice() {
         })}
       </View>
 
-      {isLoadingPractices ? (
+      {isLoading ? (
         <ActivityIndicator color={colors.green} style={styles.loadingSpinner} />
       ) : (
         <View style={styles.grid}>
-          {/* PB1 safety net: an empty shelf (a future prune, or a search
-              with no match) never reads as just a bare + card. */}
           {visiblePractices.length === 0 && (
             <Text style={styles.emptyShelfLine}>{STRINGS.browseEmptyShelf}</Text>
           )}
           {visiblePractices.map((practice) => {
             const count = openCounts[practice.id];
             const category = CATEGORIES.find((c) => c.key === practice.category);
+            const grouping = groupingLine(practice.practiceType);
             return (
               <TouchableOpacity
                 key={practice.id}
                 style={styles.card}
                 onPress={() => handleSelectPractice(practice)}
               >
-                {/* PT2: the photographic tile, keyed by type key. A type
-                    with no generated file (or any future key this bundle
-                    predates) falls back to the emoji-on-mint treatment —
-                    never a broken image. */}
+                {/* PT2: the photographic tile, keyed by type key; emoji
+                    fallback, never a broken image. */}
                 {PRACTICE_TILES[practice.practiceType] ? (
                   <Image
                     source={PRACTICE_TILES[practice.practiceType]}
@@ -229,6 +230,7 @@ export default function FindAPractice() {
                   <Text style={styles.cardName} numberOfLines={1}>
                     {practice.name}
                   </Text>
+                  {grouping && <Text style={styles.cardGrouping}>{grouping}</Text>}
                   {!practice.isShared && practice.createdBy === session?.user?.id && (
                     <PracticePill variant="only-you" />
                   )}
@@ -239,50 +241,6 @@ export default function FindAPractice() {
               </TouchableOpacity>
             );
           })}
-
-          <TouchableOpacity style={styles.card} onPress={() => setShowCustomForm(true)}>
-            <View style={[styles.cardImage, styles.customCardImage]}>
-              <Text style={styles.customCardPlus}>+</Text>
-            </View>
-            <View style={styles.cardBody}>
-              <Text style={styles.cardName}>create your own</Text>
-              <Text style={styles.cardCount}> </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {showCustomForm && (
-        <View style={styles.customForm}>
-          <Text style={styles.customFormTitle}>{STRINGS.practiceStepQuestion}</Text>
-          <MicTextInput
-            style={styles.input}
-            placeholder="e.g. Walk 20 minutes"
-            placeholderTextColor={colors.muted}
-            value={customName}
-            onChangeText={setCustomName}
-            autoCorrect={false}
-          />
-          <PracticeTypePicker name={customName} value={customType} onChange={setCustomType} />
-          <TextInput
-            style={styles.input}
-            placeholder="duration in minutes (optional)"
-            placeholderTextColor={colors.muted}
-            value={customDuration}
-            onChangeText={(text) => setCustomDuration(text.replace(/[^0-9]/g, ''))}
-            keyboardType="number-pad"
-          />
-          <TouchableOpacity
-            style={[styles.addButton, (!customName.trim() || !customType) && styles.buttonDisabled]}
-            onPress={handleCreatePractice}
-            disabled={!customName.trim() || !customType || isCreatingPractice}
-          >
-            {isCreatingPractice ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.addButtonText}>Add practice</Text>
-            )}
-          </TouchableOpacity>
         </View>
       )}
 
@@ -331,13 +289,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 13,
     paddingVertical: 10,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   searchIcon: {
     fontSize: 12,
   },
-  // KB1: the mic row fills the search bar's flexible slot; the input
-  // keeps flex:1 inside it via MicTextInput's own row styles.
   searchInputRow: {
     flex: 1,
   },
@@ -347,10 +303,36 @@ const styles = StyleSheet.create({
     color: colors.ink,
     padding: 0,
   },
+  utilityRow: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  // Gold = action (colour roles): creating a practice is the flow's
+  // primary constructive act.
+  utilityRowCreate: {
+    borderColor: colors.gold,
+    backgroundColor: colors.goldSoft,
+  },
+  utilityRowCreateText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  utilityRowText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: colors.ink,
+  },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 7,
+    marginTop: 8,
     marginBottom: 16,
   },
   chip: {
@@ -391,8 +373,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     ...cardShadow,
   },
-  // PT2: taller image area per the browse mockup (rev. of 13 July) so a
-  // photo reads as a photo, not a strip; width stays the card's own.
   cardImage: {
     height: 118,
     width: '100%',
@@ -406,14 +386,6 @@ const styles = StyleSheet.create({
   cardImageEmoji: {
     fontSize: 28,
   },
-  customCardImage: {
-    backgroundColor: colors.bg,
-  },
-  customCardPlus: {
-    fontSize: 28,
-    fontWeight: '300',
-    color: colors.muted,
-  },
   cardBody: {
     padding: 10,
   },
@@ -422,47 +394,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.ink,
   },
+  cardGrouping: {
+    fontSize: 10,
+    color: colors.muted,
+    marginTop: 2,
+    marginBottom: 2,
+  },
   cardCount: {
     fontSize: 10,
     fontWeight: '700',
     color: colors.green,
     marginTop: 3,
-  },
-  customForm: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 14,
-    ...cardShadow,
-  },
-  customFormTitle: {
-    fontFamily: FONT_HEADER,
-    fontSize: 15,
-    color: colors.ink,
-    marginBottom: 12,
-  },
-  input: {
-    backgroundColor: colors.bg,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    borderRadius: 14,
-    padding: 13,
-    fontSize: 14,
-    color: colors.ink,
-    marginBottom: 10,
-  },
-  addButton: {
-    backgroundColor: colors.green,
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  addButtonText: {
-    fontWeight: '700',
-    fontSize: 13,
-    color: '#fff',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
   },
 });

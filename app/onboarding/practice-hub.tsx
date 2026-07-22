@@ -1,33 +1,45 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
-import { FONT_HEADER } from '@/constants/fonts';
+import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { joinPublicCircle, listPublicCircles, PublicCircle } from '@/lib/circle-setup';
+import { groupingLine } from '@/lib/practiceTaxonomy';
 
-export default function PracticeCircles() {
+/**
+ * CF2 screen 3 — THE PRACTICE HUB: every practice card lands here, and
+ * "how do you want to practise?" is answered here. GO SOLO and START A
+ * CIRCLE are equal peer cards — solo is first-class, never a fallback,
+ * never hidden, never moved by whatever the public-circle list below is
+ * doing. The list itself is CF1's caller-scoped source of truth (the
+ * same rule that feeds browse's tile counts, so the two can never
+ * disagree); joins follow OC1's existing rules — direct join, no
+ * request-to-join, that concept doesn't exist. An empty list says "no
+ * open circles yet" INSIDE its own section only.
+ */
+export default function PracticeHub() {
   const router = useRouter();
   // NAV1 job 0 — no AppHeader on pre-signed-in-chrome screens, but the
   // safe-area inset still applies.
   const insets = useSafeAreaInsets();
-  const { practiceId, practiceKey, practiceName, fromToday } = useLocalSearchParams<{
+  const params = useLocalSearchParams<{
     practiceId: string;
     practiceKey: string;
     practiceName: string;
+    practiceType: string;
+    timerSuggested?: string;
+    defaultDuration?: string;
+    privateCustom?: string;
     fromToday?: string;
+    wantKey?: string;
+    wantStatement?: string;
   }>();
+  const { practiceId, practiceName, practiceType, fromToday } = params;
   const isFromToday = fromToday === 'true';
 
   const [circles, setCircles] = useState<PublicCircle[]>([]);
@@ -35,13 +47,37 @@ export default function PracticeCircles() {
   const [joiningCircleId, setJoiningCircleId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Shared data (member counts move as people join elsewhere) — the
+  // refetch-on-focus convention, same as every circle-data screen.
+  const load = useCallback(async () => {
     if (!practiceId) return;
-    listPublicCircles(practiceId)
-      .then(setCircles)
-      .catch((e) => setError(e instanceof Error ? e.message : 'could not load open circles'))
-      .finally(() => setIsLoading(false));
+    try {
+      setCircles(await listPublicCircles(practiceId));
+    } catch {
+      // the hub's own cards work fine without the list; the section
+      // just shows its empty line
+    } finally {
+      setIsLoading(false);
+    }
   }, [practiceId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const setupParams = {
+    practiceId: params.practiceId,
+    practiceKey: params.practiceKey,
+    practiceName: params.practiceName,
+    practiceType: params.practiceType,
+    ...(params.timerSuggested ? { timerSuggested: params.timerSuggested } : {}),
+    ...(params.defaultDuration ? { defaultDuration: params.defaultDuration } : {}),
+    ...(params.privateCustom ? { privateCustom: params.privateCustom } : {}),
+    ...(isFromToday ? { fromToday: 'true' } : {}),
+    ...(params.wantKey ? { wantKey: params.wantKey, wantStatement: params.wantStatement ?? '' } : {}),
+  };
 
   const handleJoin = async (circle: PublicCircle) => {
     setJoiningCircleId(circle.circleId);
@@ -54,12 +90,7 @@ export default function PracticeCircles() {
     }
   };
 
-  const handleStartOwn = () => {
-    router.push({
-      pathname: '/onboarding/commitment',
-      params: { practiceKey, practiceName, ...(isFromToday ? { fromToday: 'true' } : {}) },
-    });
-  };
+  const grouping = practiceType ? groupingLine(practiceType) : null;
 
   return (
     <ScrollView
@@ -67,8 +98,6 @@ export default function PracticeCircles() {
       contentContainerStyle={[styles.content, { paddingTop: 20 + insets.top }]}
     >
       <Brandmark style={styles.brandmark} />
-      {/* NAV1: back() preserves the browse screen's state when there's
-          history, but a cold-loaded URL still needs a real parent. */}
       <TouchableOpacity
         onPress={() =>
           isFromToday
@@ -78,17 +107,38 @@ export default function PracticeCircles() {
               : router.push('/onboarding/create-circle')
         }
       >
-        <Text style={styles.back}>{isFromToday ? '← Today' : '← Find a practice'}</Text>
+        <Text style={styles.back}>{isFromToday ? '← Today' : '← Back'}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>{practiceName}</Text>
+      <Text style={styles.title}>{practiceName?.toLowerCase()}</Text>
+      {grouping && <Text style={styles.grouping}>{grouping}</Text>}
 
+      <Text style={styles.howQuestion}>{STRINGS.hubHowQuestion}</Text>
+
+      <View style={styles.peerRow}>
+        <TouchableOpacity
+          style={styles.peerCard}
+          onPress={() => router.push({ pathname: '/onboarding/solo-setup', params: setupParams })}
+        >
+          <Text style={styles.peerEmoji}>🌱</Text>
+          <Text style={styles.peerTitle}>{STRINGS.hubGoSoloTitle}</Text>
+          <Text style={styles.peerBody}>{STRINGS.hubGoSoloBody}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.peerCard}
+          onPress={() => router.push({ pathname: '/onboarding/start-circle', params: setupParams })}
+        >
+          <Text style={styles.peerEmoji}>✨</Text>
+          <Text style={styles.peerTitle}>{STRINGS.hubStartCircleTitle}</Text>
+          <Text style={styles.peerBody}>{STRINGS.hubStartCircleBody}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.sectionLabel}>{STRINGS.hubOpenCirclesLabel}</Text>
       {isLoading ? (
         <ActivityIndicator color={colors.green} style={styles.loadingSpinner} />
       ) : circles.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>{STRINGS.openCirclesNoneYetStartFirst}</Text>
-        </View>
+        <Text style={styles.emptyLine}>{STRINGS.openCirclesCount(0)}</Text>
       ) : (
         <>
           <Text style={styles.disclosure}>
@@ -119,10 +169,6 @@ export default function PracticeCircles() {
           ))}
         </>
       )}
-
-      <TouchableOpacity style={styles.startOwnButton} onPress={handleStartOwn}>
-        <Text style={styles.startOwnButtonText}>start your own {practiceName?.toLowerCase()} circle</Text>
-      </TouchableOpacity>
 
       <MessageDialog
         visible={!!error}
@@ -157,23 +203,68 @@ const styles = StyleSheet.create({
     fontFamily: FONT_HEADER,
     fontSize: 22,
     color: colors.ink,
-    marginBottom: 16,
   },
-  loadingSpinner: {
-    marginTop: 20,
-  },
-  emptyState: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 16,
-    ...cardShadow,
-  },
-  emptyStateText: {
+  grouping: {
+    fontFamily: FONT_SERIF_ITALIC,
     fontSize: 13,
     color: colors.muted,
-    textAlign: 'center',
+    marginTop: 2,
+  },
+  howQuestion: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.ink,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  // The two equal peers: same card, same size, side by side — the layout
+  // itself says neither is the fallback. Wraps to one column under
+  // large accessibility text via flexWrap + minWidth.
+  peerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 24,
+  },
+  peerCard: {
+    flexGrow: 1,
+    flexBasis: '45%',
+    minWidth: 150,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    ...cardShadow,
+  },
+  peerEmoji: {
+    fontSize: 22,
+    marginBottom: 6,
+  },
+  peerTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.ink,
+  },
+  peerBody: {
+    fontSize: 11,
+    color: colors.muted,
+    lineHeight: 15,
+    marginTop: 3,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    color: colors.green,
+    marginBottom: 8,
+  },
+  loadingSpinner: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+  },
+  emptyLine: {
+    fontSize: 12.5,
+    color: colors.muted,
   },
   disclosure: {
     fontSize: 11,
@@ -218,17 +309,5 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '700',
     color: colors.green,
-  },
-  startOwnButton: {
-    backgroundColor: colors.gold,
-    borderRadius: 16,
-    padding: 14,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  startOwnButtonText: {
-    fontWeight: '700',
-    fontSize: 14,
-    color: colors.ink,
   },
 });
