@@ -45,7 +45,9 @@ export async function reportContent(params: {
 
   if (!res.ok) {
     const responseBody = await res.json().catch(() => ({}));
-    throw new Error(responseBody?.error ?? `could not send that report (${res.status})`);
+    // ER1: no user ever sees a status code (warmth law — the AR1 rule);
+    // the server's own error copy is user-facing when present.
+    throw new Error(responseBody?.error ?? 'could not send that report — try again in a moment');
   }
 }
 

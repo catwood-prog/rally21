@@ -116,7 +116,7 @@ export default function Wrapped() {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.green} />
-        <MessageDialog visible={!!error} title="hmm" message={error ?? ''} onDismiss={goBackToCircle} />
+        <MessageDialog visible={!!error} title="hmm" variant="error" message={error ?? ''} onDismiss={goBackToCircle} />
       </View>
     );
   }
@@ -191,7 +191,7 @@ export default function Wrapped() {
         </View>
       </View>
 
-      <MessageDialog visible={!!error} title="hmm" message={error ?? ''} onDismiss={() => setError(null)} />
+      <MessageDialog visible={!!error} title="hmm" variant="error" message={error ?? ''} onDismiss={() => setError(null)} />
     </View>
   );
 }

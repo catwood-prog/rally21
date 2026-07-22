@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
+import { ErrorSlip } from '@/components/ErrorSlip';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
@@ -49,8 +50,9 @@ export default function Reflection() {
       if (result.available) {
         setResponse(await getMyObservationResponse(session.user.id, result.type, result.direction));
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not load this yet');
+    } catch {
+      // ER1: the warm line, never the raw message (warmth law).
+      setError(STRINGS.loadFailedLine('this'));
     } finally {
       setIsLoading(false);
     }
@@ -101,7 +103,8 @@ export default function Reflection() {
         </View>
       </View>
 
-      {error && <Text style={styles.subtitle}>{error}</Text>}
+      {/* ER1: a failed observation load is a whole-moment failure. */}
+      {error && <ErrorSlip message={error} />}
 
       {!error && observation?.available && (
         <>

@@ -3,7 +3,9 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
+import { ErrorSlip } from '@/components/ErrorSlip';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { getMyCompletions, listMyCircles } from '@/lib/circle';
@@ -50,8 +52,9 @@ export default function WeeklyLookBack() {
         circles.map((c) => c.id)
       );
       setByCircle(computeByCircleShowUp(circles, completions, today));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not load your week');
+    } catch {
+      // ER1: the warm line, never the raw message (warmth law).
+      setError(STRINGS.loadFailedLine('your week'));
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +77,13 @@ export default function WeeklyLookBack() {
   if (!lookback || error) {
     return (
       <View style={styles.loading}>
-        <Text style={styles.subtitle}>{error ?? 'nothing to show yet'}</Text>
+        {/* ER1: only a real failure gets the slip — no-data-yet is a
+            neutral empty state, not an apology. */}
+        {error ? (
+          <ErrorSlip message={error} />
+        ) : (
+          <Text style={styles.subtitle}>nothing to show yet</Text>
+        )}
       </View>
     );
   }

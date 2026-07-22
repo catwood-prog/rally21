@@ -289,6 +289,7 @@ export default function FindAPractice() {
       <MessageDialog
         visible={!!error}
         title="hmm"
+        variant="error"
         message={error ?? ''}
         onDismiss={() => setError(null)}
       />

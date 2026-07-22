@@ -4,6 +4,7 @@ import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, T
 
 import { MASCOT } from '@/assets/mascot';
 import { AppHeader } from '@/components/AppHeader';
+import { ErrorSlip } from '@/components/ErrorSlip';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
@@ -91,6 +92,10 @@ export default function Blueprint() {
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // ER1 — load failures (whole-moment, gets the slip) are kept separate
+  // from `error` (save/act failures rendered as an inline text line
+  // under live content — those stay text-only per the placement map).
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
   const [isWritingNote, setIsWritingNote] = useState(false);
@@ -110,6 +115,7 @@ export default function Blueprint() {
     if (!session?.user) return;
     setIsLoading(true);
     setError(null);
+    setLoadError(null);
     setIsActingOnWant(false);
     try {
       const [myPatterns, myResponses, profile, myDocument, myLikedCards, myWeek] = await Promise.all([
@@ -170,8 +176,9 @@ export default function Blueprint() {
           markBlueprintPatternSurfaced(next).catch(() => {});
         }
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not load this yet');
+    } catch {
+      // ER1: the warm line, never the raw message (warmth law).
+      setLoadError(STRINGS.loadFailedLine('your map'));
     } finally {
       setIsLoading(false);
     }
@@ -256,6 +263,9 @@ export default function Blueprint() {
       <Text style={styles.title}>{STRINGS.blueprintTitle}</Text>
       <Text style={styles.subtitle}>{STRINGS.blueprintSubline}</Text>
 
+      {/* ER1: a failed map load is a whole-moment failure (slip); save
+          failures below stay inline text under live content. */}
+      {loadError && <ErrorSlip message={loadError} />}
       {error && <Text style={styles.errorText}>{error}</Text>}
 
       {visibleTraits.length > 0 && (
@@ -270,7 +280,9 @@ export default function Blueprint() {
         </View>
       )}
 
-      {!error && patterns.length === 0 && (
+      {/* one mascot per screen: the slip above replaces the journal
+          companion whenever the load itself failed (ER1). */}
+      {!error && !loadError && patterns.length === 0 && (
         <>
           <View style={styles.emptyState}>
             <MascotEntrance source={MASCOT.journalCompanion} style={styles.emptyStateImage} />

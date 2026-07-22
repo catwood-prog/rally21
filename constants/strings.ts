@@ -370,6 +370,10 @@ export const STRINGS = {
   // no practices never renders as a bare create-your-own card; this warm
   // line sits above it instead.
   browseEmptyShelf: 'nothing here yet — create your own below and it can be the first.',
+  // ER1 — every screen-level load failure renders this one warm shape,
+  // never a raw error message or status code (AR1's warmth rule,
+  // generalized app-wide; raw errors still go to Sentry, not the user).
+  loadFailedLine: (what: string) => `${what} couldn't load just now — give it a moment and try again`,
   openCirclesNoneYetStartFirst: 'no open circles yet — start the first one',
   hostCloseToJoinsHelperClosed: "you're not taking new members right now",
 

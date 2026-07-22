@@ -113,6 +113,7 @@ export default function EditCircle() {
         <MessageDialog
           visible={!!error}
           title="hmm"
+          variant="error"
           message={error ?? ''}
           onDismiss={() => setError(null)}
         />
@@ -177,6 +178,7 @@ export default function EditCircle() {
       <MessageDialog
         visible={!!error}
         title="hmm"
+        variant="error"
         message={error ?? ''}
         onDismiss={() => setError(null)}
       />

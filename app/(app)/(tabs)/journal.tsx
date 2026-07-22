@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 
 import { MASCOT } from '@/assets/mascot';
 import { AppHeader } from '@/components/AppHeader';
+import { ErrorSlip } from '@/components/ErrorSlip';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -53,8 +54,9 @@ export default function Journal() {
       ]);
       setReflections(myReflections);
       setFacts(myFacts);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not load your journal');
+    } catch {
+      // ER1: the warm line, never the raw message (warmth law).
+      setError(STRINGS.loadFailedLine('your journal'));
     } finally {
       setIsLoading(false);
     }
@@ -98,7 +100,10 @@ export default function Journal() {
         <Text style={styles.askRallyLink}>{STRINGS.askRallyLinkLabel} →</Text>
       </TouchableOpacity>
 
-      {error && <Text style={styles.subtitle}>{error}</Text>}
+      {/* ER1: the whole-moment load failure gets the slip; the empty
+          state below (journal companion) is mutually exclusive, so the
+          one-mascot-per-screen law holds by construction. */}
+      {error && <ErrorSlip message={error} />}
 
       {!error && timeline.length === 0 && (
         <View style={styles.emptyState}>

@@ -127,6 +127,7 @@ export default function PracticeCircles() {
       <MessageDialog
         visible={!!error}
         title="hmm"
+        variant="error"
         message={error ?? ''}
         onDismiss={() => setError(null)}
       />

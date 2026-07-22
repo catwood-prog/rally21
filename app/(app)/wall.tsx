@@ -430,7 +430,7 @@ export default function CircleWall() {
         message={STRINGS.reportedConfirmationBody}
         onDismiss={() => setShowReportedNotice(false)}
       />
-      <MessageDialog visible={!!error} title="hmm" message={error ?? ''} onDismiss={() => setError(null)} />
+      <MessageDialog visible={!!error} title="hmm" variant="error" message={error ?? ''} onDismiss={() => setError(null)} />
     </KeyboardAvoidingView>
   );
 }

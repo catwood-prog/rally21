@@ -280,7 +280,7 @@ export default function YourData() {
         </View>
       )}
 
-      <MessageDialog visible={!!error} title="hmm" message={error ?? ''} onDismiss={() => setError(null)} />
+      <MessageDialog visible={!!error} title="hmm" variant="error" message={error ?? ''} onDismiss={() => setError(null)} />
     </KeyboardFriendlyScrollView>
   );
 }

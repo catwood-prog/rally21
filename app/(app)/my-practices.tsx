@@ -204,6 +204,7 @@ export default function MyPractices() {
       <MessageDialog
         visible={!!error}
         title="hmm"
+        variant="error"
         message={error ?? ''}
         onDismiss={() => setError(null)}
       />

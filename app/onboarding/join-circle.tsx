@@ -206,6 +206,7 @@ export default function JoinCircle() {
       <MessageDialog
         visible={!!error}
         title="hmm"
+        variant="error"
         message={error ?? ''}
         onDismiss={() => setError(null)}
       />

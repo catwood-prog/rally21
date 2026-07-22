@@ -11,6 +11,7 @@ import {
 
 import { Avatar } from '@/components/Avatar';
 import { AppHeader } from '@/components/AppHeader';
+import { ErrorSlip } from '@/components/ErrorSlip';
 import { BirthdayBanner } from '@/components/BirthdayBanner';
 import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { GlowBadge } from '@/components/GlowBadge';
@@ -205,8 +206,9 @@ export default function Today() {
         });
         return;
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not load your circles');
+    } catch {
+      // ER1: the warm line, never the raw message (warmth law).
+      setError(STRINGS.loadFailedLine('your circles'));
     } finally {
       setIsLoading(false);
     }
@@ -419,7 +421,13 @@ export default function Today() {
         {birthdayBanner}
         {warmthWhisper}
         {remindersAskCard}
-        <Text style={styles.subtitle}>{error ?? "you're not in a circle yet"}</Text>
+        {/* ER1: only a real failure gets the slip — the no-circle case
+            is a neutral empty state, not an apology. */}
+        {error ? (
+          <ErrorSlip message={error} />
+        ) : (
+          <Text style={styles.subtitle}>you&apos;re not in a circle yet</Text>
+        )}
         {addCircleButton}
       </ScrollView>
     );
