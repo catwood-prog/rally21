@@ -263,7 +263,7 @@ export default function CircleWall() {
         <TouchableOpacity
           onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
         >
-          <Text style={styles.back}>← Your Circle</Text>
+          <Text style={styles.back}>← your circle</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.header}>

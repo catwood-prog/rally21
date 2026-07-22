@@ -138,7 +138,7 @@ export default function ChooseAPractice() {
     >
       <Brandmark style={styles.brandmark} />
       <TouchableOpacity onPress={() => router.push(isFromToday ? '/today' : '/onboarding/circle-setup')}>
-        <Text style={styles.back}>{isFromToday ? '← Today' : '← Back'}</Text>
+        <Text style={styles.back}>{isFromToday ? '← today' : '← back'}</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>{STRINGS.choosePracticeTitle}</Text>

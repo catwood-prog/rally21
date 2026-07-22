@@ -292,7 +292,7 @@ export default function Settings() {
     <KeyboardFriendlyScrollView style={styles.container} contentContainerStyle={styles.content}>
       <AppHeader style={styles.header} hideGear />
 
-      <Text style={styles.title}>Settings</Text>
+      <Text style={styles.title}>settings</Text>
 
       <TouchableOpacity style={styles.photoWrap} onPress={pickPhoto}>
         <Avatar name={name} userId={session?.user?.id ?? ''} avatarUrl={newPhotoUri ?? avatarUrl} size={84} />
@@ -356,7 +356,7 @@ export default function Settings() {
         style={[styles.signOutButton, styles.sectionSpacing]}
         onPress={() => router.push('/my-practices')}
       >
-        <Text style={styles.signOutText}>My practices</Text>
+        <Text style={styles.signOutText}>my practices</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.signOutButton} onPress={() => router.push('/your-data')}>

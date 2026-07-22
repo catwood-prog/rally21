@@ -136,10 +136,10 @@ export default function MyPractices() {
     <KeyboardFriendlyScrollView style={styles.container} contentContainerStyle={styles.content}>
       <AppHeader style={styles.brandmark} />
       <TouchableOpacity onPress={() => router.push('/settings')}>
-        <Text style={styles.back}>← Settings</Text>
+        <Text style={styles.back}>← settings</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>My practices</Text>
+      <Text style={styles.title}>my practices</Text>
       <Text style={styles.subtitle}>{STRINGS.myPracticesSubtitle}</Text>
 
       {practices.length === 0 && editingId !== 'new' && (

@@ -454,10 +454,10 @@ export const STRINGS = {
   practiceInstructionsLabel: 'the routine',
   practiceInstructionsPlaceholder: 'e.g. 3 rounds — 10 slow breaths, then rest a minute',
   practiceInstructionsSaveCta: 'Save',
-  practiceInstructionsBackToSetup: '← Back',
+  practiceInstructionsBackToSetup: '← back',
   // The quiet link on the circle screen, shown only when instructions exist.
   practiceInstructionsLink: 'practice instructions →',
-  practiceInstructionsViewBack: '← Your Circle',
+  practiceInstructionsViewBack: '← your circle',
   practiceInstructionsViewLinkLabel: 'the link',
   manageCircleAffordance: '✎ manage',
   manageCircleA11yLabel: 'manage circle',
@@ -669,7 +669,7 @@ export const STRINGS = {
   // copy relocated from the old empty-state explainer.
   askRallySafetyLine: 'Rally is a companion, not a therapist.',
   askRallySafetyLearnMore: 'learn more',
-  askRallySheetTitle: 'about Ask Rally',
+  askRallySheetTitle: 'about ask Rally',
   askRallySheetSafePlace:
     'This is a totally safe place, our chats are completely private and never shared.',
   askRallySheetScope: 'private to you — nothing here shapes your private map or circle',
@@ -714,8 +714,8 @@ export const STRINGS = {
   // DC1 (7 July) — "your data & privacy" screen (MVP Screens mockup #23):
   // the privacy-promise screen's three promises (see, correct, or delete
   // anytime) made operable.
-  yourDataSettingsRow: 'Your data & privacy',
-  yourDataTitle: 'Your data & privacy',
+  yourDataSettingsRow: 'your data & privacy',
+  yourDataTitle: 'your data & privacy',
   // YD1 (21 July) — "picture" here was pre-N1 drift; the decided
   // user-facing term is "your private map" (N1; Cat re-confirmed 20
   // July). "photo" is reserved for the profile photo so the two can
@@ -776,7 +776,7 @@ export const STRINGS = {
   // padding) but every claim here must be checked against the actual
   // code/DB — see the section-by-section audit in the commit that added
   // this file. Signed-out accessible by design; never gate this route.
-  privacyPolicyTitle: 'Privacy policy',
+  privacyPolicyTitle: 'privacy policy',
   privacyPolicyEffectiveDate: 'Last updated 13 July 2026',
   privacyPolicyIntro:
     "Rally21 is a small app for showing up on a practice with a few people who matter to you. This page says plainly what we collect, what your circle can see, who we share anything with, and how to see, correct, or delete your own data — no legal padding, just what's actually true in the code.",

@@ -157,7 +157,7 @@ export default function EditCircle() {
       <TouchableOpacity
         onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
       >
-        <Text style={styles.back}>← Your Circle</Text>
+        <Text style={styles.back}>← your circle</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>{STRINGS.editCircleTitle}</Text>

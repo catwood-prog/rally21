@@ -163,7 +163,7 @@ export default function StartCircle() {
             : router.push(isFromToday ? '/today' : '/onboarding/create-circle')
         }
       >
-        <Text style={styles.back}>← Back</Text>
+        <Text style={styles.back}>← back</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>{STRINGS.circleSetupTitle}</Text>

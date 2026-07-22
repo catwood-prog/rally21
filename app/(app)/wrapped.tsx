@@ -135,7 +135,7 @@ export default function Wrapped() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity style={styles.back} onPress={handleDone}>
-          <Text style={styles.backText}>← {circleName ?? 'Your Circle'}</Text>
+          <Text style={styles.backText}>← {circleName ?? 'your circle'}</Text>
         </TouchableOpacity>
 
         <ShareCardView {...cardProps} />

@@ -97,7 +97,7 @@ export default function Reflection() {
       <AppHeader style={styles.appHeader} />
 
       <View style={styles.header}>
-        <Text style={styles.title}>Something we noticed</Text>
+        <Text style={styles.title}>something we noticed</Text>
         <View style={styles.lock}>
           <Text style={styles.lockText}>🔒 private</Text>
         </View>

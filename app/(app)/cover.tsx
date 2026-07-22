@@ -132,7 +132,7 @@ export default function CoverAFriend() {
     <View style={[styles.container, { paddingTop: 20 + insets.top, paddingBottom: 14 + insets.bottom }]}>
       <Brandmark style={styles.brandmark} />
       <TouchableOpacity onPress={goBackToCircle}>
-        <Text style={styles.back}>← Circle</Text>
+        <Text style={styles.back}>← circle</Text>
       </TouchableOpacity>
 
       <View style={styles.content}>

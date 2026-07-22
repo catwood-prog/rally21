@@ -98,7 +98,7 @@ export default function CreateAPractice() {
           router.canGoBack() ? router.back() : router.push('/onboarding/create-circle')
         }
       >
-        <Text style={styles.back}>← Back</Text>
+        <Text style={styles.back}>← back</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>{STRINGS.createPracticeTitle}</Text>

@@ -127,7 +127,7 @@ export default function Invite() {
             param means "which circle?" is ambiguous, so Today is the
             one safe parent. */}
         <TouchableOpacity style={styles.back} onPress={() => router.push('/today')}>
-          <Text style={styles.backText}>← Today</Text>
+          <Text style={styles.backText}>← today</Text>
         </TouchableOpacity>
         <View style={styles.body}>
           <Text style={styles.title}>invite to which circle?</Text>
@@ -159,7 +159,7 @@ export default function Invite() {
             : router.push({ pathname: '/circle', params: { circleId } })
         }
       >
-        <Text style={styles.backText}>{isFromToday ? '← Today' : '← Your Circle'}</Text>
+        <Text style={styles.backText}>{isFromToday ? '← today' : '← your circle'}</Text>
       </TouchableOpacity>
 
       <View style={styles.body}>

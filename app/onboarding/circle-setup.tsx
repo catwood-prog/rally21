@@ -30,7 +30,7 @@ export default function CircleSetup() {
         style={styles.back}
         onPress={() => router.push(fromToday === 'true' ? '/today' : '/onboarding/profile')}
       >
-        <Text style={styles.backText}>{fromToday === 'true' ? '← Today' : '← Back'}</Text>
+        <Text style={styles.backText}>{fromToday === 'true' ? '← today' : '← back'}</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>

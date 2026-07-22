@@ -191,7 +191,7 @@ export default function SoloSetup() {
               : router.push('/onboarding/create-circle')
         }
       >
-        <Text style={styles.back}>← Back</Text>
+        <Text style={styles.back}>← back</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>

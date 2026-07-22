@@ -129,7 +129,7 @@ export default function YourData() {
     <KeyboardFriendlyScrollView style={styles.container} contentContainerStyle={styles.content}>
       <AppHeader style={styles.brandmark} />
       <TouchableOpacity onPress={() => router.push('/settings')}>
-        <Text style={styles.back}>← Settings</Text>
+        <Text style={styles.back}>← settings</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>{STRINGS.yourDataTitle}</Text>

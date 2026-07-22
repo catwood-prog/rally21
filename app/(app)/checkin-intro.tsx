@@ -57,7 +57,7 @@ export default function CheckinIntro() {
         {/* NAV1: a mistaken "check in" tap needs a way out that isn't
             the consent button — quiet, never blocks the moment. */}
         <TouchableOpacity style={styles.back} onPress={() => router.replace('/today')}>
-          <Text style={styles.backText}>← Today</Text>
+          <Text style={styles.backText}>← today</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.lock}>

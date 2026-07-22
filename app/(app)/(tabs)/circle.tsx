@@ -675,7 +675,7 @@ export default function YourCircle() {
             : router.push('/today')
         }
       >
-        <Text style={styles.back}>{fromTab === 'true' ? '← Your Circles' : '← Today'}</Text>
+        <Text style={styles.back}>{fromTab === 'true' ? '← your circles' : '← today'}</Text>
       </TouchableOpacity>
 
       {circle.completedAt && (

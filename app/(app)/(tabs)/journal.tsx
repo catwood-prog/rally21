@@ -91,7 +91,7 @@ export default function Journal() {
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
       <AppHeader style={styles.header} />
 
-      <Text style={styles.title}>Your journal</Text>
+      <Text style={styles.title}>your journal</Text>
       <View style={styles.lock}>
         <Text style={styles.lockText}>🔒 Only you see these</Text>
       </View>

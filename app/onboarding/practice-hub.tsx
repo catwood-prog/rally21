@@ -107,7 +107,7 @@ export default function PracticeHub() {
               : router.push('/onboarding/create-circle')
         }
       >
-        <Text style={styles.back}>{isFromToday ? '← Today' : '← Back'}</Text>
+        <Text style={styles.back}>{isFromToday ? '← today' : '← back'}</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>{practiceName?.toLowerCase()}</Text>
