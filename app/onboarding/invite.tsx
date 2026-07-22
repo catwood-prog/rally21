@@ -227,8 +227,9 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   mascot: {
-    width: 150,
-    height: 109,
+    // Build-9 review (20 July): Cat's ruling — the huddle 70% bigger.
+    width: 255,
+    height: 185,
     marginBottom: 14,
   },
   pickerList: {
