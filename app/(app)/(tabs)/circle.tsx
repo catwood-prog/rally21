@@ -1,5 +1,7 @@
 import { withErrorBoundary } from '@/components/ErrorBoundary';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { ParamListBase } from '@react-navigation/native';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -94,7 +96,11 @@ function YourCircle() {
   const { session } = useAuth();
   // TB3 — inset-aware pill clearance; applied to both states' scrolls.
   const tabBarClearance = useTabBarClearance();
-  const { circleId, fromTab } = useLocalSearchParams<{ circleId?: string; fromTab?: string }>();
+  const { circleId } = useLocalSearchParams<{ circleId?: string }>();
+  // Typed as a bottom-tab navigation so the OD1 Job 6 'tabPress' listener
+  // below type-checks (expo-router's default useNavigation type has no tab
+  // events — this screen IS a tab, so the cast is accurate, not a fudge).
+  const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>();
   const [circle, setCircle] = useState<MyCircle | null>(null);
   const [members, setMembers] = useState<CircleMember[]>([]);
   const [presence, setPresence] = useState<PresenceRow[]>([]);
@@ -106,6 +112,11 @@ function YourCircle() {
   // Non-empty only when there's no circleId param AND the user is in more
   // than one circle — the tab's own root: a card per circle, tap through.
   const [listCircles, setListCircles] = useState<MyCircle[]>([]);
+  // OD1 Job 6 — whether the user is in more than one circle, computed from
+  // the real membership count (NOT the fromTab flag, which is exactly what
+  // failed here). Drives the detail view's "← your circles" affordance so a
+  // multi-circle user who arrived from Today can still reach the others.
+  const [hasOtherCircles, setHasOtherCircles] = useState(false);
   const [listData, setListData] = useState<Record<string, ListCircleData>>({});
   const [isConfirmingLeave, setIsConfirmingLeave] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -155,6 +166,7 @@ function YourCircle() {
     setIsLoading(true);
     setError(null);
     setListCircles([]);
+    setHasOtherCircles(false);
     try {
       const selection = await resolveCircleSelection(circleId, session.user.id);
       if (selection.kind === 'picker') {
@@ -175,7 +187,7 @@ function YourCircle() {
       const myCircle = selection.circle;
       setCircle(myCircle);
       if (myCircle) {
-        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay, myPairStreaks, myBlocks, mateGlows] =
+        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay, myPairStreaks, myBlocks, mateGlows, myCirclesList] =
           await Promise.all([
             getCircleMembers(myCircle.id),
             getCirclePresence(myCircle.id),
@@ -188,7 +200,12 @@ function YourCircle() {
             // load — never a per-member fetch. Ambient pride only, so a
             // failed fetch just means no flames this visit.
             getGlowForCircleMates(myCircle.id).catch(() => new Map<string, number>()),
+            // OD1 Job 6: the real "is there more than one circle?" answer,
+            // riding the same load — drives the way-back-to-the-others
+            // affordance instead of the fromTab flag.
+            listMyCircles(session.user.id).catch(() => [] as MyCircle[]),
           ]);
+        setHasOtherCircles(myCirclesList.length > 1);
         setMembers(circleMembers);
         setPresence(circlePresence);
         setGlowByUserId(mateGlows);
@@ -231,6 +248,25 @@ function YourCircle() {
       load();
     }, [load])
   );
+
+  // OD1 Job 6 — tapping the Circle TAB is a request for "my circles", never
+  // "resume the last one". A circleId param left behind by an earlier
+  // navigation (Today's card push, an invite CTA) otherwise STICKS on the
+  // tab route, so a re-tap re-enters the same single circle and the picker
+  // becomes unreachable — a whole circle vanishes for multi-circle users.
+  // Clearing the stale param on tab press lets load resolve to the picker
+  // (>1 circle) or the sole circle (1). tabPress fires ONLY on an actual
+  // tab-bar tap, so a deliberate push into a specific circle is untouched
+  // (OD1 Job 15b: honour deep navigation, reset only on tab focus). Reuses
+  // the back-link's proven clean-route reset — never setParams({ circleId:
+  // undefined }), which serialises to the literal "undefined" (a known trap
+  // resolveCircleSelection treats as an explicit, not-found id).
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', () => {
+      if (circleId) router.replace('/circle');
+    });
+    return unsubscribe;
+  }, [navigation, circleId, router]);
 
   useEffect(() => {
     if (!circle) return;
@@ -338,7 +374,7 @@ function YourCircle() {
             <TouchableOpacity
               key={c.id}
               style={styles.listCard}
-              onPress={() => router.setParams({ circleId: c.id, fromTab: 'true' })}
+              onPress={() => router.setParams({ circleId: c.id })}
             >
               <View style={styles.listCardNameRow}>
                 <Text style={styles.listCardName}>{c.name}</Text>
@@ -669,14 +705,14 @@ function YourCircle() {
       keyboardShouldPersistTaps="handled"
     >
       <AppHeader style={styles.brandmark} />
+      {/* OD1 Job 6b — the way back is the LOGICAL parent, decided by the
+          real membership count, not the fromTab flag (the flag that failed
+          here): a multi-circle user always gets back to "your circles"
+          however they arrived; a single-circle user goes to Today. */}
       <TouchableOpacity
-        onPress={() =>
-          fromTab === 'true'
-            ? router.replace('/circle')
-            : router.push('/today')
-        }
+        onPress={() => (hasOtherCircles ? router.replace('/circle') : router.push('/today'))}
       >
-        <Text style={styles.back}>{fromTab === 'true' ? '← your circles' : '← today'}</Text>
+        <Text style={styles.back}>{hasOtherCircles ? '← your circles' : '← today'}</Text>
       </TouchableOpacity>
 
       {circle.completedAt && (
