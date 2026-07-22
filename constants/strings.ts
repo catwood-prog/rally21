@@ -848,6 +848,13 @@ export const STRINGS = {
   shareCardLikeCta: 'Like',
   shareCardShareCta: 'Share',
   shareCardNotForMeCta: 'Not for me',
+  // OD1 Job 8a (22 July) — the card's big, warm, obvious neutral exit: it
+  // records 'dismissed' (never 'passed'), actively closing out the
+  // practice instead of leaving the person hunting for a ✕. Job 9 gates
+  // the card so this only appears once the day is genuinely done, which is
+  // what makes "see you tomorrow" true here. PROPOSED, Cat to confirm —
+  // final wording is hers, lowercase per her 8a ruling.
+  shareCardCloseCta: 'see you tomorrow',
   // SC1C (15 July) removed the on-card Save button and the "Not my kind
   // of thing" flavor-mute entry point (with its confirm dialog), so
   // shareCardSaveCta / shareCardMuteCta / shareCardMuteConfirm* are gone.

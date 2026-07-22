@@ -1,12 +1,20 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { AppHeader } from '@/components/AppHeader';
 import { MessageDialog } from '@/components/MessageDialog';
 import { ShareCardView } from '@/components/ShareCardView';
 import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
+import { SHARE_CARD_FX } from '@/lib/motion';
 import { WeekDay } from '@/lib/glow';
 import { captureShareCard, saveCardImage, shareCardImage } from '@/lib/shareCardExport';
 import { isShareCardFlavor, recordCardEvent, ShareCardFlavor } from '@/lib/shareCards';
@@ -69,6 +77,14 @@ export default function ShareCard() {
   const [liked, setLiked] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // OD1 Job 8d/8e — the card has been engaged (liked, shared, or saved).
+  // Right now the heart fills and nothing else moves, which is why the tap
+  // read as a no-op; once engaged, the forward close carries a little more
+  // weight so the moment lands somewhere.
+  const [resolved, setResolved] = useState(false);
+  const reduceMotion = useReducedMotion();
+  const heartScale = useSharedValue(1);
+  const closeScale = useSharedValue(1);
   // SC2 — the dot-strip name consent (default ON per Cat's ruling); only
   // meaningful when a practice name exists at all.
   const [showPracticeName, setShowPracticeName] = useState(true);
@@ -107,7 +123,11 @@ export default function ShareCard() {
 
   const goToToday = () => router.replace('/today');
 
-  const handleSkip = () => {
+  // OD1 Job 8a/8b — the ONE neutral way off this screen: it records
+  // 'dismissed' (never 'passed', so it never quietly degrades this card's
+  // future weight) and returns to Today. Shared by the ✕ (Job 8b, kept)
+  // and the big "see you tomorrow" close (Job 8a).
+  const dismissToToday = () => {
     if (cardKey) recordCardEvent(flavor, cardKey, 'dismissed').catch(() => {});
     goToToday();
   };
@@ -120,6 +140,15 @@ export default function ShareCard() {
   const handleLike = () => {
     if (liked || !cardKey) return;
     setLiked(true);
+    setResolved(true);
+    // OD1 Job 8d — a quiet confirmation the tap landed (P1/FL1 register:
+    // one small pop, no confetti). Reduced motion just gets the fill.
+    if (!reduceMotion) {
+      heartScale.value = withSequence(
+        withTiming(SHARE_CARD_FX.HEART_POP_SCALE, { duration: SHARE_CARD_FX.HEART_POP_UP_MS }),
+        withTiming(1, { duration: SHARE_CARD_FX.HEART_POP_DOWN_MS })
+      );
+    }
     recordCardEvent(flavor, cardKey, 'liked').catch(() => {});
   };
 
@@ -135,12 +164,31 @@ export default function ShareCard() {
         await saveCardImage(uri);
         recordCardEvent(flavor, cardKey, 'saved').catch(() => {});
       }
+      // OD1 Job 8e — a successful share (or save fallback) lands: the
+      // forward close gains its weight, so a person who's just shared is
+      // pointed home instead of left on the card.
+      setResolved(true);
     } catch {
       setError(STRINGS.shareCardShareError);
     } finally {
       setIsSharing(false);
     }
   };
+
+  // OD1 Job 8d/8e — once the card has been engaged, the close gets one
+  // gentle pop so the eye lands on the way home. One shot, reduced-motion
+  // exempt; the pop fires the first time `resolved` flips true.
+  useEffect(() => {
+    if (!resolved || reduceMotion) return;
+    closeScale.value = withSequence(
+      withTiming(SHARE_CARD_FX.CLOSE_POP_SCALE, { duration: SHARE_CARD_FX.CLOSE_POP_UP_MS }),
+      withTiming(1, { duration: SHARE_CARD_FX.CLOSE_POP_DOWN_MS })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolved]);
+
+  const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
+  const closeStyle = useAnimatedStyle(() => ({ transform: [{ scale: closeScale.value }] }));
 
   const paramsValid =
     flavor === 'dot_strip' ? !!cardKey && !!week && !!weekNumberValue : !!cardKey && !!body;
@@ -169,7 +217,7 @@ export default function ShareCard() {
       <AppHeader style={styles.header} />
 
       <ScrollView contentContainerStyle={styles.content}>
-        <TouchableOpacity style={styles.skipButton} onPress={handleSkip} hitSlop={8}>
+        <TouchableOpacity style={styles.skipButton} onPress={dismissToToday} hitSlop={8}>
           <Text style={styles.skipButtonText}>✕</Text>
         </TouchableOpacity>
 
@@ -185,7 +233,9 @@ export default function ShareCard() {
 
         <View style={styles.reactionRow}>
           <TouchableOpacity style={styles.reactionButton} onPress={handleLike} disabled={liked}>
-            <Text style={[styles.heartIcon, liked && styles.heartIconLiked]}>{liked ? '♥' : '♡'}</Text>
+            <Animated.Text style={[styles.heartIcon, liked && styles.heartIconLiked, heartStyle]}>
+              {liked ? '♥' : '♡'}
+            </Animated.Text>
             <Text style={[styles.reactionText, liked && styles.reactionTextLiked]}>{STRINGS.shareCardLikeCta}</Text>
           </TouchableOpacity>
           <View style={styles.dividerDot} />
@@ -197,6 +247,18 @@ export default function ShareCard() {
         <TouchableOpacity style={styles.notForMeButton} onPress={handleNotForMe}>
           <Text style={styles.notForMeText}>{STRINGS.shareCardNotForMeCta}</Text>
         </TouchableOpacity>
+
+        {/* OD1 Job 8a — the closing ritual: a big, warm, obvious exit in
+            the empty lower half. It records 'dismissed' (the neutral
+            event) and returns to Today, actively closing out the practice
+            instead of leaving the person hunting for the ✕. Job 9 gates
+            the card so the day is genuinely done before this appears,
+            which is what makes "see you tomorrow" true. */}
+        <Animated.View style={[styles.closeButtonWrap, closeStyle]}>
+          <TouchableOpacity style={styles.closeButton} onPress={dismissToToday}>
+            <Text style={styles.closeButtonText}>{STRINGS.shareCardCloseCta}</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
 
       <View
@@ -228,6 +290,10 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingBottom: 24,
     alignItems: 'center',
+    // OD1 Job 8a — fill the viewport so the closing button can sit in the
+    // lower half (marginTop:auto on it) rather than floating just under
+    // the card. On a short screen this collapses and the screen scrolls.
+    flexGrow: 1,
   },
   skipButton: {
     alignSelf: 'flex-end',
@@ -313,6 +379,27 @@ const styles = StyleSheet.create({
   notForMeText: {
     fontSize: 11.5,
     color: colors.muted,
+  },
+  // OD1 Job 8a — the closing button's wrapper: marginTop:auto drops it to
+  // the lower half of the (flexGrow:1) content; paddingTop guarantees real
+  // separation from "Not for me" even on a short screen where auto
+  // collapses. Full width so it reads as the clear primary way home.
+  closeButtonWrap: {
+    width: '100%',
+    marginTop: 'auto',
+    paddingTop: 40,
+  },
+  closeButton: {
+    width: '100%',
+    backgroundColor: colors.gold,
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontWeight: '700',
+    fontSize: 15,
+    color: colors.ink,
   },
   // The 9:16 story-format capture source (what Share/Save snapshot),
   // hidden inside a 0×0 clip at normal page coordinates. It must NOT be

@@ -113,6 +113,20 @@ export const MASCOT_GESTURE = {
   BIRTHDAY_WIGGLE_STEP_MS: 110,
 } as const;
 
+// OD1 Job 8d/8e (22 July) — the share-card screen's quiet resolution
+// beats: a small heart pop when Like lands, and a gentle one-shot pop on
+// the "see you tomorrow" close once the card has been liked or shared, so
+// the moment lands somewhere instead of stalling. P1/FL1 register: quiet,
+// no confetti, reduced-motion gets none of it.
+export const SHARE_CARD_FX = {
+  HEART_POP_SCALE: 1.22,
+  HEART_POP_UP_MS: 130,
+  HEART_POP_DOWN_MS: 160,
+  CLOSE_POP_SCALE: 1.04,
+  CLOSE_POP_UP_MS: 140,
+  CLOSE_POP_DOWN_MS: 180,
+} as const;
+
 // --- 4b. M2 mascot gesture layer (17 July) — one-shot gestures on the
 // restyled set. Quick swaps for two-frame gestures (the frame pairs
 // carry slight generation jitter, so a crossfade would shimmer the whole

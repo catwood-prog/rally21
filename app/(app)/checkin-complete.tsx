@@ -30,6 +30,7 @@ import { frameSwapSchedule } from '@/lib/mascotFx';
 import { MASCOT_FX, MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
 import { getMyProfile, markPushPromptSeen } from '@/lib/profile';
 import { getPushPermissionStatus, registerForPushNotificationsAsync } from '@/lib/pushNotifications';
+import { isEndOfDayComplete } from '@/lib/dayComplete';
 import { getShareCardForToday, shouldOfferShareCard } from '@/lib/shareCards';
 import { buildShareCardNavParams } from '@/lib/shareCardTemplates';
 import { buildEchoLine, FreshWarmth, getFreshWarmth, markWarmthSeen } from '@/lib/warmth';
@@ -199,6 +200,10 @@ export default function CheckInComplete() {
   // the two new flavors need circle facts resolved at fetch time, not
   // at dismiss time.
   const [cardNavParams, setCardNavParams] = useState<Record<string, string> | null>(null);
+  // OD1 Job 9a — is the whole day closed out (every active circle checked
+  // in / covered today)? null = still resolving. Gates the card offer: a
+  // card is an end-of-day beat, so it only fires once the day is done.
+  const [isDayComplete, setIsDayComplete] = useState<boolean | null>(null);
   // PN1 — the earned-moment pre-permission ask: only worth showing when
   // the OS hasn't been asked yet (native only) AND our own card hasn't
   // already been shown once, ever.
@@ -262,11 +267,32 @@ export default function CheckInComplete() {
       .catch(() => {});
   }, [circleId]);
 
+  // OD1 Job 9a — resolve whether the day is fully done, from the ONE
+  // shared definition (lib/dayComplete) that reads exactly what Today
+  // reads. A single-circle user resolves to true without any presence
+  // fetch, so their flow is unaffected (Job 9c). On error we leave it
+  // null: the CTA stays the neutral "Nice" and no card is offered — both
+  // safe, never a false "see you tomorrow".
+  useEffect(() => {
+    if (!session?.user) return;
+    isEndOfDayComplete({ userId: session.user.id, localDate: getLocalDateString() })
+      .then(setIsDayComplete)
+      .catch(() => {});
+  }, [session?.user?.id]);
+
   // SC1 — the card slot (Rally21-Share-Cards-Spec.md §3): only fetch once
   // the composition rule's other inputs are known, and only offer when
   // nothing bigger fired. Fetching here (rather than lazily on dismiss) so
   // the eventual tap feels instant, mirroring how glowMilestone is
   // pre-fetched the same way.
+  //
+  // OD1 Job 9a/9c — the day-done gate is applied at DISMISS time
+  // (handleDismiss), NOT here, deliberately: this fetch stays byte-for-
+  // byte identical to the pre-Job-9 version so a single-circle user's card
+  // is prepared on exactly the same schedule as before. getShareCardForToday
+  // is safe to call speculatively (only recordCardEvent('shown') on the
+  // card screen consumes the cadence slot), so preparing a card that a
+  // mid-day multi-circle check-in then declines to show costs nothing.
   useEffect(() => {
     if (!session?.user || !milestoneChecked || dayNumber === null) return;
     const userId = session.user.id;
@@ -445,8 +471,10 @@ export default function CheckInComplete() {
     }
     // SC1 — the card slot: only the least important rung of the
     // composition ladder, so it only ever replaces the plain dismissal
-    // below, never anything above it.
-    if (cardNavParams) {
+    // below, never anything above it. OD1 Job 9a — and only when the day
+    // is genuinely done; a mid-day multi-circle check-in gets no card, the
+    // deliberate trade in Job 9b.
+    if (cardNavParams && isDayComplete) {
       router.replace({ pathname: '/share-card', params: cardNavParams });
       return;
     }
