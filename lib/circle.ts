@@ -38,6 +38,11 @@ export type MyCircle = {
    * one. null when this circle was fetched without a userId context
    * (getCircleById's second param is optional). */
   myJoinSource: 'creator' | 'invite' | 'browse' | null;
+  /** WL2 — the caller's own memberships.wall_seen_at for this circle
+   * (last wall visit; null = never visited). Only populated by
+   * listMyCircles (Today's wall-teaser gate needs it); optional so the
+   * other fetch paths and existing test fixtures stay untouched. */
+  wallSeenAt?: string | null;
 };
 
 export type CircleMember = {
@@ -120,16 +125,19 @@ export function mapCircleRow(c: CircleRow, myJoinSource: MyCircle['myJoinSource'
 export async function listMyCircles(userId: string): Promise<MyCircle[]> {
   const { data, error } = await supabase
     .from('memberships')
-    .select(`join_source, ${CIRCLE_SELECT}`)
+    .select(`join_source, wall_seen_at, ${CIRCLE_SELECT}`)
     .eq('user_id', userId)
     .order('joined_at', { ascending: true })
-    .returns<{ join_source: string; circles: CircleRow }[]>();
+    .returns<{ join_source: string; wall_seen_at: string | null; circles: CircleRow }[]>();
 
   if (error) throw error;
 
   return (data ?? [])
     .filter((row) => !!row.circles)
-    .map((row) => mapCircleRow(row.circles, row.join_source as MyCircle['myJoinSource']))
+    .map((row) => ({
+      ...mapCircleRow(row.circles, row.join_source as MyCircle['myJoinSource']),
+      wallSeenAt: row.wall_seen_at,
+    }))
     .sort((a, b) => {
       if (a.timeOfDay === b.timeOfDay) return 0;
       if (a.timeOfDay === null) return 1;

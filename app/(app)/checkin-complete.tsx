@@ -32,6 +32,7 @@ import { getMyProfile, markPushPromptSeen } from '@/lib/profile';
 import { getPushPermissionStatus, registerForPushNotificationsAsync } from '@/lib/pushNotifications';
 import { getShareCardForToday, shouldOfferShareCard } from '@/lib/shareCards';
 import { buildShareCardNavParams } from '@/lib/shareCardTemplates';
+import { buildEchoLine, FreshWarmth, getFreshWarmth, markWarmthSeen } from '@/lib/warmth';
 
 // M2: always green (CONFETTI_GREENS is the one source of truth).
 const CONFETTI_COLORS = [...CONFETTI_GREENS];
@@ -202,6 +203,27 @@ export default function CheckInComplete() {
   // the OS hasn't been asked yet (native only) AND our own card hasn't
   // already been shown once, ever.
   const [showPushAsk, setShowPushAsk] = useState(false);
+  // WL2 — the check-in echo: one warm line when warmth arrived since
+  // last seen, rendered in the quiet zone below the CTA (the push-ask's
+  // spot — the glow beat is a separate screen reached only on dismissal,
+  // so its choreography is never touched). Showing it consumes the
+  // shared seen-marker, so it renders once and never goes stale.
+  const [echoWarmth, setEchoWarmth] = useState<FreshWarmth | null>(null);
+
+  useEffect(() => {
+    if (!session?.user) return;
+    const userId = session.user.id;
+    getFreshWarmth()
+      .then((rows) => {
+        const echo = buildEchoLine(rows);
+        if (!echo) return;
+        setEchoWarmth(echo);
+        markWarmthSeen(userId, echo.createdAt).catch(() => {});
+      })
+      .catch(() => {
+        // ambient — a failed fetch just means no echo this time
+      });
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (Platform.OS === 'web' || !session?.user) return;
@@ -492,6 +514,16 @@ export default function CheckInComplete() {
         </TouchableOpacity>
       </Animated.View>
 
+      {echoWarmth && (
+        <View style={styles.echoWrap}>
+          <Text style={styles.echoLine}>
+            {echoWarmth.kind === 'heart'
+              ? STRINGS.warmthEchoHeart(echoWarmth.senderName)
+              : STRINGS.warmthEchoWave(echoWarmth.senderName)}
+          </Text>
+        </View>
+      )}
+
       {showPushAsk && (
         <View style={styles.pushAskWrap}>
           <Text style={styles.pushAskLine}>{STRINGS.pushAskLine}</Text>
@@ -596,6 +628,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
     color: '#fff',
+  },
+  // WL2 — the echo shares the push-ask's quiet register: small, muted,
+  // centered, below the CTA. One line only, so the P3-proven 390×667
+  // no-scroll layout keeps its headroom.
+  echoWrap: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  echoLine: {
+    fontSize: 12,
+    color: colors.muted,
+    textAlign: 'center',
   },
   pushAskWrap: {
     marginTop: 18,

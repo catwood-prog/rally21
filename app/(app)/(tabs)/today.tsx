@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -44,6 +44,15 @@ import { getMyProfile, markRemindersAskSeen } from '@/lib/profile';
 import { hasUnrespondedDayObservation } from '@/lib/reflections';
 import { computeSignal, PresenceRow } from '@/lib/signal';
 import { hasPlayedTodayOneShot, markTodayOneShotPlayed } from '@/lib/todayOneShot';
+import {
+  buildWhisperLines,
+  FreshWarmth,
+  getFreshWarmth,
+  getWallTeaser,
+  isWallTeaserFresh,
+  markWarmthSeen,
+  WallTeaserItem,
+} from '@/lib/warmth';
 
 const CIRCLE_COUNT_WORD: Record<number, string> = { 1: 'one', 2: 'two', 3: 'three' };
 
@@ -57,12 +66,19 @@ function memberFullName(members: CircleMember[], userId: string | null | undefin
   return members.find((m) => m.userId === userId)?.name ?? 'someone in your circle';
 }
 
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
 type CircleData = {
   members: CircleMember[];
   presence: PresenceRow[];
   lastCelebratedDay: number;
   // GS1 — circle-mates at 7+ days glowing (server-floored), by user id.
   mateGlows: Map<string, number>;
+  // WL2 — the latest wall line someone else left (post or celebration),
+  // for the one-line teaser under the members; null = nothing to tease.
+  teaser: WallTeaserItem | null;
 };
 
 export default function Today() {
@@ -102,6 +118,10 @@ export default function Today() {
   // slot reads 'earned', gated by an in-memory tracker so a later focus
   // of Today the same day never replays it.
   const [glowOneShot, setGlowOneShot] = useState(false);
+  // WL2 — warmth that arrived since last seen (server-gated); stays in
+  // state for this visit's whisper even after the seen-marker advances,
+  // so the lines don't vanish mid-read. The next focus refetches empty.
+  const [warmth, setWarmth] = useState<FreshWarmth[]>([]);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -109,7 +129,7 @@ export default function Today() {
     setError(null);
     const today = getLocalDateString();
     try {
-      const [profile, myCircles, myCircleCap, question, todayReflection, myGlow, myWeek, hasNotice] = await Promise.all([
+      const [profile, myCircles, myCircleCap, question, todayReflection, myGlow, myWeek, hasNotice, freshWarmth] = await Promise.all([
         getMyProfile(session.user.id),
         listMyCircles(session.user.id),
         getMyCircleCap(),
@@ -118,6 +138,9 @@ export default function Today() {
         getMyGlow().catch(() => null),
         getMyWeek().catch(() => null),
         hasUnrespondedDayObservation(session.user.id).catch(() => false),
+        // WL2 — ambient warmth; a failed fetch just means no whisper
+        // this visit, never an error state.
+        getFreshWarmth().catch(() => []),
       ]);
       setMyName(profile?.name ?? null);
       setMyBirthday({
@@ -134,6 +157,7 @@ export default function Today() {
       setGlow(myGlow);
       setWeek(myWeek);
       setHasSurfacedPattern(hasNotice);
+      setWarmth(freshWarmth);
 
       if (myCircles.length === 0) {
         setCircleData({});
@@ -142,7 +166,7 @@ export default function Today() {
 
       const entries = await Promise.all(
         myCircles.map(async (c): Promise<[string, CircleData]> => {
-          const [members, presence, lastCelebratedDay, mateGlows] = await Promise.all([
+          const [members, presence, lastCelebratedDay, mateGlows, teaser] = await Promise.all([
             getCircleMembers(c.id),
             getCirclePresence(c.id),
             getMyLastCelebratedDay(c.id, session.user.id),
@@ -150,8 +174,11 @@ export default function Today() {
             // circle in the same Promise.all, never per member. Ambient
             // only; a failed fetch just means no flames this visit.
             getGlowForCircleMates(c.id).catch(() => new Map<string, number>()),
+            // WL2 — the wall teaser's latest-line ride-along; same
+            // ambient rule, a failed fetch just means no teaser.
+            getWallTeaser(c.id, session.user.id).catch(() => null),
           ]);
-          return [c.id, { members, presence, lastCelebratedDay, mateGlows }];
+          return [c.id, { members, presence, lastCelebratedDay, mateGlows, teaser }];
         })
       );
       setCircleData(Object.fromEntries(entries));
@@ -206,6 +233,24 @@ export default function Today() {
     setGlowOneShot(true);
   }, [week]);
 
+  // WL2 — the whisper fades once seen: the FIRST actual render of fresh
+  // warmth consumes it (marker moves to the newest SHOWN row's own
+  // timestamp, so later arrivals stay fresh). Gated on the loading and
+  // redirect flags so warmth is never consumed by a Today pass the user
+  // never saw (e.g. the welcome-back redirect). The rows stay in state
+  // for this visit; the next focus refetches empty and the whisper is
+  // gone — never a badge, never an accumulating count.
+  const markedWarmthRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (isLoading || isRedirecting || warmth.length === 0 || !session?.user) return;
+    const newest = warmth[0].createdAt;
+    if (markedWarmthRef.current === newest) return;
+    markedWarmthRef.current = newest;
+    markWarmthSeen(session.user.id, newest).catch(() => {
+      // low-stakes: worst case the same warmth whispers once more
+    });
+  }, [isLoading, isRedirecting, warmth, session?.user?.id]);
+
   // live updates whenever anyone in any of these circles checks in
   const circleIds = circles.map((c) => c.id).join(',');
   useEffect(() => {
@@ -221,6 +266,7 @@ export default function Today() {
               presence,
               lastCelebratedDay: prev[id]?.lastCelebratedDay ?? 0,
               mateGlows: prev[id]?.mateGlows ?? new Map<string, number>(),
+              teaser: prev[id]?.teaser ?? null,
             },
           }));
         });
@@ -326,6 +372,24 @@ export default function Today() {
   const isMyBirthday = myBirthday.celebrate && isBirthdayToday(myBirthday.month, myBirthday.day, today);
   const birthdayBanner = isMyBirthday ? <BirthdayBanner name={myName} /> : null;
 
+  // WL2 — the "for you" whisper: quiet lines under the header, only
+  // when warmth arrived since last seen; absent entirely otherwise.
+  const whisperDecision = buildWhisperLines(warmth);
+  const warmthWhisper = whisperDecision ? (
+    <View style={styles.whisperWrap}>
+      {whisperDecision.lines.map((w) => (
+        <Text key={`${w.createdAt}-${w.senderName}-${w.kind}`} style={styles.whisperLine}>
+          {w.kind === 'heart'
+            ? STRINGS.warmthWhisperHeart(w.senderName)
+            : STRINGS.warmthWhisperWave(w.senderName)}
+        </Text>
+      ))}
+      {whisperDecision.overflowCount > 0 && (
+        <Text style={styles.whisperLine}>{STRINGS.warmthWhisperOverflow}</Text>
+      )}
+    </View>
+  ) : null;
+
   // RM1 — the one-time dismissible reminders-ask card for existing users
   // (new sign-ups get the onboarding step instead, never both). Either
   // action hides it immediately and stamps the flag for good; a failed
@@ -353,6 +417,7 @@ export default function Today() {
         <Text style={styles.greeting}>{greeting(myName)}</Text>
         <GlowBadge glow={glow} flickerOnce={glowOneShot} />
         {birthdayBanner}
+        {warmthWhisper}
         {remindersAskCard}
         <Text style={styles.subtitle}>{error ?? "you're not in a circle yet"}</Text>
         {addCircleButton}
@@ -365,7 +430,7 @@ export default function Today() {
     const circle = circles[0];
     const data =
       circleData[circle.id] ??
-      { members: [], presence: [], lastCelebratedDay: 0, mateGlows: new Map<string, number>() };
+      { members: [], presence: [], lastCelebratedDay: 0, mateGlows: new Map<string, number>(), teaser: null };
     const { members, presence, mateGlows } = data;
     const inTodayUserIds = new Set(
       presence.filter((p) => p.localDate === today).map((p) => p.userId)
@@ -407,6 +472,7 @@ export default function Today() {
             flickerOnce={glowOneShot}
           />
           {birthdayBanner}
+          {warmthWhisper}
           {remindersAskCard}
           <TouchableOpacity
             style={styles.card}
@@ -428,6 +494,7 @@ export default function Today() {
         <Text style={styles.greeting}>{greeting(myName)}</Text>
         <GlowBadge glow={glow} coveredByName={iWasCoveredToday ? memberFullName(members, iWasCoveredToday.coveredBy) : null} />
         {birthdayBanner}
+        {warmthWhisper}
         {remindersAskCard}
 
         <Text style={styles.headline}>
@@ -509,6 +576,22 @@ export default function Today() {
             );
           })}
         </View>
+
+        {/* WL2 — the wall teaser: one quiet line, only when the wall
+            holds something newer than this member's last visit; silent
+            otherwise (never permanent chrome — TB1's no-duplicate-doors
+            rule). */}
+        {data.teaser && isWallTeaserFresh(data.teaser, circle.wallSeenAt) && (
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/wall', params: { circleId: circle.id } })}
+          >
+            <Text style={styles.wallTeaserLine} numberOfLines={1}>
+              {data.teaser.kind === 'post'
+                ? STRINGS.wallTeaserPost(memberFullName(members, data.teaser.userId), truncate(data.teaser.body, 46))
+                : STRINGS.wallTeaserCelebration(truncate(data.teaser.body, 56))}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {iWasCoveredToday ? (
           <View style={styles.coveredNoteCard}>
@@ -597,6 +680,7 @@ export default function Today() {
       <Text style={styles.greeting}>{greeting(myName)}</Text>
       <GlowBadge glow={glow} coveredByName={coveredTodayName} flickerOnce={glowOneShot} />
       {birthdayBanner}
+      {warmthWhisper}
       {remindersAskCard}
 
       <Text style={styles.headline}>
@@ -607,7 +691,7 @@ export default function Today() {
       {circles.map((circle) => {
         const data =
           circleData[circle.id] ??
-          { members: [], presence: [], lastCelebratedDay: 0, mateGlows: new Map<string, number>() };
+          { members: [], presence: [], lastCelebratedDay: 0, mateGlows: new Map<string, number>(), teaser: null };
         const { members, presence, mateGlows } = data;
         const inTodayUserIds = new Set(
           presence.filter((p) => p.localDate === today).map((p) => p.userId)
@@ -698,6 +782,20 @@ export default function Today() {
                 );
               })}
             </View>
+
+            {/* WL2 — same one-line wall teaser as the single-circle
+                branch, per stacked card. */}
+            {data.teaser && isWallTeaserFresh(data.teaser, circle.wallSeenAt) && (
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: '/wall', params: { circleId: circle.id } })}
+              >
+                <Text style={styles.wallTeaserLine} numberOfLines={1}>
+                  {data.teaser.kind === 'post'
+                    ? STRINGS.wallTeaserPost(memberFullName(members, data.teaser.userId), truncate(data.teaser.body, 46))
+                    : STRINGS.wallTeaserCelebration(truncate(data.teaser.body, 56))}
+                </Text>
+              </TouchableOpacity>
+            )}
 
             {iWasCoveredToday ? (
               <View style={styles.coveredNoteCard}>
@@ -900,6 +998,24 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: colors.muted,
     marginTop: 1,
+  },
+  // WL2 — the "for you" whisper: quiet, small, warm; compact stack when
+  // several arrived. Never a badge shape, never a count.
+  whisperWrap: {
+    marginBottom: 10,
+    gap: 2,
+  },
+  whisperLine: {
+    fontSize: 12.5,
+    color: colors.ink,
+  },
+  // WL2 — the wall teaser: one muted line under the members, the same
+  // quiet-navigation register as "This week" (ink/muted, never green).
+  wallTeaserLine: {
+    fontSize: 11.5,
+    color: colors.muted,
+    marginTop: 2,
+    marginBottom: 10,
   },
   cta: {
     backgroundColor: colors.gold,

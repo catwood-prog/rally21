@@ -38,6 +38,7 @@ import {
   subscribeToWall,
   WallMessage,
 } from '@/lib/wall';
+import { markWallSeen } from '@/lib/warmth';
 
 const QUICK_REACTIONS = ['🎉', '👏', '🧡', '🔥'];
 // Open circles restrict reactions (and free-text posting) to this curated
@@ -99,6 +100,11 @@ export default function CircleWall() {
       const myCircle = selection.circle;
       setCircle(myCircle);
       if (myCircle) {
+        // WL2 — every wall open stamps memberships.wall_seen_at, so
+        // Today's teaser goes quiet until something newer lands.
+        // Fire-and-forget: a failed stamp just means the teaser shows
+        // once more.
+        markWallSeen(myCircle.id).catch(() => {});
         await Promise.all([
           getCircleMembers(myCircle.id).then(setMembers),
           loadFeed(myCircle.id),

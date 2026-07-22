@@ -251,6 +251,23 @@ export const STRINGS = {
   // sync with the migration.
   wallHeartEntry: (senderName: string, name: string) => `${senderName} sent ${name} a heart 🧡`,
 
+  // WL2 — the warmth arrives (Cat's 21 July rulings). The whisper is a
+  // quiet line under Today's header, only when warmth arrived since
+  // last seen — never a badge, never a count that accumulates guilt.
+  warmthWhisperHeart: (senderName: string) => `🧡 a heart from ${senderName}`,
+  warmthWhisperWave: (senderName: string) => `👋 a wave from ${senderName}`,
+  warmthWhisperOverflow: '…and more warmth waiting',
+  // The check-in echo — one warm line in the completion screen's quiet
+  // zone (below the CTA, above the push ask), once, never stale.
+  warmthEchoHeart: (senderName: string) => `while you were away — a heart from ${senderName} 🧡`,
+  warmthEchoWave: (senderName: string) => `while you were away — a wave from ${senderName} 👋`,
+  // The wall teaser — one quiet line per circle under the members, only
+  // when the wall holds something newer than the user's last visit.
+  // Celebration lines already carry their sender's name in the body, so
+  // only human posts get the name prefix.
+  wallTeaserPost: (senderName: string, snippet: string) => `${senderName}: ${snippet} →`,
+  wallTeaserCelebration: (snippet: string) => `${snippet} →`,
+
   coveredNoteToCoveredMember: (covererName: string) =>
     `${covererName} covered you today. No pressure, we've got you.`,
   // wallCoveredEntry retired with WL1: the wall no longer renders
