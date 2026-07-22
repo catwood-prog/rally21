@@ -15,12 +15,16 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Text, TextInput } from 'react-native';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FONT_BODY } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
 import { AuthProvider } from '@/lib/auth-context';
-import { initSentry, setSentryScreen } from '@/lib/sentry';
+import { initSentry, registerGlobalErrorHandlers, setSentryScreen } from '@/lib/sentry';
 
 initSentry();
+// NR1 Job 1d — native uncaught errors + rejections into the one reporting
+// path (web is a no-op; @sentry/react already covers globals there).
+registerGlobalErrorHandlers();
 
 // Applies the body font everywhere by default so individual screens don't
 // each need a fontFamily on every Text — headlines/accents still opt into
@@ -53,22 +57,28 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <AuthProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.bg },
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(intro)" />
-        <Stack.Screen name="sign-in" />
-        <Stack.Screen name="auth/callback" />
-        <Stack.Screen name="onboarding" />
-        <Stack.Screen name="(app)" />
-        <Stack.Screen name="+not-found" options={{ headerShown: true, title: 'Oops!' }} />
-      </Stack>
-      <StatusBar style="dark" />
-    </AuthProvider>
+    // NR1 Job 1a — the app-wide last line of defence. Wraps AuthProvider
+    // too (a crash in it, or anywhere below, lands on the warm recovery
+    // screen instead of white-screening the phone). The router + safe-area
+    // providers sit ABOVE this, so recovery can still navigate.
+    <ErrorBoundary label="root">
+      <AuthProvider>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.bg },
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(intro)" />
+          <Stack.Screen name="sign-in" />
+          <Stack.Screen name="auth/callback" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="(app)" />
+          <Stack.Screen name="+not-found" options={{ headerShown: true, title: 'Oops!' }} />
+        </Stack>
+        <StatusBar style="dark" />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

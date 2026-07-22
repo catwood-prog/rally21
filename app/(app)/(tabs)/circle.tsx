@@ -1,3 +1,4 @@
+import { withErrorBoundary } from '@/components/ErrorBoundary';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -88,7 +89,7 @@ function sortToHuddleEdge<T extends { isResting: boolean; awaySince: string | nu
 
 type ListCircleData = { members: CircleMember[]; presence: PresenceRow[] };
 
-export default function YourCircle() {
+function YourCircle() {
   const router = useRouter();
   const { session } = useAuth();
   // TB3 — inset-aware pill clearance; applied to both states' scrolls.
@@ -2079,3 +2080,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 });
+
+// NR1 Job 1c — this tab renders behind its own error boundary so a
+// crash here can't take the floating tab bar (and the other tabs) down.
+export default withErrorBoundary(YourCircle, 'tab:circle');

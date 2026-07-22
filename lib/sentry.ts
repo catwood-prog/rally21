@@ -41,3 +41,55 @@ export function setSentryScreen(screen: string): void {
   if (Platform.OS !== 'web' || !process.env.EXPO_PUBLIC_SENTRY_DSN) return;
   Sentry.setTag('screen', screen);
 }
+
+/** NR1 Job 1d — route native uncaught errors + unhandled promise
+ * rejections into the SAME reporting path (captureError), so there is one
+ * path, not a parallel system. Web is a no-op: @sentry/react's default
+ * GlobalHandlers integration already catches window errors/rejections
+ * there. On native the web SDK's globals never run, so we register with
+ * React Native's ErrorUtils (uncaught errors) and Hermes' rejection
+ * tracker (unhandled rejections), CHAINING the prior handler so dev's
+ * RedBox and prod's native crash behaviour are preserved — this reports
+ * IN ADDITION to, never INSTEAD of, the platform default. captureError
+ * still no-ops on native until Job 2 wires the OTA-servable transport;
+ * this establishes the plumbing so that switch-on needs no change here.
+ * Privacy is unchanged: only a small `source` tag is added, never the
+ * error text as a payload. Safe to call once at startup; guarded so a
+ * missing ErrorUtils/Hermes never throws. */
+export function registerGlobalErrorHandlers(): void {
+  if (Platform.OS === 'web') return;
+
+  const g = globalThis as unknown as {
+    ErrorUtils?: {
+      getGlobalHandler?: () => ((error: unknown, isFatal?: boolean) => void) | undefined;
+      setGlobalHandler?: (handler: (error: unknown, isFatal?: boolean) => void) => void;
+    };
+    HermesInternal?: {
+      enablePromiseRejectionTracker?: (options: {
+        allRejections?: boolean;
+        onUnhandled?: (id: number, error: unknown) => void;
+      }) => void;
+    };
+  };
+
+  try {
+    const prior = g.ErrorUtils?.getGlobalHandler?.();
+    g.ErrorUtils?.setGlobalHandler?.((error, isFatal) => {
+      captureError(error, { source: 'globalHandler', fatal: String(!!isFatal) });
+      prior?.(error, isFatal);
+    });
+  } catch {
+    // Best-effort: never let handler registration itself break startup.
+  }
+
+  try {
+    g.HermesInternal?.enablePromiseRejectionTracker?.({
+      allRejections: true,
+      onUnhandled: (_id, error) => {
+        captureError(error, { source: 'unhandledRejection' });
+      },
+    });
+  } catch {
+    // Rejection tracking is best-effort (absent off Hermes); never throw.
+  }
+}

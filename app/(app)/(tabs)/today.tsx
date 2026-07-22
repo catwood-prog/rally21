@@ -1,3 +1,4 @@
+import { withErrorBoundary } from '@/components/ErrorBoundary';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -83,7 +84,7 @@ type CircleData = {
   teaser: WallTeaserItem | null;
 };
 
-export default function Today() {
+function Today() {
   const router = useRouter();
   const { session } = useAuth();
   // TB3 — inset-aware pill clearance; applied to every state's scroll.
@@ -1192,3 +1193,7 @@ const styles = StyleSheet.create({
     color: colors.green,
   },
 });
+
+// NR1 Job 1c — this tab renders behind its own error boundary so a
+// crash here can't take the floating tab bar (and the other tabs) down.
+export default withErrorBoundary(Today, 'tab:today');

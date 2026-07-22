@@ -51,6 +51,15 @@ export const STRINGS = {
   signInAppleShareEmailHint: 'already have Rally? choose share my email so we can find your account',
   signInAppleError: "couldn't sign in with Apple — try again",
 
+  // NR1 Job 1 — the top-level error-recovery screen (a caught render
+  // crash, not a normal error surface). Warmth-law voice: apologises
+  // without alarm, blames nobody, never a stack or code, one way back.
+  // Title lowercase per LC1. PROPOSED copy — Cat to confirm/adjust.
+  errorBoundaryTitle: 'well, that came loose',
+  errorBoundaryBody:
+    "something on our side slipped — nothing you've done is lost. let's get you back to solid ground.",
+  errorBoundaryCta: 'take me back',
+
   checkinSuccessTitle: (n: number) => `Day ${n} done`,
   checkinSuccessBody: 'You showed up again.',
   checkinSuccessCta: 'Nice',

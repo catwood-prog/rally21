@@ -1,3 +1,4 @@
+import { withErrorBoundary } from '@/components/ErrorBoundary';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -33,7 +34,7 @@ function dateHeader(localDate: string, today: string): string {
   });
 }
 
-export default function Journal() {
+function Journal() {
   const router = useRouter();
   const { session } = useAuth();
   // TB3 — inset-aware pill clearance.
@@ -259,3 +260,7 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 });
+
+// NR1 Job 1c — this tab renders behind its own error boundary so a
+// crash here can't take the floating tab bar (and the other tabs) down.
+export default withErrorBoundary(Journal, 'tab:journal');

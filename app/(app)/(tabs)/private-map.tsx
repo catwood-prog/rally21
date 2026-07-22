@@ -1,3 +1,4 @@
+import { withErrorBoundary } from '@/components/ErrorBoundary';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -78,7 +79,7 @@ function AskRallyInviteCard({ lead, chips }: { lead: string; chips: StarterChip[
   );
 }
 
-export default function Blueprint() {
+function Blueprint() {
   const router = useRouter();
   const { session } = useAuth();
   // TB3 — inset-aware pill clearance.
@@ -810,3 +811,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
+
+// NR1 Job 1c — this tab renders behind its own error boundary so a
+// crash here can't take the floating tab bar (and the other tabs) down.
+export default withErrorBoundary(Blueprint, 'tab:private-map');

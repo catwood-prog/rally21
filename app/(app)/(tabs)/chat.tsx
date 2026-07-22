@@ -1,3 +1,4 @@
+import { withErrorBoundary } from '@/components/ErrorBoundary';
 import { StyleSheet, View } from 'react-native';
 
 import { AskRallyScreen } from '@/components/AskRallyScreen';
@@ -11,7 +12,7 @@ import { useTabBarClearance } from '@/hooks/use-tab-bar-clearance';
 // lives here, not inside the shared component). TB3: the clearance is
 // inset-aware — the fixed constant alone left the composer partly
 // behind the pill on device.
-export default function Chat() {
+function Chat() {
   const composerClearance = useTabBarClearance(FLOATING_TAB_BAR.COMPOSER_CLEARANCE);
   return (
     <View style={[styles.wrap, { paddingBottom: composerClearance }]}>
@@ -26,3 +27,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
 });
+
+// NR1 Job 1c — this tab renders behind its own error boundary so a
+// crash here can't take the floating tab bar (and the other tabs) down.
+export default withErrorBoundary(Chat, 'tab:chat');
