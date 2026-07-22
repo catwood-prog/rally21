@@ -1,4 +1,5 @@
 import { CIRCLE_MEMBER_CAP } from './caps';
+import { setCircleInstructions, setCircleResourceUrl } from './circle';
 import { PracticeDomain, PracticeTypeKey } from './practiceTaxonomy';
 import { captureError } from './sentry';
 import { supabase } from './supabase';
@@ -221,6 +222,10 @@ export async function createCircleWithDose(params: {
   isPublic: boolean;
   durationMinutes: number | null;
   resourceUrl: string | null;
+  /** PI1 — the host's optional routine, captured on the practice-
+   * instructions sub-screen. Written after the circle exists, same
+   * non-blocking forgiveness as the link. */
+  instructions: string | null;
 }): Promise<{ circleId: string; inviteCode: string }> {
   const created = await createCircle(
     params.practiceKey,
@@ -232,9 +237,13 @@ export async function createCircleWithDose(params: {
     // the circle exists and the legacy-copied dose is a sane fallback
   });
   if (params.resourceUrl) {
-    const { setCircleResourceUrl } = await import('./circle');
     await setCircleResourceUrl(created.circleId, params.resourceUrl).catch(() => {
       // non-blocking — they can add the link later from the circle screen
+    });
+  }
+  if (params.instructions) {
+    await setCircleInstructions(created.circleId, params.instructions).catch(() => {
+      // non-blocking — they can add instructions later from edit-circle
     });
   }
   return created;

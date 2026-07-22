@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -15,7 +15,7 @@ import { MicTextInput } from '@/components/MicTextInput';
 import {
   CircleNameField,
   circleFormStyles,
-  ResourceLinkField,
+  PracticeInstructionsField,
   TimeOfDayField,
 } from '@/components/CircleFormFields';
 import { MessageDialog } from '@/components/MessageDialog';
@@ -23,7 +23,8 @@ import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { editCircle, getCircleById, MyCircle } from '@/lib/circle';
+import { editCircle, getCircleById, MyCircle, setCircleInstructions } from '@/lib/circle';
+import { seedInstructionsDraft, takeInstructionsDraft } from '@/lib/practiceInstructionsDraft';
 import { isHttpUrl } from '@/lib/resourceLink';
 
 /** EC1 — the host edits their circle after creation: name, time of day,
@@ -45,6 +46,9 @@ export default function EditCircle() {
   const [practiceName, setPracticeName] = useState('');
   const [practiceDuration, setPracticeDuration] = useState('');
   const [resourceUrl, setResourceUrl] = useState('');
+  // PI1 — the routine + link, edited on their own sub-screen; loaded from
+  // the circle here, written on save via setCircleInstructions.
+  const [instructions, setInstructions] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,6 +75,7 @@ export default function EditCircle() {
           c.durationMinutes ? String(c.durationMinutes) : ''
         );
         setResourceUrl(c.resourceUrl ?? '');
+        setInstructions(c.instructions ?? '');
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'could not load your circle'))
       .finally(() => !cancelled && setIsLoading(false));
@@ -78,6 +83,24 @@ export default function EditCircle() {
       cancelled = true;
     };
   }, [circleId, session?.user?.id]);
+
+  // PI1 — apply the sub-screen's draft on return (non-null slot = saved).
+  // Distinct from the one-shot load above: this only ever fires with the
+  // editor's own handed-back values, so it never clobbers the form.
+  useFocusEffect(
+    useCallback(() => {
+      const draft = takeInstructionsDraft();
+      if (draft) {
+        setInstructions(draft.instructions);
+        setResourceUrl(draft.resourceUrl);
+      }
+    }, [])
+  );
+
+  const openInstructions = () => {
+    seedInstructionsDraft({ instructions, resourceUrl });
+    router.push('/onboarding/practice-instructions');
+  };
 
   const handleSave = async () => {
     if (!circle) return;
@@ -99,6 +122,11 @@ export default function EditCircle() {
         practiceName: practiceName.trim(),
         durationMinutes: durationMinutes && durationMinutes > 0 ? durationMinutes : null,
       });
+      // PI1 — instructions is a separate creator-only write (not threaded
+      // through edit_circle; see setCircleInstructions). Both writes are
+      // idempotent, so a rare partial failure just re-saves cleanly on
+      // retry. The link goes through the RPC above as it always has.
+      await setCircleInstructions(circle.id, instructions.trim() || null);
       router.push({ pathname: '/circle', params: { circleId: circle.id } });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not save — try again');
@@ -159,7 +187,11 @@ export default function EditCircle() {
         />
       </View>
 
-      <ResourceLinkField value={resourceUrl} onChange={setResourceUrl} style={styles.sectionSpacing} />
+      <PracticeInstructionsField
+        hasContent={!!instructions.trim() || !!resourceUrl.trim()}
+        onPress={openInstructions}
+        style={styles.sectionSpacing}
+      />
 
       <Text style={styles.quietNote}>{STRINGS.editCircleQuietNote}</Text>
 

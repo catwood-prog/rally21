@@ -795,6 +795,23 @@ export default function YourCircle() {
         </TouchableOpacity>
       ) : null}
 
+      {/* PI1 — the whole circle sees the routine behind this quiet link,
+          shown only when the host has written instructions (no stub
+          otherwise). Opens a read-only page. */}
+      {circle.instructions && (
+        <TouchableOpacity
+          style={styles.instructionsLink}
+          onPress={() =>
+            router.push({
+              pathname: '/practice-instructions-view',
+              params: { circleId: circle.id },
+            })
+          }
+        >
+          <Text style={styles.instructionsLinkText}>{STRINGS.practiceInstructionsLink}</Text>
+        </TouchableOpacity>
+      )}
+
       <View style={styles.signalCard}>
         <SignalMeter
           state={signal.state}
@@ -1417,6 +1434,16 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '600',
     color: colors.green,
+  },
+  // PI1 — a quiet ink link (not a CTA), sitting just under the link area.
+  instructionsLink: {
+    alignSelf: 'center',
+    marginBottom: 24,
+  },
+  instructionsLinkText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.ink,
   },
   linkEditCard: {
     backgroundColor: colors.card,

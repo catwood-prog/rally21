@@ -92,6 +92,7 @@ describe('createCircleWithDose (CF2)', () => {
       isPublic: false,
       durationMinutes: 15,
       resourceUrl: null,
+      instructions: null,
     });
 
     expect(result).toEqual({ circleId: 'c-1', inviteCode: 'ABC123' });
@@ -119,9 +120,32 @@ describe('createCircleWithDose (CF2)', () => {
       isPublic: true,
       durationMinutes: null,
       resourceUrl: null,
+      instructions: null,
     });
 
     expect(update).toHaveBeenCalledWith({ duration_minutes: null });
+  });
+
+  test('writes the host\'s instructions after the circle exists (non-blocking, like the link)', async () => {
+    mockCreate('c-9');
+    const eq = jest.fn().mockResolvedValue({ error: null });
+    const update = jest.fn().mockReturnValue({ eq });
+    from.mockReturnValue({ update });
+
+    await createCircleWithDose({
+      practiceKey: 'breathe-slowly',
+      timeOfDay: '21:00:00',
+      circleName: 'Evening breathers',
+      isPublic: false,
+      durationMinutes: null,
+      resourceUrl: null,
+      instructions: '  3 rounds — 10 slow breaths, rest a minute  ',
+    });
+
+    // The dose write, then the trimmed instructions write onto the circle.
+    expect(update).toHaveBeenCalledWith({ duration_minutes: null });
+    expect(update).toHaveBeenCalledWith({ instructions: '3 rounds — 10 slow breaths, rest a minute' });
+    expect(eq).toHaveBeenCalledWith('id', 'c-9');
   });
 
   test('a failed dose write never sinks the circle that already exists', async () => {
@@ -137,6 +161,7 @@ describe('createCircleWithDose (CF2)', () => {
         isPublic: false,
         durationMinutes: 20,
         resourceUrl: null,
+        instructions: null,
       })
     ).resolves.toEqual({ circleId: 'c-3', inviteCode: 'ZZZ999' });
   });

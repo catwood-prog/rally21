@@ -255,6 +255,85 @@ describeIfConfigured('edit_circle at the RPC boundary', () => {
     expect(rows[0].is_shared).toBe(true);
   });
 
+  // PI1 — instructions is written by a plain creator-only UPDATE (not the
+  // edit_circle RPC; see the PI1 migration), so its enforcement is the
+  // circles RLS itself: creator-only UPDATE, member SELECT, stranger
+  // neither. All checks run as `authenticated` (the app's role) with the
+  // JWT sub set per actor — the owner role bypasses RLS entirely.
+  test('PI1 — instructions: host writes, member reads, stranger neither', async () => {
+    const host = await createFakeUser();
+    const practiceId = await createPractice({ name: 'Fixture practice' });
+    const circleId = await seedCircle(host, practiceId);
+    const member = await createFakeUser();
+    await client.query(
+      "insert into public.memberships (circle_id, user_id, role) values ($1, $2, 'member')",
+      [circleId, member]
+    );
+    const stranger = await createFakeUser();
+
+    // Host writes — the creator-only UPDATE policy matches the one row.
+    await actAs(host);
+    await client.query('set local role authenticated');
+    const hostWrite = await client.query(
+      'update public.circles set instructions = $1 where id = $2',
+      ['3 rounds — 10 slow breaths, rest a minute', circleId]
+    );
+    expect(hostWrite.rowCount).toBe(1);
+    await client.query('reset role');
+
+    // Member reads it, but a member UPDATE matches zero rows (host-only).
+    await actAs(member);
+    await client.query('set local role authenticated');
+    const memberRead = await client.query('select instructions from public.circles where id = $1', [
+      circleId,
+    ]);
+    expect(memberRead.rows[0]?.instructions).toBe('3 rounds — 10 slow breaths, rest a minute');
+    const memberWrite = await client.query(
+      "update public.circles set instructions = 'hijacked' where id = $1",
+      [circleId]
+    );
+    expect(memberWrite.rowCount).toBe(0);
+    await client.query('reset role');
+
+    // Stranger (not a member of this private circle) reads zero rows.
+    await actAs(stranger);
+    await client.query('set local role authenticated');
+    const strangerRead = await client.query('select instructions from public.circles where id = $1', [
+      circleId,
+    ]);
+    expect(strangerRead.rowCount).toBe(0);
+    await client.query('reset role');
+
+    // The host's routine survived the member's blocked write, verbatim.
+    const finalRead = await client.query('select instructions from public.circles where id = $1', [
+      circleId,
+    ]);
+    expect(finalRead.rows[0].instructions).toBe('3 rounds — 10 slow breaths, rest a minute');
+  });
+
+  // PI1 — the 2000-char cap is a DB backstop (circles_instructions_length_check).
+  test('PI1 — instructions over the 2000-char cap is rejected by the check constraint', async () => {
+    const host = await createFakeUser();
+    const practiceId = await createPractice({ name: 'Fixture practice' });
+    const circleId = await seedCircle(host, practiceId);
+
+    await expectRejectsWith(
+      () =>
+        client.query('update public.circles set instructions = $1 where id = $2', [
+          'x'.repeat(2001),
+          circleId,
+        ]),
+      'circles_instructions_length_check'
+    );
+
+    // Exactly 2000 is allowed.
+    const ok = await client.query('update public.circles set instructions = $1 where id = $2', [
+      'x'.repeat(2000),
+      circleId,
+    ]);
+    expect(ok.rowCount).toBe(1);
+  });
+
   test('an unchanged practice is left alone — no clone, no repoint', async () => {
     const host = await createFakeUser();
     const seededPracticeId = await createPractice({ name: 'Stretch 5 minutes', durationMinutes: 5 });

@@ -441,6 +441,24 @@ export const STRINGS = {
   editCircleSaveCta: 'Save changes',
   hostEditCircleLabel: 'edit circle',
   hostEditCircleHelper: 'name, time of day, link, or the practice itself',
+  // PI1 — practice instructions: an optional routine + link, tucked
+  // behind a quiet action on setup/edit and a quiet link on the circle
+  // screen. Titles lowercase per LC1. Copy carries the warmth voice:
+  // never a required step, never nagged.
+  practiceInstructionsActionAdd: 'add practice instructions (optional)',
+  practiceInstructionsActionEdit: 'practice instructions',
+  practiceInstructionsActionEditHint: 'added — tap to edit',
+  practiceInstructionsTitle: 'practice instructions',
+  practiceInstructionsHelper:
+    'a routine your circle follows — sets and reps, a breathing pattern, a warm-up. optional, and only your circle sees it.',
+  practiceInstructionsLabel: 'the routine',
+  practiceInstructionsPlaceholder: 'e.g. 3 rounds — 10 slow breaths, then rest a minute',
+  practiceInstructionsSaveCta: 'Save',
+  practiceInstructionsBackToSetup: '← Back',
+  // The quiet link on the circle screen, shown only when instructions exist.
+  practiceInstructionsLink: 'practice instructions →',
+  practiceInstructionsViewBack: '← Your Circle',
+  practiceInstructionsViewLinkLabel: 'the link',
   manageCircleAffordance: '✎ manage',
   manageCircleA11yLabel: 'manage circle',
   hostDeleteWallMessageConfirm: 'Remove this from the wall?',

@@ -85,6 +85,47 @@ export function ResourceLinkField({ value, onChange, style }: FieldProps) {
   );
 }
 
+/** PI1 — the collapsed "add practice instructions (optional)" action that
+ * replaces the inline link field on the setup + edit screens. Tapping it
+ * opens the practice-instructions editor (its own screen, which now holds
+ * the routine text AND the relocated resource link). `hasContent` is true
+ * once either the instructions or the link is set, so the row can read
+ * back what's there instead of always inviting. Never a required step. */
+export function PracticeInstructionsField({
+  hasContent,
+  onPress,
+  style,
+}: {
+  hasContent: boolean;
+  onPress: () => void;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <TouchableOpacity
+      style={[circleFormStyles.instructionsAction, hasContent && circleFormStyles.instructionsActionSet, style]}
+      onPress={onPress}
+      accessibilityRole="button"
+    >
+      <View style={circleFormStyles.instructionsActionTextWrap}>
+        <Text
+          style={[
+            circleFormStyles.instructionsActionText,
+            hasContent && circleFormStyles.instructionsActionTextSet,
+          ]}
+        >
+          {hasContent ? STRINGS.practiceInstructionsActionEdit : STRINGS.practiceInstructionsActionAdd}
+        </Text>
+        {hasContent && (
+          <Text style={circleFormStyles.instructionsActionHint}>
+            {STRINGS.practiceInstructionsActionEditHint}
+          </Text>
+        )}
+      </View>
+      <Text style={circleFormStyles.instructionsActionChevron}>›</Text>
+    </TouchableOpacity>
+  );
+}
+
 /** Exported for the fields the setup screens keep local (the solo
  * now/tomorrow chips, the duration input) and edit-circle's practice
  * inputs — same label, input, and chip vocabulary, one stylesheet. */
@@ -133,5 +174,46 @@ export const circleFormStyles = StyleSheet.create({
   },
   chipTextSelected: {
     color: '#fff',
+  },
+  // PI1 collapsed action — an invite when empty (dashed, muted, like the
+  // circle screen's "+ add a link" prompt), a settled card once set.
+  instructionsAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.line,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  instructionsActionSet: {
+    borderStyle: 'solid',
+    borderColor: colors.green,
+  },
+  instructionsActionTextWrap: {
+    flex: 1,
+  },
+  instructionsActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.muted,
+  },
+  instructionsActionTextSet: {
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  instructionsActionHint: {
+    fontSize: 11.5,
+    color: colors.muted,
+    marginTop: 2,
+  },
+  instructionsActionChevron: {
+    fontSize: 22,
+    fontWeight: '400',
+    color: colors.muted,
+    marginLeft: 10,
   },
 });

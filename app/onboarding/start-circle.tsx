@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,7 +8,7 @@ import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollV
 import {
   CircleNameField,
   circleFormStyles,
-  ResourceLinkField,
+  PracticeInstructionsField,
   TIME_OPTIONS,
   TimeOfDayField,
 } from '@/components/CircleFormFields';
@@ -19,6 +19,7 @@ import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { activateWant } from '@/lib/blueprint';
 import { createCircleWithDose } from '@/lib/circle-setup';
+import { seedInstructionsDraft, takeInstructionsDraft } from '@/lib/practiceInstructionsDraft';
 import { groupingLine } from '@/lib/practiceTaxonomy';
 import { isHttpUrl } from '@/lib/resourceLink';
 
@@ -58,6 +59,9 @@ export default function StartCircle() {
   );
   const [selectedTime, setSelectedTime] = useState(TIME_OPTIONS[0].time);
   const [resourceUrl, setResourceUrl] = useState('');
+  // PI1 — the optional routine + link now live on their own screen; this
+  // holds the draft the sub-screen hands back.
+  const [instructions, setInstructions] = useState('');
   // Visibility: null until the person actually chooses — the create
   // button stays disabled, never a default.
   const [isPublic, setIsPublic] = useState<boolean | null>(null);
@@ -71,6 +75,24 @@ export default function StartCircle() {
   const grouping = practiceType ? groupingLine(practiceType) : null;
   const minutes = duration.trim() ? parseInt(duration.trim(), 10) || 0 : 0;
   const canCreate = !!circleName.trim() && isPublic !== null;
+  const hasInstructions = !!instructions.trim() || !!resourceUrl.trim();
+
+  // PI1 — a non-null slot on focus means the editor saved; apply it. A
+  // null slot (first mount, or a cancel) leaves the draft as-is.
+  useFocusEffect(
+    useCallback(() => {
+      const draft = takeInstructionsDraft();
+      if (draft) {
+        setInstructions(draft.instructions);
+        setResourceUrl(draft.resourceUrl);
+      }
+    }, [])
+  );
+
+  const openInstructions = () => {
+    seedInstructionsDraft({ instructions, resourceUrl });
+    router.push('/onboarding/practice-instructions');
+  };
 
   const doCreate = async () => {
     if (!practiceKey || isPublic === null) return;
@@ -88,6 +110,7 @@ export default function StartCircle() {
         isPublic,
         durationMinutes: minutes > 0 ? minutes : null,
         resourceUrl: trimmedUrl || null,
+        instructions: instructions.trim() || null,
       });
 
       if (wantKey && session?.user) {
@@ -170,7 +193,11 @@ export default function StartCircle() {
 
       <TimeOfDayField value={selectedTime} onChange={setSelectedTime} style={styles.sectionSpacing} />
 
-      <ResourceLinkField value={resourceUrl} onChange={setResourceUrl} style={styles.sectionSpacing} />
+      <PracticeInstructionsField
+        hasContent={hasInstructions}
+        onPress={openInstructions}
+        style={styles.sectionSpacing}
+      />
 
       <Text style={[circleFormStyles.label, styles.sectionSpacing]}>{STRINGS.visibilityQuestion}</Text>
 

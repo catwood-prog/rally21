@@ -1,11 +1,16 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
-import { circleFormStyles, ResourceLinkField, TIME_OPTIONS, TimeOfDayField } from '@/components/CircleFormFields';
+import {
+  circleFormStyles,
+  PracticeInstructionsField,
+  TIME_OPTIONS,
+  TimeOfDayField,
+} from '@/components/CircleFormFields';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -14,6 +19,7 @@ import { useAuth } from '@/lib/auth-context';
 import { activateWant } from '@/lib/blueprint';
 import { unlockAudioContext } from '@/lib/chime';
 import { createCircleWithDose } from '@/lib/circle-setup';
+import { seedInstructionsDraft, takeInstructionsDraft } from '@/lib/practiceInstructionsDraft';
 import { getMyProfile } from '@/lib/profile';
 import { groupingLine } from '@/lib/practiceTaxonomy';
 import { isHttpUrl } from '@/lib/resourceLink';
@@ -62,11 +68,29 @@ export default function SoloSetup() {
   // so an evening signup does something today instead of just planning.
   const [startFirstNow, setStartFirstNow] = useState(true);
   const [resourceUrl, setResourceUrl] = useState('');
+  // PI1 — the optional routine + link, edited on their own sub-screen.
+  const [instructions, setInstructions] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const grouping = practiceType ? groupingLine(practiceType) : null;
   const minutes = duration.trim() ? parseInt(duration.trim(), 10) || 0 : 0;
+  const hasInstructions = !!instructions.trim() || !!resourceUrl.trim();
+
+  useFocusEffect(
+    useCallback(() => {
+      const draft = takeInstructionsDraft();
+      if (draft) {
+        setInstructions(draft.instructions);
+        setResourceUrl(draft.resourceUrl);
+      }
+    }, [])
+  );
+
+  const openInstructions = () => {
+    seedInstructionsDraft({ instructions, resourceUrl });
+    router.push('/onboarding/practice-instructions');
+  };
 
   const handleStart = async () => {
     if (!practiceKey) return;
@@ -92,6 +116,7 @@ export default function SoloSetup() {
         isPublic: false,
         durationMinutes: minutes > 0 ? minutes : null,
         resourceUrl: trimmedUrl || null,
+        instructions: instructions.trim() || null,
       });
 
       if (wantKey && session?.user) {
@@ -219,7 +244,11 @@ export default function SoloSetup() {
         </TouchableOpacity>
       </View>
 
-      <ResourceLinkField value={resourceUrl} onChange={setResourceUrl} style={styles.sectionSpacing} />
+      <PracticeInstructionsField
+        hasContent={hasInstructions}
+        onPress={openInstructions}
+        style={styles.sectionSpacing}
+      />
 
       <TouchableOpacity style={styles.button} onPress={handleStart} disabled={isCreating}>
         {isCreating ? (

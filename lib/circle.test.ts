@@ -28,6 +28,7 @@ function fakeCircle(overrides: Partial<MyCircle> = {}): MyCircle {
     inviteCode: 'ABC123',
     createdBy: 'user-1',
     resourceUrl: null,
+    instructions: null,
     isPublic: false,
     closedToJoins: false,
     ralliedOnAt: null,
@@ -47,6 +48,7 @@ describe('mapCircleRow — the circle-first duration read (PB1)', () => {
     invite_code: 'ABC123',
     created_by: 'user-1',
     resource_url: null,
+    instructions: null,
     is_public: false,
     closed_to_joins: false,
     rallied_on_at: null,
@@ -78,6 +80,21 @@ describe('mapCircleRow — the circle-first duration read (PB1)', () => {
       practices: { name: 'Take my vitamins', duration_minutes: null },
     });
     expect(circle.durationMinutes).toBeNull();
+  });
+
+  test('PI1 — the host\'s instructions map straight through (null stays null)', () => {
+    expect(
+      mapCircleRow({ ...baseRow, duration_minutes: null, instructions: null, practices: null })
+        .instructions
+    ).toBeNull();
+    expect(
+      mapCircleRow({
+        ...baseRow,
+        duration_minutes: null,
+        instructions: '3 rounds — 10 breaths, rest a minute',
+        practices: null,
+      }).instructions
+    ).toBe('3 rounds — 10 breaths, rest a minute');
   });
 });
 

@@ -20,6 +20,11 @@ export type MyCircle = {
   inviteCode: string;
   createdBy: string;
   resourceUrl: string | null;
+  /** PI1 — the host's optional routine (sets/reps, a breathing pattern):
+   * null when none is set, in which case nothing renders for it (no
+   * empty-state stub). Written host-only via setCircleInstructions, read
+   * by members via the existing circle SELECT. */
+  instructions: string | null;
   isPublic: boolean;
   closedToJoins: boolean;
   /** The journey ladder (Rally21-Glow-Spec.md §8) — null/null means still
@@ -84,6 +89,7 @@ type CircleRow = {
   invite_code: string;
   created_by: string;
   resource_url: string | null;
+  instructions: string | null;
   is_public: boolean;
   closed_to_joins: boolean;
   rallied_on_at: string | null;
@@ -93,7 +99,7 @@ type CircleRow = {
 };
 
 const CIRCLE_SELECT =
-  'circles(id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, is_public, closed_to_joins, rallied_on_at, completed_at, duration_minutes, practices(name, duration_minutes))';
+  'circles(id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, instructions, is_public, closed_to_joins, rallied_on_at, completed_at, duration_minutes, practices(name, duration_minutes))';
 
 /** Exported for the unit test pinning the circle-first duration read —
  * screens never call this directly. */
@@ -111,6 +117,7 @@ export function mapCircleRow(c: CircleRow, myJoinSource: MyCircle['myJoinSource'
     inviteCode: c.invite_code,
     createdBy: c.created_by,
     resourceUrl: c.resource_url,
+    instructions: c.instructions,
     isPublic: c.is_public,
     closedToJoins: c.closed_to_joins,
     ralliedOnAt: c.rallied_on_at,
@@ -193,7 +200,7 @@ export async function getCircleById(circleId: string, userId?: string): Promise<
   const { data, error } = await supabase
     .from('circles')
     .select(
-      'id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, is_public, closed_to_joins, rallied_on_at, completed_at, duration_minutes, practices(name, duration_minutes)'
+      'id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, instructions, is_public, closed_to_joins, rallied_on_at, completed_at, duration_minutes, practices(name, duration_minutes)'
     )
     .eq('id', circleId)
     .maybeSingle<CircleRow>();
@@ -259,6 +266,22 @@ export async function setCircleResourceUrl(circleId: string, url: string | null)
     throw new Error('link must start with http:// or https://');
   }
   const { error } = await supabase.from('circles').update({ resource_url: trimmed }).eq('id', circleId);
+  if (error) throw error;
+}
+
+/** PI1 — the host writes the circle's optional practice instructions.
+ * Same creator-only surface as setCircleResourceUrl: a plain UPDATE under
+ * the circles creator-only RLS policy (created_by = auth.uid()), which is
+ * row-level so it guards this new column for free — a member or stranger
+ * write matches zero rows. Pass null (or blank) to clear. The ~2000-char
+ * cap is a client convention here; circles_instructions_length_check is
+ * the DB backstop, so an over-long value fails closed even if bypassed.
+ * Deliberately NOT routed through edit_circle (see the PI1 migration: a
+ * defaulted RPC param would let pre-PI1 cached clients wipe instructions
+ * on any edit). */
+export async function setCircleInstructions(circleId: string, instructions: string | null): Promise<void> {
+  const trimmed = instructions?.trim() || null;
+  const { error } = await supabase.from('circles').update({ instructions: trimmed }).eq('id', circleId);
   if (error) throw error;
 }
 
