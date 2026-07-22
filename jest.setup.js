@@ -27,6 +27,7 @@ jest.mock('./lib/sentry', () => ({
   initSentry: jest.fn(),
   captureError: jest.fn(),
   setSentryScreen: jest.fn(),
+  registerGlobalErrorHandlers: jest.fn(),
 }));
 
 // The native AsyncStorage module doesn't exist under Jest (it's a native
