@@ -304,7 +304,7 @@ export default function CircleWall() {
             >
               {!isMe && (
                 <View style={styles.senderRow}>
-                  <Avatar name={memberName(item.userId)} avatarUrl={memberAvatar(item.userId)} size={16} />
+                  <Avatar name={memberName(item.userId)} userId={item.userId} avatarUrl={memberAvatar(item.userId)} size={16} />
                   <Text style={styles.senderName}>{memberName(item.userId)}</Text>
                 </View>
               )}

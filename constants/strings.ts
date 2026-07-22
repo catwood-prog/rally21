@@ -251,6 +251,16 @@ export const STRINGS = {
   // sync with the migration.
   wallHeartEntry: (senderName: string, name: string) => `${senderName} sent ${name} a heart 🧡`,
 
+  // AV1 — placeholder penguin avatars (Cat's rulings, 20 July; design
+  // record in Rally21-Mascot-Brief.md → "Placeholder penguin avatars").
+  // The ask copy is Cat's own, verbatim. Dismissing marks it seen
+  // forever — the dismiss label is honest about that (never a "later"
+  // that secretly means never).
+  photoAskBody: "your circle's cheering for this little penguin. add your photo so they can cheer you instead?",
+  photoAskCta: 'add your photo',
+  photoAskDismiss: 'keep the penguin',
+  ownPenguinTapA11yLabel: 'add your photo',
+
   // WL2 — the warmth arrives (Cat's 21 July rulings). The whisper is a
   // quiet line under Today's header, only when warmth arrived since
   // last seen — never a badge, never a count that accumulates guilt.

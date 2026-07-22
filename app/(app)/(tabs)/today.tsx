@@ -15,6 +15,7 @@ import { ErrorSlip } from '@/components/ErrorSlip';
 import { BirthdayBanner } from '@/components/BirthdayBanner';
 import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { GlowBadge } from '@/components/GlowBadge';
+import { PhotoAskCard } from '@/components/PhotoAskCard';
 import { RemindersAskCard } from '@/components/RemindersAskCard';
 import { SignalMeter } from '@/components/SignalMeter';
 import { TodayFooter } from '@/components/TodayFooter';
@@ -41,7 +42,7 @@ import { daysBetween, getLocalDateString } from '@/lib/date';
 import { getGlowForCircleMates, getMyGlow, getMyWeek, Glow, WeekDay } from '@/lib/glow';
 import { getMyLastCelebratedDay, getNextMilestone, shouldShowJourneyGate } from '@/lib/journey';
 import { updateNotificationPrefs } from '@/lib/notifications';
-import { getMyProfile, markRemindersAskSeen } from '@/lib/profile';
+import { getMyProfile, markPhotoAskSeen, markRemindersAskSeen } from '@/lib/profile';
 import { hasUnrespondedDayObservation } from '@/lib/reflections';
 import { computeSignal, PresenceRow } from '@/lib/signal';
 import { hasPlayedTodayOneShot, markTodayOneShotPlayed } from '@/lib/todayOneShot';
@@ -103,6 +104,14 @@ export default function Today() {
   // yet" — a still-mid-onboarding account sees the onboarding step
   // instead (hooks/use-onboarding-status.ts's 'needs-reminders-ask').
   const [hasSeenRemindersAsk, setHasSeenRemindersAsk] = useState(true);
+  // AV1 — the one-shot photo ask. Both flags default to the "never
+  // show" side so the card can't flash before the real values load;
+  // hasAnyOwnCompletion is the chosen gate ("first check-in
+  // celebration"): true once ANY completions row (self or covered)
+  // exists for this user in a current circle.
+  const [hasSeenPhotoAsk, setHasSeenPhotoAsk] = useState(true);
+  const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null);
+  const [hasAnyOwnCompletion, setHasAnyOwnCompletion] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,6 +160,8 @@ export default function Today() {
       });
       setHasSeenCheckinConsent(profile?.has_seen_checkin_consent ?? false);
       setHasSeenRemindersAsk(!!profile?.reminders_ask_seen_at);
+      setHasSeenPhotoAsk(!!profile?.photo_ask_seen_at);
+      setMyAvatarUrl(profile?.avatar_url ?? null);
       setCircles(myCircles);
       setCircleCap(myCircleCap);
       setReflectionQuestion(question);
@@ -183,6 +194,12 @@ export default function Today() {
         })
       );
       setCircleData(Object.fromEntries(entries));
+      // AV1 — the photo ask's gate: the user's first check-in has been
+      // celebrated (any completions row of theirs, self or covered, in
+      // a current circle).
+      setHasAnyOwnCompletion(
+        entries.some(([, data]) => data.presence.some((p) => p.userId === session.user.id))
+      );
 
       // "welcome back" shows once per gap of 2+ missed days, based on the
       // user's most recent completion across every circle — never on a
@@ -411,6 +428,31 @@ export default function Today() {
     <RemindersAskCard variant="compact" onTurnOn={handleTurnOnReminders} onMaybeLater={handleMaybeLaterReminders} />
   ) : null;
 
+  // AV1 — the one-shot photo ask: photo-less account, never seen it,
+  // first check-in celebrated. Any interaction stamps it forever (a
+  // failed stamp is low-stakes — the card just might show once more).
+  // Never stacked under the RM1 card: reminders keeps priority and the
+  // photo ask simply waits for a later visit.
+  const handlePhotoAskAdd = () => {
+    if (!session?.user) return;
+    setHasSeenPhotoAsk(true);
+    markPhotoAskSeen(session.user.id).catch(() => {});
+    router.push('/settings');
+  };
+  const handlePhotoAskDismiss = () => {
+    if (!session?.user) return;
+    setHasSeenPhotoAsk(true);
+    markPhotoAskSeen(session.user.id).catch(() => {});
+  };
+  const photoAskCard =
+    !hasSeenPhotoAsk && !myAvatarUrl && hasAnyOwnCompletion && hasSeenRemindersAsk && session?.user ? (
+      <PhotoAskCard
+        userId={session.user.id}
+        onAddPhoto={handlePhotoAskAdd}
+        onKeepPenguin={handlePhotoAskDismiss}
+      />
+    ) : null;
+
   // ---- zero circles: nothing to show but a way back in ----
   if (circles.length === 0) {
     return (
@@ -421,6 +463,7 @@ export default function Today() {
         {birthdayBanner}
         {warmthWhisper}
         {remindersAskCard}
+        {photoAskCard}
         {/* ER1: only a real failure gets the slip — the no-circle case
             is a neutral empty state, not an apology. */}
         {error ? (
@@ -482,6 +525,7 @@ export default function Today() {
           {birthdayBanner}
           {warmthWhisper}
           {remindersAskCard}
+          {photoAskCard}
           <TouchableOpacity
             style={styles.card}
             onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
@@ -504,6 +548,7 @@ export default function Today() {
         {birthdayBanner}
         {warmthWhisper}
         {remindersAskCard}
+        {photoAskCard}
 
         <Text style={styles.headline}>
           {isSolo ? (
@@ -564,7 +609,20 @@ export default function Today() {
             return (
               <View key={member.userId} style={styles.memberItem}>
                 <View style={styles.avatarWrap}>
-                  <Avatar name={member.name} avatarUrl={member.avatarUrl} size={42} ring={state} />
+                  {/* AV1 — tapping YOUR OWN placeholder penguin (never
+                      someone else's, never a photo) opens the photo
+                      upload in settings. This strip had no avatar tap
+                      before, so nothing is stolen. */}
+                  {isMe && !member.avatarUrl ? (
+                    <TouchableOpacity
+                      onPress={() => router.push('/settings')}
+                      accessibilityLabel={STRINGS.ownPenguinTapA11yLabel}
+                    >
+                      <Avatar name={member.name} userId={member.userId} avatarUrl={member.avatarUrl} size={42} ring={state} />
+                    </TouchableOpacity>
+                  ) : (
+                    <Avatar name={member.name} userId={member.userId} avatarUrl={member.avatarUrl} size={42} ring={state} />
+                  )}
                   <CheckedInBadge state={state} />
                 </View>
                 <Text style={styles.memberName} numberOfLines={1}>
@@ -690,6 +748,7 @@ export default function Today() {
       {birthdayBanner}
       {warmthWhisper}
       {remindersAskCard}
+      {photoAskCard}
 
       <Text style={styles.headline}>
         {CIRCLE_COUNT_WORD[circles.length] ?? circles.length} small things{' '}
@@ -771,7 +830,18 @@ export default function Today() {
                 return (
                   <View key={member.userId} style={styles.memberItem}>
                     <View style={styles.avatarWrap}>
-                      <Avatar name={member.name} avatarUrl={member.avatarUrl} size={38} ring={state} />
+                      {/* AV1 — same own-penguin tap as the single-circle
+                          strip. */}
+                      {isMe && !member.avatarUrl ? (
+                        <TouchableOpacity
+                          onPress={() => router.push('/settings')}
+                          accessibilityLabel={STRINGS.ownPenguinTapA11yLabel}
+                        >
+                          <Avatar name={member.name} userId={member.userId} avatarUrl={member.avatarUrl} size={38} ring={state} />
+                        </TouchableOpacity>
+                      ) : (
+                        <Avatar name={member.name} userId={member.userId} avatarUrl={member.avatarUrl} size={38} ring={state} />
+                      )}
                       <CheckedInBadge state={state} />
                     </View>
                     <Text style={styles.memberName} numberOfLines={1}>

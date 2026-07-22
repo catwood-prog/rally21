@@ -139,7 +139,7 @@ export default function CoverAFriend() {
         <Animated.View style={squeezeStyle}>
           <MascotEntrance source={MASCOT.coverAFriend} style={styles.mascot} />
         </Animated.View>
-        <Avatar name={name} avatarUrl={memberAvatarUrl} size={88} />
+        <Avatar name={name} userId={memberId ?? ""} avatarUrl={memberAvatarUrl} size={88} />
         <Text style={styles.headline}>
           {isWaveOnly ? STRINGS.waveHeadline(name) : STRINGS.coverHeadline(name)}
         </Text>

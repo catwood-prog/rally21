@@ -295,7 +295,7 @@ export default function Settings() {
       <Text style={styles.title}>Settings</Text>
 
       <TouchableOpacity style={styles.photoWrap} onPress={pickPhoto}>
-        <Avatar name={name} avatarUrl={newPhotoUri ?? avatarUrl} size={84} />
+        <Avatar name={name} userId={session?.user?.id ?? ''} avatarUrl={newPhotoUri ?? avatarUrl} size={84} />
         <View style={styles.photoBadge}>
           <Text style={styles.photoBadgeText}>+</Text>
         </View>

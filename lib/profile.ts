@@ -16,6 +16,9 @@ export type Profile = {
   has_seen_cover_hint: boolean;
   has_seen_timer_background_hint: boolean;
   reminders_ask_seen_at: string | null;
+  // AV1 — the one-shot photo ask (RM1's pattern): non-null once the
+  // card has been interacted with, ever; it never returns.
+  photo_ask_seen_at: string | null;
   has_seen_push_prompt: boolean;
   blueprint_surfaced_pattern_key: string | null;
   blueprint_surfaced_at: string | null;
@@ -34,7 +37,7 @@ export async function getMyProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('users')
     .select(
-      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, has_seen_timer_background_hint, reminders_ask_seen_at, has_seen_push_prompt, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday, away_since'
+      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, has_seen_timer_background_hint, reminders_ask_seen_at, photo_ask_seen_at, has_seen_push_prompt, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday, away_since'
     )
     .eq('id', userId)
     .maybeSingle();
@@ -133,6 +136,17 @@ export async function markRemindersAskSeen(userId: string): Promise<void> {
   const { error } = await supabase
     .from('users')
     .update({ reminders_ask_seen_at: new Date().toISOString() })
+    .eq('id', userId);
+
+  if (error) throw error;
+}
+
+/** AV1 — the photo ask is one-shot forever: any interaction (add a
+ * photo, keep the penguin) stamps this and the card never returns. */
+export async function markPhotoAskSeen(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({ photo_ask_seen_at: new Date().toISOString() })
     .eq('id', userId);
 
   if (error) throw error;

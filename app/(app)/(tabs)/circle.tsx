@@ -362,7 +362,7 @@ export default function YourCircle() {
                   const state = isCovered ? 'covered' : checkedIn ? 'done' : 'pending';
                   return (
                     <View key={member.userId} style={styles.avatarRowItem}>
-                      <Avatar name={member.name} avatarUrl={member.avatarUrl} size={34} ring={state} />
+                      <Avatar name={member.name} userId={member.userId} avatarUrl={member.avatarUrl} size={34} ring={state} />
                       <CheckedInBadge state={state} />
                     </View>
                   );
@@ -882,7 +882,21 @@ export default function YourCircle() {
               return (
                 <View key={member.userId} style={styles.whoHereItem}>
                   <View style={[styles.avatarWrap, (member.isResting || isAway) && styles.avatarWrapResting]}>
-                    <Avatar name={member.name} avatarUrl={member.avatarUrl} size={40} ring={state} />
+                    {/* AV1 — tapping YOUR OWN placeholder penguin opens
+                        the photo upload in settings; the Who's Here
+                        avatar itself had no tap before (the gesture
+                        pills and ⋯ live beside it), so nothing is
+                        stolen. Never on someone else's, never a photo. */}
+                    {isMe && !member.avatarUrl ? (
+                      <TouchableOpacity
+                        onPress={() => router.push('/settings')}
+                        accessibilityLabel={STRINGS.ownPenguinTapA11yLabel}
+                      >
+                        <Avatar name={member.name} userId={member.userId} avatarUrl={member.avatarUrl} size={40} ring={state} />
+                      </TouchableOpacity>
+                    ) : (
+                      <Avatar name={member.name} userId={member.userId} avatarUrl={member.avatarUrl} size={40} ring={state} />
+                    )}
                     {isAway ? (
                       <View style={styles.awayBadge}>
                         <Text style={styles.awayBadgeText}>😴</Text>
@@ -1137,7 +1151,7 @@ export default function YourCircle() {
                   .filter((m) => m.userId !== session?.user?.id)
                   .map((member) => (
                     <View key={member.userId} style={styles.hostMemberRow}>
-                      <Avatar name={member.name} avatarUrl={member.avatarUrl} size={26} />
+                      <Avatar name={member.name} userId={member.userId} avatarUrl={member.avatarUrl} size={26} />
                       <Text style={styles.hostMemberName}>{member.name ?? 'circle-mate'}</Text>
                       {removingMemberId !== member.userId && (
                         <TouchableOpacity onPress={() => setRemovingMemberId(member.userId)} hitSlop={6}>

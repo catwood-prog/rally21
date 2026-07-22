@@ -1,9 +1,18 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 
+import { AVATAR_PENGUINS } from '@/assets/avatars';
 import { colors } from '@/constants/theme';
+import { avatarVariantForUserId } from '@/lib/avatar';
 
 type AvatarProps = {
+  /** Kept for a11y/labels at call sites; no longer rendered — AV1
+   * (Cat's ruling): the penguin replaced the initials fallback
+   * entirely, no initial badge. */
   name: string | null;
+  /** Drives the deterministic penguin pick for photo-less members —
+   * hash(user id) → variant, same person = same penguin everywhere,
+   * every day, on every viewer's device (lib/avatar.ts). */
+  userId: string;
   avatarUrl?: string | null;
   size?: number;
   /** Mirrors the "checked in today" ring used on Today/Circle member rows;
@@ -13,7 +22,7 @@ type AvatarProps = {
   ring?: 'done' | 'covered' | 'pending' | 'none';
 };
 
-export function Avatar({ name, avatarUrl, size = 40, ring = 'none' }: AvatarProps) {
+export function Avatar({ name: _name, userId, avatarUrl, size = 40, ring = 'none' }: AvatarProps) {
   const dimension = { width: size, height: size, borderRadius: size / 2 };
   const ringStyle =
     ring === 'done'
@@ -29,9 +38,11 @@ export function Avatar({ name, avatarUrl, size = 40, ring = 'none' }: AvatarProp
       {avatarUrl ? (
         <Image source={{ uri: avatarUrl }} style={[styles.image, dimension]} />
       ) : (
-        <Text style={[styles.initial, { fontSize: size * 0.36 }]}>
-          {(name ?? '?').charAt(0).toUpperCase()}
-        </Text>
+        <Image
+          source={AVATAR_PENGUINS[avatarVariantForUserId(userId) - 1]}
+          style={[styles.image, dimension]}
+          resizeMode="cover"
+        />
       )}
     </View>
   );
@@ -66,9 +77,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-  },
-  initial: {
-    fontWeight: '700',
-    color: colors.muted,
   },
 });
