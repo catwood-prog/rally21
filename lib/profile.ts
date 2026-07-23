@@ -31,13 +31,17 @@ export type Profile = {
   // RS2 (13 July) — non-null while self-serve paused (Rally21-Glow-
   // Spec.md §9).
   away_since: string | null;
+  // ON1 (23 July) — the Day-0 intake's Q1: one of the five PT1 domains or
+  // 'connection', or null (skipped / pre-ON1). Self-reported; never fed to
+  // the blueprint's observed-pattern voice.
+  onboarding_desired_change: string | null;
 };
 
 export async function getMyProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('users')
     .select(
-      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, has_seen_timer_background_hint, reminders_ask_seen_at, photo_ask_seen_at, has_seen_push_prompt, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday, away_since'
+      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, has_seen_timer_background_hint, reminders_ask_seen_at, photo_ask_seen_at, has_seen_push_prompt, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday, away_since, onboarding_desired_change'
     )
     .eq('id', userId)
     .maybeSingle();

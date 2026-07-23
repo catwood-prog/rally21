@@ -44,6 +44,7 @@ import { getGlowForCircleMates, getMyGlow, getMyWeek, Glow, WeekDay } from '@/li
 import { getMyLastCelebratedDay, getNextMilestone, shouldShowJourneyGate } from '@/lib/journey';
 import { updateNotificationPrefs } from '@/lib/notifications';
 import { getMyProfile, markPhotoAskSeen, markRemindersAskSeen } from '@/lib/profile';
+import { isDesiredChange, isObstacle, OBSTACLE_KEYS, setKeepGoingObstacle } from '@/lib/onboardingIntake';
 import { hasUnrespondedDayObservation } from '@/lib/reflections';
 import { computeSignal, PresenceRow } from '@/lib/signal';
 import { hasPlayedTodayOneShot, markTodayOneShotPlayed } from '@/lib/todayOneShot';
@@ -113,6 +114,10 @@ function Today() {
   const [hasSeenPhotoAsk, setHasSeenPhotoAsk] = useState(true);
   const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null);
   const [hasAnyOwnCompletion, setHasAnyOwnCompletion] = useState(false);
+  // ON1 — Q1's stored answer (drives the Day-0 sentence's opening); and a
+  // session-local flag so a skipped Q2 card doesn't reappear this visit.
+  const [desiredChange, setDesiredChange] = useState<string | null>(null);
+  const [obstacleDismissed, setObstacleDismissed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +159,7 @@ function Today() {
         getFreshWarmth().catch(() => []),
       ]);
       setMyName(profile?.name ?? null);
+      setDesiredChange(profile?.onboarding_desired_change ?? null);
       setMyBirthday({
         month: profile?.birth_month ?? null,
         day: profile?.birth_day ?? null,
@@ -341,6 +347,57 @@ function Today() {
   // "{name} covered you for yesterday" note reads yesterday's covered row.
   const coveredDay = shiftDate(today, -1);
   const atCap = circles.length >= circleCap;
+
+  // ON1 — record Q2's obstacle on the membership, then refetch so the card
+  // gives way to the Day-0 reflected sentence.
+  const answerObstacle = async (circleId: string, key: string) => {
+    if (!isObstacle(key)) return;
+    await setKeepGoingObstacle(circleId, key).catch(() => {});
+    load();
+  };
+
+  // ON1 — the Day-0 intake's second half, on the first Today only. Q2 (the
+  // obstacle) as one warm card while unanswered; once answered it gives way
+  // to the reflected sentence that names the mechanic. Gated to a brand-new
+  // person (no completions yet) who CREATED this circle — a solo creator is
+  // still the creator, and an invited friend never is (JOB 4 is OWED), so
+  // the invite loop stays clean and nothing here ever asks before joining.
+  const onboardingIntakeBlock = (circle: MyCircle) => {
+    if (hasAnyOwnCompletion || circle.createdBy !== session?.user?.id) return null;
+    const obstacle = circle.keepGoingObstacle ?? null;
+
+    if (obstacle && isObstacle(obstacle)) {
+      const reflected = STRINGS.onboardingObstacleReflected[obstacle];
+      const mechanic = STRINGS.onboardingReassurance[obstacle];
+      const desiredPhrase = isDesiredChange(desiredChange)
+        ? STRINGS.onboardingDayZeroDesiredPhrase[desiredChange]
+        : null;
+      const sentence = desiredPhrase
+        ? STRINGS.onboardingDayZeroWithDesired(desiredPhrase, reflected, mechanic)
+        : STRINGS.onboardingDayZeroSentence(reflected, mechanic);
+      return (
+        <View style={styles.dayZeroWrap}>
+          <Text style={styles.dayZeroSentence}>{sentence}</Text>
+        </View>
+      );
+    }
+
+    if (obstacleDismissed) return null;
+    return (
+      <View style={styles.obstacleCard}>
+        <Text style={styles.obstacleTitle}>{STRINGS.onboardingQ2Title}</Text>
+        <Text style={styles.obstacleSubtitle}>{STRINGS.onboardingQ2Subtitle}</Text>
+        {OBSTACLE_KEYS.map((k) => (
+          <TouchableOpacity key={k} style={styles.obstacleOption} onPress={() => answerObstacle(circle.id, k)}>
+            <Text style={styles.obstacleOptionText}>{STRINGS.onboardingObstacleLabels[k]}</Text>
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity style={styles.obstacleSkip} onPress={() => setObstacleDismissed(true)}>
+          <Text style={styles.obstacleSkipText}>{STRINGS.onboardingSkip}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   const goToCheckin = (circle: MyCircle, wantsTimer: boolean, dayNumber: number) => {
     const wantsTimerWithDuration = wantsTimer && !!circle.durationMinutes;
@@ -553,6 +610,7 @@ function Today() {
         {warmthWhisper}
         {remindersAskCard}
         {photoAskCard}
+        {onboardingIntakeBlock(circle)}
 
         <Text style={styles.headline}>
           {isSolo ? (
@@ -1008,6 +1066,64 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 16,
     ...cardShadow,
+  },
+  // ON1 — the Day-0 Q2 card + the reflected sentence.
+  obstacleCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    ...cardShadow,
+  },
+  obstacleTitle: {
+    fontFamily: FONT_HEADER,
+    fontSize: 16,
+    color: colors.ink,
+    marginBottom: 4,
+  },
+  obstacleSubtitle: {
+    fontSize: 12.5,
+    color: colors.muted,
+    marginBottom: 12,
+    lineHeight: 17,
+  },
+  obstacleOption: {
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    marginBottom: 8,
+  },
+  obstacleOptionText: {
+    fontSize: 14,
+    color: colors.ink,
+  },
+  obstacleSkip: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  obstacleSkipText: {
+    fontSize: 12.5,
+    color: colors.muted,
+  },
+  // Deliberately NOT plum: plum is the map's evidence-based "we noticed"
+  // voice, and this is self-reported "you told us" (ON1 brand-integrity
+  // scope edge) — a neutral warm card keeps the two voices apart.
+  dayZeroWrap: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 15,
+    marginBottom: 16,
+    ...cardShadow,
+  },
+  dayZeroSentence: {
+    fontSize: 14,
+    color: colors.ink,
+    lineHeight: 20,
   },
   stackCard: {
     backgroundColor: colors.card,

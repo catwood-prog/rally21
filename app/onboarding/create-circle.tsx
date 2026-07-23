@@ -43,12 +43,16 @@ export default function ChooseAPractice() {
   // safe-area inset still applies.
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
-  const { solo, fromToday, wantKey, wantStatement, suggestedName } = useLocalSearchParams<{
+  const { solo, fromToday, wantKey, wantStatement, suggestedName, domain, intent } = useLocalSearchParams<{
     solo?: string;
     fromToday?: string;
     wantKey?: string;
     wantStatement?: string;
     suggestedName?: string;
+    // ON1 — Q1's answer: a PT1 domain to pre-select the filter chip, or
+    // intent='connection' (answered by the circle, so no domain filter).
+    domain?: string;
+    intent?: string;
   }>();
   const isSolo = solo === 'true';
   const isFromToday = fromToday === 'true';
@@ -75,7 +79,14 @@ export default function ChooseAPractice() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantKey]);
 
-  const [selectedCategory, setSelectedCategory] = useState<PracticeCategory>('move');
+  // ON1 — open on the domain Q1 pointed at; connection/skip/other entries
+  // fall back to the default 'move'. The chips are filter-only (CF1), so
+  // this only changes what's shown first, never anything about creation.
+  const [selectedCategory, setSelectedCategory] = useState<PracticeCategory>(
+    (['move', 'mind', 'learn', 'make', 'care'] as const).includes(domain as PracticeCategory)
+      ? (domain as PracticeCategory)
+      : 'move'
+  );
   const [searchText, setSearchText] = useState('');
   const [practices, setPractices] = useState<Practice[]>([]);
   const [openCounts, setOpenCounts] = useState<Record<string, number>>({});
@@ -142,6 +153,11 @@ export default function ChooseAPractice() {
       </TouchableOpacity>
 
       <Text style={styles.title}>{STRINGS.choosePracticeTitle}</Text>
+
+      {/* ON1 — a 'connection' desired change is answered by the circle
+          itself, so we don't pre-filter a practice domain; instead we point
+          at the invite step they'll reach right after. */}
+      {intent === 'connection' && <Text style={styles.connectionNote}>{STRINGS.onboardingConnectionNote}</Text>}
 
       <View style={styles.searchBar}>
         <Text style={styles.searchIcon}>🔍</Text>
@@ -278,6 +294,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: colors.ink,
     marginBottom: 14,
+  },
+  connectionNote: {
+    fontSize: 13,
+    color: colors.muted,
+    marginTop: -6,
+    marginBottom: 14,
+    lineHeight: 18,
   },
   searchBar: {
     flexDirection: 'row',

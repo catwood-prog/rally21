@@ -64,6 +64,67 @@ export const STRINGS = {
   checkinSuccessBody: 'You showed up again.',
   checkinSuccessCta: 'Nice',
 
+  // ON1 (23 July) — the two-question Day-0 intake. Q1 options ARE the five
+  // PT1 domains + connection; Q2 options are the fixed obstacle set. Titles
+  // + labels lowercase (LC1); the reassurance lines are the section's
+  // mechanic map verbatim (each names a mechanic we already shipped, so no
+  // answer is fake). The Day-0 sentence is PROPOSED — Cat's wording wins.
+  onboardingQ1Title: 'what would you most like these\n21 days to change?',
+  onboardingQ1Subtitle: 'this just points us at the right practices — you can still browse anything.',
+  onboardingQ2Title: 'what usually makes it hard\nto keep going?',
+  onboardingQ2Subtitle: 'so we can show you the part of Rally that answers it.',
+  onboardingSkip: 'skip for now',
+  // Q1 option labels, keyed by the stored key (five domains + connection).
+  onboardingDesiredChangeLabels: {
+    move: 'my body — move more',
+    mind: 'my inner life — calmer, clearer',
+    learn: 'growing — learn something',
+    make: 'creating — make something',
+    care: 'the basics — eat, rest, self-care',
+    connection: 'with my people — feel less alone',
+  } as Record<string, string>,
+  // Q2 option labels, keyed by the stored obstacle key.
+  onboardingObstacleLabels: {
+    forget: 'i forget',
+    no_time: 'no time',
+    lose_motivation: 'i lose motivation',
+    miss_once: 'i miss once and give up',
+    alone: 'doing it alone',
+  } as Record<string, string>,
+  // The reassurance each obstacle earns — the section's mechanic map,
+  // verbatim; "Rally" keeps its capital (a name).
+  onboardingReassurance: {
+    forget: 'Rally learns when you show up and nudges just before.',
+    no_time: "we'll start you small; doing less still counts.",
+    lose_motivation: "your circle is the point — you'll see each other.",
+    miss_once: "a missed day dims, it doesn't reset, and a friend can cover you the next day.",
+    alone: "Rally only works with people — let's get your circle in.",
+  } as Record<string, string>,
+  // The obstacle restated in the person's own voice for the Day-0 sentence.
+  onboardingObstacleReflected: {
+    forget: 'you forget',
+    no_time: "there's never time",
+    lose_motivation: 'your motivation fades',
+    miss_once: 'one miss usually ends it',
+    alone: 'doing it alone is hard',
+  } as Record<string, string>,
+  // The Day-0 reflected sentence (PROPOSED). Self-reported voice — "you
+  // said", never "we noticed". `reflected` + `mechanic` come from the two
+  // records above; `desiredPhrase` (optional) weaves Q1 in when present.
+  onboardingDayZeroDesiredPhrase: {
+    move: 'to move more',
+    mind: 'a calmer mind',
+    learn: 'to grow',
+    make: 'to make something',
+    care: 'to look after yourself',
+    connection: 'to feel less alone',
+  } as Record<string, string>,
+  onboardingDayZeroSentence: (reflected: string, mechanic: string) => `you said ${reflected}. here, ${mechanic}`,
+  onboardingDayZeroWithDesired: (desiredPhrase: string, reflected: string, mechanic: string) =>
+    `you came in wanting ${desiredPhrase}, and you said ${reflected}. here, ${mechanic}`,
+  // ON1 — the 'connection' desired-change emphasis on the practice browse.
+  onboardingConnectionNote: 'your circle is the answer to this — pick any practice, then invite your people right after.',
+
   // PN1 (13 July) — the earned-moment pre-permission ask, shown once ever
   // on the check-in-success screen before the real iOS system dialog.
   // PN1B (16 July, Cat's exact copy): the primer is one line + one green

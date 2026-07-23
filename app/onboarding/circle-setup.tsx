@@ -23,6 +23,19 @@ export default function CircleSetup() {
   // details through so create-circle can prefill a custom practice.
   const wantParams = wantKey ? { wantKey, wantStatement: wantStatement ?? '', suggestedName: suggestedName ?? '' } : {};
 
+  // ON1 — the Day-0 intake's Q1 sits between this fork and the practice
+  // browse, but ONLY on a genuine Day-0 create/solo: a want-act flow
+  // already carries the person's intent, and adding a later circle from
+  // Today (fromToday) is not Day-0, so both skip straight to the browse.
+  const isDayZero = !wantKey && fromToday !== 'true';
+  const carriedTail = { ...(fromToday === 'true' ? { fromToday: 'true' } : {}), ...wantParams };
+  const goStart = (extra: Record<string, string>) =>
+    router.push(
+      isDayZero
+        ? { pathname: '/onboarding/desired-change', params: extra }
+        : { pathname: '/onboarding/create-circle', params: { ...carriedTail, ...extra } }
+    );
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <Brandmark style={styles.brandmark} />
@@ -40,12 +53,7 @@ export default function CircleSetup() {
 
       <TouchableOpacity
         style={[styles.card, styles.cardHighlighted]}
-        onPress={() =>
-          router.push({
-            pathname: '/onboarding/create-circle',
-            params: { ...(fromToday === 'true' ? { fromToday: 'true' } : {}), ...wantParams },
-          })
-        }
+        onPress={() => goStart({})}
       >
         <Text style={styles.cardEmoji}>✨</Text>
         <Text style={styles.cardTitle}>Start or join a circle</Text>
@@ -72,16 +80,7 @@ export default function CircleSetup() {
 
       <TouchableOpacity
         style={styles.card}
-        onPress={() =>
-          router.push({
-            pathname: '/onboarding/create-circle',
-            params: {
-              solo: 'true',
-              ...(fromToday === 'true' ? { fromToday: 'true' } : {}),
-              ...wantParams,
-            },
-          })
-        }
+        onPress={() => goStart({ solo: 'true' })}
       >
         <Text style={styles.cardEmoji}>🌱</Text>
         <Text style={styles.cardTitle}>Go solo</Text>
