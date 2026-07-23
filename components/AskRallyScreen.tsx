@@ -1,3 +1,4 @@
+import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -5,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -26,6 +28,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { AskRallyLearnMoreSheet } from '@/components/AskRallyLearnMoreSheet';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { MascotPatch } from '@/components/MascotPatch';
+import { MessageDialog } from '@/components/MessageDialog';
 import { appendTranscript, VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -34,6 +37,7 @@ import { AskRallyMessage, deleteConversation, getActiveConversation, streamAskRa
 import { useAuth } from '@/lib/auth-context';
 import { getMyBlueprint } from '@/lib/blueprint';
 import { getLocalDateString } from '@/lib/date';
+import { formatChatTranscript } from '@/lib/exportChat';
 import { getMyWeek } from '@/lib/glow';
 import { LISTENER_STEAM_PATCH } from '@/lib/mascotFx';
 import { MASCOT_FX } from '@/lib/motion';
@@ -132,6 +136,7 @@ export function AskRallyScreen({
   );
   const [reflectionCount, setReflectionCount] = useState(0);
   const [showLearnMore, setShowLearnMore] = useState(false);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
   const pendingStartFresh = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
   const prefilledFromContext = useRef(false);
@@ -202,6 +207,30 @@ export function AskRallyScreen({
     setConversationId(null);
     setMessages([]);
     setLimitMessage(null);
+  };
+
+  // EX1 — shares exactly the conversation already on screen (the
+  // `messages` state array), never a re-fetch and never any id: this
+  // can't leak anyone else's conversation because it never asks the
+  // server for one. React Native's Share.share covers both platforms —
+  // on web (react-native-web) it forwards straight to navigator.share
+  // where the browser has it, and REJECTS where it doesn't (verified
+  // against react-native-web's own source, not assumed), so the catch
+  // below is the one and only place a web build without Web Share falls
+  // back to copy-to-clipboard. On iOS, cancelling the sheet RESOLVES
+  // (never throws) — the catch there only fires on a genuine failure to
+  // present it. Either way, nothing here is ever a silent no-op, and
+  // nothing here is ever logged (no captureError call at all, ask
+  // Rally content included).
+  const handleExportChat = async () => {
+    const transcript = formatChatTranscript(messages);
+    try {
+      await Share.share({ message: transcript });
+    } catch (err) {
+      if (Platform.OS === 'web' && (err as Error | null)?.name === 'AbortError') return;
+      await Clipboard.setStringAsync(transcript);
+      setExportNotice(STRINGS.askRallyExportCopiedNotice);
+    }
   };
 
   const handleSend = async () => {
@@ -289,6 +318,9 @@ export function AskRallyScreen({
             <View style={styles.headerActions}>
               <TouchableOpacity onPress={handleStartFresh} hitSlop={8}>
                 <Text style={styles.startFresh}>{STRINGS.askRallyStartFresh}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleExportChat} hitSlop={8}>
+                <Text style={styles.exportChat}>{STRINGS.askRallyExportChat}</Text>
               </TouchableOpacity>
               {conversationId && (
                 <TouchableOpacity onPress={handleDelete} hitSlop={8}>
@@ -441,6 +473,13 @@ export function AskRallyScreen({
       </View>
 
       <AskRallyLearnMoreSheet visible={showLearnMore} onDismiss={() => setShowLearnMore(false)} />
+
+      <MessageDialog
+        visible={!!exportNotice}
+        title="done"
+        message={exportNotice ?? ''}
+        onDismiss={() => setExportNotice(null)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -477,6 +516,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.plum,
+  },
+  // Quiet utility action, neither a CTA nor destructive — stays
+  // ink/muted per the color law (colors.gold/green/plum/orange are all
+  // scarce, meaning-carrying colors this action doesn't belong to).
+  exportChat: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.mutedStrong,
   },
   deleteText: {
     fontSize: 12,

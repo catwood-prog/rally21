@@ -639,6 +639,23 @@ export const STRINGS = {
   askRallyLoadFailed: 'could not load your conversation — try again in a moment',
   askRallyDeleteFailed: 'could not delete that — try again',
 
+  // EX1 (22 July) — "export chat": shares the on-screen conversation only,
+  // via the OS share sheet (Cat's ruling — plain text, this conversation
+  // only). Turn labels + footer are the exact transcript format Cat
+  // specified: "you:" / "Rally:" (Rally keeps its capital, the LC1
+  // exception), a blank line between turns, closed with a quiet footer —
+  // no markdown, no JSON, no timestamps. lib/exportChat.ts is the one
+  // place that assembles them.
+  askRallyExportChat: 'export chat',
+  askRallyExportYouLabel: 'you',
+  askRallyExportRallyLabel: 'Rally',
+  askRallyExportFooter: '— exported from Rally21',
+  // Shown only on the copy-to-clipboard fallback (Web Share unavailable,
+  // or a genuine native share-sheet failure) — the OS share sheet itself
+  // is its own confirmation, so this never doubles up on native's happy
+  // path.
+  askRallyExportCopiedNotice: 'copied — paste it wherever you like',
+
   // PM1 (15 July) — the private map's starter-chip invitation into Ask
   // Rally. A chip is the user's own question: it lands in the composer
   // as plain text (the `prefill` param — never the pattern cards'
