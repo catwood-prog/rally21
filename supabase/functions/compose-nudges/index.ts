@@ -44,7 +44,7 @@ const REJOIN_EMAIL_QUIET_DAYS_THRESHOLD = 14;
 // hosting pattern (the Vercel-exported web asset's own hashed URL).
 const THE_RESTART_IMAGE_URL =
   // M2 (17 July): re-hashed for the restyled the-restart art.
-  "https://rally21.vercel.app/assets/assets/mascot/the-restart.a40d438c1b066b8dca5439a35c5288a8.png";
+  "https://rally21.com/assets/assets/mascot/the-restart.a40d438c1b066b8dca5439a35c5288a8.png";
 
 function localDateString(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -249,7 +249,7 @@ Deno.serve(async (req) => {
           if (emberLocalTime >= emberResolved) {
             const emberHtml = `<p>your glow is down to embers — one small thing today rekindles it.</p>
 <p>it's protecting ${glow.glow} day${glow.glow === 1 ? "" : "s"} of showing up.</p>
-<p><a href="https://rally21.vercel.app">open Rally21</a></p>`;
+<p><a href="https://rally21.com">open Rally21</a></p>`;
 
             // CH5: DO NOTHING on the dedupe key — no more 23505 ERROR
             // noise in the Postgres log; .select() returns only really-
@@ -502,7 +502,7 @@ Deno.serve(async (req) => {
       const html = `<p><img src="${THE_RESTART_IMAGE_URL}" alt="" width="160" style="display:block;margin:0 auto 12px;" /></p>
 <p>the huddle kept your spot warm in ${circleName}.</p>
 <p>no streak lost, no catching up required — just today, whenever you're ready.</p>
-<p><a href="https://rally21.vercel.app">open Rally21</a></p>`;
+<p><a href="https://rally21.com">open Rally21</a></p>`;
 
       // CH5: DO NOTHING on the dedupe key — the dedupe is the design,
       // never a Postgres ERROR log line; .select() keeps the count real.

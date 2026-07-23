@@ -216,7 +216,7 @@ export function renderNudge(
     pushBody: `${sentence}\n${line}`,
     html: `<p>${sentence}</p>
 <p>${line}</p>
-<p><a href="https://rally21.vercel.app">open Rally21</a></p>`,
+<p><a href="https://rally21.com">open Rally21</a></p>`,
   };
 }
 

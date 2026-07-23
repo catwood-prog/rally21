@@ -40,7 +40,7 @@ function dayNumberAt(startDate: string, atMs: number): number {
 // build; only changes if the source image itself is ever replaced.
 const COVER_A_FRIEND_IMAGE_URL =
   // M2 (17 July): re-hashed for the restyled cover-a-friend art.
-  "https://rally21.vercel.app/assets/assets/mascot/cover-a-friend.85603766a2ce5ef07a45289bdbeb0ea1.png";
+  "https://rally21.com/assets/assets/mascot/cover-a-friend.85603766a2ce5ef07a45289bdbeb0ea1.png";
 
 function localDateString(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -362,7 +362,7 @@ Deno.serve(async (req) => {
         : "";
       const html = `${image}<ul>${shown.map((l) => `<li>${l}</li>`).join("")}</ul>${
         remaining > 0 ? `<p>+ ${remaining} more moment${remaining === 1 ? "" : "s"} waiting</p>` : ""
-      }<p><a href="https://rally21.vercel.app">open Rally21</a></p>`;
+      }<p><a href="https://rally21.com">open Rally21</a></p>`;
 
       // CH5: DO NOTHING on the dedupe key at the database — the old
       // plain INSERT still raised a 23505 ERROR into the Postgres log on
