@@ -312,7 +312,7 @@ describeIfConfigured('security hardening (S1)', () => {
       ).rejects.toThrow(/nudges disabled/);
     });
 
-    test('pile-on: a second nudge the same day returns already_nudged, not a duplicate send', async () => {
+    test('WL3: a different sender waving the same day lands; the SAME sender repeating is already_nudged (idempotent, no duplicate)', async () => {
       const senderA = await createFakeUser();
       const senderB = await createFakeUser();
       const recipient = await createFakeUser();
@@ -326,13 +326,37 @@ describeIfConfigured('security hardening (S1)', () => {
       ]);
       expect(first[0].result).toBe('sent');
 
+      // WL3: a DIFFERENT sender's wave the same day now lands its own
+      // warmth row instead of being swallowed by the old per-recipient cap.
       await actAs(senderB);
       const { rows: second } = await client.query('select send_friend_nudge($1, $2, $3) as result', [
         circleId,
         recipient,
         '2026-07-11',
       ]);
-      expect(second[0].result).toBe('already_nudged');
+      expect(second[0].result).toBe('sent');
+
+      // …but senderA repeating their OWN wave the same day is still the
+      // warm, idempotent already_nudged — no second outbox or warmth row.
+      await actAs(senderA);
+      const { rows: repeat } = await client.query('select send_friend_nudge($1, $2, $3) as result', [
+        circleId,
+        recipient,
+        '2026-07-11',
+      ]);
+      expect(repeat[0].result).toBe('already_nudged');
+
+      await elevated();
+      const { rows: waveRows } = await client.query(
+        "select count(*)::int as n from public.wall_messages where recipient_id = $1 and kind = 'wave'",
+        [recipient]
+      );
+      expect(waveRows[0].n).toBe(2); // exactly one per distinct sender
+      const { rows: outboxRows } = await client.query(
+        "select count(*)::int as n from public.notification_outbox where user_id = $1 and kind = 'friend_nudge'",
+        [recipient]
+      );
+      expect(outboxRows[0].n).toBe(2);
     });
   });
 
@@ -381,7 +405,7 @@ describeIfConfigured('security hardening (S1)', () => {
       ]);
     });
 
-    test('dedupe is per kind: heart then wave to the same friend both land; a second heart is already_nudged and a wave after it still works', async () => {
+    test('dedupe is per kind AND (WL3) per sender: same sender heart+wave both land; a repeat heart from the same sender is already_nudged; a different sender heart lands', async () => {
       const sender = await createFakeUser();
       const otherSender = await createFakeUser();
       const recipient = await createFakeUser();
@@ -394,22 +418,42 @@ describeIfConfigured('security hardening (S1)', () => {
       );
       expect(heart[0].result).toBe('sent');
 
-      // a second heart to the same recipient the same day — from anyone
-      // (the pile-on guard, mirroring the wave's) — is the warm
-      // already-sent outcome
-      await actAs(otherSender);
-      const { rows: secondHeart } = await client.query(
+      // WL3: the SAME sender repeating their own heart the same day is the
+      // warm, idempotent already-sent outcome — no duplicate ledger row.
+      const { rows: sameSenderRepeat } = await client.query(
         "select send_friend_nudge($1, $2, $3, 'heart') as result",
         [circleId, recipient, '2026-07-15']
       );
-      expect(secondHeart[0].result).toBe('already_nudged');
+      expect(sameSenderRepeat[0].result).toBe('already_nudged');
 
-      // …but a WAVE to that same recipient the same day still succeeds
+      // per-kind: a WAVE from the same sender the same day still succeeds
       const { rows: wave } = await client.query(
         "select send_friend_nudge($1, $2, $3, 'wave') as result",
         [circleId, recipient, '2026-07-15']
       );
       expect(wave[0].result).toBe('sent');
+
+      // WL3: a DIFFERENT sender's heart to the same recipient the same day
+      // now lands its own warmth row (was swallowed by the old per-
+      // recipient index).
+      await actAs(otherSender);
+      const { rows: otherHeart } = await client.query(
+        "select send_friend_nudge($1, $2, $3, 'heart') as result",
+        [circleId, recipient, '2026-07-15']
+      );
+      expect(otherHeart[0].result).toBe('sent');
+
+      await elevated();
+      const { rows: heartRows } = await client.query(
+        "select count(*)::int as n from public.wall_messages where recipient_id = $1 and kind = 'heart'",
+        [recipient]
+      );
+      expect(heartRows[0].n).toBe(2); // one per distinct sender, not one total
+      const { rows: heartLedger } = await client.query(
+        'select count(*)::int as n from public.friend_hearts where recipient_id = $1',
+        [recipient]
+      );
+      expect(heartLedger[0].n).toBe(2);
     });
 
     test('the 10/day sender cap is shared across kinds (7 waves + 3 hearts, then the 11th gesture soft-fails)', async () => {
@@ -489,6 +533,81 @@ describeIfConfigured('security hardening (S1)', () => {
       await expect(
         client.query("select send_friend_nudge($1, $2, $3, 'heart')", [circleId, recipient, '2026-07-15'])
       ).rejects.toThrow(/not a member of this circle/);
+    });
+  });
+
+  // WL3 (23 July): every distinct sender's wave AND heart lands as its own
+  // recipient-private warmth row, so WL2's whisper fills with all their
+  // names. The phone stays protected — send-notifications is untouched, so
+  // heart outbox rows stay zero and wave outbox rows are one per sender.
+  describe('WL3 per-sender warmth (every wave + heart lands)', () => {
+    test('three distinct senders each wave AND heart one recipient the same day: 3 wave + 3 heart recipient-private rows; get_my_fresh_warmth returns all three; hearts never touch the outbox', async () => {
+      const recipient = await createFakeUser('Recipient');
+      const senders = [
+        await createFakeUser('Ana'),
+        await createFakeUser('Ben'),
+        await createFakeUser('Cy'),
+      ];
+      const circleId = await seedCircle(recipient, { memberIds: senders });
+      const localDate = '2026-07-23';
+
+      // get_my_fresh_warmth surfaces warmth whose created_at is strictly
+      // after warmth_seen_at. In a single test transaction now() is
+      // constant, so the recipient's default warmth_seen_at (= account
+      // creation now()) equals the warmth rows' created_at; backdate it so
+      // the fresh-warmth read behaves as it does across real time.
+      await elevated();
+      await client.query("update public.users set warmth_seen_at = '2000-01-01' where id = $1", [recipient]);
+
+      for (const s of senders) {
+        await actAs(s);
+        const { rows: w } = await client.query(
+          "select send_friend_nudge($1, $2, $3, 'wave') as result",
+          [circleId, recipient, localDate]
+        );
+        expect(w[0].result).toBe('sent');
+        const { rows: h } = await client.query(
+          "select send_friend_nudge($1, $2, $3, 'heart') as result",
+          [circleId, recipient, localDate]
+        );
+        expect(h[0].result).toBe('sent');
+      }
+
+      await elevated();
+      const { rows: waveN } = await client.query(
+        "select count(*)::int as n from public.wall_messages where recipient_id = $1 and kind = 'wave'",
+        [recipient]
+      );
+      expect(waveN[0].n).toBe(3);
+      const { rows: heartN } = await client.query(
+        "select count(*)::int as n from public.wall_messages where recipient_id = $1 and kind = 'heart'",
+        [recipient]
+      );
+      expect(heartN[0].n).toBe(3);
+
+      // recipient-private by construction: every warmth row carries the
+      // recipient_id (WL1); none leaked back as a public post/celebration.
+      const { rows: leak } = await client.query(
+        "select count(*)::int as n from public.wall_messages where user_id = any($1) and recipient_id is null",
+        [senders]
+      );
+      expect(leak[0].n).toBe(0);
+
+      // hearts NEVER write an outbox row; waves write exactly one per
+      // sender — so the outbox total is 3 (the 3 waves), not 6. That total
+      // alone proves the 3 hearts touched no outbox row.
+      const { rows: outN } = await client.query(
+        "select count(*)::int as n from public.notification_outbox where user_id = $1 and kind = 'friend_nudge'",
+        [recipient]
+      );
+      expect(outN[0].n).toBe(3);
+
+      // WL2's whisper read returns every distinct sender's fresh warmth
+      // (both kinds), keyed on the recipient's own auth.uid().
+      await actAs(recipient);
+      const { rows: fresh } = await client.query('select kind, sender_name from public.get_my_fresh_warmth()');
+      expect(new Set(fresh.map((r: any) => r.sender_name))).toEqual(new Set(['Ana', 'Ben', 'Cy']));
+      expect(fresh.length).toBe(6); // 3 waves + 3 hearts
     });
   });
 

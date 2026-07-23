@@ -345,7 +345,10 @@ export const STRINGS = {
   // HW1 — the heart's warm outcomes, mirroring the wave's patterns
   // above. A gesture never fails socially; every designed rejection
   // maps to warm copy.
-  alreadyHeartedError: (name: string) => `someone's already sent ${name} a heart today 🧡`,
+  // WL3 (23 July) — per-sender dedupe means this now only fires when I
+  // repeat MY OWN heart to the same friend the same day; another friend's
+  // heart lands fine. So the copy speaks to me, not "someone else".
+  alreadyHeartedError: (name: string) => `you already sent ${name} a heart today 🧡`,
   heartCapReachedError: "you've sent a lot of love today — give it a little rest and try again tomorrow 🧡",
   heartOptedOutError: (name: string) => `${name} isn't taking hearts right now`,
   heartNotDeliveredError: "this heart couldn't go through right now",
@@ -458,7 +461,11 @@ export const STRINGS = {
   // server-side now (security spec S1, F4) — send-notifications and
   // send_friend_nudge keep their own copies of this copy, same pattern as
   // NUDGE_WARM_LINES below.
-  alreadyNudgedError: (name: string) => `someone's already waved at ${name} today 🧡`,
+  // WL3 (23 July) — per-sender dedupe: this now only fires when I repeat
+  // MY OWN wave to the same friend the same day (another friend's wave
+  // lands fine), so the copy speaks to me. Glyph fixed to 👋 (was 🧡, a
+  // pre-existing wave/heart mismatch noted 22 July).
+  alreadyNudgedError: (name: string) => `you already sent ${name} a wave today 👋`,
 
   // Open circles — wall permissions + host controls (multi-circle spec,
   // "Open circles" section). Members react until they've earned free-text
