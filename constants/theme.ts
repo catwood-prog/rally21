@@ -46,7 +46,7 @@ export const colors = {
   goldMuted: 'rgba(244, 200, 75, 0.65)',
   // Dusk plum — the inner-life layer's accent (journal, reflections,
   // day-14 observation). Scarce by design: plum only ever means "your
-  // private picture" (see CLAUDE.md's color-roles convention).
+  // private map" (see CLAUDE.md's color-roles convention).
   plum: '#7A6486',
   plumSoft: '#F0EBF3',
   // Hearts — warmth between friends (AC1, 15 July) — plus you-are-here,

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { unlockAudioContext } from '@/lib/chime';
@@ -65,7 +66,7 @@ export default function CheckinIntro() {
       </View>
 
       <Text style={styles.title}>
-        this builds your <Text style={styles.titleAccent}>private picture</Text>
+        {STRINGS.checkinIntroTitleLead} <Text style={styles.titleAccent}>{STRINGS.checkinIntroTitleAccent}</Text>
       </Text>
 
       <Text style={styles.body}>
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
   },
   titleAccent: {
     fontFamily: FONT_SERIF_ITALIC,
-    color: colors.green,
+    color: colors.plum,
     fontSize: 27,
   },
   body: {

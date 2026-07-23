@@ -80,7 +80,7 @@ export async function setSoundsEnabled(userId: string, enabled: boolean): Promis
   if (error) throw error;
 }
 
-/** First-ever check-in only shows the "this builds your private picture"
+/** First-ever check-in only shows the "this builds your private map"
  * intro once — this flips the flag for good. */
 export async function markCheckinConsentSeen(userId: string): Promise<void> {
   const { error } = await supabase

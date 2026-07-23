@@ -20,6 +20,7 @@ import {
   MyCircle,
 } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
+import { getMyGlow } from '@/lib/glow';
 import { markReentryAcknowledged } from '@/lib/profile';
 import { computeSignal, PresenceRow } from '@/lib/signal';
 import { getWallMessages, WallMessage } from '@/lib/wall';
@@ -35,6 +36,13 @@ export default function WelcomeBack() {
 
   const [circles, setCircles] = useState<MyCircle[]>([]);
   const [circleData, setCircleData] = useState<Record<string, CircleData>>({});
+  // OD1 job 14 — whether the gap since lastCompletionDate actually held
+  // (an away pause or a friend's cover both keep get_my_glow() 'glowing'
+  // through a gap, exactly as truly as each other) or whether the
+  // person's own glow really did reset. This is the one source of truth
+  // for whether "no streak lost" is honest right now — never assume it
+  // from the trigger alone.
+  const [glowHeld, setGlowHeld] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isNavigating, setIsNavigating] = useState(false);
 
@@ -44,8 +52,9 @@ export default function WelcomeBack() {
   const load = useCallback(async () => {
     if (!session?.user) return;
     try {
-      const myCircles = await listMyCircles(session.user.id);
+      const [myCircles, glow] = await Promise.all([listMyCircles(session.user.id), getMyGlow()]);
       setCircles(myCircles);
+      setGlowHeld(glow.state === 'glowing');
 
       const entries = await Promise.all(
         myCircles.map(async (c): Promise<[string, CircleData]> => {
@@ -110,11 +119,10 @@ export default function WelcomeBack() {
       <MascotEntrance source={MASCOT.theRestart} style={styles.mascot} />
       <Text style={styles.eyebrow}>welcome back</Text>
       <Text style={styles.title}>
-        you&apos;ve <Text style={styles.titleAccent}>missed nothing</Text>
+        {STRINGS.welcomeBackTitleLead} <Text style={styles.titleAccent}>{STRINGS.welcomeBackTitleAccent}</Text>
       </Text>
       <Text style={styles.subtitle}>
-        no streak lost, no guilt — {circles.length === 1 ? "your circle's" : 'your circles are'}{' '}
-        still glowing.
+        {glowHeld ? STRINGS.welcomeBackSubtitleHeld(circles.length) : STRINGS.welcomeBackSubtitleReset}
       </Text>
 
       {circles.map((circle) => {

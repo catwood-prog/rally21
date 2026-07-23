@@ -156,9 +156,7 @@ export default function Reflection() {
       {!error && observation && !observation.available && (
         <View style={styles.growCard}>
           <Text style={styles.growEmoji}>🌱</Text>
-          <Text style={styles.growText}>
-            This grows as you go. In a month, your picture gets a lot richer.
-          </Text>
+          <Text style={styles.growText}>{STRINGS.blueprintGrowsText}</Text>
         </View>
       )}
     </ScrollView>

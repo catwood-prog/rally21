@@ -92,6 +92,20 @@ export const STRINGS = {
 
   reentryKeptLightOn: (circleName: string) => `${circleName} kept the light on for you`,
 
+  // OD1 job 14 (22 July) — welcome-back must not say "no streak lost" to
+  // everyone: RS1 truly holds a quiet member's circle place either way,
+  // so the title stays constant and true (the audit's own phrase). The
+  // SUBTITLE has to branch on the person's OWN glow (getMyGlow().state),
+  // not just a declared away pause — a gap fully covered by a friend is
+  // just as truly "nothing lost" as an away pause, and a genuinely
+  // uncovered gap is not, regardless of which produced it.
+  welcomeBackTitleLead: 'your place',
+  welcomeBackTitleAccent: 'is still here',
+  welcomeBackSubtitleHeld: (circleCount: number) =>
+    `no streak lost, no guilt — ${circleCount === 1 ? "your circle's" : 'your circles are'} still glowing.`,
+  // Cat's wording, verbatim, 22 July.
+  welcomeBackSubtitleReset: 'no guilt — your own glow reset while you were away. one check-in starts it fresh.',
+
   inviteShareMessage: (circleName: string | null, inviteCode: string) =>
     circleName
       ? `Join ${circleName} on Rally21! Sign in at https://rally21.vercel.app and enter code ${inviteCode} to hop in.`
@@ -127,6 +141,22 @@ export const STRINGS = {
 
   voiceDictationDeniedHint: 'you can also dictate with the keyboard mic 🎤',
   voiceMicDiscoveryHint: 'you can speak your answers 🎤 — often easier than typing',
+  // OD1 job 1a (22 July) — VoiceMicButton is Web Speech API only and
+  // renders null by design on native (see its own docstring); this app
+  // was still promising it there via the WEB copy above with no platform
+  // gate. Native's real path is the system keyboard's own dictation key,
+  // which is what this line points at instead. PROPOSED — Cat's wording
+  // wins over this draft.
+  voiceMicDiscoveryHintNative: 'you can speak instead of typing — tap the 🎤 on your keyboard',
+  // OD1 job 19 (22 July) — an N1 leftover: this screen still said "private
+  // picture" from before N1 renamed the inner-life layer "your private
+  // map" everywhere else. First contact a new user has with that layer,
+  // so it's the one place the old name mattered most. The audit's own
+  // draft; accent goes plum (inner-life colour), the green lock treatment
+  // above it is untouched (that one is genuinely a confirmation, not a
+  // private-map reference).
+  checkinIntroTitleLead: 'this builds your',
+  checkinIntroTitleAccent: 'private map',
   checkinQuestionInputPlaceholder: 'your answer',
   // Q3 (12 July) — binary questions render their own two options from the
   // DB (e.g. "want to" / "have to"); this pair is only a fallback for a
@@ -606,6 +636,9 @@ export const STRINGS = {
   blueprintSubline: "patterns you can't see alone",
   blueprintFooter: 'built only from your own check-ins.',
   blueprintEmptyText: 'your patterns need a little more time to show themselves',
+  // OD1 job 19c — same N1 leftover as checkin-intro's title: "picture"
+  // meaning the private map, on the day-14 observation card's grow state.
+  blueprintGrowsText: 'This grows as you go. In a month, your map gets a lot richer.',
   blueprintPatternLabel: 'A GENTLE PATTERN',
   blueprintSoundsRight: 'Sounds right',
   blueprintNotQuite: 'Not quite',

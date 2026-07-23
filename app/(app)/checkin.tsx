@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -223,7 +224,9 @@ export default function CheckIn() {
 
       {showVoiceHint && !micDenied && (
         <TouchableOpacity onPress={dismissVoiceHint} style={styles.voiceHintCard}>
-          <Text style={styles.voiceHintText}>{STRINGS.voiceMicDiscoveryHint}</Text>
+          <Text style={styles.voiceHintText}>
+            {Platform.OS === 'web' ? STRINGS.voiceMicDiscoveryHint : STRINGS.voiceMicDiscoveryHintNative}
+          </Text>
         </TouchableOpacity>
       )}
 
