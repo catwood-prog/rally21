@@ -32,13 +32,16 @@ export default function CoverAFriend() {
   // (Cat is reworking it separately); this is just the safe-area inset.
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
-  const { circleId, memberId, memberName, memberAvatarUrl, myName, alreadyCheckedIn } = useLocalSearchParams<{
+  const { circleId, memberId, memberName, memberAvatarUrl, myName, alreadyCheckedIn, missedDate } = useLocalSearchParams<{
     circleId: string;
     memberId: string;
     memberName?: string;
     memberAvatarUrl?: string;
     myName?: string;
     alreadyCheckedIn?: string;
+    // CV1 — the covered member's missed day (their local yesterday), passed
+    // from the who's-here cover pill (getCoverableMembers owns the date).
+    missedDate?: string;
   }>();
   const name = memberName || 'your circle-mate';
   const covererName = myName || 'someone in your circle';
@@ -84,7 +87,10 @@ export default function CoverAFriend() {
     setIsSaving(true);
     try {
       if (mode === 'cover') {
-        await coverMember(circleId, memberId, session.user.id, getLocalDateString());
+        // CV1 — cover the MISSED day (their local yesterday), never today.
+        // The date comes from getCoverableMembers; the RLS policy rejects
+        // any other date, so this is the single source of the rescued day.
+        await coverMember(circleId, memberId, session.user.id, missedDate ?? getLocalDateString());
         squeezeThen(goBackToCircle);
       } else {
         // Security spec S1 (F4): the RPC composes the email + wall copy

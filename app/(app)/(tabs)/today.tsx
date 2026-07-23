@@ -39,7 +39,7 @@ import {
   subscribeToCirclePresence,
 } from '@/lib/circle';
 import { isBirthdayToday } from '@/lib/birthday';
-import { daysBetween, getLocalDateString } from '@/lib/date';
+import { daysBetween, getLocalDateString, shiftDate } from '@/lib/date';
 import { getGlowForCircleMates, getMyGlow, getMyWeek, Glow, WeekDay } from '@/lib/glow';
 import { getMyLastCelebratedDay, getNextMilestone, shouldShowJourneyGate } from '@/lib/journey';
 import { updateNotificationPrefs } from '@/lib/notifications';
@@ -337,6 +337,9 @@ function Today() {
   }
 
   const today = getLocalDateString();
+  // CV1 — a cover now lands on the covered member's local yesterday, so the
+  // "{name} covered you for yesterday" note reads yesterday's covered row.
+  const coveredDay = shiftDate(today, -1);
   const atCap = circles.length >= circleCap;
 
   const goToCheckin = (circle: MyCircle, wantsTimer: boolean, dayNumber: number) => {
@@ -489,7 +492,7 @@ function Today() {
     );
     const iAmCheckedInToday = !!session?.user && inTodayUserIds.has(session.user.id);
     const iWasCoveredToday = presence.find(
-      (p) => p.localDate === today && p.userId === session?.user?.id && p.kind === 'covered'
+      (p) => p.localDate === coveredDay && p.userId === session?.user?.id && p.kind === 'covered'
     );
     const inCount = inTodayUserIds.size;
     // RS1/RS2 — every "N of M" headcount line counts only non-resting,
@@ -732,7 +735,7 @@ function Today() {
     const data = circleData[c.id];
     if (!data) continue;
     const covered = data.presence.find(
-      (p) => p.localDate === today && p.userId === session?.user?.id && p.kind === 'covered'
+      (p) => p.localDate === coveredDay && p.userId === session?.user?.id && p.kind === 'covered'
     );
     if (covered) {
       coveredTodayName = memberFullName(data.members, covered.coveredBy);
@@ -766,7 +769,7 @@ function Today() {
         );
         const iAmCheckedInToday = !!session?.user && inTodayUserIds.has(session.user.id);
         const iWasCoveredToday = presence.find(
-          (p) => p.localDate === today && p.userId === session?.user?.id && p.kind === 'covered'
+          (p) => p.localDate === coveredDay && p.userId === session?.user?.id && p.kind === 'covered'
         );
         const inCount = inTodayUserIds.size;
         // RS1/RS2 — see the single-circle branch above for the full note.

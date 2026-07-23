@@ -326,9 +326,11 @@ export const STRINGS = {
   wavePillA11yLabel: (name: string) => `wave at ${name}`,
   coverHintDiscovery: "you can log a friend's day for them — a gift, never a debt.",
   coverHeadline: (name: string) => `${name}'s been quiet`,
-  coverSubtitle: "cover today — it's a gift, not a debt 🧡",
+  // CV1 (23 July) — cover is a next-day rescue of the missed day, so the
+  // affordance and note name yesterday, not today.
+  coverSubtitle: "cover yesterday — it's a gift, not a debt 🧡",
   coverNotePreview: (covererName: string) =>
-    `They'll get a warm note: "${covererName} covered you today. No pressure, we've got you."`,
+    `They'll get a warm note: "${covererName} covered you for yesterday. No pressure, we've got you."`,
   // W1: shown instead of coverHeadline/coverSubtitle/coverNotePreview
   // when the member has already checked in — "they've been quiet" would
   // be factually wrong, and there's no cover note to preview.
@@ -338,7 +340,7 @@ export const STRINGS = {
     `${name} will see: "${waverName} waved at ${name} 👋" on the circle wall.`,
   coverActionLabel: '🧡 Cover & send love',
   waveActionLabel: '👋 Just a wave hello',
-  coverCta: (name: string) => `Cover ${name} today`,
+  coverCta: (name: string) => `Cover ${name} for yesterday`,
   waveCta: (name: string) => `Wave hello to ${name}`,
   waveCapReachedError: "you've sent a lot of waves today — give it a little rest and try again tomorrow 🧡",
   waveOptedOutError: (name: string) => `${name} isn't taking waves right now`,
@@ -386,7 +388,7 @@ export const STRINGS = {
   wallTeaserCelebration: (snippet: string) => `${snippet} →`,
 
   coveredNoteToCoveredMember: (covererName: string) =>
-    `${covererName} covered you today. No pressure, we've got you.`,
+    `${covererName} covered you for yesterday. No pressure, we've got you.`,
   // wallCoveredEntry retired with WL1: the wall no longer renders
   // check-in rows, covered or plain — the cover screen and next-day note
   // carry the gift's copy now.
@@ -394,9 +396,9 @@ export const STRINGS = {
   // send_friend_nudge (security spec S1, F4) — the copy is unchanged,
   // just no longer client-composed.
 
-  circleYouCoveredCard: (name: string) => `You covered ${name} today 🧡`,
+  circleYouCoveredCard: (name: string) => `You covered ${name} for yesterday 🧡`,
   circleYouCoveredCardBody: "The signal stays warm for everyone. That's the whole point.",
-  circleCoveredYouCard: (covererName: string) => `${covererName} covered you today 🧡`,
+  circleCoveredYouCard: (covererName: string) => `${covererName} covered you for yesterday 🧡`,
   circleCoveredYouCardBody: "No pressure, we've got you.",
 
   // App sounds (mascot brief) — the single toggle governing both sounds

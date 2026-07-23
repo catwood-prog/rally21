@@ -36,6 +36,7 @@ import {
   CircleMember,
   getCircleMembers,
   getCirclePresence,
+  getCoverableMembers,
   isSoloCircle,
   leaveCircle,
   listMyCircles,
@@ -47,7 +48,7 @@ import {
   subscribeToCirclePresence,
 } from '@/lib/circle';
 import { isBirthdayToday } from '@/lib/birthday';
-import { daysBetween, getLocalDateString, localDateStringInTimeZone } from '@/lib/date';
+import { daysBetween, getLocalDateString, localDateStringInTimeZone, shiftDate } from '@/lib/date';
 import { getGlowForCircleMates, getPairStreaks, PairStreak } from '@/lib/glow';
 import {
   completeCircle,
@@ -106,6 +107,11 @@ function YourCircle() {
   const [presence, setPresence] = useState<PresenceRow[]>([]);
   // GS1 — the Who's Here glow ride-along (7+ days only; server-floored).
   const [glowByUserId, setGlowByUserId] = useState<Map<string, number>>(new Map());
+  // CV1 — memberId → their missed local day (yesterday), for members who
+  // are coverable RIGHT NOW (at embers, this circle's yesterday still open).
+  // The server owns the ember + timezone logic; the client only renders the
+  // pill and passes the date straight through to the cover write.
+  const [coverableByUserId, setCoverableByUserId] = useState<Map<string, string>>(new Map());
   const [wallPreview, setWallPreview] = useState<WallPreviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -187,7 +193,7 @@ function YourCircle() {
       const myCircle = selection.circle;
       setCircle(myCircle);
       if (myCircle) {
-        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay, myPairStreaks, myBlocks, mateGlows, myCirclesList] =
+        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay, myPairStreaks, myBlocks, mateGlows, myCirclesList, coverable] =
           await Promise.all([
             getCircleMembers(myCircle.id),
             getCirclePresence(myCircle.id),
@@ -204,11 +210,16 @@ function YourCircle() {
             // riding the same load — drives the way-back-to-the-others
             // affordance instead of the fromTab flag.
             listMyCircles(session.user.id).catch(() => [] as MyCircle[]),
+            // CV1: who can be covered for yesterday right now (server owns
+            // the ember + timezone rule). A failed fetch just means no cover
+            // pills this visit, never an error.
+            getCoverableMembers(myCircle.id).catch(() => new Map<string, string>()),
           ]);
         setHasOtherCircles(myCirclesList.length > 1);
         setMembers(circleMembers);
         setPresence(circlePresence);
         setGlowByUserId(mateGlows);
+        setCoverableByUserId(coverable);
         setWallPreview(preview);
         setHasSeenCoverHint(!!profile?.has_seen_cover_hint);
         setMyLastCelebratedDay(lastCelebratedDay);
@@ -315,9 +326,10 @@ function YourCircle() {
   // dismissing itself on first dictation.
   useEffect(() => {
     if (!session?.user || hasSeenCoverHint) return;
-    const today = getLocalDateString();
+    // CV1 — a cover lands on the covered member's yesterday.
+    const coveredDay = shiftDate(getLocalDateString(), -1);
     const coveredSomeone = presence.some(
-      (p) => p.localDate === today && p.kind === 'covered' && p.coveredBy === session.user.id
+      (p) => p.localDate === coveredDay && p.kind === 'covered' && p.coveredBy === session.user.id
     );
     if (coveredSomeone) {
       setHasSeenCoverHint(true);
@@ -449,13 +461,18 @@ function YourCircle() {
   };
   const myName = members.find((m) => m.userId === session?.user?.id)?.name ?? 'someone in your circle';
 
+  // CV1 — covers now land on the MISSED day (the covered member's local
+  // yesterday), so the "you were covered / you covered someone" celebration
+  // reads yesterday's covered rows, not today's. It surfaces the day the
+  // rescue happens (which is that day, for yesterday) and clears the next.
+  const coveredDay = shiftDate(today, -1);
   // At most one of these shows at a time — a quiet, celebratory note,
   // never a score (see CLAUDE.md's cover-a-friend rule).
   const iWasCoveredToday = presence.find(
-    (p) => p.localDate === today && p.userId === session?.user?.id && p.kind === 'covered'
+    (p) => p.localDate === coveredDay && p.userId === session?.user?.id && p.kind === 'covered'
   );
   const iCoveredSomeoneToday = presence.find(
-    (p) => p.localDate === today && p.kind === 'covered' && p.coveredBy === session?.user?.id
+    (p) => p.localDate === coveredDay && p.kind === 'covered' && p.coveredBy === session?.user?.id
   );
 
   // RS1 — a circle-mate quiet for 5+ days fades to the edge of the
@@ -475,8 +492,10 @@ function YourCircle() {
   // words just move to the accessibility labels.
   const useCompactGesturePills = shownMembers.length > 3;
   const overflowCount = orderedMembers.length - shownMembers.length;
+  // CV1 — a member is coverable only when the server says so (at embers,
+  // this circle's yesterday still open), not merely "not checked in today".
   const hasCoverableMember = shownMembers.some(
-    (member) => member.userId !== session?.user?.id && !inTodayUserIds.has(member.userId)
+    (member) => member.userId !== session?.user?.id && coverableByUserId.has(member.userId)
   );
   const isCreator = circle.createdBy === session?.user?.id;
   const youtubeId = circle.resourceUrl ? extractYouTubeId(circle.resourceUrl) : null;
@@ -971,7 +990,7 @@ function YourCircle() {
                       🔥 {glowByUserId.get(member.userId)}
                     </Text>
                   )}
-                  {isReachable && !checkedIn && (
+                  {isReachable && coverableByUserId.has(member.userId) && (
                     <TouchableOpacity
                       style={styles.coverPill}
                       onPress={() =>
@@ -983,6 +1002,9 @@ function YourCircle() {
                             memberName: memberDisplayName,
                             memberAvatarUrl: member.avatarUrl ?? '',
                             myName,
+                            // CV1 — the covered member's missed day (their
+                            // local yesterday); the cover write lands here.
+                            missedDate: coverableByUserId.get(member.userId)!,
                           },
                         })
                       }

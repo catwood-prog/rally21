@@ -1,12 +1,16 @@
 /**
  * Integration test for the cover-a-friend feature's RLS rules on
- * `public.completions`: a member can log a `kind='covered'` completion
- * for someone else in the same circle, but only under all four
- * conditions the product spec requires — you can't cover yourself, only
- * members of the circle can cover, you can only cover a fellow member,
- * and only one cover per member per day (which doubles as "you can't
- * cover someone who already checked in today", since a same-day self
- * completion trips the same NOT EXISTS clause).
+ * `public.completions`.
+ *
+ * CV1 (23 July) — cover is a NEXT-DAY rescue of the MISSED day: a member
+ * can log a `kind='covered'` completion for a fellow member only for that
+ * member's OWN local yesterday (retiring same-day covering), and only
+ * under the other rules the spec requires — you can't cover yourself, only
+ * members of the circle can cover, you can only cover a fellow member, and
+ * one cover per member per missed day (a same-day self completion for that
+ * day trips the same NOT EXISTS clause). Fixture dates are relative to
+ * now() (fake users default to UTC), since the policy computes "yesterday"
+ * from the covered member's stored timezone.
  *
  * See "Running the RPC-boundary integration test" in CLAUDE.md for how
  * to supply SUPABASE_DB_URL — this suite uses the same direct-connection,
@@ -26,11 +30,15 @@ if (!DB_URL) {
   );
 }
 
-const TODAY = '2026-07-06';
-
-describeIfConfigured('cover a friend — RLS on completions', () => {
+describeIfConfigured('cover a friend — RLS on completions (CV1 next-day rescue)', () => {
   let client: Client;
   let practiceId: string;
+  // CV1: covers must land on the covered member's local yesterday, so the
+  // fixtures use dates derived from now() at the DB (all fake users default
+  // to UTC — the policy reads coalesce(timezone,'UTC')).
+  let TODAY: string;
+  let YESTERDAY: string;
+  let TWO_DAYS_AGO: string;
 
   async function elevated() {
     await client.query('reset role');
@@ -48,10 +56,6 @@ describeIfConfigured('cover a friend — RLS on completions', () => {
     return id;
   }
 
-  /** Inserts a circle plus its creator's membership directly, then adds
-   * `extraMemberIds` as regular members — mirrors caps.integration's
-   * seedCircle but takes explicit member ids so tests can name their
-   * coverer/covered fixtures. */
   async function seedCircle(creatorId: string, extraMemberIds: string[] = []): Promise<string> {
     await elevated();
     const inviteCode = `T${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
@@ -112,6 +116,15 @@ describeIfConfigured('cover a friend — RLS on completions', () => {
     );
     if (rows.length === 0) throw new Error('fixture requires at least one non-archived practice');
     practiceId = rows[0].id;
+
+    const { rows: dates } = await client.query(
+      `select (now() at time zone 'UTC')::date::text as today,
+              ((now() at time zone 'UTC')::date - 1)::text as yesterday,
+              ((now() at time zone 'UTC')::date - 2)::text as two_days_ago`
+    );
+    TODAY = dates[0].today;
+    YESTERDAY = dates[0].yesterday;
+    TWO_DAYS_AGO = dates[0].two_days_ago;
   });
 
   afterAll(async () => {
@@ -120,42 +133,60 @@ describeIfConfigured('cover a friend — RLS on completions', () => {
     await client.end();
   });
 
-  test('a member can cover another member who has not checked in today', async () => {
+  test('CV1: a member can cover another member for their missed day (yesterday)', async () => {
     const coverer = await createFakeUser();
     const covered = await createFakeUser();
     const circleId = await seedCircle(coverer, [covered]);
 
-    const result = await cover(coverer, covered, circleId, TODAY);
+    const result = await cover(coverer, covered, circleId, YESTERDAY);
     expect(result.ok).toBe(true);
 
     await elevated();
     const { rows } = await client.query(
-      "select kind, covered_by from public.completions where circle_id = $1 and user_id = $2 and local_date = $3",
-      [circleId, covered, TODAY]
+      'select kind, covered_by from public.completions where circle_id = $1 and user_id = $2 and local_date = $3',
+      [circleId, covered, YESTERDAY]
     );
     expect(rows).toHaveLength(1);
     expect(rows[0].kind).toBe('covered');
     expect(rows[0].covered_by).toBe(coverer);
   });
 
-  test('one cover per member per day — a second cover for the same person/day is rejected', async () => {
+  test('CV1: same-day covering (today) is rejected — same-day covering is retired', async () => {
+    const coverer = await createFakeUser();
+    const covered = await createFakeUser();
+    const circleId = await seedCircle(coverer, [covered]);
+
+    const result = await cover(coverer, covered, circleId, TODAY);
+    expect(result.ok).toBe(false);
+  });
+
+  test('CV1: covering a day older than yesterday is rejected', async () => {
+    const coverer = await createFakeUser();
+    const covered = await createFakeUser();
+    const circleId = await seedCircle(coverer, [covered]);
+
+    const result = await cover(coverer, covered, circleId, TWO_DAYS_AGO);
+    expect(result.ok).toBe(false);
+  });
+
+  test('one cover per member per missed day — a second cover for the same person/day is rejected', async () => {
     const coverer = await createFakeUser();
     const secondCoverer = await createFakeUser();
     const covered = await createFakeUser();
     const circleId = await seedCircle(coverer, [secondCoverer, covered]);
 
-    expect((await cover(coverer, covered, circleId, TODAY)).ok).toBe(true);
-    const second = await cover(secondCoverer, covered, circleId, TODAY);
+    expect((await cover(coverer, covered, circleId, YESTERDAY)).ok).toBe(true);
+    const second = await cover(secondCoverer, covered, circleId, YESTERDAY);
     expect(second.ok).toBe(false);
   });
 
-  test('cannot cover someone who has already checked in today themselves', async () => {
+  test('cannot cover someone who already has that missed day done themselves', async () => {
     const coverer = await createFakeUser();
     const covered = await createFakeUser();
     const circleId = await seedCircle(coverer, [covered]);
 
-    await selfCheckin(covered, circleId, TODAY);
-    const result = await cover(coverer, covered, circleId, TODAY);
+    await selfCheckin(covered, circleId, YESTERDAY);
+    const result = await cover(coverer, covered, circleId, YESTERDAY);
     expect(result.ok).toBe(false);
   });
 
@@ -163,7 +194,7 @@ describeIfConfigured('cover a friend — RLS on completions', () => {
     const user = await createFakeUser();
     const circleId = await seedCircle(user);
 
-    const result = await cover(user, user, circleId, TODAY);
+    const result = await cover(user, user, circleId, YESTERDAY);
     expect(result.ok).toBe(false);
   });
 
@@ -173,7 +204,7 @@ describeIfConfigured('cover a friend — RLS on completions', () => {
     const outsider = await createFakeUser();
     const circleId = await seedCircle(owner, [covered]);
 
-    const result = await cover(outsider, covered, circleId, TODAY);
+    const result = await cover(outsider, covered, circleId, YESTERDAY);
     expect(result.ok).toBe(false);
   });
 
@@ -182,11 +213,11 @@ describeIfConfigured('cover a friend — RLS on completions', () => {
     const nonMember = await createFakeUser();
     const circleId = await seedCircle(coverer);
 
-    const result = await cover(coverer, nonMember, circleId, TODAY);
+    const result = await cover(coverer, nonMember, circleId, YESTERDAY);
     expect(result.ok).toBe(false);
   });
 
-  test('a wave posts no completion — the covered member stays uncovered and uncheckedin', async () => {
+  test('a wave posts no completion — the covered member stays uncovered', async () => {
     const waver = await createFakeUser();
     const target = await createFakeUser();
     const circleId = await seedCircle(waver, [target]);
@@ -199,25 +230,25 @@ describeIfConfigured('cover a friend — RLS on completions', () => {
 
     await elevated();
     const { rows } = await client.query(
-      'select * from public.completions where circle_id = $1 and user_id = $2 and local_date = $3',
-      [circleId, target, TODAY]
+      'select * from public.completions where circle_id = $1 and user_id = $2',
+      [circleId, target]
     );
     expect(rows).toHaveLength(0);
   });
 
-  test('circle glow sees the covered day, but the covered member\'s personal (kind=self) history does not', async () => {
+  test("circle glow sees the covered day, but the covered member's personal (kind=self) history does not", async () => {
     const coverer = await createFakeUser();
     const covered = await createFakeUser();
     const circleId = await seedCircle(coverer, [covered]);
 
-    expect((await cover(coverer, covered, circleId, TODAY)).ok).toBe(true);
+    expect((await cover(coverer, covered, circleId, YESTERDAY)).ok).toBe(true);
 
     // Mirrors getCirclePresence's unfiltered select — feeds computeSignal,
-    // so the circle's glow counts the covered day.
+    // so the circle's glow counts the covered (rescued) day.
     await actAs(covered);
     const { rows: circlePresence } = await client.query(
       'select user_id, kind from public.completions where circle_id = $1 and local_date = $2',
-      [circleId, TODAY]
+      [circleId, YESTERDAY]
     );
     expect(circlePresence.some((r) => r.user_id === covered && r.kind === 'covered')).toBe(true);
 

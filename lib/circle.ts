@@ -467,9 +467,12 @@ export async function getMyCompletions(
 
 /** Covers another member's day for a circle — a gift, never a debt (see
  * CLAUDE.md). All the rules (can't cover yourself, must be a member,
- * covered person must be a member, covered person hasn't already
- * completed today) are enforced by RLS itself, not here — this is a
- * plain insert that either succeeds or throws the policy's rejection. */
+ * covered person must be a member, covered person hasn't already been
+ * covered/checked in for that day) are enforced by RLS itself, not here.
+ * CV1 (23 July): `localDate` is the covered member's MISSED day (their
+ * local yesterday) — the RLS policy rejects any other date (same-day
+ * covering is retired). Callers get the date from getCoverableMembers so
+ * they never do the member's timezone math themselves. */
 export async function coverMember(
   circleId: string,
   coveredUserId: string,
@@ -484,6 +487,21 @@ export async function coverMember(
     covered_by: covererId,
   });
   if (error) throw error;
+}
+
+/** CV1 (23 July) — who in this circle can be covered for their missed day
+ * RIGHT NOW: a member whose personal glow is at embers and who has no
+ * completion in this circle for their own local yesterday (away members
+ * excluded — their glow is held by their pause). Returns a map of
+ * memberId → the missed local_date (their yesterday), which the caller
+ * passes straight to coverMember so the covered row lands on the rescued
+ * day. The server owns the ember + timezone logic (get_coverable_members),
+ * so there is one definition, not a client re-derivation. */
+export async function getCoverableMembers(circleId: string): Promise<Map<string, string>> {
+  const { data, error } = await supabase.rpc('get_coverable_members', { p_circle_id: circleId });
+  if (error) throw error;
+  const rows = (data ?? []) as { user_id: string; missed_local_date: string }[];
+  return new Map(rows.map((r) => [r.user_id, r.missed_local_date]));
 }
 
 let presenceChannelSeq = 0;
