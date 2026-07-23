@@ -25,7 +25,7 @@ import {
  * browse unfiltered with the invite step emphasized. Both skippable — a
  * warm skip stores nothing and just moves on.
  */
-export default function DesiredChange() {
+export default function DesiredChangeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
