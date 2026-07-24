@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -22,14 +22,7 @@ import { useAuth } from '@/lib/auth-context';
 import { playDay21Flourish } from '@/lib/chime';
 import { getCircleById, MyCircle } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
-import {
-  completeCircle,
-  GATE_DAY,
-  getMyLastWrappedOfferDay,
-  markCelebrationSeen,
-  markWrappedOffered,
-  rallyOnCircle,
-} from '@/lib/journey';
+import { completeCircle, GATE_DAY, markCelebrationSeen, rallyOnCircle } from '@/lib/journey';
 import { MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
 import { getMyProfile } from '@/lib/profile';
 
@@ -58,27 +51,6 @@ export default function JourneyGate() {
   const [isRallying, setIsRallying] = useState(false);
   const [isConfirmingComplete, setIsConfirmingComplete] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
-  // SC3 — the mini-Wrapped's quiet offer, after the decision. Allowed
-  // only when this milestone's offer hasn't been shown before (the
-  // monotonic per-membership marker); shown once, marked at show time,
-  // so declining (just continuing) never re-offers.
-  const [wrappedOfferable, setWrappedOfferable] = useState(false);
-  const wrappedMarkedRef = useRef(false);
-
-  useEffect(() => {
-    if (!circleId || !session?.user) return;
-    getMyLastWrappedOfferDay(circleId, session.user.id)
-      .then((day) => setWrappedOfferable(day < GATE_DAY))
-      .catch(() => {});
-  }, [circleId, session?.user?.id]);
-
-  useEffect(() => {
-    if (decision === 'pending' || !wrappedOfferable || wrappedMarkedRef.current || !circleId) return;
-    wrappedMarkedRef.current = true;
-    markWrappedOffered(circleId, GATE_DAY).catch(() => {
-      // Low-stakes: worst case the offer shows once more next visit.
-    });
-  }, [decision, wrappedOfferable, circleId]);
 
   useEffect(() => {
     if (!circleId) return;
@@ -258,26 +230,6 @@ export default function JourneyGate() {
             </Animated.Text>
             <Animated.Text style={[styles.body, bodyStyle]}>{STRINGS.journeyCompletedBody}</Animated.Text>
             <Animated.View style={[styles.actionsWrap, actionsStyle]}>
-              {/* SC3 — the keepsake offer, a quiet addition after the
-                  decision; continuing past it IS declining, and the marker
-                  (bumped at show) means it never reappears. */}
-              {wrappedOfferable && (
-                <View style={styles.wrappedOfferCard}>
-                  <Text style={styles.wrappedOfferTitle}>{STRINGS.wrappedOfferTitle}</Text>
-                  <Text style={styles.wrappedOfferBody}>{STRINGS.wrappedOfferBody}</Text>
-                  <TouchableOpacity
-                    style={styles.wrappedOfferButton}
-                    onPress={() =>
-                      router.replace({
-                        pathname: '/wrapped',
-                        params: { circleId: circle.id, milestone: String(GATE_DAY) },
-                      })
-                    }
-                  >
-                    <Text style={styles.wrappedOfferButtonText}>{STRINGS.wrappedOfferCta}</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
               <TouchableOpacity style={styles.primaryButton} onPress={handleContinue}>
                 <Text style={styles.primaryButtonText}>{STRINGS.journeyCompletedCta}</Text>
               </TouchableOpacity>
@@ -290,23 +242,6 @@ export default function JourneyGate() {
               {STRINGS.journeyRalliedOnCard(circle.name)}
             </Animated.Text>
             <Animated.View style={[styles.actionsWrap, actionsStyle]}>
-              {wrappedOfferable && (
-                <View style={styles.wrappedOfferCard}>
-                  <Text style={styles.wrappedOfferTitle}>{STRINGS.wrappedOfferTitle}</Text>
-                  <Text style={styles.wrappedOfferBody}>{STRINGS.wrappedOfferBody}</Text>
-                  <TouchableOpacity
-                    style={styles.wrappedOfferButton}
-                    onPress={() =>
-                      router.replace({
-                        pathname: '/wrapped',
-                        params: { circleId: circle.id, milestone: String(GATE_DAY) },
-                      })
-                    }
-                  >
-                    <Text style={styles.wrappedOfferButtonText}>{STRINGS.wrappedOfferCta}</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
               <TouchableOpacity style={styles.primaryButton} onPress={handleContinue}>
                 <Text style={styles.primaryButtonText}>{STRINGS.journeyCompletedCta}</Text>
               </TouchableOpacity>
@@ -458,42 +393,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.muted,
     textDecorationLine: 'underline',
-  },
-  // SC3 — the quiet keepsake offer card, sized like the confirm card
-  // vocabulary; gold accents (journey color), never a gate on the
-  // decision buttons around it.
-  wrappedOfferCard: {
-    width: '100%',
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: colors.goldSoft,
-  },
-  wrappedOfferTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: colors.ink,
-    textAlign: 'center',
-  },
-  wrappedOfferBody: {
-    fontSize: 12,
-    color: colors.muted,
-    textAlign: 'center',
-    marginTop: 3,
-    marginBottom: 10,
-  },
-  wrappedOfferButton: {
-    backgroundColor: colors.goldSoft,
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  wrappedOfferButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.ink,
   },
   notNowButton: {
     marginTop: 14,

@@ -15,11 +15,18 @@ import { recordCardEvent } from '@/lib/shareCards';
 import { composeWrappedData, WrappedData } from '@/lib/wrapped';
 
 /**
+ * WR1 (23 July) — PULLED FROM THE CEREMONY per Cat: nobody shares a
+ * 21-day streak ("maybe 100 days"), and the offer cluttered the gate's
+ * one decision moment. journey-gate's offer cards are gone, so this
+ * screen is REACHABLE NOWHERE. Kept deliberately — screen, libs
+ * (composeWrappedData, ShareCardView, the capture/share path) and the
+ * `milestone` param (default 21) are the natural base for the deferred
+ * ~100-day milestone celebration (see DEFERRED). A direct /wrapped URL
+ * without params Redirects to /today below.
+ *
  * SC3 (18 July) — the day-21 mini-Wrapped (share-cards spec §4.5): the
- * ceremony's one shareable keepsake. Reached ONLY from the ceremony's
- * quiet offer (journey-gate, after the decision); the offer marker is
- * already bumped by the time this screen mounts, so leaving here never
- * re-triggers anything.
+ * ceremony's one shareable keepsake. Was reached ONLY from the ceremony's
+ * quiet offer (journey-gate, after the decision).
  *
  * The sensitive part is the line picker: a reflection line reaches the
  * card ONLY by the user's explicit tap in the picker below — never
