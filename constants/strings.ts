@@ -190,7 +190,9 @@ export const STRINGS = {
 
   emptyGroupTitle: 'Penguins huddle better together',
   emptyGroupBody: 'Invite a friend to start your rally.',
-  emptyGroupCta: 'Join the huddle',
+  // OD1 job 22b (Cat, 23 July): the gold card CTA IS the invite action on
+  // a solo circle — labelled as what it does, lowercase per LC1.
+  emptyGroupCta: 'invite someone',
 
   chatTabLabel: 'Rally',
   // TB1 — the icon-only floating bar's a11y labels (icons only on
@@ -806,7 +808,11 @@ export const STRINGS = {
   // conventions sweep) opens /privacy; "using {N} reflections ›" (plum,
   // the what-Rally-draws-from surface) opens the private map. Below
   // N < 3 the private link renders alone, no count.
-  askRallyPrivateLink: '🔒 private',
+  // OD1 job 21 (Cat, 23 July): ONE privacy mark, worn identically by all
+  // five private surfaces — journal, private map, ask Rally, reflection,
+  // checkin-intro. On ask Rally it stays a tap target opening /privacy.
+  // (visibilityPrivateTitle is the visibility TOGGLE — different meaning.)
+  privateBadge: '🔒 for your eyes only',
   askRallyReflectionsLink: (n: number) => `using ${n} reflections ›`,
   // Rally speaks the greeting — Cat's copy VERBATIM (21 July), two short
   // paragraphs, rendered as Rally's first message-style bubble with the

@@ -99,7 +99,7 @@ export default function Reflection() {
       <View style={styles.header}>
         <Text style={styles.title}>something we noticed</Text>
         <View style={styles.lock}>
-          <Text style={styles.lockText}>🔒 private</Text>
+          <Text style={styles.lockText}>{STRINGS.privateBadge}</Text>
         </View>
       </View>
 

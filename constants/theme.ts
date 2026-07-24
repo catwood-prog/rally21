@@ -53,8 +53,11 @@ export const colors = {
   // the tab bar's active state (Cat's TB2 ruling, 20 July; see CLAUDE.md's
   // color-roles convention). Scarce and specific: the heart gesture, its
   // 🧡 mark, and the nav active state — never a CTA or a progress color.
-  heart: '#C2410C',
-  heartSoft: 'rgba(194, 65, 12, 0.15)',
+  // #D97757 per Cat's OD1 job 23b ruling (23 July): the previous value
+  // read red on device; this is a true warm orange, the whole role moved
+  // together (hearts, icon wash, pill tint — heartSoft is its 0.15 rgba).
+  heart: '#D97757',
+  heartSoft: 'rgba(217, 119, 87, 0.15)',
   // Quiet-but-readable ink for small print that must still pass AA on
   // `bg` (muted at 0.5 lands ~4.2:1 at the blend, just under the 4.5:1
   // floor) — the Ask Rally safety line (PM1B) is the first user.

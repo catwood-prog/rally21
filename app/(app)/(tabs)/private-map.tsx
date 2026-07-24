@@ -258,6 +258,10 @@ function Blueprint() {
       <AppHeader style={styles.header} />
 
       <Text style={styles.title}>{STRINGS.blueprintTitle}</Text>
+      {/* OD1 job 21c — the one privacy mark, same family as the journal's. */}
+      <View style={styles.lock}>
+        <Text style={styles.lockText}>{STRINGS.privateBadge}</Text>
+      </View>
       <Text style={styles.subtitle}>{STRINGS.blueprintSubline}</Text>
 
       {/* ER1: a failed map load is a whole-moment failure (slip); save
@@ -495,6 +499,19 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: colors.ink,
     marginBottom: 4,
+  },
+  lock: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.greenSoft,
+    borderRadius: 99,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+  },
+  lockText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: colors.green,
   },
   subtitle: {
     fontSize: 12.5,

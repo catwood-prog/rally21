@@ -104,6 +104,16 @@ export default function TabsLayout() {
           height: FLOATING_TAB_BAR.HEIGHT,
           justifyContent: 'center',
         },
+        // OD1 job 23a (measured, not eyeballed): the library's icon
+        // container is a fixed ~28px box pinned near the top of the
+        // 56px slot (the item's own justifyContent never reaches it),
+        // so the 44px wash pill centred on it sat 8.5px high — icons
+        // read visibly off-centre in the pill. Stretching the icon
+        // container to the slot's full height makes the pill centre on
+        // the real geometry: measured 6px above / 6px below.
+        tabBarIconStyle: {
+          height: '100%',
+        },
       }}
     >
       <Tabs.Screen

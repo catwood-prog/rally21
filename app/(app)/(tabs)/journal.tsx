@@ -94,7 +94,7 @@ function Journal() {
 
       <Text style={styles.title}>your journal</Text>
       <View style={styles.lock}>
-        <Text style={styles.lockText}>🔒 Only you see these</Text>
+        <Text style={styles.lockText}>{STRINGS.privateBadge}</Text>
       </View>
 
       <TouchableOpacity onPress={() => router.push('/ask-rally')}>

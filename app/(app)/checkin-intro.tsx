@@ -62,7 +62,7 @@ export default function CheckinIntro() {
         </TouchableOpacity>
       </View>
       <View style={styles.lock}>
-        <Text style={styles.lockText}>🔒 private</Text>
+        <Text style={styles.lockText}>{STRINGS.privateBadge}</Text>
       </View>
 
       <Text style={styles.title}>

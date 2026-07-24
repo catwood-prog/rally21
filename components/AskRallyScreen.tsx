@@ -336,7 +336,7 @@ export function AskRallyScreen({
         <View style={styles.contextRow}>
           <View style={styles.contextLeft}>
             <TouchableOpacity onPress={() => router.push('/privacy')} hitSlop={8}>
-              <Text style={styles.privateLink}>{STRINGS.askRallyPrivateLink}</Text>
+              <Text style={styles.privateLink}>{STRINGS.privateBadge}</Text>
             </TouchableOpacity>
             {reflectionCount >= 3 && (
               <>

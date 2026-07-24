@@ -1167,7 +1167,10 @@ function YourCircle() {
         </>
       )}
 
-      {!circle.completedAt && (
+      {/* OD1 job 22a (Cat, 23 July): on a solo circle the empty-huddle
+          card's gold CTA is the ONE invite ask — this standalone button
+          only renders once the circle is populated. */}
+      {members.length > 1 && !circle.completedAt && (
         <TouchableOpacity
           style={styles.inviteButton}
           onPress={() =>
