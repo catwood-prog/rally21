@@ -169,8 +169,8 @@ export const STRINGS = {
 
   inviteShareMessage: (circleName: string | null, inviteCode: string) =>
     circleName
-      ? `Join ${circleName} on Rally21! Sign in at https://rally21.vercel.app and enter code ${inviteCode} to hop in.`
-      : `Join my Rally21 circle! Sign in at https://rally21.vercel.app and enter code ${inviteCode} to hop in.`,
+      ? `Join ${circleName} on Rally21! Sign in at https://rally21.com and enter code ${inviteCode} to hop in.`
+      : `Join my Rally21 circle! Sign in at https://rally21.com and enter code ${inviteCode} to hop in.`,
 
   // IN1 (15 July) — "Share invite" opens a channel chooser instead of
   // silently copying. The message a channel carries is always
@@ -655,7 +655,7 @@ export const STRINGS = {
   // (the circle screen carries the same choice as a card).
   journeyGateNotNow: 'not now — back to Today',
   journeyGateCardTitle: (circleName: string) => `${circleName} hit 21 days`,
-  journeyGateCardBody: 'rally on, or your host can complete it — whenever feels right.',
+  journeyGateCardBody: 'rally on, or your host can complete it, whenever feels right.',
   // Shared by journey-gate.tsx and celebration.tsx — both resolve a circle
   // by id from route params and show this if it's missing/inaccessible.
   circleNotFound: "couldn't find that circle",
