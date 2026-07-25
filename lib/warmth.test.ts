@@ -1,13 +1,11 @@
 import {
   buildEchoLine,
-  buildWhisperLines,
   FreshWarmth,
   getFreshWarmth,
   getWallTeaser,
   isWallTeaserFresh,
   markWallSeen,
   markWarmthSeen,
-  WHISPER_MAX_LINES,
 } from './warmth';
 import { supabase } from './supabase';
 
@@ -28,25 +26,10 @@ function chainableQuery(result: unknown) {
 // on users.warmth_seen_at, so stale warmth never crosses the API). The
 // client contract these tests pin: rows returned = fresh (surface
 // renders), empty = stale-or-none (surface absent entirely, null out).
-describe('whisper gate (buildWhisperLines)', () => {
-  it('none/stale: empty rows → null, the surface is absent entirely', () => {
-    expect(buildWhisperLines([])).toBeNull();
-  });
-
-  it('fresh: one line per row, no overflow marker', () => {
-    const rows = [warmthRow(), warmthRow({ kind: 'wave', senderName: 'Alex' })];
-    expect(buildWhisperLines(rows)).toEqual({ lines: rows, overflowCount: 0 });
-  });
-
-  it('stacks compactly: beyond the cap folds into one overflow count', () => {
-    const rows = Array.from({ length: WHISPER_MAX_LINES + 3 }, (_, i) =>
-      warmthRow({ senderName: `friend-${i}`, createdAt: `2026-07-2${i}T10:00:00Z` })
-    );
-    const decision = buildWhisperLines(rows);
-    expect(decision?.lines).toHaveLength(WHISPER_MAX_LINES);
-    expect(decision?.overflowCount).toBe(3);
-  });
-});
+// TN1 (24 July) — the whisper gate's cases moved WITH the whisper into
+// notificationSpot.test.ts ("the cap and its quiet overflow line"), which
+// now owns Today's one warm surface. Nothing was dropped; the check-in
+// echo below still shares this module's seen-marker.
 
 describe('echo gate (buildEchoLine)', () => {
   it('none/stale: empty rows → null, no echo renders', () => {

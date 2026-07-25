@@ -420,6 +420,18 @@ export function attachRestingStatus(
 
 export type PresenceKind = 'self' | 'covered';
 
+/** One completions row as the screens read it. Structurally a superset of
+ * signal.ts's PresenceRow (whose kind/coveredBy are optional because
+ * computeSignal ignores them), so it passes straight into the glow math. */
+export type CirclePresenceRow = {
+  userId: string;
+  localDate: string;
+  kind: PresenceKind;
+  coveredBy: string | null;
+  /** The row's own insert time, NOT the day it covers — see below. */
+  createdAt: string;
+};
+
 /** Every (user_id, local_date) a circle has completed — used both for
  * "who's in today" and the trailing-7-day glow math. Reads directly from
  * completions, which is content-free by design (no mood/line/answer), so
@@ -430,13 +442,16 @@ export type PresenceKind = 'self' | 'covered';
  * the circle's glow the same as a self check-in (see CLAUDE.md's
  * cover-a-friend rule). `kind`/`coveredBy` let the UI render a distinct
  * "covered 🧡" state instead of a plain checkmark; computeSignal itself
- * ignores them entirely, since the glow math only cares who showed up. */
-export async function getCirclePresence(
-  circleId: string
-): Promise<{ userId: string; localDate: string; kind: PresenceKind; coveredBy: string | null }[]> {
+ * ignores them entirely, since the glow math only cares who showed up.
+ *
+ * TN1 (24 July) rides `createdAt` along — the row's own insert time, as
+ * opposed to the local_date it covers. Today's notification spot needs
+ * it to tell a cover that arrived since the reader's warmth marker from
+ * one they have already been shown. Every other caller ignores it. */
+export async function getCirclePresence(circleId: string): Promise<CirclePresenceRow[]> {
   const { data, error } = await supabase
     .from('completions')
-    .select('user_id, local_date, kind, covered_by')
+    .select('user_id, local_date, kind, covered_by, created_at')
     .eq('circle_id', circleId);
 
   if (error) throw error;
@@ -445,6 +460,7 @@ export async function getCirclePresence(
     localDate: row.local_date,
     kind: row.kind as PresenceKind,
     coveredBy: row.covered_by,
+    createdAt: row.created_at,
   }));
 }
 

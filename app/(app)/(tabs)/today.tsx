@@ -1,6 +1,6 @@
 import { withErrorBoundary } from '@/components/ErrorBoundary';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -20,6 +20,7 @@ import { PhotoAskCard } from '@/components/PhotoAskCard';
 import { RemindersAskCard } from '@/components/RemindersAskCard';
 import { SignalMeter } from '@/components/SignalMeter';
 import { TodayFooter } from '@/components/TodayFooter';
+import { TodayNotificationSpot } from '@/components/TodayNotificationSpot';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { isVerbPhrasePractice, STRINGS } from '@/constants/strings';
 import { cardShadow, chipTextShape, colors } from '@/constants/theme';
@@ -31,6 +32,7 @@ import { unlockAudioContext } from '@/lib/chime';
 import {
   attachRestingStatus,
   CircleMember,
+  CirclePresenceRow,
   getCircleMembers,
   getCirclePresence,
   isSoloCircle,
@@ -43,13 +45,13 @@ import { daysBetween, getLocalDateString, shiftDate } from '@/lib/date';
 import { getGlowForCircleMates, getMyGlow, getMyWeek, Glow, WeekDay } from '@/lib/glow';
 import { getMyLastCelebratedDay, getNextMilestone, shouldShowJourneyGate } from '@/lib/journey';
 import { updateNotificationPrefs } from '@/lib/notifications';
-import { getMyProfile, markPhotoAskSeen, markRemindersAskSeen } from '@/lib/profile';
+import { buildNotificationSpot, CoverMoment } from '@/lib/notificationSpot';
+import { getMyProfile, markPhotoAskSeen, markReentryAcknowledged, markRemindersAskSeen } from '@/lib/profile';
 import { isDesiredChange, isObstacle, OBSTACLE_KEYS, setKeepGoingObstacle } from '@/lib/onboardingIntake';
 import { hasUnrespondedDayObservation } from '@/lib/reflections';
-import { computeSignal, PresenceRow } from '@/lib/signal';
+import { computeSignal } from '@/lib/signal';
 import { hasPlayedTodayOneShot, markTodayOneShotPlayed } from '@/lib/todayOneShot';
 import {
-  buildWhisperLines,
   FreshWarmth,
   getFreshWarmth,
   getWallTeaser,
@@ -76,7 +78,10 @@ function truncate(text: string, max: number): string {
 
 type CircleData = {
   members: CircleMember[];
-  presence: PresenceRow[];
+  // TN1 — the fuller row shape (it carries created_at), since the
+  // notification spot's cover moment needs the row's insert time, not
+  // just the day it covers. computeSignal still takes it as a PresenceRow.
+  presence: CirclePresenceRow[];
   lastCelebratedDay: number;
   // GS1 — circle-mates at 7+ days glowing (server-floored), by user id.
   mateGlows: Map<string, number>;
@@ -119,7 +124,6 @@ function Today() {
   const [desiredChange, setDesiredChange] = useState<string | null>(null);
   const [obstacleDismissed, setObstacleDismissed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [circleCap, setCircleCap] = useState(MAX_CIRCLES);
   const [reflectionQuestion, setReflectionQuestion] = useState<DailyQuestion | null>(null);
@@ -135,9 +139,16 @@ function Today() {
   // of Today the same day never replays it.
   const [glowOneShot, setGlowOneShot] = useState(false);
   // WL2 — warmth that arrived since last seen (server-gated); stays in
-  // state for this visit's whisper even after the seen-marker advances,
-  // so the lines don't vanish mid-read. The next focus refetches empty.
+  // state for this visit's spot even after the seen-marker advances, so
+  // the lines don't vanish mid-read. The next focus refetches empty.
   const [warmth, setWarmth] = useState<FreshWarmth[]>([]);
+  // TN1 — covers of the reader's own missed day that are fresh against
+  // the SAME users.warmth_seen_at marker, and the re-entry moment the
+  // spot's welcome-back mode reads. `reentry` holds the gap's last
+  // completion date because acknowledging it (once, on render) is what
+  // stops the moment repeating — there is no interstitial to tap now.
+  const [covers, setCovers] = useState<CoverMoment[]>([]);
+  const [reentry, setReentry] = useState<{ lastCompletionDate: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -177,6 +188,11 @@ function Today() {
       setWeek(myWeek);
       setHasSurfacedPattern(hasNotice);
       setWarmth(freshWarmth);
+      // TN1 — cleared up front so neither survives a refetch that ends
+      // early (no circles) or in the catch below; both are set for real
+      // once the per-circle entries land.
+      setCovers([]);
+      setReentry(null);
 
       if (myCircles.length === 0) {
         setCircleData({});
@@ -208,35 +224,61 @@ function Today() {
         entries.some(([, data]) => data.presence.some((p) => p.userId === session.user.id))
       );
 
+      // TN1 — the everyday cover moment. CV1 lands a cover on the covered
+      // member's local YESTERDAY, so that is the only day the spot ever
+      // reads; freshness comes from the same users.warmth_seen_at marker
+      // waves and hearts are gated by (server-side, inside
+      // get_my_fresh_warmth), so the spot has ONE freshness rule and no
+      // second column. No marker readable = no cover line, rather than a
+      // line that could repeat forever.
+      const warmthSeenAt = profile?.warmth_seen_at ?? null;
+      const yesterday = shiftDate(today, -1);
+      setCovers(
+        warmthSeenAt
+          ? entries.flatMap(([, data]) =>
+              data.presence
+                .filter(
+                  (p) =>
+                    p.userId === session.user.id &&
+                    p.kind === 'covered' &&
+                    p.localDate === yesterday &&
+                    new Date(p.createdAt).getTime() > new Date(warmthSeenAt).getTime()
+                )
+                .map((p) => ({
+                  covererName: memberFullName(data.members, p.coveredBy),
+                  at: p.createdAt,
+                }))
+            )
+          : []
+      );
+
       // "welcome back" shows once per gap of 2+ missed days, based on the
       // user's most recent completion across every circle — never on a
       // fresh start with no completions yet, and never twice for the same
-      // gap once it's been acknowledged.
+      // gap once it's been acknowledged. TN1 (24 July): the DETECTION is
+      // unchanged; only its destination moved. A returner now stays on
+      // Today, one tap from checking in, and the moment renders as the
+      // notification spot's welcome-back mode instead of an interstitial.
       const allMyDates = entries
         .flatMap(([, data]) => data.presence)
         .filter((p) => p.userId === session.user.id)
         .map((p) => p.localDate)
         .sort();
       const lastCompletionDate = allMyDates[allMyDates.length - 1];
-      if (
+      setReentry(
         lastCompletionDate &&
-        daysBetween(lastCompletionDate, today) >= 3 &&
-        profile?.last_reentry_ack_date !== lastCompletionDate
-      ) {
-        setIsRedirecting(true);
-        router.replace({
-          pathname: '/welcome-back',
-          params: { lastCompletionDate },
-        });
-        return;
-      }
+          daysBetween(lastCompletionDate, today) >= 3 &&
+          profile?.last_reentry_ack_date !== lastCompletionDate
+          ? { lastCompletionDate }
+          : null
+      );
     } catch {
       // ER1: the warm line, never the raw message (warmth law).
       setError(STRINGS.loadFailedLine('your circles'));
     } finally {
       setIsLoading(false);
     }
-  }, [session?.user?.id, router]);
+  }, [session?.user?.id]);
 
   // refetch every time Today comes back into focus (e.g. returning from check-in)
   useFocusEffect(
@@ -259,23 +301,54 @@ function Today() {
     setGlowOneShot(true);
   }, [week]);
 
-  // WL2 — the whisper fades once seen: the FIRST actual render of fresh
-  // warmth consumes it (marker moves to the newest SHOWN row's own
-  // timestamp, so later arrivals stay fresh). Gated on the loading and
-  // redirect flags so warmth is never consumed by a Today pass the user
-  // never saw (e.g. the welcome-back redirect). The rows stay in state
-  // for this visit; the next focus refetches empty and the whisper is
-  // gone — never a badge, never an accumulating count.
+  // TN1 — Today's ONE notification surface. The whole render decision is
+  // lib/notificationSpot.ts; this only feeds it. Null = nothing to say =
+  // the spot is absent and Today is exactly its live layout (frame B).
+  const spot = useMemo(
+    () =>
+      buildNotificationSpot({
+        isReentry: !!reentry,
+        warmth,
+        covers,
+        // A failed glow read means the truth is unknown, so the
+        // re-entry sentence is omitted rather than guessed (OD1 job 14).
+        glowHeld: glow ? glow.state === 'glowing' : null,
+        circleCount: circles.length,
+      }),
+    [reentry, warmth, covers, glow, circles.length]
+  );
+
+  // WL2/TN1 — the spot fades once seen: the FIRST actual render of fresh
+  // warmth consumes it (marker moves to the newest SHOWN moment's own
+  // timestamp, so later arrivals stay fresh). Gated on the loading flag
+  // so warmth is never consumed by a Today pass the user never saw. The
+  // moments stay in state for this visit; the next focus refetches empty
+  // and the spot is gone — never a badge, never an accumulating count.
+  // `newestAt` spans covers as well as warmth, so a cover can't outlive
+  // a marker that a newer wave already advanced past.
   const markedWarmthRef = useRef<string | null>(null);
   useEffect(() => {
-    if (isLoading || isRedirecting || warmth.length === 0 || !session?.user) return;
-    const newest = warmth[0].createdAt;
+    const newest = spot?.newestAt;
+    if (isLoading || !newest || !session?.user) return;
     if (markedWarmthRef.current === newest) return;
     markedWarmthRef.current = newest;
     markWarmthSeen(session.user.id, newest).catch(() => {
-      // low-stakes: worst case the same warmth whispers once more
+      // low-stakes: worst case the same warmth shows once more
     });
-  }, [isLoading, isRedirecting, warmth, session?.user?.id]);
+  }, [isLoading, spot, session?.user?.id]);
+
+  // TN1 — the re-entry moment is acknowledged on RENDER, since there is
+  // no interstitial left to tap. Same idempotence as before (the gap's
+  // own last-completion date), so a returner meets it exactly once.
+  const ackedReentryRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (isLoading || !reentry || !session?.user) return;
+    if (ackedReentryRef.current === reentry.lastCompletionDate) return;
+    ackedReentryRef.current = reentry.lastCompletionDate;
+    markReentryAcknowledged(session.user.id, reentry.lastCompletionDate).catch(() => {
+      // best-effort — worst case the moment shows once more than intended
+    });
+  }, [isLoading, reentry, session?.user?.id]);
 
   // live updates whenever anyone in any of these circles checks in
   const circleIds = circles.map((c) => c.id).join(',');
@@ -306,7 +379,7 @@ function Today() {
   // full-screen moment — both are idempotent via last_celebrated_day, so
   // once seen neither fires again for that circle across refetches.
   useEffect(() => {
-    if (isLoading || isRedirecting || !circles.length) return;
+    if (isLoading || !circles.length) return;
     const today = getLocalDateString();
     for (const c of circles) {
       const data = circleData[c.id];
@@ -332,9 +405,9 @@ function Today() {
         }
       }
     }
-  }, [circles, circleData, isLoading, isRedirecting, router]);
+  }, [circles, circleData, isLoading, router]);
 
-  if (isLoading || isRedirecting) {
+  if (isLoading) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.green} />
@@ -452,23 +525,10 @@ function Today() {
   const isMyBirthday = myBirthday.celebrate && isBirthdayToday(myBirthday.month, myBirthday.day, today);
   const birthdayBanner = isMyBirthday ? <BirthdayBanner name={myName} /> : null;
 
-  // WL2 — the "for you" whisper: quiet lines under the header, only
-  // when warmth arrived since last seen; absent entirely otherwise.
-  const whisperDecision = buildWhisperLines(warmth);
-  const warmthWhisper = whisperDecision ? (
-    <View style={styles.whisperWrap}>
-      {whisperDecision.lines.map((w) => (
-        <Text key={`${w.createdAt}-${w.senderName}-${w.kind}`} style={styles.whisperLine}>
-          {w.kind === 'heart'
-            ? STRINGS.warmthWhisperHeart(w.senderName)
-            : STRINGS.warmthWhisperWave(w.senderName)}
-        </Text>
-      ))}
-      {whisperDecision.overflowCount > 0 && (
-        <Text style={styles.whisperLine}>{STRINGS.warmthWhisperOverflow}</Text>
-      )}
-    </View>
-  ) : null;
+  // TN1 — the notification spot, rendered in the slot WL2's whisper
+  // held (above every ask, below the header) so it reads as the first
+  // thing Today has to say. Renders nothing at all when `spot` is null.
+  const notificationSpot = <TodayNotificationSpot content={spot} />;
 
   // RM1 — the one-time dismissible reminders-ask card for existing users
   // (new sign-ups get the onboarding step instead, never both). Either
@@ -522,7 +582,7 @@ function Today() {
         <Text style={styles.greeting}>{greeting(myName)}</Text>
         <GlowBadge glow={glow} flickerOnce={glowOneShot} />
         {birthdayBanner}
-        {warmthWhisper}
+        {notificationSpot}
         {remindersAskCard}
         {photoAskCard}
         {/* ER1: only a real failure gets the slip — the no-circle case
@@ -584,7 +644,7 @@ function Today() {
             flickerOnce={glowOneShot}
           />
           {birthdayBanner}
-          {warmthWhisper}
+          {notificationSpot}
           {remindersAskCard}
           {photoAskCard}
           <TouchableOpacity
@@ -607,7 +667,7 @@ function Today() {
         <Text style={styles.greeting}>{greeting(myName)}</Text>
         <GlowBadge glow={glow} coveredByName={iWasCoveredToday ? memberFullName(members, iWasCoveredToday.coveredBy) : null} />
         {birthdayBanner}
-        {warmthWhisper}
+        {notificationSpot}
         {remindersAskCard}
         {photoAskCard}
         {onboardingIntakeBlock(circle)}
@@ -721,13 +781,14 @@ function Today() {
           </TouchableOpacity>
         )}
 
-        {iWasCoveredToday ? (
-          <View style={styles.coveredNoteCard}>
-            <Text style={styles.coveredNoteText}>
-              {STRINGS.coveredNoteToCoveredMember(memberFullName(members, iWasCoveredToday.coveredBy))}
-            </Text>
-          </View>
-        ) : !iAmCheckedInToday && circle.durationMinutes && !circle.resourceUrl ? (
+        {/* TN1 — the "{name} covered you for yesterday" card moved INTO
+            the notification spot (mockup frame C shows the cover line in
+            the spot with the check-in button below it, unblocked). It
+            used to sit here, in the CTA's own slot, which since CV1
+            moved the cover to the covered member's local YESTERDAY meant
+            a covered member arrived on Today the next day with no way to
+            check in at all. The gift never takes the day away. */}
+        {!iAmCheckedInToday && circle.durationMinutes && !circle.resourceUrl ? (
           <View style={styles.timerChoiceRow}>
             <TouchableOpacity
               style={styles.markDoneButton}
@@ -808,7 +869,7 @@ function Today() {
       <Text style={styles.greeting}>{greeting(myName)}</Text>
       <GlowBadge glow={glow} coveredByName={coveredTodayName} flickerOnce={glowOneShot} />
       {birthdayBanner}
-      {warmthWhisper}
+      {notificationSpot}
       {remindersAskCard}
       {photoAskCard}
 
@@ -826,9 +887,10 @@ function Today() {
           presence.filter((p) => p.localDate === today).map((p) => p.userId)
         );
         const iAmCheckedInToday = !!session?.user && inTodayUserIds.has(session.user.id);
-        const iWasCoveredToday = presence.find(
-          (p) => p.localDate === coveredDay && p.userId === session?.user?.id && p.kind === 'covered'
-        );
+        // TN1 — this branch's own iWasCoveredToday went with the cover
+        // note; the stack's GlowBadge reads coveredTodayName (computed
+        // once above, across every circle) and the cover MOMENT reads in
+        // the notification spot.
         const inCount = inTodayUserIds.size;
         // RS1/RS2 — see the single-circle branch above for the full note.
         const activeMemberCount = attachRestingStatus(members, presence, today).filter(
@@ -937,13 +999,10 @@ function Today() {
               </TouchableOpacity>
             )}
 
-            {iWasCoveredToday ? (
-              <View style={styles.coveredNoteCard}>
-                <Text style={styles.coveredNoteText}>
-                  {STRINGS.coveredNoteToCoveredMember(memberFullName(members, iWasCoveredToday.coveredBy))}
-                </Text>
-              </View>
-            ) : !iAmCheckedInToday && circle.durationMinutes && !circle.resourceUrl ? (
+            {/* TN1 — same as the single-circle branch: the cover note
+                moved into the notification spot and no longer occupies
+                (and blocks) this circle's check-in slot. */}
+            {!iAmCheckedInToday && circle.durationMinutes && !circle.resourceUrl ? (
               <View style={styles.timerChoiceRow}>
                 <TouchableOpacity
                   style={styles.markDoneButton}
@@ -1197,16 +1256,8 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: 1,
   },
-  // WL2 — the "for you" whisper: quiet, small, warm; compact stack when
-  // several arrived. Never a badge shape, never a count.
-  whisperWrap: {
-    marginBottom: 10,
-    gap: 2,
-  },
-  whisperLine: {
-    fontSize: 12.5,
-    color: colors.ink,
-  },
+  // TN1 — the whisper's styles retired with it; the notification spot
+  // owns its own look (components/TodayNotificationSpot.tsx).
   // WL2 — the wall teaser: one muted line under the members, the same
   // quiet-navigation register as "This week" (ink/muted, never green).
   wallTeaserLine: {
@@ -1230,20 +1281,8 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     padding: 8,
   },
-  coveredNoteCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: colors.gold,
-    padding: 14,
-    ...cardShadow,
-  },
-  coveredNoteText: {
-    fontSize: 12.5,
-    color: colors.ink,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
+  // TN1 — coveredNoteCard/coveredNoteText retired with the note itself;
+  // the cover moment now reads in the notification spot.
   ctaText: {
     fontWeight: '700',
     fontSize: 14,

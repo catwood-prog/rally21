@@ -3,6 +3,8 @@
 // DEFERRED's circle-wall bullet):
 // - the Today whisper: a quiet line under the header, only when warmth
 //   arrived since last seen; fades once seen, never a badge or count.
+//   RETIRED by TN1 (24 July) into Today's notification spot, which keeps
+//   every one of those laws — see lib/notificationSpot.ts.
 // - the check-in echo: one warm line on the completion screen when
 //   fresh warmth exists there; same seen-marker, so whichever surface
 //   renders first consumes it and warmth never re-renders stale.
@@ -87,23 +89,12 @@ export async function markWallSeen(circleId: string): Promise<void> {
   if (error) throw error;
 }
 
-/** How many whisper lines render individually before the rest fold into
- * one warm overflow line — compact stacking, never a scroll of chrome. */
-export const WHISPER_MAX_LINES = 4;
-
-/** The whisper's render decision: one line per warmth row (newest
- * first, as served), individually up to WHISPER_MAX_LINES; anything
- * beyond folds into a single overflow marker. Empty in = null out — the
- * surface is absent entirely, never an empty frame. */
-export function buildWhisperLines(
-  rows: FreshWarmth[]
-): { lines: FreshWarmth[]; overflowCount: number } | null {
-  if (rows.length === 0) return null;
-  return {
-    lines: rows.slice(0, WHISPER_MAX_LINES),
-    overflowCount: Math.max(0, rows.length - WHISPER_MAX_LINES),
-  };
-}
+// TN1 (24 July) — buildWhisperLines/WHISPER_MAX_LINES are RETIRED: the
+// Today whisper folded into the notification spot, which is now Today's
+// ONE warm surface (lib/notificationSpot.ts owns that render decision,
+// and inherited the whisper's cap/overflow test cases). The check-in
+// echo below is unchanged and still shares the same seen-marker, so
+// whichever surface renders first still consumes the warmth.
 
 /** The echo's render decision: exactly one line, the newest fresh
  * warmth; none = null = the surface is absent. */

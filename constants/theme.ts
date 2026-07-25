@@ -38,6 +38,11 @@ export const colors = {
   // Soft green fill for confirmed/positive surfaces (badges, "sounds
   // right" states, unlocked hints) — promoted from repeated literals.
   greenSoft: '#EAF3EA',
+  // CONFETTI_GREENS' deep shade, promoted to the palette by TN1 (24
+  // July) for small print that has to stay readable ON greenSoft:
+  // colors.green over greenSoft lands ~2.4:1, well under AA, so the
+  // notification spot's kicker uses the deeper green instead.
+  greenDeep: '#3E7C3E',
   // Gold at low opacity — "mine"/active chip fills, gold-tinted banners
   // and pills. Promoted from a repeated literal.
   goldSoft: 'rgba(244, 200, 75, 0.15)',

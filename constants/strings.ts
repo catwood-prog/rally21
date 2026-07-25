@@ -433,12 +433,23 @@ export const STRINGS = {
   photoAskDismiss: 'keep the penguin',
   ownPenguinTapA11yLabel: 'add your photo',
 
-  // WL2 — the warmth arrives (Cat's 21 July rulings). The whisper is a
-  // quiet line under Today's header, only when warmth arrived since
-  // last seen — never a badge, never a count that accumulates guilt.
-  warmthWhisperHeart: (senderName: string) => `🧡 a heart from ${senderName}`,
-  warmthWhisperWave: (senderName: string) => `👋 a wave from ${senderName}`,
-  warmthWhisperOverflow: '…and more warmth waiting',
+  // TN1 (24 July, Cat's ruling — mockup APPROVED) — Today's ONE
+  // notification surface. WL2's whisper lines are RETIRED into it: the
+  // same recipient-private warmth now reads inside the spot, alongside
+  // the welcome-back moment and the everyday cover. Never a badge,
+  // never a count that accumulates guilt — warmth or absence.
+  todaySpotKickerWelcomeBack: 'welcome back',
+  todaySpotKickerEveryday: 'from your circle',
+  // Carries welcome-back's shipped title (welcomeBackTitleLead +
+  // Accent) as one plain line — the spot has no serif hero.
+  todaySpotWelcomeHeadline: 'your place is still here',
+  // Waves group into ONE line ("Russ and Catherine sent you a wave"):
+  // after days away the point is "your people missed you", not a
+  // roll-call. Hearts and covers stay their own moment.
+  todaySpotWaveLine: (names: string) => `${names} sent you a wave 👋`,
+  todaySpotHeartLine: (senderName: string) => `${senderName} sent you a heart 🧡`,
+  todaySpotCoverLine: (covererName: string) => `${covererName} covered you yesterday`,
+  todaySpotOverflow: (count: number) => `and ${count} more from your circle`,
   // The check-in echo — one warm line in the completion screen's quiet
   // zone (below the CTA, above the push ask), once, never stale.
   warmthEchoHeart: (senderName: string) => `while you were away — a heart from ${senderName} 🧡`,
@@ -450,8 +461,11 @@ export const STRINGS = {
   wallTeaserPost: (senderName: string, snippet: string) => `${senderName}: ${snippet} →`,
   wallTeaserCelebration: (snippet: string) => `${snippet} →`,
 
-  coveredNoteToCoveredMember: (covererName: string) =>
-    `${covererName} covered you for yesterday. No pressure, we've got you.`,
+  // coveredNoteToCoveredMember retired with TN1 (24 July): Today's
+  // next-day cover note folded into the notification spot, whose
+  // approved wording is todaySpotCoverLine. Its "No pressure, we've got
+  // you" reassurance lives on verbatim in circleCoveredYouCardBody
+  // below, which the circle screen still renders.
   // wallCoveredEntry retired with WL1: the wall no longer renders
   // check-in rows, covered or plain — the cover screen and next-day note
   // carry the gift's copy now.

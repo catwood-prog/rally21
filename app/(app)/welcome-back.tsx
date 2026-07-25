@@ -1,4 +1,4 @@
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +27,28 @@ import { getWallMessages, WallMessage } from '@/lib/wall';
 
 type CircleData = { members: CircleMember[]; presence: PresenceRow[]; awayMessages: WallMessage[] };
 
+/**
+ * TN1 (24 July, Cat's ruling — mockup APPROVED) — DORMANT. A returning
+ * person now lands on TODAY, one tap from checking in: this screen's
+ * content compressed into Today's notification spot (welcome-back mode
+ * — see components/TodayNotificationSpot.tsx + lib/notificationSpot.ts),
+ * and today.tsx's redirect here is gone. This screen is REACHABLE
+ * NOWHERE; a direct /welcome-back URL Redirects to /today below.
+ *
+ * Kept deliberately, not deleted (the WR1 wrapped.tsx pattern): the
+ * re-entry moment's shape — per-circle signal meters and a "while you
+ * were away" wall digest — is the natural base for a richer re-entry
+ * surface if Cat ever wants one back, and OD1 job 14's truth-telling
+ * subtitle branch (welcomeBackSubtitleHeld / …Reset, chosen off the
+ * person's OWN getMyGlow state, never off the away flag) is the law the
+ * spot inherited from here. Never resurrect "missed nothing".
+ *
+ * DORMANT is typed `boolean` rather than inferred `true` on purpose: the
+ * screen below stays live, type-checked code rather than becoming
+ * unreachable rubble the compiler stops caring about.
+ */
+const DORMANT: boolean = true;
+
 export default function WelcomeBack() {
   const router = useRouter();
   // NAV1 job 0 — the re-entry moment is AppHeader-exempt, never safe-area-exempt.
@@ -50,7 +72,8 @@ export default function WelcomeBack() {
   // EVERY circle (see Today), so "what did I miss" has to cover all of
   // them too — not just whichever one happened to be first in the list.
   const load = useCallback(async () => {
-    if (!session?.user) return;
+    // TN1 — dormant: never fetch for a screen nobody can reach.
+    if (DORMANT || !session?.user) return;
     try {
       const [myCircles, glow] = await Promise.all([listMyCircles(session.user.id), getMyGlow()]);
       setCircles(myCircles);
@@ -101,6 +124,10 @@ export default function WelcomeBack() {
     await acknowledge();
     router.replace('/today');
   };
+
+  // TN1 — dormant: any direct hit lands warmly on Today, which now
+  // carries the re-entry moment itself.
+  if (DORMANT) return <Redirect href="/today" />;
 
   if (isLoading) {
     return (

@@ -35,13 +35,20 @@ export type Profile = {
   // 'connection', or null (skipped / pre-ON1). Self-reported; never fed to
   // the blueprint's observed-pattern voice.
   onboarding_desired_change: string | null;
+  // WL2's seen-marker (NOT NULL, defaults to now() at signup). Read by
+  // TN1's notification spot to gate the COVER moment client-side —
+  // waves and hearts are gated server-side inside get_my_fresh_warmth,
+  // but a cover is a completions row, so the spot compares its
+  // created_at against this same marker rather than inventing a second
+  // freshness rule (or a second column).
+  warmth_seen_at: string;
 };
 
 export async function getMyProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('users')
     .select(
-      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, has_seen_timer_background_hint, reminders_ask_seen_at, photo_ask_seen_at, has_seen_push_prompt, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday, away_since, onboarding_desired_change'
+      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, has_seen_timer_background_hint, reminders_ask_seen_at, photo_ask_seen_at, has_seen_push_prompt, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday, away_since, onboarding_desired_change, warmth_seen_at'
     )
     .eq('id', userId)
     .maybeSingle();
