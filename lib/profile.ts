@@ -35,6 +35,12 @@ export type Profile = {
   // 'connection', or null (skipped / pre-ON1). Self-reported; never fed to
   // the blueprint's observed-pattern voice.
   onboarding_desired_change: string | null;
+  // SK1 (24 July) — "just check-ins for me". USER-level (reflections span
+  // circles), NOT NULL default false, so every pre-SK1 account reads
+  // false = today's behaviour exactly. True means: the check-in screen is
+  // skipped entirely (one-tap), and no surface mentions reflections
+  // unprompted (the no-nag law).
+  reflections_opt_out: boolean;
   // WL2's seen-marker (NOT NULL, defaults to now() at signup). Read by
   // TN1's notification spot to gate the COVER moment client-side —
   // waves and hearts are gated server-side inside get_my_fresh_warmth,
@@ -48,7 +54,7 @@ export async function getMyProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('users')
     .select(
-      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, has_seen_timer_background_hint, reminders_ask_seen_at, photo_ask_seen_at, has_seen_push_prompt, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday, away_since, onboarding_desired_change, warmth_seen_at'
+      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, has_seen_timer_background_hint, reminders_ask_seen_at, photo_ask_seen_at, has_seen_push_prompt, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday, away_since, onboarding_desired_change, reflections_opt_out, warmth_seen_at'
     )
     .eq('id', userId)
     .maybeSingle();
@@ -88,6 +94,20 @@ export async function setCelebrateBirthday(userId: string, enabled: boolean): Pr
  * quick-access mute icon, both reading/writing this same flag. */
 export async function setSoundsEnabled(userId: string, enabled: boolean): Promise<void> {
   const { error } = await supabase.from('users').update({ sounds_enabled: enabled }).eq('id', userId);
+  if (error) throw error;
+}
+
+/** SK1 — "just check-ins for me", and the way back in. One writer for
+ * both directions, called from the check-in screen's confirm card and
+ * from the inline toggle wherever it renders (journal, private map, ask
+ * Rally, settings). Turning it back on resets nothing and loses nothing:
+ * the next check-in simply shows the reflection screen again. */
+export async function setReflectionsOptOut(userId: string, optOut: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({ reflections_opt_out: optOut })
+    .eq('id', userId);
+
   if (error) throw error;
 }
 

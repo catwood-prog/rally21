@@ -6,11 +6,13 @@ import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, T
 import { MASCOT } from '@/assets/mascot';
 import { AppHeader } from '@/components/AppHeader';
 import { ErrorSlip } from '@/components/ErrorSlip';
+import { GhostCard } from '@/components/GhostCard';
 import { MascotEntrance } from '@/components/MascotEntrance';
+import { ReflectionsToggleRow } from '@/components/ReflectionsToggleRow';
 import { appendTranscript, VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, colors } from '@/constants/theme';
+import { cardShadow, colors, scaledLineHeight } from '@/constants/theme';
 import { useTabBarClearance } from '@/hooks/use-tab-bar-clearance';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -31,7 +33,7 @@ import {
 import { getCircleById, listMyCircles } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 import { getMyWeek } from '@/lib/glow';
-import { getMyProfile } from '@/lib/profile';
+import { getMyProfile, setReflectionsOptOut } from '@/lib/profile';
 import { LikedCard, getMyLikedCards, hasAttributionLine, unlikeCard } from '@/lib/shareCards';
 import { buildStarterChips, derivePersonalChip, missedYesterday, StarterChip } from '@/lib/starterChips';
 
@@ -107,6 +109,12 @@ function Blueprint() {
   const [askChips, setAskChips] = useState<StarterChip[]>(() =>
     buildStarterChips({ hasMissedYesterday: false })
   );
+  // SK1 job 4 — the dormant state and its way back in.
+  const [reflectionsOff, setReflectionsOff] = useState(false);
+  const [isTogglingReflections, setIsTogglingReflections] = useState(false);
+  // Latched at load time, not from the live value — see the journal's
+  // note: unmounting the row you just tapped reads as a dead tap.
+  const [showReflectionsToggle, setShowReflectionsToggle] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -129,6 +137,8 @@ function Blueprint() {
       setResponses(myResponses);
       setDocument(myDocument);
       setLikedCards(myLikedCards);
+      setReflectionsOff(profile?.reflections_opt_out ?? false);
+      setShowReflectionsToggle(profile?.reflections_opt_out ?? false);
       setAskChips(
         buildStarterChips({
           hasMissedYesterday: missedYesterday(myWeek),
@@ -186,6 +196,23 @@ function Blueprint() {
       load();
     }, [load])
   );
+
+  // SK1 job 4 — the same inline toggle the journal carries; Cat's ruling
+  // is that the way back in lives on the page you walked into.
+  const handleToggleReflections = async () => {
+    if (!session?.user || isTogglingReflections) return;
+    const next = !reflectionsOff;
+    setIsTogglingReflections(true);
+    setReflectionsOff(next);
+    try {
+      await setReflectionsOptOut(session.user.id, next);
+    } catch {
+      setReflectionsOff(!next);
+      setError(STRINGS.reflectionsToggleFailed);
+    } finally {
+      setIsTogglingReflections(false);
+    }
+  };
 
   const handleRespond = async (patternKey: string, response: 'confirmed' | 'not_quite', note?: string) => {
     if (!session?.user) return;
@@ -281,9 +308,26 @@ function Blueprint() {
         </View>
       )}
 
+      {/* SK1 job 4 — the reflections-off state (mockup frame B). Same
+          rule as the journal: it replaces the ordinary empty state, never
+          real patterns found before the switch went off. The line is the
+          honest one — the map genuinely CAN see when you show up, because
+          check-ins still flow; what it can't see is why. Ask Rally stays
+          offered, since it doesn't need reflections to be useful. */}
+      {!error && !loadError && patterns.length === 0 && reflectionsOff && (
+        <>
+          <View style={styles.dormantState}>
+            <GhostCard widths={[44, 90, 70]} />
+            <GhostCard widths={[34, 82, 58]} />
+            <Text style={styles.dormantLine}>{STRINGS.blueprintReflectionsOffLine}</Text>
+          </View>
+          <AskRallyInviteCard lead={STRINGS.blueprintAskLeadEmpty} chips={askChips} />
+        </>
+      )}
+
       {/* one mascot per screen: the slip above replaces the journal
           companion whenever the load itself failed (ER1). */}
-      {!error && !loadError && patterns.length === 0 && (
+      {!error && !loadError && patterns.length === 0 && !reflectionsOff && (
         <>
           <View style={styles.emptyState}>
             <MascotEntrance source={MASCOT.journalCompanion} style={styles.emptyStateImage} />
@@ -471,6 +515,15 @@ function Blueprint() {
       {patterns.length > 0 && <AskRallyInviteCard lead={STRINGS.blueprintAskLead} chips={askChips} />}
 
       {patterns.length > 0 && <Text style={styles.footer}>{STRINGS.blueprintFooter}</Text>}
+
+      {/* SK1 job 4 — the way back in, on the page itself. */}
+      {showReflectionsToggle && (
+        <ReflectionsToggleRow
+          value={!reflectionsOff}
+          onToggle={handleToggleReflections}
+          disabled={isTogglingReflections}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -648,6 +701,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 24,
     marginBottom: 24,
+  },
+  // SK1 — the reflections-off state: ghost cards, then ONE true line.
+  dormantState: {
+    paddingTop: 4,
+    marginBottom: 24,
+  },
+  dormantLine: {
+    fontSize: 13.5,
+    lineHeight: scaledLineHeight(21),
+    color: colors.mutedStrong,
+    textAlign: 'center',
+    marginTop: 20,
+    paddingHorizontal: 8,
   },
   emptyStateImage: {
     width: 100,

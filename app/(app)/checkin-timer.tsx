@@ -12,6 +12,7 @@ import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { recordCheckinWithoutReflection } from '@/lib/checkin';
 import { playChime, vibrateOnCompletion } from '@/lib/chime';
 import { getLocalDateString } from '@/lib/date';
 import { getMyProfile, markTimerBackgroundHintSeen, setSoundsEnabled } from '@/lib/profile';
@@ -111,6 +112,10 @@ export default function CheckinTimer() {
   const [pausedRemaining, setPausedRemaining] = useState<number | null>(null);
   const [, setTick] = useState(0);
   const [soundsEnabled, setSoundsEnabledState] = useState(true);
+  // SK1 job 3 — "just check-ins for me". Defaults false so a slow profile
+  // read never skips someone's reflection screen without being asked; the
+  // 1.4s hand-off below is long enough for the fetch either way.
+  const [reflectionsOptOut, setReflectionsOptOutState] = useState(false);
   // Whether this particular completion was detected via the tab-return
   // catch-up path (item 3) rather than the normal foregrounded countdown
   // — purely a copy decision, never changes the completion itself.
@@ -134,6 +139,7 @@ export default function CheckinTimer() {
       .then((profile) => {
         setSoundsEnabledState(profile?.sounds_enabled ?? true);
         setHasSeenBackgroundHint(profile?.has_seen_timer_background_hint ?? true);
+        setReflectionsOptOutState(profile?.reflections_opt_out ?? false);
       })
       .catch(() => {
         // preferences just fall back to their defaults for this session
@@ -259,13 +265,40 @@ export default function CheckinTimer() {
     clearPersistedTimer(storageKey);
   }, [phase, hasTimerUI, storageKey]);
 
+  // The hand-off out of a finished sit. SK1 job 3: for someone who has
+  // turned reflections off, the sit itself WAS the check-in, so the day
+  // is recorded here and they land straight on the success beat instead
+  // of a form they've opted out of. Everyone else meets the reflection
+  // screen exactly as before. A failed record falls back to the check-in
+  // screen rather than stranding them on a finished timer — the day still
+  // gets saved, just with one more tap.
   useEffect(() => {
-    if (phase !== 'done') return;
+    if (phase !== 'done' || !session?.user) return;
+    const userId = session.user.id;
+    let cancelled = false;
     const id = setTimeout(() => {
-      router.replace({ pathname: '/checkin', params: { circleId } });
+      if (!reflectionsOptOut) {
+        router.replace({ pathname: '/checkin', params: { circleId } });
+        return;
+      }
+      recordCheckinWithoutReflection({ userId, circleId, localDate: getLocalDateString() })
+        .then(({ earnedToday }) => {
+          if (cancelled) return;
+          router.replace({
+            pathname: '/checkin-complete',
+            params: { circleId, ...(earnedToday ? { earnedToday: 'true' } : {}) },
+          });
+        })
+        .catch(() => {
+          if (cancelled) return;
+          router.replace({ pathname: '/checkin', params: { circleId } });
+        });
     }, 1400);
-    return () => clearTimeout(id);
-  }, [phase, circleId, router]);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+  }, [phase, circleId, router, reflectionsOptOut, session?.user?.id]);
 
   const handlePauseToggle = () => {
     if (phase === 'running') {

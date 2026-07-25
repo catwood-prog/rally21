@@ -31,6 +31,56 @@ export function isReflectionSubstantive(r: { mood: number | null; line1: string 
   return r.mood !== null || r.line1 !== null;
 }
 
+/** SK1 job 3 — where a "check in" tap actually goes. Four destinations,
+ * and the ORDER between them is the whole point, so it lives here as one
+ * pure decision rather than as an if-chain repeated on Today and on the
+ * timer screen:
+ *
+ *  - `activity` (the timer / resource screen) wins over everything for a
+ *    circle that has one, opted out or not: the sit IS the practice, and
+ *    reflections are a separate thing entirely. The timer then routes on
+ *    with this same function.
+ *  - `one-tap` is SK1's flow: no reflection screen at all, the day is
+ *    recorded and the person lands straight on the success beat.
+ *  - `intro` (the one-shot "this builds your private map" consent) is
+ *    SKIPPED when opted out — it exists to explain reflections, so
+ *    showing it to someone who has turned them off would be the exact
+ *    pitch the no-nag law forbids.
+ *  - `reflection` is the normal check-in screen, unchanged.
+ */
+export type CheckinRoute = 'activity' | 'intro' | 'one-tap' | 'reflection';
+
+export function resolveCheckinRoute(params: {
+  hasSeenCheckinConsent: boolean;
+  goesToActivityScreen: boolean;
+  reflectionsOptOut: boolean;
+}): CheckinRoute {
+  if (params.goesToActivityScreen) return 'activity';
+  if (params.reflectionsOptOut) return 'one-tap';
+  if (!params.hasSeenCheckinConsent) return 'intro';
+  return 'reflection';
+}
+
+/** SK1 job 3 — a day recorded with no reflection attached, and whether
+ * THIS save is the one that earned the day (which is what decides the
+ * glow beat downstream). Deliberately the same two calls check-in makes
+ * around saveReflection, minus the reflection, so there is ONE way a
+ * completion gets written no matter which flow the person is in. */
+export async function recordCheckinWithoutReflection(params: {
+  userId: string;
+  circleId: string;
+  localDate: string;
+}): Promise<{ earnedToday: boolean }> {
+  // Checked BEFORE saving, exactly as handleSave does — after the upsert
+  // it would always read true.
+  const alreadyEarnedToday = await hasAnyCompletionToday({
+    userId: params.userId,
+    localDate: params.localDate,
+  });
+  await saveCompletion(params);
+  return { earnedToday: !alreadyEarnedToday };
+}
+
 /** The user's reflection for a given local day, if they've already done
  * one today — regardless of which circle triggered it, since reflection
  * is one-per-person-per-day, not one-per-circle. */
@@ -165,6 +215,23 @@ export async function hasAnyCompletionToday(params: { userId: string; localDate:
     .eq('user_id', params.userId)
     .eq('kind', 'self')
     .eq('local_date', params.localDate)
+    .limit(1);
+
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
+/** SK1 job 4 — has this person ever checked in themselves, in any circle?
+ * The CURIOSITY LAW's truth test for the journal's dormant line: "your
+ * check-ins are stacking up" is a claim about them, and the app may not
+ * make it about someone who hasn't started yet. Existence only, never a
+ * displayed number, so it stays a single indexed row read. */
+export async function hasAnyOwnCompletionEver(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('completions')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('kind', 'self')
     .limit(1);
 
   if (error) throw error;

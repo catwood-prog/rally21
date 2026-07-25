@@ -16,6 +16,7 @@ import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollV
 import { MicTextInput } from '@/components/MicTextInput';
 import { AppHeader } from '@/components/AppHeader';
 import { BirthdayPicker, BirthdayValue } from '@/components/BirthdayPicker';
+import { ReflectionsToggleRow } from '@/components/ReflectionsToggleRow';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -25,7 +26,7 @@ import { returnFromAway, setAway } from '@/lib/away';
 import { isValidBirthday } from '@/lib/birthday';
 import { BlockedPerson, getMyBlocks, unblockUser } from '@/lib/moderation';
 import { getMyNotificationPrefs, NotificationPrefs, updateNotificationPrefs } from '@/lib/notifications';
-import { getMyProfile, saveBirthday, saveProfile, setCelebrateBirthday, setSoundsEnabled } from '@/lib/profile';
+import { getMyProfile, saveBirthday, saveProfile, setCelebrateBirthday, setReflectionsOptOut, setSoundsEnabled } from '@/lib/profile';
 import {
   getPushPermissionStatus,
   PushPermissionStatus,
@@ -90,6 +91,11 @@ export default function Settings() {
   const [isRequestingPush, setIsRequestingPush] = useState(false);
   const [awaySince, setAwaySinceState] = useState<string | null>(null);
   const [isTogglingAway, setIsTogglingAway] = useState(false);
+  // SK1 job 4 — settings is the toggle's home base; journal, the private
+  // map and ask Rally carry the same row inline, on the pages someone
+  // actually walks into.
+  const [reflectionsOff, setReflectionsOff] = useState(false);
+  const [isTogglingReflections, setIsTogglingReflections] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -116,6 +122,7 @@ export default function Settings() {
       setMutedCardFlavors(myMutedCardFlavors);
       setPushStatus(pushPermissionStatus);
       setAwaySinceState(profile?.away_since ?? null);
+      setReflectionsOff(profile?.reflections_opt_out ?? false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your profile');
     } finally {
@@ -213,6 +220,24 @@ export default function Settings() {
     } catch (e) {
       setSoundsEnabledState(!next);
       setError(e instanceof Error ? e.message : 'could not save that — try again');
+    }
+  };
+
+  // SK1 job 4 — the same writer the inline rows use. Turning reflections
+  // back on resets nothing: tomorrow's check-in simply shows the screen
+  // again, and every line already written is still there.
+  const handleToggleReflections = async () => {
+    if (!session?.user || isTogglingReflections) return;
+    const next = !reflectionsOff;
+    setIsTogglingReflections(true);
+    setReflectionsOff(next);
+    try {
+      await setReflectionsOptOut(session.user.id, next);
+    } catch (e) {
+      setReflectionsOff(!next);
+      setError(e instanceof Error ? e.message : 'could not save that — try again');
+    } finally {
+      setIsTogglingReflections(false);
     }
   };
 
@@ -362,6 +387,18 @@ export default function Settings() {
       <TouchableOpacity style={styles.signOutButton} onPress={() => router.push('/your-data')}>
         <Text style={styles.signOutText}>{STRINGS.yourDataSettingsRow}</Text>
       </TouchableOpacity>
+
+      {/* SK1 job 4 — reflections' home base. The inline copies on
+          journal / private map / ask Rally are the SAME component, so
+          the two can never drift apart. */}
+      <Text style={[styles.label, styles.sectionSpacing]}>{STRINGS.reflectionsSectionLabel}</Text>
+
+      <ReflectionsToggleRow
+        variant="settings"
+        value={!reflectionsOff}
+        onToggle={handleToggleReflections}
+        disabled={isTogglingReflections}
+      />
 
       <Text style={[styles.label, styles.sectionSpacing]}>{STRINGS.soundsSectionLabel}</Text>
 

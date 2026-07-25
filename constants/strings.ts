@@ -658,6 +658,53 @@ export const STRINGS = {
   // convention — this earns plum as inner-life content).
   reflectionTeaser: (questionPrompt: string) => `tonight: "${questionPrompt}"`,
 
+  // ── SK1 (24 July): reflections are optional ──────────────────────────
+  // Cat's ruling (23 July, from the live check-in screen): the reflection
+  // step must never be the reason someone drops off. TWO of these are
+  // Cat's own verbatim wordings and beat any rewrite: "skip for now" and
+  // "just check-ins for me" (picked over "skip always" / "not interested"
+  // — a positive choice, never a rejection). Everything else here is
+  // PROPOSED, for Cat to accept or strike.
+  //
+  // The NO-NAG LAW governs all of it: once someone has opted out, the
+  // confirm card is the last unprompted word the app ever says about
+  // reflections. These strings only ever render where the person walked
+  // in themselves.
+  checkinSkipForNow: 'skip for now',
+  checkinReflectionsOffLink: 'just check-ins for me',
+  // The one gentle confirm. Comma, not an em dash (Cat's standing
+  // preference), and it names every way back so the choice never feels
+  // like a door locking.
+  checkinReflectionsOffConfirmBody:
+    'you can turn these back on anytime, from your journal, your private map, or settings.',
+  checkinReflectionsOffConfirmCta: 'just check-ins for me',
+  checkinReflectionsOffConfirmCancel: 'keep them',
+  // The inline toggle (components/ReflectionsToggleRow.tsx), worn
+  // identically by journal, private map, ask Rally and settings. Helper
+  // is the mockup's line: what it costs, and who it belongs to.
+  reflectionsToggleLabel: 'daily reflections',
+  reflectionsToggleHelper: 'a minute at check-in, only ever yours',
+  reflectionsSectionLabel: 'reflections',
+  // A failed flip, wherever the toggle lives. The row snaps back to the
+  // truth, so this only has to say "not saved, try again".
+  reflectionsToggleFailed: "that didn't save just now — give it a moment and try again",
+  // THE CURIOSITY LAW (Cat, 23 July): show what is dormant TRUTHFULLY.
+  // Never invent, never guilt. The journal's line is true only once
+  // check-ins actually exist, so it has a second form for the person who
+  // hasn't started yet — a bare "stacking up" would be a claim about
+  // nothing.
+  journalReflectionsOffLine:
+    'Your check-ins are stacking up. The lines that go with them would live here.',
+  journalReflectionsOffLineNoCheckins:
+    'Your check-ins will start stacking up here. The lines that go with them would live here too.',
+  // The map may cite real check-in patterns because check-ins still flow
+  // — that is exactly what makes this honest rather than a tease.
+  blueprintReflectionsOffLine: 'We can see when you show up. Reflections would show us why.',
+  // Ask Rally's honest quiet line, in Rally's own first-person voice
+  // (it replaces askRallyGreetingP2, which pitches reflections).
+  askRallyGreetingP2ReflectionsOff:
+    'Reflections are off right now, so I know when you show up, not how it went. Your call entirely, and you can change it whenever.',
+
   // The journey ladder (Rally21-Glow-Spec.md §8) — circles stop ending at
   // day 21. Ceremonies reward, never interrogate: the app never re-asks.
   journeyGateTitle: '21 days together',

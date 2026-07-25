@@ -6,16 +6,20 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import { MASCOT } from '@/assets/mascot';
 import { AppHeader } from '@/components/AppHeader';
 import { ErrorSlip } from '@/components/ErrorSlip';
+import { GhostCard } from '@/components/GhostCard';
 import { MascotEntrance } from '@/components/MascotEntrance';
+import { ReflectionsToggleRow } from '@/components/ReflectionsToggleRow';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, colors } from '@/constants/theme';
+import { cardShadow, colors, scaledLineHeight } from '@/constants/theme';
 import { MOOD_EMOJI } from '@/constants/mood';
 import { useTabBarClearance } from '@/hooks/use-tab-bar-clearance';
 import { useAuth } from '@/lib/auth-context';
+import { hasAnyOwnCompletionEver } from '@/lib/checkin';
 import { getLocalDateString } from '@/lib/date';
 import { goalsSetLabelForKey } from '@/lib/goalsSet';
 import { getMyJournalFacts, JournalFact } from '@/lib/journey';
+import { getMyProfile, setReflectionsOptOut } from '@/lib/profile';
 import { getMyReflections, Reflection } from '@/lib/reflections';
 
 type TimelineEntry =
@@ -43,18 +47,37 @@ function Journal() {
   const [facts, setFacts] = useState<JournalFact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // SK1 job 4 — the dormant state and its way back in. `hasCheckedInEver`
+  // is what keeps the dormant line TRUTHFUL (see the curiosity law): the
+  // "stacking up" claim only holds for someone who has actually started.
+  const [reflectionsOff, setReflectionsOff] = useState(false);
+  const [hasCheckedInEver, setHasCheckedInEver] = useState(false);
+  const [isTogglingReflections, setIsTogglingReflections] = useState(false);
+  // Whether the toggle row is on screen at all, latched at load time and
+  // NOT by the live value. Turning reflections back on would otherwise
+  // unmount the very row you just tapped, so the tap would read as the
+  // app eating it — instead the row stays for this visit and flips to
+  // "on", and it's simply absent the next time you walk in.
+  const [showReflectionsToggle, setShowReflectionsToggle] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
     setIsLoading(true);
     setError(null);
     try {
-      const [myReflections, myFacts] = await Promise.all([
+      const [myReflections, myFacts, profile, checkedInEver] = await Promise.all([
         getMyReflections(session.user.id),
         getMyJournalFacts(session.user.id),
+        getMyProfile(session.user.id),
+        // Ambient: if this read fails the dormant line simply takes its
+        // no-claim form, never a claim we can't stand behind.
+        hasAnyOwnCompletionEver(session.user.id).catch(() => false),
       ]);
       setReflections(myReflections);
       setFacts(myFacts);
+      setReflectionsOff(profile?.reflections_opt_out ?? false);
+      setShowReflectionsToggle(profile?.reflections_opt_out ?? false);
+      setHasCheckedInEver(checkedInEver);
     } catch {
       // ER1: the warm line, never the raw message (warmth law).
       setError(STRINGS.loadFailedLine('your journal'));
@@ -62,6 +85,24 @@ function Journal() {
       setIsLoading(false);
     }
   }, [session?.user?.id]);
+
+  // SK1 job 4 — Cat's ruling: the toggle lives HERE, not only in
+  // settings. Turning it back on resets nothing and loses nothing —
+  // tomorrow's check-in simply shows the reflection screen again.
+  const handleToggleReflections = async () => {
+    if (!session?.user || isTogglingReflections) return;
+    const next = !reflectionsOff;
+    setIsTogglingReflections(true);
+    setReflectionsOff(next);
+    try {
+      await setReflectionsOptOut(session.user.id, next);
+    } catch {
+      setReflectionsOff(!next);
+      setError(STRINGS.reflectionsToggleFailed);
+    } finally {
+      setIsTogglingReflections(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -106,7 +147,27 @@ function Journal() {
           one-mascot-per-screen law holds by construction. */}
       {error && <ErrorSlip message={error} />}
 
-      {!error && timeline.length === 0 && (
+      {/* SK1 job 4 — the reflections-off state (mockup frame A). It
+          replaces the ordinary empty state, never the real timeline: a
+          person who wrote before turning them off still sees every word
+          they wrote, because nothing is lost. Ghosted cards show the
+          SHAPE of what's dormant, and the one line under them is true
+          either way — the app doesn't claim check-ins are stacking up
+          for someone who hasn't started. No mascot here, per the
+          mockup. */}
+      {!error && timeline.length === 0 && reflectionsOff && (
+        <View style={styles.dormantState}>
+          <GhostCard widths={[38, 86, 64]} />
+          <GhostCard widths={[30, 78]} />
+          <Text style={styles.dormantLine}>
+            {hasCheckedInEver
+              ? STRINGS.journalReflectionsOffLine
+              : STRINGS.journalReflectionsOffLineNoCheckins}
+          </Text>
+        </View>
+      )}
+
+      {!error && timeline.length === 0 && !reflectionsOff && (
         <View style={styles.emptyState}>
           <MascotEntrance source={MASCOT.journalCompanion} style={styles.emptyStateImage} />
           <Text style={styles.subtitle}>your reflections will show up here as you check in</Text>
@@ -156,6 +217,17 @@ function Journal() {
           </View>
         );
       })}
+
+      {/* SK1 job 4 — the way back in, on the page itself (Cat's ruling),
+          not only in settings. Shown whenever reflections are off, so
+          someone with a full timeline from before can still find it. */}
+      {showReflectionsToggle && (
+        <ReflectionsToggleRow
+          value={!reflectionsOff}
+          onToggle={handleToggleReflections}
+          disabled={isTogglingReflections}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -211,6 +283,18 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     paddingTop: 24,
+  },
+  // SK1 — the reflections-off state: ghost cards, then ONE true line.
+  dormantState: {
+    paddingTop: 4,
+  },
+  dormantLine: {
+    fontSize: 13.5,
+    lineHeight: scaledLineHeight(21),
+    color: colors.mutedStrong,
+    textAlign: 'center',
+    marginTop: 20,
+    paddingHorizontal: 8,
   },
   emptyStateImage: {
     width: 100,

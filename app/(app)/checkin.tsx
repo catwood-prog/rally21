@@ -19,7 +19,7 @@ import { appendTranscript, VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { MOOD_EMOJI, MOOD_VALUES } from '@/constants/mood';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, chipShape, chipTextShape, colors } from '@/constants/theme';
+import { cardShadow, chipShape, chipTextShape, colors, scaledLineHeight } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   DailyQuestion,
@@ -38,7 +38,7 @@ import { getLocalDateString } from '@/lib/date';
 import { getGoalsSetQuestion } from '@/lib/goalsSet';
 import * as haptics from '@/lib/haptics';
 import { deriveCheckinAccent } from '@/lib/practice-accent';
-import { getMyProfile, markVoiceHintSeen } from '@/lib/profile';
+import { getMyProfile, markVoiceHintSeen, setReflectionsOptOut } from '@/lib/profile';
 
 
 export default function CheckIn() {
@@ -62,6 +62,10 @@ export default function CheckIn() {
   const [accent, setAccent] = useState('practice');
   const [micDenied, setMicDenied] = useState(false);
   const [showVoiceHint, setShowVoiceHint] = useState(false);
+  // SK1 job 2 — "just check-ins for me" confirms inline (the settings /
+  // leave-circle pattern), never in a modal. One gentle card, one tap to
+  // back out of it.
+  const [isConfirmingOptOut, setIsConfirmingOptOut] = useState(false);
 
   const dismissVoiceHint = () => {
     if (!session?.user) return;
@@ -168,6 +172,58 @@ export default function CheckIn() {
     }
   };
 
+  /** SK1 job 2 — the day, saved with no reflection attached. Both outs
+   * land here, and this is deliberately the SAME machinery handleSave
+   * uses minus saveReflection: the completion row, the earned-the-day
+   * check that decides the glow beat, the success haptic and the same
+   * destination. So glow, embers, covers, wall, share cards, milestones
+   * and whatever ceremony the day triggers are all identical whether the
+   * person wrote a reflection or skipped it. Never touches an existing
+   * reflection row either — a skip is a skip, not a delete. */
+  const saveBareCheckin = async () => {
+    if (!session?.user || !circleId) return;
+    const alreadyEarnedToday = await hasAnyCompletionToday({ userId: session.user.id, localDate: today });
+    await saveCompletion({ userId: session.user.id, circleId, localDate: today });
+    haptics.success({ reduceMotion });
+    router.replace({
+      pathname: '/checkin-complete',
+      params: { circleId, earnedToday: alreadyEarnedToday ? undefined : 'true' },
+    });
+  };
+
+  // "skip for now" — this time only, no preference written, no question
+  // asked. Tomorrow's check-in looks exactly like today's did.
+  const handleSkipForNow = async () => {
+    if (isSaving || !session?.user || !circleId) return;
+    // Same iOS-Safari audio rule as handleSave: unlock inside the tap,
+    // before any await, since this can be the save that earns the day.
+    unlockAudioContext();
+    setIsSaving(true);
+    try {
+      await saveBareCheckin();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'something went wrong — try again');
+      setIsSaving(false);
+    }
+  };
+
+  // "just check-ins for me" — the preference, then this day saved bare on
+  // the way out, so the person doesn't have to tap Save for a form they
+  // just said they don't want. Order matters: the preference is written
+  // first, so a failure here leaves nothing half-done.
+  const handleJustCheckins = async () => {
+    if (isSaving || !session?.user || !circleId) return;
+    unlockAudioContext();
+    setIsSaving(true);
+    try {
+      await setReflectionsOptOut(session.user.id, true);
+      await saveBareCheckin();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'something went wrong — try again');
+      setIsSaving(false);
+    }
+  };
+
   if (isLoading || isRedirecting) {
     return (
       <View style={styles.loading}>
@@ -183,9 +239,17 @@ export default function CheckIn() {
       {/* D6 pattern: the house icon IS the "← Today" affordance here */}
       <AppHeader style={styles.brandmark} />
 
-      <Text style={styles.title}>
-        close your <Text style={styles.titleAccent}>{accent}</Text>
-      </Text>
+      {/* SK1 job 2 — the small top out. Sits on the title's own line per
+          the mockup: present enough to find, quiet enough that it never
+          competes with closing the practice properly. */}
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>
+          close your <Text style={styles.titleAccent}>{accent}</Text>
+        </Text>
+        <TouchableOpacity onPress={handleSkipForNow} disabled={isSaving} hitSlop={8}>
+          <Text style={styles.skipForNow}>{STRINGS.checkinSkipForNow}</Text>
+        </TouchableOpacity>
+      </View>
 
       <Text style={styles.label}>your mood</Text>
       <View style={styles.moodRow}>
@@ -292,6 +356,39 @@ export default function CheckIn() {
           <Text style={styles.buttonText}>Save</Text>
         )}
       </TouchableOpacity>
+
+      {/* SK1 job 2 — the permanent, reversible out. Quiet, below Save,
+          never competing with it; one gentle confirm card, and the card
+          is the LAST unprompted word the app says about reflections (the
+          no-nag law). */}
+      {isConfirmingOptOut ? (
+        <View style={styles.optOutConfirmCard}>
+          <Text style={styles.optOutConfirmBody}>{STRINGS.checkinReflectionsOffConfirmBody}</Text>
+          <View style={styles.optOutConfirmActions}>
+            <TouchableOpacity onPress={() => setIsConfirmingOptOut(false)} disabled={isSaving} hitSlop={8}>
+              <Text style={styles.optOutConfirmCancel}>{STRINGS.checkinReflectionsOffConfirmCancel}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.optOutConfirmButton}
+              onPress={handleJustCheckins}
+              disabled={isSaving}
+            >
+              <Text style={styles.optOutConfirmButtonText}>
+                {STRINGS.checkinReflectionsOffConfirmCta}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={styles.optOutLinkWrap}
+          onPress={() => setIsConfirmingOptOut(true)}
+          disabled={isSaving}
+          hitSlop={8}
+        >
+          <Text style={styles.optOutLink}>{STRINGS.checkinReflectionsOffLink}</Text>
+        </TouchableOpacity>
+      )}
 
       <MessageDialog
         visible={!!error}
@@ -416,11 +513,20 @@ const styles = StyleSheet.create({
   brandmark: {
     marginBottom: 14,
   },
+  // SK1 — the title and its quiet "skip for now" share a baseline row.
+  // The gap keeps the two apart at large text, where the title wraps.
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 20,
+  },
   title: {
     fontFamily: FONT_HEADER,
     fontSize: 22,
     color: colors.ink,
-    marginBottom: 20,
+    flexShrink: 1,
   },
   titleAccent: {
     fontFamily: FONT_SERIF_ITALIC,
@@ -606,5 +712,65 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
     color: colors.ink,
+  },
+  // SK1 — both outs live in the same quiet register: mutedStrong (AA on
+  // the warm bg), underlined so they read as choices rather than labels.
+  skipForNow: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.mutedStrong,
+    textDecorationLine: 'underline',
+  },
+  optOutLinkWrap: {
+    alignSelf: 'center',
+    marginTop: 20,
+    paddingVertical: 4,
+  },
+  optOutLink: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.mutedStrong,
+    textDecorationLine: 'underline',
+  },
+  optOutConfirmCard: {
+    marginTop: 20,
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    padding: 14,
+    ...cardShadow,
+  },
+  optOutConfirmBody: {
+    fontSize: 12.5,
+    color: colors.ink,
+    lineHeight: scaledLineHeight(18),
+  },
+  optOutConfirmActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 16,
+    marginTop: 14,
+  },
+  optOutConfirmCancel: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: colors.mutedStrong,
+  },
+  optOutConfirmButton: {
+    backgroundColor: colors.greenSoft,
+    borderWidth: 1.5,
+    borderColor: colors.green,
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  optOutConfirmButtonText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    // greenDeep, not green: colors.green over greenSoft lands ~2.4:1
+    // (TN1's finding), well under AA for small print.
+    color: colors.greenDeep,
   },
 });

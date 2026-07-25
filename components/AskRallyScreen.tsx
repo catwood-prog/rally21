@@ -29,6 +29,7 @@ import { AskRallyLearnMoreSheet } from '@/components/AskRallyLearnMoreSheet';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { MascotPatch } from '@/components/MascotPatch';
 import { MessageDialog } from '@/components/MessageDialog';
+import { ReflectionsToggleRow } from '@/components/ReflectionsToggleRow';
 import { appendTranscript, VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -41,6 +42,7 @@ import { formatChatTranscript } from '@/lib/exportChat';
 import { getMyWeek } from '@/lib/glow';
 import { LISTENER_STEAM_PATCH } from '@/lib/mascotFx';
 import { MASCOT_FX } from '@/lib/motion';
+import { getMyProfile, setReflectionsOptOut } from '@/lib/profile';
 import { getMySubstantiveReflectionCount } from '@/lib/reflections';
 import { buildStarterChips, derivePersonalChip, missedYesterday, StarterChip } from '@/lib/starterChips';
 
@@ -135,6 +137,13 @@ export function AskRallyScreen({
     buildStarterChips({ hasMissedYesterday: false })
   );
   const [reflectionCount, setReflectionCount] = useState(0);
+  // SK1 job 4 — Rally says the honest thing about what it can and can't
+  // see, and the way back in sits right under it.
+  const [reflectionsOff, setReflectionsOff] = useState(false);
+  const [isTogglingReflections, setIsTogglingReflections] = useState(false);
+  // Latched at load time, not from the live value — see the journal's
+  // note: unmounting the row you just tapped reads as a dead tap.
+  const [showReflectionsToggle, setShowReflectionsToggle] = useState(false);
   const [showLearnMore, setShowLearnMore] = useState(false);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
   const pendingStartFresh = useRef(false);
@@ -149,11 +158,14 @@ export function AskRallyScreen({
       // The chip gates and the reflections count are ambient garnish —
       // each fails soft (standard four chips / lock-link alone), never
       // taking down the conversation itself.
-      const [active, week, count, patterns] = await Promise.all([
+      const [active, week, count, patterns, profile] = await Promise.all([
         getActiveConversation(),
         getMyWeek().catch(() => []),
         userId ? getMySubstantiveReflectionCount(userId).catch(() => 0) : Promise.resolve(0),
         getMyBlueprint().catch(() => []),
+        // Same ambient rule: a failed read leaves the greeting in its
+        // ordinary form rather than taking down the conversation.
+        userId ? getMyProfile(userId).catch(() => null) : Promise.resolve(null),
       ]);
       setConversationId(active?.id ?? null);
       setMessages(active?.messages ?? []);
@@ -164,6 +176,8 @@ export function AskRallyScreen({
         })
       );
       setReflectionCount(count);
+      setReflectionsOff(profile?.reflections_opt_out ?? false);
+      setShowReflectionsToggle(profile?.reflections_opt_out ?? false);
     } catch {
       setError(STRINGS.askRallyLoadFailed);
     } finally {
@@ -186,6 +200,22 @@ export function AskRallyScreen({
     prefilledFromContext.current = true;
     setDraft(prefillDraft);
   }
+
+  // SK1 job 4 — the same inline toggle journal and the map carry.
+  const handleToggleReflections = async () => {
+    if (!userId || isTogglingReflections) return;
+    const next = !reflectionsOff;
+    setIsTogglingReflections(true);
+    setReflectionsOff(next);
+    try {
+      await setReflectionsOptOut(userId, next);
+    } catch {
+      setReflectionsOff(!next);
+      setError(STRINGS.reflectionsToggleFailed);
+    } finally {
+      setIsTogglingReflections(false);
+    }
+  };
 
   const handleStartFresh = () => {
     pendingStartFresh.current = true;
@@ -380,12 +410,32 @@ export function AskRallyScreen({
               <View style={styles.greetingWrap}>
                 <View style={styles.greetingBubble}>
                   <Text style={styles.greetingText}>{STRINGS.askRallyGreetingP1}</Text>
+                  {/* NO-NAG LAW (SK1): the ordinary second paragraph
+                      pitches reflections ("the more you share..."), so
+                      once they're off Rally says the honest thing about
+                      what it can and can't see instead — a fact and its
+                      reversibility, never an ask. */}
                   <Text style={[styles.greetingText, styles.greetingTextSecond]}>
-                    {STRINGS.askRallyGreetingP2}
+                    {reflectionsOff
+                      ? STRINGS.askRallyGreetingP2ReflectionsOff
+                      : STRINGS.askRallyGreetingP2}
                   </Text>
                 </View>
                 <ListenerMascot />
               </View>
+            )}
+            {/* SK1 job 4 — the way back in, directly under the line that
+                explains what's dormant. It lives in the empty state (not
+                the header) because a live conversation is the one place
+                on this screen a settings row genuinely would fight the
+                layout; journal, private map and settings all carry the
+                same toggle for anyone mid-thread. */}
+            {isEmptyThread && showReflectionsToggle && (
+              <ReflectionsToggleRow
+                value={!reflectionsOff}
+                onToggle={handleToggleReflections}
+                disabled={isTogglingReflections}
+              />
             )}
             {messages.map((m, i) => (
               <View

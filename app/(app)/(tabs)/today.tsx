@@ -16,6 +16,7 @@ import { ErrorSlip } from '@/components/ErrorSlip';
 import { BirthdayBanner } from '@/components/BirthdayBanner';
 import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { GlowBadge } from '@/components/GlowBadge';
+import { MessageDialog } from '@/components/MessageDialog';
 import { PhotoAskCard } from '@/components/PhotoAskCard';
 import { RemindersAskCard } from '@/components/RemindersAskCard';
 import { SignalMeter } from '@/components/SignalMeter';
@@ -27,7 +28,14 @@ import { cardShadow, chipTextShape, colors } from '@/constants/theme';
 import { useTabBarClearance } from '@/hooks/use-tab-bar-clearance';
 import { useAuth } from '@/lib/auth-context';
 import { getMyCircleCap, MAX_CIRCLES } from '@/lib/caps';
-import { DailyQuestion, getDailyQuestion, getTodayReflection, isReflectionSubstantive } from '@/lib/checkin';
+import {
+  DailyQuestion,
+  getDailyQuestion,
+  getTodayReflection,
+  isReflectionSubstantive,
+  recordCheckinWithoutReflection,
+  resolveCheckinRoute,
+} from '@/lib/checkin';
 import { unlockAudioContext } from '@/lib/chime';
 import {
   attachRestingStatus,
@@ -104,6 +112,15 @@ function Today() {
     celebrate: true,
   });
   const [hasSeenCheckinConsent, setHasSeenCheckinConsent] = useState(true);
+  // SK1 — "just check-ins for me". Defaults FALSE so Today never renders
+  // the one-tap flow before the real value loads; a wrong guess here
+  // would skip someone's reflection screen without being asked.
+  const [reflectionsOptOut, setReflectionsOptOut] = useState(false);
+  // SK1 job 3 — the circle whose one-tap check-in is in flight, so the
+  // CTA can't be double-tapped into two saves, plus its own failure
+  // surface (the flow has no screen of its own to fail on).
+  const [oneTapCircleId, setOneTapCircleId] = useState<string | null>(null);
+  const [checkinError, setCheckinError] = useState<string | null>(null);
   // RM1 — defaults true so the card never flashes before the real value
   // loads; only ever matters once it resolves to false. This screen only
   // ever renders once onboarding is fully complete (see the (app) layout
@@ -177,6 +194,7 @@ function Today() {
         celebrate: profile?.celebrate_birthday ?? true,
       });
       setHasSeenCheckinConsent(profile?.has_seen_checkin_consent ?? false);
+      setReflectionsOptOut(profile?.reflections_opt_out ?? false);
       setHasSeenRemindersAsk(!!profile?.reminders_ask_seen_at);
       setHasSeenPhotoAsk(!!profile?.photo_ask_seen_at);
       setMyAvatarUrl(profile?.avatar_url ?? null);
@@ -472,6 +490,45 @@ function Today() {
     );
   };
 
+  // SK1 job 3 — the one-tap check-in. The day is recorded right here and
+  // the person lands on the SAME success beat a written check-in gets:
+  // mascot, "You showed up again.", the glow update, and then everything
+  // downstream of that screen unchanged — glow beat, milestone beat and
+  // the share-card slot are all checkin-complete's own decisions, and it
+  // makes them from the same `earnedToday` this passes.
+  //
+  // THE CEREMONY, traced rather than assumed (SK1's NOTE, 24 July): the
+  // day-21 gate does NOT ride the check-in at all. today.tsx's own effect
+  // fires it on load (shouldShowJourneyGate → /journey-gate, with the
+  // rally-marker /celebration beat behind it), so it is reached the
+  // moment this flow's dismissal lands back on Today, exactly as it is
+  // after a written check-in. Nothing about the gate is hard-coded here,
+  // and whatever that path becomes (the personal rally ceremony) this
+  // flow keeps meeting it for free.
+  const recordOneTapCheckin = async (circle: MyCircle) => {
+    if (!session?.user || oneTapCircleId) return;
+    setOneTapCircleId(circle.id);
+    const userId = session.user.id;
+    try {
+      const { earnedToday } = await recordCheckinWithoutReflection({
+        userId,
+        circleId: circle.id,
+        localDate: getLocalDateString(),
+      });
+      router.push({
+        pathname: '/checkin-complete',
+        params: { circleId: circle.id, ...(earnedToday ? { earnedToday: 'true' } : {}) },
+      });
+    } catch {
+      // A one-tap check-in has no screen of its own to fail on, so the
+      // failure has to be said out loud here — silence would read as "the
+      // button doesn't work". ER1's warm line, never the raw message.
+      setCheckinError(STRINGS.loadFailedLine('your check-in'));
+    } finally {
+      setOneTapCircleId(null);
+    }
+  };
+
   const goToCheckin = (circle: MyCircle, wantsTimer: boolean, dayNumber: number) => {
     const wantsTimerWithDuration = wantsTimer && !!circle.durationMinutes;
     // A circle's resource link (video or otherwise) always routes through
@@ -479,10 +536,18 @@ function Today() {
     // whether the user tapped "start timer" or not (see checkin-timer.tsx).
     const goesToActivityScreen = !!circle.resourceUrl || wantsTimerWithDuration;
 
+    const route = resolveCheckinRoute({
+      hasSeenCheckinConsent,
+      goesToActivityScreen,
+      reflectionsOptOut,
+    });
+
     // Must happen synchronously inside this tap — iOS Safari only unlocks
     // audio playback for an AudioContext created/resumed directly inside a
-    // user gesture, not after any awaited work.
-    if (goesToActivityScreen) unlockAudioContext();
+    // user gesture, not after any awaited work. SK1: the one-tap flow
+    // lands straight on checkin-complete, which plays the check-in pop (or
+    // hands off to the glow beat's bowl), so it needs the unlock too.
+    if (goesToActivityScreen || route === 'one-tap') unlockAudioContext();
 
     const activityParams = goesToActivityScreen
       ? {
@@ -496,10 +561,12 @@ function Today() {
         }
       : {};
 
-    if (!hasSeenCheckinConsent) {
+    if (route === 'intro') {
       router.push({ pathname: '/checkin-intro', params: { circleId: circle.id, ...activityParams } });
-    } else if (goesToActivityScreen) {
+    } else if (route === 'activity') {
       router.push({ pathname: '/checkin-timer', params: { circleId: circle.id, ...activityParams } });
+    } else if (route === 'one-tap') {
+      recordOneTapCheckin(circle);
     } else {
       router.push({ pathname: '/checkin', params: { circleId: circle.id } });
     }
@@ -529,6 +596,19 @@ function Today() {
   // held (above every ask, below the header) so it reads as the first
   // thing Today has to say. Renders nothing at all when `spot` is null.
   const notificationSpot = <TodayNotificationSpot content={spot} />;
+
+  // SK1 job 3 — the one-tap flow's failure surface, shared by both
+  // check-in-bearing branches. Deliberately 'plain', not ER1's slip:
+  // Today can already be carrying a placed mascot (the photo ask), and
+  // the one-mascot-per-screen law is never stacked.
+  const checkinErrorDialog = (
+    <MessageDialog
+      visible={!!checkinError}
+      title="hmm"
+      message={checkinError ?? ''}
+      onDismiss={() => setCheckinError(null)}
+    />
+  );
 
   // RM1 — the one-time dismissible reminders-ask card for existing users
   // (new sign-ups get the onboarding step instead, never both). Either
@@ -793,6 +873,7 @@ function Today() {
             <TouchableOpacity
               style={styles.markDoneButton}
               onPress={() => goToCheckin(circle, false, signal.dayNumber)}
+              disabled={oneTapCircleId === circle.id}
             >
               <Text style={styles.markDoneButtonText}>Just mark as done</Text>
             </TouchableOpacity>
@@ -804,14 +885,23 @@ function Today() {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity
-            style={[styles.cta, iAmCheckedInToday && styles.ctaSecondary]}
-            onPress={() => goToCheckin(circle, false, signal.dayNumber)}
-          >
-            <Text style={[styles.ctaText, iAmCheckedInToday && styles.ctaSecondaryText]}>
-              {iAmCheckedInToday ? STRINGS.editCheckinCta : STRINGS.checkInCta}
-            </Text>
-          </TouchableOpacity>
+          // SK1 job 3 — "edit today's check-in" is a door to the
+          // reflection screen, so an opted-out person who has already
+          // checked in has nothing behind it. The CheckedInBadge on their
+          // own avatar already says the day is done; offering an edit that
+          // opens the form they turned off would be the pitch the no-nag
+          // law forbids.
+          (!iAmCheckedInToday || !reflectionsOptOut) && (
+            <TouchableOpacity
+              style={[styles.cta, iAmCheckedInToday && styles.ctaSecondary]}
+              onPress={() => goToCheckin(circle, false, signal.dayNumber)}
+              disabled={oneTapCircleId === circle.id}
+            >
+              <Text style={[styles.ctaText, iAmCheckedInToday && styles.ctaSecondaryText]}>
+                {iAmCheckedInToday ? STRINGS.editCheckinCta : STRINGS.checkInCta}
+              </Text>
+            </TouchableOpacity>
+          )
         )}
 
         {isSolo && (
@@ -828,7 +918,10 @@ function Today() {
           </TouchableOpacity>
         )}
 
-        {!hasWrittenReflectionToday && reflectionQuestion && (
+        {/* NO-NAG LAW (SK1): the teaser is Today pitching tonight's
+            reflection question. Once someone has opted out, Today never
+            pitches again — the confirm card was the last unprompted word. */}
+        {!reflectionsOptOut && !hasWrittenReflectionToday && reflectionQuestion && (
           <TouchableOpacity
             style={styles.reflectionTeaser}
             onPress={() => goToCheckin(circle, false, signal.dayNumber)}
@@ -842,6 +935,7 @@ function Today() {
         <TodayFooter week={week} hasSurfacedPattern={hasSurfacedPattern} oneShotEarned={glowOneShot} />
 
         {addCircleButton}
+        {checkinErrorDialog}
       </ScrollView>
     );
   }
@@ -1007,6 +1101,7 @@ function Today() {
                 <TouchableOpacity
                   style={styles.markDoneButton}
                   onPress={() => goToCheckin(circle, false, signal.dayNumber)}
+                  disabled={oneTapCircleId === circle.id}
                 >
                   <Text style={styles.markDoneButtonText}>Just mark as done</Text>
                 </TouchableOpacity>
@@ -1018,14 +1113,20 @@ function Today() {
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity
-                style={[styles.cta, iAmCheckedInToday && styles.ctaSecondary]}
-                onPress={() => goToCheckin(circle, false, signal.dayNumber)}
-              >
-                <Text style={[styles.ctaText, iAmCheckedInToday && styles.ctaSecondaryText]}>
-                  {iAmCheckedInToday ? STRINGS.editCheckinCta : STRINGS.checkInCta}
-                </Text>
-              </TouchableOpacity>
+              // SK1 job 3 — same rule as the single-circle branch: no
+              // "edit today's check-in" door for someone whose reflections
+              // are off, since there is nothing behind it.
+              (!iAmCheckedInToday || !reflectionsOptOut) && (
+                <TouchableOpacity
+                  style={[styles.cta, iAmCheckedInToday && styles.ctaSecondary]}
+                  onPress={() => goToCheckin(circle, false, signal.dayNumber)}
+                  disabled={oneTapCircleId === circle.id}
+                >
+                  <Text style={[styles.ctaText, iAmCheckedInToday && styles.ctaSecondaryText]}>
+                    {iAmCheckedInToday ? STRINGS.editCheckinCta : STRINGS.checkInCta}
+                  </Text>
+                </TouchableOpacity>
+              )
             )}
 
             {isSolo && (
@@ -1047,7 +1148,9 @@ function Today() {
 
       {addCircleButton}
 
-      {!hasWrittenReflectionToday && reflectionQuestion && circles[0] && (
+      {/* NO-NAG LAW (SK1): silent once opted out — see the single-circle
+          branch's note. */}
+      {!reflectionsOptOut && !hasWrittenReflectionToday && reflectionQuestion && circles[0] && (
         <TouchableOpacity
           style={styles.reflectionTeaser}
           onPress={() => {
@@ -1069,6 +1172,7 @@ function Today() {
       )}
 
       <TodayFooter week={week} hasSurfacedPattern={hasSurfacedPattern} />
+      {checkinErrorDialog}
     </ScrollView>
   );
 }
