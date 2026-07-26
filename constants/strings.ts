@@ -813,6 +813,14 @@ export const STRINGS = {
   askRallyUnavailable: "Rally couldn't answer just now — try again in a moment",
   askRallyLoadFailed: 'could not load your conversation — try again in a moment',
   askRallyDeleteFailed: 'could not delete that — try again',
+  // OD1 job 11a (26 July) — the inline confirm on the conversation
+  // delete, which until now fired on one tap. It says what is actually
+  // lost and that nothing brings it back, because that is the whole
+  // reason this action earns friction and 'start fresh' (which destroys
+  // nothing) does not. The confirm CTA reuses askRallyDelete above.
+  askRallyDeleteConfirm:
+    'this deletes the whole conversation for good — nothing brings it back. start fresh just opens a new one and keeps this.',
+  askRallyDeleteCancelCta: 'Cancel',
 
   // EX1 (22 July) — "export chat": shares the on-screen conversation only,
   // via the OS share sheet (Cat's ruling — plain text, this conversation
