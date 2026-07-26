@@ -478,13 +478,6 @@ export function AskRallyScreen({
               // exists this scrolls away like any message.
               <View style={styles.greetingWrap}>
                 <View style={styles.greetingBubble}>
-                  {/* OD1 job 7c — the tail, pointing down-right at the
-                      listener tucked under this corner. A rotated square
-                      in the bubble's own fill: the bubble carries no
-                      border, so there is no seam to hide and no border
-                      arithmetic to get wrong. The penguin does not move
-                      (Cat's ruling) — the bubble reaches toward it. */}
-                  <View style={styles.greetingTail} />
                   <Text style={styles.greetingText}>{STRINGS.askRallyGreetingP1}</Text>
                   {/* NO-NAG LAW (SK1): the ordinary second paragraph
                       pitches reflections ("the more you share..."), so
@@ -769,42 +762,27 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingTop: 4,
   },
+  // AR2 (Cat's ruling, 26 July) — the approved mockup's bubble: WHITE
+  // with a plum border. This replaces the plumSoft fill, and it is the
+  // fix for the defect OD1 job 7c's tail was compensating for: plumSoft
+  // #F0EBF3 sits 2-7 RGB points from bg #F2F1EC, so the bubble's edges
+  // barely existed and it read as a tinted patch rather than as speech.
+  // A border is what makes a bubble read as a bubble; the tail 7c asked
+  // for is gone, because the mockup it cited never had one.
+  //
+  // The border is colors.plum, not the mockup's #C9BFD1, so no new token
+  // is needed (theme.ts is session C's): this screen's two other bordered
+  // surfaces — the starter chips and the composer — are already exactly
+  // card + 1.5px plum, at radius 18 and 22, so the bubble at radius 20
+  // lands inside the family rather than inventing a shade. The mockup's
+  // softer border is noted for Cat in the handoff.
   greetingBubble: {
-    backgroundColor: colors.plumSoft,
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.plum,
     borderRadius: 20,
     padding: 16,
     maxWidth: '90%',
-  },
-  // OD1 job 7c — the tail: a 20px square rotated 45° in the bubble's own
-  // fill, overlapping the bottom edge so only the lower point shows.
-  //
-  // WHY right: 92 AND NOT THE BOTTOM-RIGHT CORNER, which is where a tail
-  // aimed at the listener would naturally go. MEASURED: the bubble's
-  // bottom edge is y=315 and the mascot box is x 224-344 / y 309-450,
-  // with the penguin's opaque head spanning roughly x 252-322. A tail at
-  // the corner protrudes 13px straight into that head and is painted
-  // over by it — the first attempt here rendered correctly and was
-  // completely invisible on screen for exactly that reason. Cat's ruling
-  // pins the penguin ("STAYS exactly where it is"), so the corner is not
-  // available: right: 92 puts the point in clear background just left of
-  // the head, with the listener immediately beside it.
-  //
-  // TWO THINGS FLAGGED FOR CAT IN THE HANDOFF: (1) the mockup job 7c
-  // names as the layout source of truth has NO tail at all — its .bubble
-  // is a uniform 20px radius with only a vestigial `position:relative` —
-  // so this geometry is an interpretation, not a transcription; (2) the
-  // tail is inherently faint here because the shipped bubble is
-  // plumSoft rgb(240,235,243) against bg rgb(242,241,236), a 2-7 point
-  // difference, where the mockup's bubble is white with a plum border.
-  greetingTail: {
-    position: 'absolute',
-    bottom: -9,
-    right: 92,
-    width: 20,
-    height: 20,
-    borderRadius: 3,
-    backgroundColor: colors.plumSoft,
-    transform: [{ rotate: '45deg' }],
   },
   greetingText: {
     fontSize: 15,
