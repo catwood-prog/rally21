@@ -206,8 +206,9 @@ export function AskRallyScreen({
   );
 
   // OD1 job 7f — nothing used to scroll when the keyboard opened: the
-  // only auto-scroll is scrollToEnd on onContentSizeChange, and opening
-  // the keyboard doesn't change the content size, it shrinks the
+  // only auto-scroll was scrollToEnd on onContentSizeChange (and that is
+  // now gated to non-empty threads, see the ScrollView below), and
+  // opening the keyboard doesn't change the content size, it shrinks the
   // viewport. So the greeting was simply clipped where the scroll region
   // now ended, mid-sentence, against the opaque bottom block. Scrolling
   // to the end of the content on keyboard-show puts the end of what
@@ -455,7 +456,21 @@ export function AskRallyScreen({
         ref={scrollRef}
         style={styles.messages}
         contentContainerStyle={styles.messagesContent}
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        // Auto-scroll to the newest message — but ONLY once a thread
+        // exists. On an empty thread there is nothing to scroll TO, and
+        // this fired anyway: OD1 job 7a moved the starter chips into
+        // this scroll region, which made the empty state tall enough to
+        // scroll at large text, so the greeting was pushed up out of
+        // view on load (measured at 1.35x: content 639 in a 443 box,
+        // landing at scrollTop 196 with only the last line showing).
+        // Nothing was lost — scrolling up reached it — but the first
+        // thing Rally says should not arrive already scrolled past.
+        // The keyboardDidShow scroll above is deliberately NOT gated
+        // this way: on an empty thread the greeting is exactly what it
+        // rescues from being clipped by the shrunken viewport (7f).
+        onContentSizeChange={
+          isEmptyThread ? undefined : () => scrollRef.current?.scrollToEnd({ animated: true })
+        }
       >
         {isEmptyThread && error ? (
           // AR1, per the placement map (6 July, re-confirmed 21 July): a
