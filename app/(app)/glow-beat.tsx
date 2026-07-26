@@ -17,6 +17,8 @@ import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { getDayCloseState } from '@/lib/dayComplete';
+import { getLocalDateString } from '@/lib/date';
 import { playGlowBeatBowl } from '@/lib/chime';
 import * as haptics from '@/lib/haptics';
 import { didRekindleToday, getMyGlow, getMyWeek, WeekDay } from '@/lib/glow';
@@ -119,6 +121,14 @@ export default function GlowBeat() {
   // NAV1 job 0 — celebration screens are AppHeader-exempt, never safe-area-exempt.
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
+  // OD1 job 9d (Cat's ruling, 26 July) — the glow beat is LAST in its
+  // sequence, so it owns the goodbye. But it fires on the FIRST check-in
+  // of the day, which for a multi-circle person is usually a day with
+  // practices still open — telling them "see you tomorrow" there would be
+  // exactly the error 9d exists to prevent, moved one screen along. So it
+  // answers the same question every other label answers. Null until the
+  // read lands: never guess at a farewell.
+  const [isDayComplete, setIsDayComplete] = useState<boolean | null>(null);
   const reduceMotion = useReducedMotion();
   // Anchors the whole choreography's timing regardless of how fast/slow
   // getMyGlow/getMyWeek resolve — see WeekSlot's own elapsed-aware delay.
@@ -140,6 +150,16 @@ export default function GlowBeat() {
         // glowing" button with no number/week row, still lands on Today
       });
   }, []);
+
+  useEffect(() => {
+    if (!session?.user) return;
+    getDayCloseState({ userId: session.user.id, localDate: getLocalDateString() })
+      .then((state) => setIsDayComplete(state.isComplete))
+      .catch(() => {
+        // The beat never blocks. An unknown day stays on the forward
+        // label rather than risking a false goodbye.
+      });
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -328,7 +348,11 @@ export default function GlowBeat() {
       </View>
 
       <TouchableOpacity style={styles.button} onPress={() => router.replace('/today')}>
-        <Text style={styles.buttonText}>{STRINGS.glowBeatContinueCta}</Text>
+        <Text style={styles.buttonText}>
+          {/* done -> this screen closes the day; still open -> the
+              imperative is a true prompt, which is the state it fits. */}
+          {isDayComplete ? STRINGS.dayDoneCta : STRINGS.glowBeatContinueCta}
+        </Text>
       </TouchableOpacity>
     </View>
   );

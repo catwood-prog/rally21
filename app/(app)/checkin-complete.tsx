@@ -491,14 +491,22 @@ export default function CheckInComplete() {
     // say. It has no closing label of its own ("keep it glowing" leads
     // on to Today), so a glow-beat day currently ends without a farewell
     // at all — REPORTED to Cat rather than fixed with invented copy.
+    // The glow beat comes next, so this screen is not last and must lead
+    // forward. Cat's ruling, 26 July: "keep it glowing" moves HERE, to the
+    // day-done case, where being imperative fits — there is nothing left
+    // to do today, so it reads as carrying the glow onward rather than
+    // asking for more work. It cannot collide with glow-beat's own use of
+    // the same line: that one only shows when the day is NOT done, and
+    // these two states are mutually exclusive, so the phrase appears on
+    // exactly one screen per day and never twice in a sequence.
     if (shouldShowGlowBeat({ earnedToday: earnedToday === 'true', hasMilestone: !!glowMilestone })) {
-      return STRINGS.checkinSuccessCta;
+      return STRINGS.glowBeatContinueCta;
     }
     // (c) the card comes next and closes the day itself (job 8's "see you
     // tomorrow"), so this leads INTO it rather than closing anything.
     if (cardNavParams) return STRINGS.checkinCardComingCta;
     // (b) nothing follows — this screen owns the goodbye.
-    return STRINGS.checkinSeeYouTomorrowCta;
+    return STRINGS.dayDoneCta;
   })();
 
   const handleDismiss = () => {

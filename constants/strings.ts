@@ -79,7 +79,7 @@ export const STRINGS = {
   // branch, and the goodbye belongs to the LAST screen in the sequence,
   // never to two.
   //   (a) day not done  -> checkinMoreTodayCta(n)   work remaining
-  //   (b) day done      -> checkinSeeYouTomorrowCta farewell
+  //   (b) day done      -> dayDoneCta farewell
   //   (c) card day      -> checkinCardComingCta     gift, defers to the
   //                        share card's own "see you tomorrow" (job 8)
   // Same shape, same length, all lowercase — three registers doing three
@@ -94,7 +94,7 @@ export const STRINGS = {
   // rather than inventing a second rule.
   checkinMoreTodayCta: (remaining: number) =>
     `${CLOSING_BEAT_COUNT_WORD[remaining] ?? remaining} more today`,
-  checkinSeeYouTomorrowCta: 'see you tomorrow',
+  dayDoneCta: 'see you tomorrow',
   checkinCardComingCta: 'something for you',
 
   // ON1 (23 July) — the two-question Day-0 intake. Q1 options ARE the five

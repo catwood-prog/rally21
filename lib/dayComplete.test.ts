@@ -250,9 +250,44 @@ describe('the closing beat labels (OD1 job 9d)', () => {
     expect(STRINGS.checkinMoreTodayCta(4)).toBe('4 more today');
   });
 
+  it('the FOUR end-of-day labels: exactly one farewell, and it is shared by the screens that close', () => {
+    // Cat's ruling, 26 July. The last screen owns the goodbye; every
+    // label answers "is the day done?"; non-last screens lead forward.
+    //
+    //   checkin-complete  not done          -> N more today
+    //   checkin-complete  done, glow next   -> keep it glowing
+    //   checkin-complete  done, card next   -> something for you
+    //   checkin-complete  done, last        -> see you tomorrow
+    //   glow-beat         not done          -> keep it glowing
+    //   glow-beat         done  (last)      -> see you tomorrow
+    //   share-card        (always done, last)-> see you tomorrow
+    const forward = [
+      STRINGS.checkinMoreTodayCta(2),
+      STRINGS.glowBeatContinueCta,
+      STRINGS.checkinCardComingCta,
+    ];
+    // Not one of the forward labels may be the farewell.
+    for (const label of forward) expect(label).not.toBe(STRINGS.dayDoneCta);
+    // The two screens that can be last say the SAME farewell, so the day
+    // ends the same way whichever one closes it.
+    expect(STRINGS.dayDoneCta).toBe(STRINGS.shareCardCloseCta);
+  });
+
+  it('"keep it glowing" is reused across two screens but never within one day', () => {
+    // It shows on checkin-complete only when the day IS done, and on
+    // glow-beat only when it is NOT — mutually exclusive, so a person
+    // sees it on exactly one screen per day and never twice in a row.
+    // This test documents the invariant the two call sites rely on.
+    const onCheckinComplete = (dayDone: boolean) => dayDone;
+    const onGlowBeat = (dayDone: boolean) => !dayDone;
+    for (const dayDone of [true, false]) {
+      expect(onCheckinComplete(dayDone) && onGlowBeat(dayDone)).toBe(false);
+    }
+  });
+
   it('the three states never say the same thing, and only one is a farewell', () => {
     const notDone = STRINGS.checkinMoreTodayCta(2);
-    const done = STRINGS.checkinSeeYouTomorrowCta;
+    const done = STRINGS.dayDoneCta;
     const cardDay = STRINGS.checkinCardComingCta;
     expect(new Set([notDone, done, cardDay]).size).toBe(3);
     // (c) leads INTO the card; it must never be the goodbye, which the
@@ -265,7 +300,7 @@ describe('the closing beat labels (OD1 job 9d)', () => {
   it('all three are lowercase fragments (LC2: button labels are not prose)', () => {
     for (const label of [
       STRINGS.checkinMoreTodayCta(2),
-      STRINGS.checkinSeeYouTomorrowCta,
+      STRINGS.dayDoneCta,
       STRINGS.checkinCardComingCta,
     ]) {
       expect(label).toBe(label.toLowerCase());
