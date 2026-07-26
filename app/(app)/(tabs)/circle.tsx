@@ -56,8 +56,8 @@ import {
   getMyLastCelebratedDay,
   getNextMilestone,
   rallyOnCircle,
-  shouldShowJourneyGate,
 } from '@/lib/journey';
+import { shouldRouteToJourneyGate } from '@/lib/journeyGateGuard';
 import { blockUser, getMyBlocks, reportContent, unblockUser } from '@/lib/moderation';
 import { getMyProfile, markCoverHintSeen } from '@/lib/profile';
 import { extractYouTubeId, isHttpUrl } from '@/lib/resourceLink';
@@ -137,7 +137,17 @@ function YourCircle() {
   // Defaults to true so the discovery hint never flashes before the real
   // value loads — it only ever matters once it resolves to false.
   const [hasSeenCoverHint, setHasSeenCoverHint] = useState(true);
-  const [myLastCelebratedDay, setMyLastCelebratedDay] = useState(0);
+  // CB1 job 1b — null means "not loaded yet", and that distinction is
+  // load-bearing, not tidiness. `load` calls setCircle BEFORE awaiting the
+  // batch that fetches this value, so `circle` commits a render earlier
+  // than the day it must be judged against. While this defaulted to 0,
+  // that gap re-fired the day-21 ceremony on EVERY fresh mount of this
+  // screen at day 21+ — including for a member already marked at 21 —
+  // which is the other half of the cycle Cat was caught in (found by the
+  // CB1 walk: exiting the ceremony to Today worked, then opening the
+  // circle screen sent her straight back to it). The ceremony effect
+  // below now waits for the real value.
+  const [myLastCelebratedDay, setMyLastCelebratedDay] = useState<number | null>(null);
   const [pairStreaks, setPairStreaks] = useState<PairStreak[]>([]);
   const [isRallying, setIsRallying] = useState(false);
   const [isConfirmingComplete, setIsConfirmingComplete] = useState(false);
@@ -173,6 +183,10 @@ function YourCircle() {
     setError(null);
     setListCircles([]);
     setHasOtherCircles(false);
+    // CB1 job 1b — back to "not loaded" for the duration of this load, so
+    // a switch between circles can never judge the new circle's ceremony
+    // against the previous circle's marker.
+    setMyLastCelebratedDay(null);
     try {
       const selection = await resolveCircleSelection(circleId, session.user.id);
       if (selection.kind === 'picker') {
@@ -300,9 +314,18 @@ function YourCircle() {
   // idempotent check as Today's, in case this screen is reached first
   // (e.g. a direct link) without ever passing through Today.
   useEffect(() => {
-    if (!circle) return;
+    // CB1 job 1b — myLastCelebratedDay === null is "this member's marker
+    // hasn't loaded yet", and routing to a CEREMONY on a value that isn't
+    // in yet is how a seen ceremony re-fires. Wait for the real one; the
+    // effect re-runs the moment it lands (it's a dependency).
+    if (!circle || myLastCelebratedDay === null) return;
     const dayNumber = Math.max(1, daysBetween(circle.startDate, getLocalDateString()) + 1);
-    if (shouldShowJourneyGate(dayNumber, circle, myLastCelebratedDay)) {
+    // CB1 job 1b — shouldRouteToJourneyGate, never shouldShowJourneyGate.
+    // This push is the half of the cycle Cat hit: the ceremony exited to
+    // /circle and this line sent her straight back, forever, because the
+    // marker write had silently failed. Eligibility is untouched; the
+    // guard (lib/journeyGateGuard.ts) is what stops the re-entry.
+    if (shouldRouteToJourneyGate(circle.id, dayNumber, circle, myLastCelebratedDay)) {
       router.push({ pathname: '/journey-gate', params: { circleId: circle.id } });
       return;
     }
@@ -748,7 +771,9 @@ function YourCircle() {
 
       {!circle.completedAt &&
         !circle.ralliedOnAt &&
-        myLastCelebratedDay >= GATE_DAY && (
+        // CB1 job 1b — null is "not loaded"; the card stays away until the
+        // real marker lands, same as it did when this defaulted to 0.
+        (myLastCelebratedDay ?? 0) >= GATE_DAY && (
           <View style={styles.journeyGateCard}>
             <Text style={styles.journeyGateCardTitle}>{STRINGS.journeyGateCardTitle(circle.name)}</Text>
             <Text style={styles.journeyGateCardBody}>{STRINGS.journeyGateCardBody}</Text>
@@ -978,6 +1003,21 @@ function YourCircle() {
                       <CheckedInBadge state={state} />
                     )}
                   </View>
+                  {/* CB1 job 2 — Who's Here has never rendered a member's
+                      name: it lived only in the a11y label and the cover
+                      params. That was survivable while a photo-less
+                      member showed their initials, but AV1 (21 July)
+                      replaced the initials disc with a deterministic
+                      penguin on Cat's "no initial badge" ruling, and
+                      photo-less members lost their last identifying
+                      mark. The name is what Cat expected to be here; the
+                      no-initials ruling stands untouched. One line only,
+                      truncated — a long name must never wrap the grid. */}
+                  {member.name ? (
+                    <Text style={styles.whoHereName} numberOfLines={1}>
+                      {member.name}
+                    </Text>
+                  ) : null}
                   {/* GS1 — ambient pride from 7 days: flame + count, or
                       NOTHING at all (absence must read as "doesn't
                       apply", never a gap — the server already floors and
@@ -1650,6 +1690,18 @@ const styles = StyleSheet.create({
   awayBadgeText: {
     fontSize: 10,
     lineHeight: 12,
+  },
+  // CB1 job 2 — the name under a Who's Here avatar. maxWidth (not a fixed
+  // width) so short names keep the huddle tight and a long one truncates
+  // instead of widening its column; numberOfLines={1} at the call site is
+  // the other half of that. Quiet weight — this identifies a person, it
+  // isn't a heading, and it must not out-shout the avatar it labels.
+  whoHereName: {
+    fontSize: 11,
+    color: colors.muted,
+    marginTop: 4,
+    maxWidth: 64,
+    textAlign: 'center',
   },
   // GS1 — the ambient flame line under a glowing member's avatar.
   // Quiet by design: small, muted, no ranking treatment, and simply

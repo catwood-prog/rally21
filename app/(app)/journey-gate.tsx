@@ -23,8 +23,10 @@ import { playDay21Flourish } from '@/lib/chime';
 import { getCircleById, MyCircle } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
 import { completeCircle, GATE_DAY, markCelebrationSeen, rallyOnCircle } from '@/lib/journey';
+import { markJourneyGateShown } from '@/lib/journeyGateGuard';
 import { MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
 import { getMyProfile } from '@/lib/profile';
+import { captureError } from '@/lib/sentry';
 
 // The one big moment in the app (mascot brief) — a bigger, slower burst
 // than check-in success's small daily beat. The burst mechanism itself
@@ -36,6 +38,34 @@ const CONFETTI_COUNT = 34;
 const CONFETTI_COLORS = [...CONFETTI_GREENS];
 
 type Decision = 'pending' | 'rallied' | 'completed';
+
+/** CB1 job 1a — where the ceremony's exit actually goes, in the same
+ * place as the label it renders. The trap Cat hit on 25 July was exactly
+ * this pair drifting apart: the button said "Back to today" and called
+ * router.replace('/circle'), and the circle screen pushed straight back
+ * here on the same gate check. Today is where a returning person
+ * belongs, so the DESTINATION was the defect, never the label.
+ *
+ * BOTH decided branches (rallied and completed) render this one button
+ * and share this one destination — they deliberately do NOT differ. They
+ * render the SAME string (STRINGS.journeyCompletedCta, "Back to today"),
+ * so a branch that went anywhere else would be lying again; and after
+ * either decision the circle screen has nothing left to ask, so there is
+ * no reason to send someone there instead. journey-gate.test.tsx pins
+ * label-to-destination so the two cannot drift apart again. */
+export const JOURNEY_GATE_EXIT_HREF = '/today' as const;
+
+export function JourneyGateExitButton() {
+  const router = useRouter();
+  return (
+    <TouchableOpacity
+      style={styles.primaryButton}
+      onPress={() => router.replace(JOURNEY_GATE_EXIT_HREF)}
+    >
+      <Text style={styles.primaryButtonText}>{STRINGS.journeyCompletedCta}</Text>
+    </TouchableOpacity>
+  );
+}
 
 export default function JourneyGate() {
   const router = useRouter();
@@ -53,7 +83,19 @@ export default function JourneyGate() {
   const [isCompleting, setIsCompleting] = useState(false);
 
   useEffect(() => {
-    if (!circleId) return;
+    // CB1 job 1b — reached without a circleId (a stale link, a direct
+    // nav), this used to leave isLoading true forever: a spinner on a
+    // tab-bar-exempt screen with no exit, which is the same stranding as
+    // the loop. Fall through to the not-found state, which now has one.
+    if (!circleId) {
+      setIsLoading(false);
+      return;
+    }
+    // CB1 job 1b — the guard goes down HERE: on the way in, before any
+    // network call, so no failure downstream (this fetch, the marker
+    // write) can leave a screen re-routing to a ceremony the person has
+    // already been shown. See lib/journeyGateGuard.ts.
+    markJourneyGateShown(circleId);
     getCircleById(circleId)
       .then((c) => {
         if (!c) return;
@@ -68,7 +110,23 @@ export default function JourneyGate() {
         // First relevant open disarms the full-screen gate for good,
         // regardless of what (if anything) gets decided here — later
         // visits fall through to the quiet persistent card instead.
-        markCelebrationSeen(c.id, GATE_DAY).catch(() => {});
+        //
+        // CB1 job 1c — this write used to swallow its own failure whole
+        // (`.catch(() => {})`), which is how a permanently-unmarked
+        // ceremony went unnoticed for two days on a live device. It is
+        // still not awaited (nothing on this screen should block on it),
+        // but a failure is now REPORTED through the app's one error path
+        // — and, crucially, no longer strands anyone either: the routing
+        // guard above holds regardless of whether this succeeds.
+        markCelebrationSeen(c.id, GATE_DAY).catch((error) => {
+          captureError(error, { screen: 'journey-gate', op: 'markCelebrationSeen' });
+        });
+      })
+      .catch((error) => {
+        // The fetch's own failure lands on the not-found state (which has
+        // an exit). Worth reporting: it is one of the ways someone
+        // reaches this screen with nothing on it.
+        captureError(error, { screen: 'journey-gate', op: 'getCircleById' });
       })
       .finally(() => setIsLoading(false));
   }, [circleId, router]);
@@ -163,15 +221,18 @@ export default function JourneyGate() {
     return (
       <View style={styles.loading}>
         <Text style={styles.subtitle}>{STRINGS.circleNotFound}</Text>
+        {/* CB1 job 1b — this state had no exit at all, on a screen with
+            no tab bar: a network blip on the fetch above (or a link that
+            lost its circleId) stranded someone on a single grey line.
+            Same button, same destination as every other exit here. */}
+        <View style={styles.notFoundExitWrap}>
+          <JourneyGateExitButton />
+        </View>
       </View>
     );
   }
 
   const isCreator = circle.createdBy === session?.user?.id;
-
-  const handleContinue = () => {
-    router.replace({ pathname: '/circle', params: { circleId: circle.id } });
-  };
 
   const handleRallyOn = async () => {
     setIsRallying(true);
@@ -230,9 +291,7 @@ export default function JourneyGate() {
             </Animated.Text>
             <Animated.Text style={[styles.body, bodyStyle]}>{STRINGS.journeyCompletedBody}</Animated.Text>
             <Animated.View style={[styles.actionsWrap, actionsStyle]}>
-              <TouchableOpacity style={styles.primaryButton} onPress={handleContinue}>
-                <Text style={styles.primaryButtonText}>{STRINGS.journeyCompletedCta}</Text>
-              </TouchableOpacity>
+              <JourneyGateExitButton />
             </Animated.View>
           </>
         ) : decision === 'rallied' ? (
@@ -242,9 +301,10 @@ export default function JourneyGate() {
               {STRINGS.journeyRalliedOnCard(circle.name)}
             </Animated.Text>
             <Animated.View style={[styles.actionsWrap, actionsStyle]}>
-              <TouchableOpacity style={styles.primaryButton} onPress={handleContinue}>
-                <Text style={styles.primaryButtonText}>{STRINGS.journeyCompletedCta}</Text>
-              </TouchableOpacity>
+              {/* CB1 job 1a — in this branch this is the ONLY exit on the
+                  screen. That is what made the wrong destination a trap
+                  rather than a nuisance. */}
+              <JourneyGateExitButton />
             </Animated.View>
           </>
         ) : (
@@ -343,6 +403,14 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: colors.muted,
+  },
+  // CB1 job 1b — the not-found state's exit sits in the same 24px gutter
+  // the ceremony's own content uses, so the button matches width for
+  // width; alignSelf stretch because the loading container centers.
+  notFoundExitWrap: {
+    alignSelf: 'stretch',
+    marginTop: 20,
+    paddingHorizontal: 24,
   },
   brandmark: {
     position: 'absolute',

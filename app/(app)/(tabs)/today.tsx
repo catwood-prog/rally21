@@ -51,7 +51,8 @@ import {
 import { isBirthdayToday } from '@/lib/birthday';
 import { daysBetween, getLocalDateString, shiftDate } from '@/lib/date';
 import { getGlowForCircleMates, getMyGlow, getMyWeek, Glow, WeekDay } from '@/lib/glow';
-import { getMyLastCelebratedDay, getNextMilestone, shouldShowJourneyGate } from '@/lib/journey';
+import { getMyLastCelebratedDay, getNextMilestone } from '@/lib/journey';
+import { shouldRouteToJourneyGate } from '@/lib/journeyGateGuard';
 import { updateNotificationPrefs } from '@/lib/notifications';
 import { buildNotificationSpot, CoverMoment } from '@/lib/notificationSpot';
 import { getMyProfile, markPhotoAskSeen, markReentryAcknowledged, markRemindersAskSeen } from '@/lib/profile';
@@ -408,7 +409,11 @@ function Today() {
         today,
         circleStartDate: c.startDate,
       }).dayNumber;
-      if (shouldShowJourneyGate(dayNumber, c, data.lastCelebratedDay)) {
+      // CB1 job 1b — shouldRouteToJourneyGate, never shouldShowJourneyGate:
+      // Today is where the ceremony's exit lands, so routing on
+      // eligibility ALONE is what let the cycle close when the marker
+      // write failed. Eligibility is unchanged; the guard is the extra.
+      if (shouldRouteToJourneyGate(c.id, dayNumber, c, data.lastCelebratedDay)) {
         router.push({ pathname: '/journey-gate', params: { circleId: c.id } });
         return;
       }
