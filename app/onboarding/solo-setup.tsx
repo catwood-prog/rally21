@@ -195,9 +195,10 @@ export default function SoloSetup() {
         <Text style={styles.back}>← back</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>
-        {(practiceName ?? 'your practice').toLowerCase()}, solo
-      </Text>
+      {/* OD1 job 16a — rendered as stored (see practice-hub.tsx). The
+          name LEADS this title, so its own capital is exactly right; the
+          fallback is already lowercase and needs no help. */}
+      <Text style={styles.title}>{practiceName ?? 'your practice'}, solo</Text>
       <Text style={styles.titleAccent}>{STRINGS.soloSetupAccent}</Text>
 
       {/* The summary card — what these 21 days are: the dose in its one

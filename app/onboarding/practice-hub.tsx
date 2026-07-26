@@ -110,7 +110,12 @@ export default function PracticeHub() {
         <Text style={styles.back}>{isFromToday ? '← today' : '← back'}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>{practiceName?.toLowerCase()}</Text>
+      {/* OD1 job 16a — rendered as stored. This is a user-created name
+          standing alone as the title, so lowercasing bought nothing and
+          flattened "Morning Movers" and every acronym. The lowercase
+          screen-title law (LC1) is about OUR words; user content is its
+          stated exception. */}
+      <Text style={styles.title}>{practiceName}</Text>
       {grouping && <Text style={styles.grouping}>{grouping}</Text>}
 
       <Text style={styles.howQuestion}>{STRINGS.hubHowQuestion}</Text>

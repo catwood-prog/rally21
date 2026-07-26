@@ -140,7 +140,11 @@ export default function JoinCircle() {
               <View style={styles.publicCardInfo}>
                 <Text style={styles.publicCardName}>{circle.name}</Text>
                 <Text style={styles.publicCardMeta}>
-                  {circle.practiceName?.toLowerCase()} · {circle.memberCount}{' '}
+                  {/* OD1 job 16a — rendered as stored. The circle's own
+                      name one line above has always been untouched; the
+                      practice name is the same kind of user content and
+                      now matches it. */}
+                  {circle.practiceName} · {circle.memberCount}{' '}
                   {circle.memberCount === 1 ? 'member' : 'members'} · day{' '}
                   {Math.min(circle.dayNumber, circle.durationDays)} of {circle.durationDays}
                 </Text>
