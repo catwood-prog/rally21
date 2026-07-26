@@ -41,3 +41,11 @@ yarn-error.*
 
 app-example
 .vercel
+
+# Supabase CLI local state — records which remote project THIS machine is
+# linked to, so it is per-machine and not shared. Untracked since 17 July,
+# it made every session's handoff mention it and stamped eas publishes with
+# a dirty-tree asterisk (e.g. caf1459*); the fingerprints were never
+# affected, but the noise was. eslint.config.js is deliberately NOT ignored
+# — it is the shared Expo lint config and belongs in the repo.
+supabase/.temp/
