@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
@@ -27,6 +28,12 @@ const CHANNEL_ROWS: { channel: InviteChannel; label: string; icon: keyof typeof 
 // compose surface with the invite message pre-populated; a channel that
 // can't open falls back to the copy flow rather than erroring.
 export function InviteChannelChooser({ visible, message, mailSubject, onCopy, onDismiss }: Props) {
+  // OD1 job 18a — the reduced-motion law reached 14 files and skipped
+  // every shared modal: all four hardcoded a fade. A fade is only a small
+  // transition, but the law is not graded by size and these are among the
+  // most-met surfaces in the app. 'none' is RN's own opt-out, so the modal
+  // still appears instantly — only the animation goes.
+  const reduceMotion = useReducedMotion();
   const channels = availableInviteChannels();
 
   const handleChannel = async (channel: InviteChannel) => {
@@ -41,7 +48,7 @@ export function InviteChannelChooser({ visible, message, mailSubject, onCopy, on
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
+    <Modal visible={visible} transparent animationType={reduceMotion ? 'none' : 'fade'} onRequestClose={onDismiss}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <Text style={styles.title}>{STRINGS.inviteChooserTitle}</Text>

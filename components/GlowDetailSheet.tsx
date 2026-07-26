@@ -1,4 +1,5 @@
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
@@ -14,8 +15,14 @@ type Props = {
 /** The glow's "tap the flame" explainer (Rally21-Glow-Spec.md §1) —
  * three warm sentences, no mechanics jargon, no numbers to optimize. */
 export function GlowDetailSheet({ visible, onDismiss, heldTodayMessage }: Props) {
+  // OD1 job 18a — the reduced-motion law reached 14 files and skipped
+  // every shared modal: all four hardcoded a fade. A fade is only a small
+  // transition, but the law is not graded by size and these are among the
+  // most-met surfaces in the app. 'none' is RN's own opt-out, so the modal
+  // still appears instantly — only the animation goes.
+  const reduceMotion = useReducedMotion();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
+    <Modal visible={visible} transparent animationType={reduceMotion ? 'none' : 'fade'} onRequestClose={onDismiss}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <Text style={styles.title}>{STRINGS.glowDetailTitle}</Text>

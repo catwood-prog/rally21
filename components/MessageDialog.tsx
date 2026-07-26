@@ -1,4 +1,5 @@
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import { MASCOT } from '@/assets/mascot';
 import { MascotEntrance } from '@/components/MascotEntrance';
@@ -21,8 +22,14 @@ type Props = {
 // React Native's Alert.alert is a no-op under react-native-web, so this is
 // the cross-platform stand-in wherever the app needs a simple heads-up.
 export function MessageDialog({ visible, title, message, onDismiss, variant = 'plain' }: Props) {
+  // OD1 job 18a — the reduced-motion law reached 14 files and skipped
+  // every shared modal: all four hardcoded a fade. A fade is only a small
+  // transition, but the law is not graded by size and these are among the
+  // most-met surfaces in the app. 'none' is RN's own opt-out, so the modal
+  // still appears instantly — only the animation goes.
+  const reduceMotion = useReducedMotion();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
+    <Modal visible={visible} transparent animationType={reduceMotion ? 'none' : 'fade'} onRequestClose={onDismiss}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
           {variant === 'error' && (

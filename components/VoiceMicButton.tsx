@@ -4,6 +4,7 @@ import { Platform, StyleProp, StyleSheet, TouchableOpacity, ViewStyle } from 're
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
@@ -60,17 +61,37 @@ export function VoiceMicButton({
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const scale = useSharedValue(1);
+  const reduceMotion = useReducedMotion();
 
+  // OD1 job 18b — this pulse was the worst of the five reduced-motion
+  // holes and the only UNBOUNDED one: withRepeat(..., -1, true) with no
+  // guard, running for the whole dictation session rather than as a
+  // one-off transition. Everything else in the app that repeats forever
+  // (ConfettiBurst, BreathingPacer, GlowBadge's embers, the two confetti
+  // screens) already early-outs; this did not.
+  //
+  // Under reduced motion the scale is HELD at 1 and listening is carried
+  // by the state that already exists: the icon turns from muted grey
+  // (rgba(38,38,38,0.5)) to green (#5BA85B) — a full hue change on a
+  // 32px glyph, not a tint — and the accessibility label switches to
+  // "Stop dictating". Nothing is lost but the movement, so no
+  // replacement affordance is needed.
   useEffect(() => {
     if (!isListening) {
       cancelAnimation(scale);
-      scale.value = withTiming(1, { duration: 150 });
+      // Returning to rest is itself a transition: instant when motion is
+      // reduced, eased otherwise.
+      scale.value = reduceMotion ? 1 : withTiming(1, { duration: 150 });
+      return;
+    }
+    if (reduceMotion) {
+      scale.value = 1;
       return;
     }
     scale.value = withRepeat(withTiming(1.25, { duration: 550 }), -1, true);
     return () => cancelAnimation(scale);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isListening]);
+  }, [isListening, reduceMotion]);
 
   useEffect(() => {
     // Stop listening (rather than leave a dangling recognizer) if the
