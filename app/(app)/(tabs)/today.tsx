@@ -116,15 +116,29 @@ function Today() {
   const viewportHeight = useRef(0);
   const spotBlockHeight = useRef(0);
   const ctaBottom = useRef(0);
+  // Which arrangement `ctaBottom` was MEASURED in. This has to be
+  // recorded at measurement time, not read at decision time, because on
+  // react-native-web onLayout is backed by a ResizeObserver: it fires
+  // when a box changes SIZE, and not when it merely MOVES. So after the
+  // spot relocates, the CTA slides up the screen and reports nothing —
+  // the stored number still describes the old arrangement. Reading the
+  // CURRENT arrangement to interpret a STALE measurement is what made
+  // this flip-flop (296 recomputes at one viewport before the fix):
+  // it added the spot's height to a number that had never had it
+  // subtracted. Native does fire onLayout on a move, so both platforms
+  // are correct with the frame stored alongside the number.
+  const ctaMeasuredWithSpotAbove = useRef(true);
+  // The live arrangement, readable from a layout callback without making
+  // that callback depend on (and be recreated by) the state itself.
+  const spotBelowCtaRef = useRef(false);
+  spotBelowCtaRef.current = spotBelowCta;
 
   const reconsiderSpotOrder = useCallback(() => {
-    // The CTA's measured bottom is in whatever layout is on screen now;
-    // normalise it to the "spot above" frame the predicate expects, so
-    // the answer is a function of the CONTENT and never of the current
-    // arrangement (which is what would oscillate).
-    const ctaBottomWithSpotAbove = spotBelowCta
-      ? ctaBottom.current + spotBlockHeight.current
-      : ctaBottom.current;
+    // Normalise to the one frame the predicate is defined in, using the
+    // frame this measurement actually came from.
+    const ctaBottomWithSpotAbove = ctaMeasuredWithSpotAbove.current
+      ? ctaBottom.current
+      : ctaBottom.current + spotBlockHeight.current;
     setSpotBelowCta(
       shouldMoveSpotBelowCta({
         viewportHeight: viewportHeight.current,
@@ -132,7 +146,7 @@ function Today() {
         spotBlockHeight: spotBlockHeight.current,
       })
     );
-  }, [spotBelowCta]);
+  }, []);
 
   const onScrollLayout = useCallback(
     (e: LayoutChangeEvent) => {
@@ -156,6 +170,7 @@ function Today() {
   const onCtaLayout = useCallback(
     (e: LayoutChangeEvent) => {
       ctaBottom.current = e.nativeEvent.layout.y + e.nativeEvent.layout.height;
+      ctaMeasuredWithSpotAbove.current = !spotBelowCtaRef.current;
       reconsiderSpotOrder();
     },
     [reconsiderSpotOrder]
