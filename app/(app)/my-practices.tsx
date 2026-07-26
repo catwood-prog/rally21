@@ -25,6 +25,7 @@ import {
   createPractice,
   listMyPractices,
   Practice,
+  unarchivePractice,
   updatePractice,
 } from '@/lib/circle-setup';
 
@@ -115,12 +116,29 @@ export default function MyPractices() {
     }
   };
 
+  // OD1 job 11b — archive stays ONE TAP, deliberately. The external
+  // audit asked for a confirmation here and that prescription is wrong:
+  // archivePractice is `update({ is_archived: true })` and nothing else,
+  // it destroys no data, and PB1 already proved archived practices keep
+  // working for the circles already on them. A confirm on a fully
+  // reversible action is friction theatre — it taxes every use to
+  // protect against a harm that doesn't exist. What was actually missing
+  // is the way back, which is handleRestore below.
   const handleArchive = async (practice: Practice) => {
     try {
       await archivePractice(practice.id);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not archive that — try again');
+    }
+  };
+
+  const handleRestore = async (practice: Practice) => {
+    try {
+      await unarchivePractice(practice.id);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'could not restore that — try again');
     }
   };
 
@@ -173,16 +191,48 @@ export default function MyPractices() {
                 {practice.isArchived ? ' · archived' : ''}
               </Text>
             </View>
-            {!practice.isArchived && (
-              <View style={styles.cardActions}>
-                <TouchableOpacity onPress={() => startEdit(practice)}>
-                  <Text style={styles.actionText}>Edit</Text>
+            {/* OD1 job 11b/11c — an archived row is no longer a dead
+                end. It used to render NO actions at all (the whole block
+                was gated behind !isArchived), so an archived practice
+                could be neither restored nor edited from anywhere in the
+                app.
+                11c, DECIDED: Restore comes back, Edit does NOT. An
+                archived practice is still live for the circles already
+                on it (PB1), so editing one from a row that presents
+                itself as inactive would silently change what those
+                circles see — a surprising side effect from a screen
+                showing the practice as put away. Restore is one tap and
+                destroys nothing, so the honest order is restore first,
+                then edit it like any other row. It also keeps the
+                archived row to exactly one unambiguous action. */}
+            <View style={styles.cardActions}>
+              {practice.isArchived ? (
+                <TouchableOpacity
+                  style={styles.actionTap}
+                  onPress={() => handleRestore(practice)}
+                  hitSlop={8}
+                >
+                  <Text style={styles.actionText}>Restore</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleArchive(practice)}>
-                  <Text style={styles.actionTextMuted}>Archive</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.actionTap}
+                    onPress={() => startEdit(practice)}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.actionText}>Edit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionTap}
+                    onPress={() => handleArchive(practice)}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.actionTextMuted}>Archive</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
           </View>
         );
       })}
@@ -346,6 +396,16 @@ const styles = StyleSheet.create({
   cardActions: {
     flexDirection: 'row',
     gap: 14,
+    alignItems: 'center',
+  },
+  // OD1 job 11d — these were bare Text inside TouchableOpacity: a ~15px
+  // tall target for a destructive-ish action. There is no shared
+  // tappable-text component in this codebase, so this follows the house
+  // idiom instead (minHeight on the touchable + hitSlop, as the Ask
+  // Rally chips and the tab-bar icon pill already do).
+  actionTap: {
+    minHeight: 44,
+    justifyContent: 'center',
   },
   actionText: {
     fontSize: 12,

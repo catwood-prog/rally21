@@ -167,6 +167,22 @@ export async function archivePractice(practiceId: string): Promise<void> {
   if (error) throw error;
 }
 
+/** OD1 job 11b — the way back out of the archive. Archiving was already
+ * a pure `is_archived` flag flip that destroys nothing (PB1 proved
+ * archived practices keep working for the circles already on them), but
+ * until now nothing anywhere could flip it back: My practices gated its
+ * whole action block behind `!isArchived`, so an archived row could be
+ * neither restored nor even edited. That made a reversible column into a
+ * one-way door in the UI, which is the real breach of the warmth law —
+ * NOT the missing confirmation the external audit asked for. A confirm
+ * on a reversible action taxes every use to prevent a harm that does not
+ * exist; the fix is the road back, so here it is. Exact inverse of
+ * archivePractice, under the same RLS. */
+export async function unarchivePractice(practiceId: string): Promise<void> {
+  const { error } = await supabase.from('practices').update({ is_archived: false }).eq('id', practiceId);
+  if (error) throw error;
+}
+
 export async function createCircle(
   practiceKey: string,
   timeOfDay: string,
