@@ -746,10 +746,17 @@ const styles = StyleSheet.create({
     color: colors.ink,
     lineHeight: scaledLineHeight(18),
   },
+  // SK2: Cat's ruled cancel label ("keep reflections") is 45px wider than
+  // the "keep them" it replaces, and at 1.35x Dynamic Type the pair no
+  // longer fits one line — a flex-end row overflows to the LEFT, so the
+  // cancel escaped the card's padding and sat on its border (at 2x it left
+  // the screen). Wrapping keeps both actions inside the card at every text
+  // size; at normal size nothing moves, they still share one line.
   optOutConfirmActions: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
+    flexWrap: 'wrap',
     gap: 16,
     marginTop: 14,
   },

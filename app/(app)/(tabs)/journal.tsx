@@ -151,19 +151,18 @@ function Journal() {
           replaces the ordinary empty state, never the real timeline: a
           person who wrote before turning them off still sees every word
           they wrote, because nothing is lost. Ghosted cards show the
-          SHAPE of what's dormant, and the one line under them is true
-          either way — the app doesn't claim check-ins are stacking up
-          for someone who hasn't started. No mascot here, per the
-          mockup. */}
+          SHAPE of what's dormant, and the one line under them only
+          renders for someone who HAS checked in — it claims check-ins
+          are stacking up, which would be false at zero, and SK2 (Cat's
+          ruling) chose silence over a second line about nothing. No
+          mascot here, per the mockup. */}
       {!error && timeline.length === 0 && reflectionsOff && (
         <View style={styles.dormantState}>
           <GhostCard widths={[38, 86, 64]} />
           <GhostCard widths={[30, 78]} />
-          <Text style={styles.dormantLine}>
-            {hasCheckedInEver
-              ? STRINGS.journalReflectionsOffLine
-              : STRINGS.journalReflectionsOffLineNoCheckins}
-          </Text>
+          {hasCheckedInEver && (
+            <Text style={styles.dormantLine}>{STRINGS.journalReflectionsOffLine}</Text>
+          )}
         </View>
       )}
 

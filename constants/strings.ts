@@ -678,7 +678,7 @@ export const STRINGS = {
   checkinReflectionsOffConfirmBody:
     'you can turn these back on anytime, from your journal, your private map, or settings.',
   checkinReflectionsOffConfirmCta: 'just check-ins for me',
-  checkinReflectionsOffConfirmCancel: 'keep them',
+  checkinReflectionsOffConfirmCancel: 'keep reflections',
   // The inline toggle (components/ReflectionsToggleRow.tsx), worn
   // identically by journal, private map, ask Rally and settings. Helper
   // is the mockup's line: what it costs, and who it belongs to.
@@ -687,23 +687,32 @@ export const STRINGS = {
   reflectionsSectionLabel: 'reflections',
   // A failed flip, wherever the toggle lives. The row snaps back to the
   // truth, so this only has to say "not saved, try again".
-  reflectionsToggleFailed: "that didn't save just now — give it a moment and try again",
+  reflectionsToggleFailed: "that didn't save just now, give it a moment and try again",
   // THE CURIOSITY LAW (Cat, 23 July): show what is dormant TRUTHFULLY.
-  // Never invent, never guilt. The journal's line is true only once
-  // check-ins actually exist, so it has a second form for the person who
-  // hasn't started yet — a bare "stacking up" would be a claim about
-  // nothing.
+  // Never invent, never guilt. This line CLAIMS check-ins are stacking
+  // up, which is false for someone with none, so SK2 (Cat's ruling, 24
+  // July) dropped the second variant rather than write a line about
+  // nothing: the journal renders NO LINE AT ALL under the ghost cards
+  // for a person with zero check-ins. Silence is honest; the case is
+  // rare. Do not reintroduce a no-check-ins variant.
   journalReflectionsOffLine:
     'Your check-ins are stacking up. The lines that go with them would live here.',
-  journalReflectionsOffLineNoCheckins:
-    'Your check-ins will start stacking up here. The lines that go with them would live here too.',
   // The map may cite real check-in patterns because check-ins still flow
-  // — that is exactly what makes this honest rather than a tease.
-  blueprintReflectionsOffLine: 'We can see when you show up. Reflections would show us why.',
+  // — that is exactly what makes this honest rather than a tease. SK2:
+  // deliberately second person and deliberately echoing blueprintFooter
+  // ("built only from your own check-ins") and blueprintGrowsText ("your
+  // map gets a lot richer"). The private map says "we" nowhere else —
+  // blueprintTitle, blueprintSubline, blueprintFooter and
+  // blueprintGrowsText are all second person or make the patterns the
+  // subject — so do not "improve" this back into a we-sentence.
+  blueprintReflectionsOffLine:
+    'This map is built from your check-ins. Reflections would make it a lot richer.',
   // Ask Rally's honest quiet line, in Rally's own first-person voice
-  // (it replaces askRallyGreetingP2, which pitches reflections).
+  // (it replaces askRallyGreetingP2, which pitches reflections). SK2:
+  // Cat's own wording, shortened to state the fact and the way back and
+  // stop there.
   askRallyGreetingP2ReflectionsOff:
-    'Reflections are off right now, so I know when you show up, not how it went. Your call entirely, and you can change it whenever.',
+    'Reflections are off right now, turn them back on anytime in settings.',
 
   // The journey ladder (Rally21-Glow-Spec.md §8) — circles stop ending at
   // day 21. Ceremonies reward, never interrogate: the app never re-asks.
