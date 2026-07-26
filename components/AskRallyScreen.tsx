@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -33,7 +34,7 @@ import { ReflectionsToggleRow } from '@/components/ReflectionsToggleRow';
 import { appendTranscript, VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { colors } from '@/constants/theme';
+import { colors, scaledLineHeight } from '@/constants/theme';
 import { AskRallyMessage, deleteConversation, getActiveConversation, streamAskRally } from '@/lib/askRally';
 import { useAuth } from '@/lib/auth-context';
 import { getMyBlueprint } from '@/lib/blueprint';
@@ -146,6 +147,19 @@ export function AskRallyScreen({
   const [showReflectionsToggle, setShowReflectionsToggle] = useState(false);
   const [showLearnMore, setShowLearnMore] = useState(false);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  // OD1 job 7g (Cat's ruling): once someone is typing their own question
+  // the starter chips are the least useful thing on screen, so they go
+  // while the composer is focused and come back on blur — but only while
+  // the thread is still empty, which is the only state they render in
+  // anyway. This is what returns roughly half the vertical space with
+  // the keyboard up, and it is most of why 7f's clip stops happening.
+  const [isComposerFocused, setIsComposerFocused] = useState(false);
+  // OD1 job 11a — the inline confirm on the hard delete (your-data's
+  // pattern). Kept out of the header row: the row is three small text
+  // actions, and a confirm rendered inside it would either squeeze them
+  // or reflow the title.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const pendingStartFresh = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
   const prefilledFromContext = useRef(false);
@@ -191,6 +205,21 @@ export function AskRallyScreen({
     }, [load])
   );
 
+  // OD1 job 7f — nothing used to scroll when the keyboard opened: the
+  // only auto-scroll is scrollToEnd on onContentSizeChange, and opening
+  // the keyboard doesn't change the content size, it shrinks the
+  // viewport. So the greeting was simply clipped where the scroll region
+  // now ended, mid-sentence, against the opaque bottom block. Scrolling
+  // to the end of the content on keyboard-show puts the end of what
+  // Rally said in view instead of a severed line. keyboardDidShow (not
+  // Will) so the viewport has already resized when we scroll.
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    });
+    return () => sub.remove();
+  }, []);
+
   // Entry from a blueprint card ("ask Rally about this") or a map
   // starter chip (PM1) prefills the composer as a starting point —
   // never auto-sent on the user's behalf, they still choose what to
@@ -226,17 +255,29 @@ export function AskRallyScreen({
     setDraft('');
   };
 
+  // OD1 job 11a — this is a genuine hard delete of private content with
+  // no recovery anywhere (lib/askRally's deleteConversation is a raw
+  // .delete() on ask_conversations), and it used to fire on ONE TAP. DC1
+  // already set the house rule that destroying data earns friction, so
+  // this reuses your-data.tsx's inline-confirm pattern rather than
+  // inventing a variant. 'start fresh' is deliberately left alone: it
+  // closes the thread and opens a new one, destroying nothing.
   const handleDelete = async () => {
     if (!conversationId) return;
+    setIsDeleting(true);
     try {
       await deleteConversation(conversationId);
     } catch {
       setError(STRINGS.askRallyDeleteFailed);
+      setIsDeleting(false);
+      setConfirmingDelete(false);
       return;
     }
     setConversationId(null);
     setMessages([]);
     setLimitMessage(null);
+    setIsDeleting(false);
+    setConfirmingDelete(false);
   };
 
   // EX1 — shares exactly the conversation already on screen (the
@@ -353,13 +394,41 @@ export function AskRallyScreen({
                 <Text style={styles.exportChat}>{STRINGS.askRallyExportChat}</Text>
               </TouchableOpacity>
               {conversationId && (
-                <TouchableOpacity onPress={handleDelete} hitSlop={8}>
+                <TouchableOpacity onPress={() => setConfirmingDelete(true)} hitSlop={8}>
                   <Text style={styles.deleteText}>{STRINGS.askRallyDelete}</Text>
                 </TouchableOpacity>
               )}
             </View>
           )}
         </View>
+        {/* OD1 job 11a — your-data.tsx's inlineConfirm, reused rather
+            than reinvented: the question, then cancel / confirm side by
+            side with the destructive action in errorRed. */}
+        {confirmingDelete && (
+          <View style={styles.inlineConfirm}>
+            <Text style={styles.inlineConfirmText}>{STRINGS.askRallyDeleteConfirm}</Text>
+            <View style={styles.confirmRow}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setConfirmingDelete(false)}
+                disabled={isDeleting}
+              >
+                <Text style={styles.cancelButtonText}>{STRINGS.askRallyDeleteCancelCta}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmDeleteButton}
+                onPress={handleDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.confirmDeleteText}>{STRINGS.askRallyDelete}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
         {/* Two tap targets in one line; the right-hand slot of this row
             stays EMPTY in v1 — reserved for a future plan indicator at
             the monetization pass. */}
@@ -409,6 +478,13 @@ export function AskRallyScreen({
               // exists this scrolls away like any message.
               <View style={styles.greetingWrap}>
                 <View style={styles.greetingBubble}>
+                  {/* OD1 job 7c — the tail, pointing down-right at the
+                      listener tucked under this corner. A rotated square
+                      in the bubble's own fill: the bubble carries no
+                      border, so there is no seam to hide and no border
+                      arithmetic to get wrong. The penguin does not move
+                      (Cat's ruling) — the bubble reaches toward it. */}
+                  <View style={styles.greetingTail} />
                   <Text style={styles.greetingText}>{STRINGS.askRallyGreetingP1}</Text>
                   {/* NO-NAG LAW (SK1): the ordinary second paragraph
                       pitches reflections ("the more you share..."), so
@@ -437,6 +513,47 @@ export function AskRallyScreen({
                 disabled={isTogglingReflections}
               />
             )}
+            {/* OD1 job 7a — the 2×2 starter grid, only while the thread
+                is empty (never clutter an active conversation) and only
+                while the composer is unfocused (7g). A tap POPULATES the
+                composer, never sends (PM1's law — it matters more when
+                messages are capped).
+
+                THE GRID LIVES HERE, INSIDE THE SCROLL REGION, and that
+                is the fix for the "strange spacing": it used to sit in
+                the pinned bottomSection while the greeting sat in this
+                flex:1 ScrollView, so every spare pixel on the screen
+                pooled into one void between the penguin and the chips —
+                a different size on every device, which is why it read as
+                strange rather than merely large. Chips directly under
+                the listener means the block is the same at any screen
+                height, and the leftover space falls below it where empty
+                space belongs. NOTE FOR WHOEVER COMPARES THIS TO THE
+                MOCKUP: Rally21-AskRally-Screen-Mockup.html has an
+                explicit `<div style="flex:1">` spacer above its chips,
+                i.e. the mockup SPECIFIES the gap this job removes. Job
+                7a is written from Cat's own report of that gap on
+                device, so the job wins and the mockup is stale here. */}
+            {isEmptyThread && !error && !isComposerFocused && (
+              <View style={styles.chipGrid}>
+                {chips.map((chip) => (
+                  <TouchableOpacity
+                    key={chip.text}
+                    style={[
+                      styles.chip,
+                      singleColumnChips ? styles.chipFull : styles.chipHalf,
+                      chip.personal && styles.chipFeatured,
+                    ]}
+                    onPress={() => setDraft(chip.text)}
+                  >
+                    {chip.personal && (
+                      <Text style={styles.chipFeaturedLabel}>{STRINGS.personalChipLabel}</Text>
+                    )}
+                    <Text style={styles.chipText}>{chip.text}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
             {messages.map((m, i) => (
               <View
                 key={i}
@@ -454,31 +571,6 @@ export function AskRallyScreen({
       </ScrollView>
 
       <View style={styles.bottomSection}>
-        {isEmptyThread && !error && (
-          // The 2×2 starter grid, only while the thread is empty — never
-          // clutter an active conversation. A tap POPULATES the composer,
-          // never sends (PM1's law — it matters more when messages are
-          // capped).
-          <View style={styles.chipGrid}>
-            {chips.map((chip) => (
-              <TouchableOpacity
-                key={chip.text}
-                style={[
-                  styles.chip,
-                  singleColumnChips ? styles.chipFull : styles.chipHalf,
-                  chip.personal && styles.chipFeatured,
-                ]}
-                onPress={() => setDraft(chip.text)}
-              >
-                {chip.personal && (
-                  <Text style={styles.chipFeaturedLabel}>{STRINGS.personalChipLabel}</Text>
-                )}
-                <Text style={styles.chipText}>{chip.text}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
         <View style={styles.composerBox}>
           <View style={styles.composerTopRow}>
             <TextInput
@@ -487,6 +579,8 @@ export function AskRallyScreen({
               placeholderTextColor={colors.muted}
               value={draft}
               onChangeText={setDraft}
+              onFocus={() => setIsComposerFocused(true)}
+              onBlur={() => setIsComposerFocused(false)}
               multiline
               editable={!isSending}
             />
@@ -585,6 +679,51 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: colors.ink,
   },
+  // OD1 job 11a — your-data.tsx's inline-confirm shape, copied so the two
+  // destructive surfaces read identically (DC1's precedent). marginTop
+  // because this sits under the header row rather than inside a panel.
+  inlineConfirm: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 12,
+    gap: 10,
+    marginTop: 10,
+  },
+  inlineConfirmText: {
+    fontSize: 11.5,
+    color: colors.ink,
+    lineHeight: scaledLineHeight(16),
+  },
+  confirmRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: colors.bg,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontWeight: '700',
+    fontSize: 12.5,
+    color: colors.ink,
+  },
+  confirmDeleteButton: {
+    flex: 1,
+    backgroundColor: colors.errorRed,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  confirmDeleteText: {
+    fontWeight: '700',
+    fontSize: 12.5,
+    color: '#fff',
+  },
   contextRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -635,6 +774,37 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     maxWidth: '90%',
+  },
+  // OD1 job 7c — the tail: a 20px square rotated 45° in the bubble's own
+  // fill, overlapping the bottom edge so only the lower point shows.
+  //
+  // WHY right: 92 AND NOT THE BOTTOM-RIGHT CORNER, which is where a tail
+  // aimed at the listener would naturally go. MEASURED: the bubble's
+  // bottom edge is y=315 and the mascot box is x 224-344 / y 309-450,
+  // with the penguin's opaque head spanning roughly x 252-322. A tail at
+  // the corner protrudes 13px straight into that head and is painted
+  // over by it — the first attempt here rendered correctly and was
+  // completely invisible on screen for exactly that reason. Cat's ruling
+  // pins the penguin ("STAYS exactly where it is"), so the corner is not
+  // available: right: 92 puts the point in clear background just left of
+  // the head, with the listener immediately beside it.
+  //
+  // TWO THINGS FLAGGED FOR CAT IN THE HANDOFF: (1) the mockup job 7c
+  // names as the layout source of truth has NO tail at all — its .bubble
+  // is a uniform 20px radius with only a vestigial `position:relative` —
+  // so this geometry is an interpretation, not a transcription; (2) the
+  // tail is inherently faint here because the shipped bubble is
+  // plumSoft rgb(240,235,243) against bg rgb(242,241,236), a 2-7 point
+  // difference, where the mockup's bubble is white with a plum border.
+  greetingTail: {
+    position: 'absolute',
+    bottom: -9,
+    right: 92,
+    width: 20,
+    height: 20,
+    borderRadius: 3,
+    backgroundColor: colors.plumSoft,
+    transform: [{ rotate: '45deg' }],
   },
   greetingText: {
     fontSize: 15,
@@ -694,20 +864,32 @@ const styles = StyleSheet.create({
     height: 88,
     marginBottom: 6,
   },
-  // Chips + composer + safety line share one container (and one left
-  // edge), lifting together with the keyboard so the safety line stays
-  // visible while typing.
+  // Composer + safety line share one container (and one left edge),
+  // lifting together with the keyboard so the safety line — a safety
+  // disclosure, never the thing that gets pushed off (job 7h) — stays
+  // visible while typing. The starter chips used to live here too; OD1
+  // job 7a moved them up into the scroll region, see the note there.
+  //
+  // OD1 job 7f — the hairline is the honest boundary. This block is an
+  // opaque colors.bg panel, so with the keyboard up a scroll-clipped
+  // sentence used to butt straight into it with no seam at all: the cut
+  // read as broken layout rather than as content continuing above. A
+  // visible edge says "this is where a region ends", which is the truth.
   bottomSection: {
     paddingHorizontal: 16,
-    paddingTop: 4,
+    paddingTop: 8,
     paddingBottom: 10,
     backgroundColor: colors.bg,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
   },
   chipGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 12,
+    // Sits directly under the listener, per job 7a — the mockup's own
+    // chip offset, with no flexible spacer above it.
+    marginTop: 2,
   },
   chipHalf: {
     flexBasis: '47%',

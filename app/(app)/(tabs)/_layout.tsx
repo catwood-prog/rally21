@@ -165,6 +165,12 @@ export default function TabsLayout() {
           ),
         }}
       />
+      {/* OD1 job 7b — /ask-rally lives in this group so it renders inside
+          the real navigator and gets the genuine pill (Cat's 22 July
+          ruling: always show the nav bar). href: null keeps it OUT of the
+          bar itself: the pill stays five icons, and the deep-linked route
+          is reachable only by navigation, never as a sixth tab. */}
+      <Tabs.Screen name="ask-rally" options={{ href: null }} />
     </Tabs>
   );
 }
