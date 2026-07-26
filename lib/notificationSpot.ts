@@ -56,39 +56,68 @@ export type SpotContent = {
 };
 
 /** Cat's default (overrulable): three moments render individually, the
- * rest fold into one quiet line. Never a scrolling feed. */
+ * rest fold into one quiet line. Never a scrolling feed. This is the ONE
+ * cap; there is deliberately no large-text variant — see below. */
 export const SPOT_MAX_LINES = 3;
 
-/** OD1/TN1's fold gap — under large text the spot shows TWO moments, not
- * three. See spotMaxLines below for why this is the lever. */
-export const SPOT_MAX_LINES_LARGE_TEXT = 2;
-
-/** Above this font scale the spot is one line shorter. Chosen one
- * Dynamic Type step BELOW the size the gap was actually reported at
- * (1.35 — iOS xxxLarge), because the two failure modes are not
- * symmetric: firing a step early costs one moment its own line and folds
- * it into the quiet "and N more", where every moment is still counted;
- * firing a step late costs the person the check-in button. This fires
- * from xxLarge (1.23) up and leaves the common xLarge (1.12) alone. */
-export const LARGE_TEXT_FONT_SCALE = 1.2;
-
 /**
- * TN1's fold gap (found by TN1's own handoff, 24 July; fixed here):
- * at accessibility text sizes a MAXIMAL spot — kicker, headline, three
- * moment lines, the overflow line and the footnote, seven rows — pushed
- * Today's check-in button below the fold (measured at 877px, 1.35x),
- * which Today on its own never does.
+ * TN1's fold gap, and why NOTHING here shortens the card (AR3, Cat's
+ * ruling, 26 July).
  *
- * THE RULE IS NOT A PIXEL BUDGET: the spot must never push check-in below
- * the fold. Capping the card's HEIGHT would have been the wrong lever —
- * it clips or scrolls warmth arbitrarily and the number would be a lie on
- * the next device size. Dropping a moment line is the honest one: the
- * dropped moment is not lost, it folds into the overflow count like any
- * other, so the card gets shorter while still accounting for everything.
- * Warmth yields to the core action.
+ * THE RULE: the spot must never push Today's check-in CTA below the fold.
+ * A maximal spot — kicker, headline, three moment lines, the overflow
+ * line and the footnote, seven rows — does exactly that at accessibility
+ * text sizes, which Today on its own never does.
+ *
+ * WHAT WAS TRIED AND IS NOW SUPERSEDED (c04700d, reverted here): shedding
+ * a moment line above a fixed font-scale threshold. It was the wrong size
+ * of remedy, and measurement is what showed it: a moment line is worth
+ * 22–34px, and at 1.5x the CTA overshoots the fold by 59px (903 against
+ * 844); at 1.64x by 210px. It also failed on TN1's own reported number —
+ * 877 − 28 = 849, still under.
+ *
+ * That version carried an asymmetry argument for firing a step EARLY:
+ * firing early costs one moment its own line, firing late costs the
+ * person the button, so err early. That argument is SUPERSEDED, not
+ * wrong. It was only ever needed because the trigger was a GUESS at which
+ * text scale the fold would be crossed — and a guess has to be wrong in
+ * some direction, so it should be wrong in the cheap one. Once the
+ * trigger is a MEASUREMENT of whether this screen's CTA actually crosses
+ * the fold, there is no direction to err in and nothing to trade: the
+ * threshold fired at 1.23 and 1.35 where nothing was broken, and still
+ * did not save the sizes that were. Do not reinstate it.
+ *
+ * WHAT REPLACED IT: Today REORDERS rather than sheds — the spot moves
+ * below the CTA when (and only when) it would otherwise push it off the
+ * screen. Nothing is deleted, so the rule holds at ANY spot height rather
+ * than up to a guess, and job 14's glow footnote — the truth-telling
+ * sentence that replaced "you missed nothing" — is never available as
+ * space. The decision itself is shouldMoveSpotBelowCta below, kept here
+ * and kept pure so the rule stays pinned by tests rather than eyeballed
+ * on a device; today.tsx only feeds it measurements.
  */
-export function spotMaxLines(fontScale: number): number {
-  return fontScale > LARGE_TEXT_FONT_SCALE ? SPOT_MAX_LINES_LARGE_TEXT : SPOT_MAX_LINES;
+export function shouldMoveSpotBelowCta(input: {
+  /** The scroll viewport's own height — the fold. */
+  viewportHeight: number;
+  /** The CTA's bottom edge in CONTENT coordinates, as it would be with
+   * the spot ABOVE it. Normalising to that one frame is what makes this
+   * a pure function of the content instead of a function of where the
+   * spot currently is, so it cannot oscillate between the two layouts. */
+  ctaBottomWithSpotAbove: number;
+  /** How much vertical space the spot occupies above the CTA, margin
+   * included — i.e. exactly what moving it below gives back. */
+  spotBlockHeight: number;
+}): boolean {
+  const { viewportHeight, ctaBottomWithSpotAbove, spotBlockHeight } = input;
+  // Nothing measured yet: never reorder on a guess.
+  if (viewportHeight <= 0 || ctaBottomWithSpotAbove <= 0) return false;
+  const fits = ctaBottomWithSpotAbove <= viewportHeight;
+  if (fits) return false;
+  // It does not fit — but only move the spot if moving it actually
+  // rescues the CTA. When Today is long enough that the CTA is below the
+  // fold anyway (several stacked circles), the spot is not the cause and
+  // reordering would be churn that fixes nothing.
+  return ctaBottomWithSpotAbove - spotBlockHeight <= viewportHeight;
 }
 
 /** "Russ" / "Russ and Catherine" / "Russ, Catherine and Bo" / "Russ,
@@ -134,13 +163,8 @@ export function buildNotificationSpot(input: {
    * streak and a wrong one is exactly what job 14 corrected. */
   glowHeld: boolean | null;
   circleCount: number;
-  /** The reader's text scale (PixelRatio.getFontScale() on native, 1 on
-   * web). Passed in rather than read here so this module stays pure and
-   * the fold rule is pinned by tests, not eyeballed on a device. */
-  fontScale: number;
 }): SpotContent | null {
-  const { isReentry, warmth, covers, glowHeld, circleCount, fontScale } = input;
-  const maxLines = spotMaxLines(fontScale);
+  const { isReentry, warmth, covers, glowHeld, circleCount } = input;
 
   const waves = warmth.filter((w) => w.kind === 'wave');
   const hearts = warmth.filter((w) => w.kind === 'heart');
@@ -204,9 +228,9 @@ export function buildNotificationSpot(input: {
   grouped.sort((a, b) =>
     a.pinned !== b.pinned ? (a.pinned ? -1 : 1) : ms(b.line.at) - ms(a.line.at)
   );
-  const shown = grouped.slice(0, maxLines);
+  const shown = grouped.slice(0, SPOT_MAX_LINES);
   const overflowCount = grouped
-    .slice(maxLines)
+    .slice(SPOT_MAX_LINES)
     .reduce((sum, g) => sum + g.moments, 0);
 
   return {

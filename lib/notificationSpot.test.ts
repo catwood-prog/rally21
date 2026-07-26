@@ -4,10 +4,8 @@ import {
   buildNotificationSpot,
   CoverMoment,
   joinNames,
-  LARGE_TEXT_FONT_SCALE,
+  shouldMoveSpotBelowCta,
   SPOT_MAX_LINES,
-  SPOT_MAX_LINES_LARGE_TEXT,
-  spotMaxLines,
 } from './notificationSpot';
 import { FreshWarmth } from './warmth';
 
@@ -21,16 +19,7 @@ function cover(covererName: string, at: string): CoverMoment {
   return { covererName, at };
 }
 
-// fontScale 1 = normal text, which is what every case below is about
-// unless it says otherwise (see the fold-gap describe at the bottom).
-const QUIET = {
-  isReentry: false,
-  warmth: [],
-  covers: [],
-  glowHeld: true,
-  circleCount: 1,
-  fontScale: 1,
-};
+const QUIET = { isReentry: false, warmth: [], covers: [], glowHeld: true, circleCount: 1 };
 
 // The spot inherits WL2's whisper laws (empty in = absent surface, a cap
 // with a quiet overflow line, newest first) plus TN1's own: welcome-back
@@ -221,74 +210,119 @@ describe('the welcome-back mode (mockup frame A)', () => {
   });
 });
 
-// TN1's fold gap (OD1 session A): a maximal spot at accessibility text
-// sizes pushed Today's check-in button below the fold. The lever is a
-// moment line, never a pixel cap — and a dropped line must still be
-// COUNTED, or the fix would quietly lose someone's warmth.
-describe('the fold gap — the spot never pushes check-in off the screen', () => {
-  const FOUR_MOMENTS = {
-    ...QUIET,
-    warmth: [
-      heart('Russ', '2026-07-24T12:00:00Z'),
-      heart('Catherine', '2026-07-24T11:00:00Z'),
-      heart('Bo', '2026-07-24T10:00:00Z'),
-      heart('Ada', '2026-07-24T09:00:00Z'),
-    ],
-  };
+// AR3 — TN1's fold gap, Cat's ruling: the spot must never push Today's
+// check-in CTA below the fold, and it REORDERS to obey rather than
+// shedding warmth. These pin the rule so it stays "pinned by tests, not
+// eyeballed on a device" — the same standard the shed version was held
+// to, applied to what replaced it.
+//
+// The measurements behind the numbers, taken at 390x844 with a MAXIMAL
+// seven-row spot: Today alone never crosses (625 at 1.5x, 731 at 1.64x),
+// the spot pushes it to 903 and 1054, and a moment line is worth only
+// 22-34px. That is why the lever is the whole card, not a line of it.
+describe('the fold rule — the spot never pushes check-in off the screen', () => {
+  const FOLD = 844;
 
-  it('shows three moments at normal text, as it always has', () => {
-    const spot = buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1 });
-    expect(spot?.lines).toHaveLength(SPOT_MAX_LINES);
-    expect(spot?.overflowCount).toBe(1);
+  it('leaves the spot alone when the CTA already fits', () => {
+    expect(
+      shouldMoveSpotBelowCta({
+        viewportHeight: FOLD,
+        ctaBottomWithSpotAbove: 660, // measured, 1x
+        spotBlockHeight: 210,
+      })
+    ).toBe(false);
   });
 
-  it('leaves the common one-step-up size (xLarge, 1.12) alone', () => {
-    expect(buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1.12 })?.lines).toHaveLength(3);
+  it('moves the spot below when the CTA would cross the fold (1.5x, measured)', () => {
+    expect(
+      shouldMoveSpotBelowCta({
+        viewportHeight: FOLD,
+        ctaBottomWithSpotAbove: 903,
+        spotBlockHeight: 253,
+      })
+    ).toBe(true);
   });
 
-  it('sheds a line from xxLarge (1.23) up — one step BELOW where the gap was reported', () => {
-    expect(buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1.23 })?.lines).toHaveLength(2);
+  it('moves it at 1.64x too, where shedding a line never could', () => {
+    // 1054 - 34 (one moment line) = 1020, still 176px under water; the
+    // whole card is 281, which clears it. This is the case that killed
+    // the shed.
+    expect(
+      shouldMoveSpotBelowCta({
+        viewportHeight: FOLD,
+        ctaBottomWithSpotAbove: 1054,
+        spotBlockHeight: 281,
+      })
+    ).toBe(true);
   });
 
-  it('sheds a line at the size the gap was actually measured at (1.35)', () => {
-    const spot = buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1.35 });
-    expect(spot?.lines).toHaveLength(SPOT_MAX_LINES_LARGE_TEXT);
+  it('does NOT fire at 1.23 or 1.35, where nothing was ever broken', () => {
+    // The old threshold shed a line at both of these. Measurement does
+    // not, because the CTA was above the fold the whole time.
+    expect(
+      shouldMoveSpotBelowCta({ viewportHeight: FOLD, ctaBottomWithSpotAbove: 756, spotBlockHeight: 228 })
+    ).toBe(false);
+    expect(
+      shouldMoveSpotBelowCta({ viewportHeight: FOLD, ctaBottomWithSpotAbove: 810, spotBlockHeight: 239 })
+    ).toBe(false);
   });
 
-  it('the dropped moment is FOLDED, never lost — the overflow count absorbs it', () => {
-    const small = buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1 })!;
-    const large = buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1.35 })!;
-    const momentsAccountedFor = (s: typeof small) => s.lines.length + s.overflowCount;
-    expect(momentsAccountedFor(large)).toBe(momentsAccountedFor(small));
-    expect(large.overflowCount).toBe(2);
+  it('declines when moving would not rescue the CTA — the spot is not the cause', () => {
+    // Several stacked circles: the CTA is far below the fold and losing
+    // the spot from above it changes nothing worth churning the layout
+    // for.
+    expect(
+      shouldMoveSpotBelowCta({ viewportHeight: FOLD, ctaBottomWithSpotAbove: 1600, spotBlockHeight: 240 })
+    ).toBe(false);
   });
 
-  it('does not move the seen-marker — the same warmth is consumed either way', () => {
-    const small = buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1 });
-    const large = buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1.35 });
-    expect(large?.newestAt).toBe(small?.newestAt);
+  it('never reorders on an unmeasured screen', () => {
+    expect(
+      shouldMoveSpotBelowCta({ viewportHeight: 0, ctaBottomWithSpotAbove: 900, spotBlockHeight: 240 })
+    ).toBe(false);
+    expect(
+      shouldMoveSpotBelowCta({ viewportHeight: FOLD, ctaBottomWithSpotAbove: 0, spotBlockHeight: 240 })
+    ).toBe(false);
   });
 
-  it('the re-entry wave stays pinned even when the card is shorter', () => {
-    const spot = buildNotificationSpot({
-      ...FOUR_MOMENTS,
-      isReentry: true,
-      warmth: [
-        ...FOUR_MOMENTS.warmth,
-        // Older than every heart, so only the pin can keep it in.
-        wave('Sam', '2026-07-20T09:00:00Z'),
-      ],
-      fontScale: 1.35,
+  it('is a pure function of the content, so the two layouts cannot oscillate', () => {
+    // today.tsx normalises its measurement to the "spot above" frame
+    // before asking, so the answer never depends on where the spot
+    // currently is. Same content in, same verdict out, both ways round.
+    const content = { viewportHeight: FOLD, ctaBottomWithSpotAbove: 903, spotBlockHeight: 253 };
+    const verdictWhenAbove = shouldMoveSpotBelowCta(content);
+    // What today.tsx computes once the spot has already moved: the CTA
+    // measures 253px higher, and it adds that back before asking.
+    const measuredWhenBelow = 903 - 253;
+    const verdictWhenBelow = shouldMoveSpotBelowCta({
+      ...content,
+      ctaBottomWithSpotAbove: measuredWhenBelow + 253,
     });
-    expect(spot?.lines).toHaveLength(2);
-    expect(spot?.lines[0].text).toBe(STRINGS.todaySpotWaveLine('Sam'));
+    expect(verdictWhenBelow).toBe(verdictWhenAbove);
+    expect(verdictWhenAbove).toBe(true);
   });
 
-  it('spotMaxLines is the whole rule, and it is a step function not a budget', () => {
-    expect(spotMaxLines(1)).toBe(SPOT_MAX_LINES);
-    expect(spotMaxLines(LARGE_TEXT_FONT_SCALE)).toBe(SPOT_MAX_LINES);
-    expect(spotMaxLines(LARGE_TEXT_FONT_SCALE + 0.01)).toBe(SPOT_MAX_LINES_LARGE_TEXT);
-    expect(spotMaxLines(3)).toBe(SPOT_MAX_LINES_LARGE_TEXT);
+  it('the spot itself is NEVER shortened — no moment and no footnote is traded for space', () => {
+    // Job 14's glow sentence is truth-telling copy, not padding, and
+    // the moment cap is Cat's one default. Reordering is what yields.
+    const fourMoments = {
+      ...QUIET,
+      isReentry: true,
+      glowHeld: false,
+      warmth: [
+        heart('Russ', '2026-07-24T12:00:00Z'),
+        heart('Catherine', '2026-07-24T11:00:00Z'),
+        heart('Bo', '2026-07-24T10:00:00Z'),
+        heart('Ada', '2026-07-24T09:00:00Z'),
+      ],
+    };
+    const spot = buildNotificationSpot(fourMoments)!;
+    expect(spot.lines).toHaveLength(SPOT_MAX_LINES);
+    expect(spot.overflowCount).toBe(1);
+    expect(spot.footnote).toBe(STRINGS.welcomeBackSubtitleReset);
+    // There is exactly one cap, and no large-text variant of it exists
+    // to be reinstated.
+    expect(SPOT_MAX_LINES).toBe(3);
   });
 });
 

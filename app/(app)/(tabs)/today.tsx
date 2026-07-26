@@ -3,8 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  PixelRatio,
-  Platform,
+  LayoutChangeEvent,
   ScrollView,
   StyleSheet,
   Text,
@@ -56,7 +55,7 @@ import { getGlowForCircleMates, getMyGlow, getMyWeek, Glow, WeekDay } from '@/li
 import { getMyLastCelebratedDay, getNextMilestone } from '@/lib/journey';
 import { shouldRouteToJourneyGate } from '@/lib/journeyGateGuard';
 import { updateNotificationPrefs } from '@/lib/notifications';
-import { buildNotificationSpot, CoverMoment } from '@/lib/notificationSpot';
+import { buildNotificationSpot, CoverMoment, shouldMoveSpotBelowCta } from '@/lib/notificationSpot';
 import { getMyProfile, markPhotoAskSeen, markReentryAcknowledged, markRemindersAskSeen } from '@/lib/profile';
 import { isDesiredChange, isObstacle, OBSTACLE_KEYS, setKeepGoingObstacle } from '@/lib/onboardingIntake';
 import { hasUnrespondedDayObservation } from '@/lib/reflections';
@@ -106,9 +105,61 @@ function Today() {
   const { session } = useAuth();
   // TB3 — inset-aware pill clearance; applied to every state's scroll.
   const tabBarClearance = useTabBarClearance();
-  // TN1's fold gap — see the buildNotificationSpot call below for why web
-  // is pinned to 1 rather than asking react-native-web.
-  const fontScale = Platform.OS === 'web' ? 1 : PixelRatio.getFontScale();
+  // AR3 — TN1's fold gap, Cat's ruling: the spot must never push the
+  // check-in CTA below the fold, and it REORDERS to obey rather than
+  // shedding warmth (lib/notificationSpot.ts's shouldMoveSpotBelowCta
+  // carries the whole argument, including why the old shed is gone).
+  // Three measurements feed that one decision. They live in refs, not
+  // state, because only their VERDICT should ever cause a re-render — a
+  // layout pass that changes nothing must not loop.
+  const [spotBelowCta, setSpotBelowCta] = useState(false);
+  const viewportHeight = useRef(0);
+  const spotBlockHeight = useRef(0);
+  const ctaBottom = useRef(0);
+
+  const reconsiderSpotOrder = useCallback(() => {
+    // The CTA's measured bottom is in whatever layout is on screen now;
+    // normalise it to the "spot above" frame the predicate expects, so
+    // the answer is a function of the CONTENT and never of the current
+    // arrangement (which is what would oscillate).
+    const ctaBottomWithSpotAbove = spotBelowCta
+      ? ctaBottom.current + spotBlockHeight.current
+      : ctaBottom.current;
+    setSpotBelowCta(
+      shouldMoveSpotBelowCta({
+        viewportHeight: viewportHeight.current,
+        ctaBottomWithSpotAbove,
+        spotBlockHeight: spotBlockHeight.current,
+      })
+    );
+  }, [spotBelowCta]);
+
+  const onScrollLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      viewportHeight.current = e.nativeEvent.layout.height;
+      reconsiderSpotOrder();
+    },
+    [reconsiderSpotOrder]
+  );
+  // Measured on a wrapper so the card's own marginBottom is included —
+  // that margin travels with the spot, so it is part of what moving it
+  // gives back.
+  const onSpotLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      spotBlockHeight.current = e.nativeEvent.layout.height;
+      reconsiderSpotOrder();
+    },
+    [reconsiderSpotOrder]
+  );
+  // y is relative to the parent, so this wrapper has to be a direct child
+  // of the scroll content container for y to mean "content offset".
+  const onCtaLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      ctaBottom.current = e.nativeEvent.layout.y + e.nativeEvent.layout.height;
+      reconsiderSpotOrder();
+    },
+    [reconsiderSpotOrder]
+  );
   const [circles, setCircles] = useState<MyCircle[]>([]);
   const [circleData, setCircleData] = useState<Record<string, CircleData>>({});
   const [myName, setMyName] = useState<string | null>(null);
@@ -338,16 +389,8 @@ function Today() {
         // re-entry sentence is omitted rather than guessed (OD1 job 14).
         glowHeld: glow ? glow.state === 'glowing' : null,
         circleCount: circles.length,
-        // TN1's fold gap — a maximal spot at accessibility text sizes
-        // pushed the check-in button off the screen, so the spot sheds a
-        // moment line up there (lib/notificationSpot.ts's spotMaxLines).
-        // Web is pinned to 1: react-native-web's PixelRatio.getFontScale
-        // falls back to the DEVICE PIXEL RATIO when there is no font
-        // scale, so on any retina browser it reports 2 or 3 and would
-        // shorten the spot for everyone. Native reports the real thing.
-        fontScale,
       }),
-    [reentry, warmth, covers, glow, circles.length, fontScale]
+    [reentry, warmth, covers, glow, circles.length]
   );
 
   // WL2/TN1 — the spot fades once seen: the FIRST actual render of fresh
@@ -615,6 +658,21 @@ function Today() {
   // thing Today has to say. Renders nothing at all when `spot` is null.
   const notificationSpot = <TodayNotificationSpot content={spot} />;
 
+  // AR3 — the spot renders in exactly ONE of two slots, never both. The
+  // wrapper is what gets measured, so the card's own marginBottom counts
+  // as part of what moving it gives back. When `spot` is null this is a
+  // zero-height View and the reorder can never trigger.
+  const measuredSpot = <View onLayout={onSpotLayout}>{notificationSpot}</View>;
+  // Its normal home: above everything, the first thing Today has to say.
+  const spotAboveCta = spotBelowCta ? null : measuredSpot;
+  // Where it goes when it would otherwise push the CTA off the screen.
+  const spotUnderCta = spotBelowCta ? measuredSpot : null;
+  // For the branches that have NO check-in CTA (no circles, an archived
+  // circle) and the stacked multi-circle branch, which does not carry the
+  // below-slot: the spot always renders in its normal place, so a stale
+  // measurement can never make it disappear.
+  const spotAlways = measuredSpot;
+
   // SK1 job 3 — the one-tap flow's failure surface, shared by both
   // check-in-bearing branches. Deliberately 'plain', not ER1's slip:
   // Today can already be carrying a placed mascot (the photo ask), and
@@ -719,7 +777,7 @@ function Today() {
         <Text style={styles.greeting}>{greeting(myName)}</Text>
         <GlowBadge glow={glow} flickerOnce={glowOneShot} />
         {birthdayBanner}
-        {notificationSpot}
+        {spotAlways}
         {remindersAskCard}
         {photoAskCard}
         {/* ER1: only a real failure gets the slip — the no-circle case
@@ -811,7 +869,7 @@ function Today() {
             flickerOnce={glowOneShot}
           />
           {birthdayBanner}
-          {notificationSpot}
+          {spotAlways}
           {remindersAskCard}
           {photoAskCard}
           <TouchableOpacity
@@ -828,7 +886,13 @@ function Today() {
     }
 
     return (
-      <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
+      // AR3 — onLayout here measures the fold itself: the scroll
+      // viewport's own height, which is what the CTA has to fit inside.
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
+        onLayout={onScrollLayout}
+      >
         <AppHeader hideHouse style={styles.topbar} />
         {/* OD1 job 12a — first thing under the header in every
             circles-present branch, so a stale screen says so before
@@ -838,7 +902,7 @@ function Today() {
         <Text style={styles.greeting}>{greeting(myName)}</Text>
         <GlowBadge glow={glow} coveredByName={iWasCoveredToday ? memberFullName(members, iWasCoveredToday.coveredBy) : null} />
         {birthdayBanner}
-        {notificationSpot}
+        {spotAboveCta}
         {remindersAskCard}
         {photoAskCard}
         {onboardingIntakeBlock(circle)}
@@ -959,41 +1023,51 @@ function Today() {
             moved the cover to the covered member's local YESTERDAY meant
             a covered member arrived on Today the next day with no way to
             check in at all. The gift never takes the day away. */}
-        {!iAmCheckedInToday && circle.durationMinutes && !circle.resourceUrl ? (
-          <View style={styles.timerChoiceRow}>
-            <TouchableOpacity
-              style={styles.markDoneButton}
-              onPress={() => goToCheckin(circle, false, signal.dayNumber)}
-              disabled={oneTapCircleId === circle.id}
-            >
-              <Text style={styles.markDoneButtonText}>Just mark as done</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.startTimerButton}
-              onPress={() => goToCheckin(circle, true, signal.dayNumber)}
-            >
-              <Text style={styles.startTimerButtonText}>Start timer</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          // SK1 job 3 — "edit today's check-in" is a door to the
-          // reflection screen, so an opted-out person who has already
-          // checked in has nothing behind it. The CheckedInBadge on their
-          // own avatar already says the day is done; offering an edit that
-          // opens the form they turned off would be the pitch the no-nag
-          // law forbids.
-          (!iAmCheckedInToday || !reflectionsOptOut) && (
-            <TouchableOpacity
-              style={[styles.cta, iAmCheckedInToday && styles.ctaSecondary]}
-              onPress={() => goToCheckin(circle, false, signal.dayNumber)}
-              disabled={oneTapCircleId === circle.id}
-            >
-              <Text style={[styles.ctaText, iAmCheckedInToday && styles.ctaSecondaryText]}>
-                {iAmCheckedInToday ? STRINGS.editCheckinCta : STRINGS.checkInCta}
-              </Text>
-            </TouchableOpacity>
-          )
-        )}
+        {/* AR3 — the measured CTA. This wrapper must stay a DIRECT child
+            of the scroll content container: onLayout's y is relative to
+            the parent, and the reorder rule reads it as a content offset.
+            The wrapper carries no style, so it changes no layout. */}
+        <View onLayout={onCtaLayout}>
+          {!iAmCheckedInToday && circle.durationMinutes && !circle.resourceUrl ? (
+            <View style={styles.timerChoiceRow}>
+              <TouchableOpacity
+                style={styles.markDoneButton}
+                onPress={() => goToCheckin(circle, false, signal.dayNumber)}
+                disabled={oneTapCircleId === circle.id}
+              >
+                <Text style={styles.markDoneButtonText}>Just mark as done</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.startTimerButton}
+                onPress={() => goToCheckin(circle, true, signal.dayNumber)}
+              >
+                <Text style={styles.startTimerButtonText}>Start timer</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            // SK1 job 3 — "edit today's check-in" is a door to the
+            // reflection screen, so an opted-out person who has already
+            // checked in has nothing behind it. The CheckedInBadge on their
+            // own avatar already says the day is done; offering an edit that
+            // opens the form they turned off would be the pitch the no-nag
+            // law forbids.
+            (!iAmCheckedInToday || !reflectionsOptOut) && (
+              <TouchableOpacity
+                style={[styles.cta, iAmCheckedInToday && styles.ctaSecondary]}
+                onPress={() => goToCheckin(circle, false, signal.dayNumber)}
+                disabled={oneTapCircleId === circle.id}
+              >
+                <Text style={[styles.ctaText, iAmCheckedInToday && styles.ctaSecondaryText]}>
+                  {iAmCheckedInToday ? STRINGS.editCheckinCta : STRINGS.checkInCta}
+                </Text>
+              </TouchableOpacity>
+            )
+          )}
+        </View>
+
+        {/* AR3 — the spot's other home. Warmth still arrives in full,
+            just after the day's one action rather than in front of it. */}
+        {spotUnderCta}
 
         {isSolo && (
           <TouchableOpacity
@@ -1058,7 +1132,7 @@ function Today() {
       <Text style={styles.greeting}>{greeting(myName)}</Text>
       <GlowBadge glow={glow} coveredByName={coveredTodayName} flickerOnce={glowOneShot} />
       {birthdayBanner}
-      {notificationSpot}
+      {spotAlways}
       {remindersAskCard}
       {photoAskCard}
 
