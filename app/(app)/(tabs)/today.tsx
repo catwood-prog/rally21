@@ -3,6 +3,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  PixelRatio,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -104,6 +106,9 @@ function Today() {
   const { session } = useAuth();
   // TB3 — inset-aware pill clearance; applied to every state's scroll.
   const tabBarClearance = useTabBarClearance();
+  // TN1's fold gap — see the buildNotificationSpot call below for why web
+  // is pinned to 1 rather than asking react-native-web.
+  const fontScale = Platform.OS === 'web' ? 1 : PixelRatio.getFontScale();
   const [circles, setCircles] = useState<MyCircle[]>([]);
   const [circleData, setCircleData] = useState<Record<string, CircleData>>({});
   const [myName, setMyName] = useState<string | null>(null);
@@ -333,8 +338,16 @@ function Today() {
         // re-entry sentence is omitted rather than guessed (OD1 job 14).
         glowHeld: glow ? glow.state === 'glowing' : null,
         circleCount: circles.length,
+        // TN1's fold gap — a maximal spot at accessibility text sizes
+        // pushed the check-in button off the screen, so the spot sheds a
+        // moment line up there (lib/notificationSpot.ts's spotMaxLines).
+        // Web is pinned to 1: react-native-web's PixelRatio.getFontScale
+        // falls back to the DEVICE PIXEL RATIO when there is no font
+        // scale, so on any retina browser it reports 2 or 3 and would
+        // shorten the spot for everyone. Native reports the real thing.
+        fontScale,
       }),
-    [reentry, warmth, covers, glow, circles.length]
+    [reentry, warmth, covers, glow, circles.length, fontScale]
   );
 
   // WL2/TN1 — the spot fades once seen: the FIRST actual render of fresh
@@ -615,6 +628,45 @@ function Today() {
     />
   );
 
+  // OD1 job 12a — Today used to hide its own failure. `error` was set on
+  // any load failure but the ErrorSlip that renders it lives INSIDE the
+  // zero-circle branch, so for everyone who actually has a circle — every
+  // real user — a failed refresh left yesterday's numbers on screen
+  // looking current. Today refetches on every focus, so a person could
+  // read a stale headcount as today's attendance. That is a trust bug.
+  //
+  // 12b, DECIDED — KEEP the content and mark it as not current, rather
+  // than replacing it. Today is the daily path: a refresh failure is
+  // usually a moment of bad signal, and blanking the check-in button
+  // because a refetch blinked would cost more than a stale headcount. So
+  // the content stays and the screen says plainly that it is not fresh.
+  // What is not allowed is stale data that looks live, and this is the
+  // line that stops it.
+  //
+  // NOT ErrorSlip, deliberately, and this is the same call SK1 already
+  // made three declarations above for checkinErrorDialog: ErrorSlip is
+  // ER1's WHOLE-MOMENT surface and carries a mascot, and its own
+  // docstring reserves it for that ("lines under live content stay
+  // text-only by design") while the one-mascot-per-screen law forbids
+  // stacking it over a placed mascot. Above live content the honest
+  // surface is a line, not a slip. The zero-circle branch keeps its
+  // ErrorSlip exactly as it was.
+  //
+  // The banner IS the retry: STRINGS.loadFailedLine already ends "give it
+  // a moment and try again", so tapping the thing that says so re-runs
+  // load() — no second control, and no new copy invented for it.
+  const refreshFailedBanner =
+    error && circles.length > 0 ? (
+      <TouchableOpacity
+        style={styles.refreshFailedBanner}
+        onPress={load}
+        accessibilityRole="button"
+      >
+        <Text style={styles.refreshFailedGlyph}>↻</Text>
+        <Text style={styles.refreshFailedText}>{error}</Text>
+      </TouchableOpacity>
+    ) : null;
+
   // RM1 — the one-time dismissible reminders-ask card for existing users
   // (new sign-ups get the onboarding step instead, never both). Either
   // action hides it immediately and stamps the flag for good; a failed
@@ -713,7 +765,33 @@ function Today() {
       circleStartDate: circle.startDate,
     });
     const practiceName = circle.practiceName ?? '';
-    const isVerbPhrase = isVerbPhrasePractice(practiceName);
+    // OD1 job 16c — CAT'S RULING, 26 July, option (iv): a practice's
+    // ORIGIN decides the sentence form, because the two kinds of name
+    // carry different rights.
+    //
+    // OURS (seeded, practices.created_by is null — 57 of the 61 live
+    // practices) keep "today you {name}" wherever isVerbPhrasePractice
+    // says the name starts with a verb, lowercased exactly as before. We
+    // wrote those names, so lowercasing them is safe and the warm
+    // sentence rhythm survives untouched for almost every circle.
+    //
+    // THEIRS (user-created) always take the "today: {Name}" form and are
+    // rendered EXACTLY AS TYPED. "today: Read before bed" and "today:
+    // Meditate with Sam" both read correctly with their capital, so the
+    // colon form buys fidelity at no cost to sense — which is why the
+    // headline did NOT need restructuring for all 61 practices.
+    //
+    // This keeps the 5 July decision (7002b76: lowercase INSTEAD of
+    // validating names at input) doing its real job — protecting the
+    // sentence from a name we do not control — while honouring Cat's
+    // 25 July law that user content is never re-cased. Note none of the
+    // four live user-created names is actually damaged by lowercasing
+    // today, so this closes a LATENT problem, not a live one.
+    const isUserCreatedPractice = circle.practiceIsUserCreated;
+    // A user-created name never enters the verb sentence, however much
+    // it looks like a verb phrase.
+    const useVerbSentence = isVerbPhrasePractice(practiceName) && !isUserCreatedPractice;
+    const headlinePracticeName = isUserCreatedPractice ? practiceName : practiceName.toLowerCase();
 
     // A completed circle is warmly archived, read-only history — nothing
     // left to do today, so skip the check-in flow entirely and point
@@ -722,6 +800,10 @@ function Today() {
       return (
         <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
           <AppHeader hideHouse style={styles.topbar} />
+          {/* OD1 job 12a — first thing under the header in every
+              circles-present branch, so a stale screen says so before
+              it says anything else. */}
+          {refreshFailedBanner}
           <Text style={styles.greeting}>{greeting(myName)}</Text>
           <GlowBadge
             glow={glow}
@@ -748,6 +830,10 @@ function Today() {
     return (
       <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
         <AppHeader hideHouse style={styles.topbar} />
+        {/* OD1 job 12a — first thing under the header in every
+            circles-present branch, so a stale screen says so before
+            it says anything else. */}
+        {refreshFailedBanner}
 
         <Text style={styles.greeting}>{greeting(myName)}</Text>
         <GlowBadge glow={glow} coveredByName={iWasCoveredToday ? memberFullName(members, iWasCoveredToday.coveredBy) : null} />
@@ -759,24 +845,24 @@ function Today() {
 
         <Text style={styles.headline}>
           {isSolo ? (
-            isVerbPhrase ? (
+            useVerbSentence ? (
               <>
-                today you <Text style={styles.headlineAccent}>{practiceName.toLowerCase()}</Text>
+                today you <Text style={styles.headlineAccent}>{headlinePracticeName}</Text>
               </>
             ) : (
               <>
-                today: <Text style={styles.headlineAccent}>{practiceName.toLowerCase()}</Text>
+                today: <Text style={styles.headlineAccent}>{headlinePracticeName}</Text>
               </>
             )
-          ) : isVerbPhrase ? (
+          ) : useVerbSentence ? (
             <>
               today you{' '}
-              <Text style={styles.headlineAccent}>{practiceName.toLowerCase()}</Text>
+              <Text style={styles.headlineAccent}>{headlinePracticeName}</Text>
               {'\n'}with <Text style={styles.headlineAccent}>your circle</Text>
             </>
           ) : (
             <>
-              today: <Text style={styles.headlineAccent}>{practiceName.toLowerCase()}</Text>,
+              today: <Text style={styles.headlineAccent}>{headlinePracticeName}</Text>,
               {'\n'}with <Text style={styles.headlineAccent}>your circle</Text>
             </>
           )}
@@ -964,6 +1050,10 @@ function Today() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
       <AppHeader hideHouse style={styles.topbar} />
+      {/* OD1 job 12a — first thing under the header in every
+          circles-present branch, so a stale screen says so before
+          it says anything else. */}
+      {refreshFailedBanner}
 
       <Text style={styles.greeting}>{greeting(myName)}</Text>
       <GlowBadge glow={glow} coveredByName={coveredTodayName} flickerOnce={glowOneShot} />
@@ -1209,6 +1299,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.muted,
     marginBottom: 4,
+  },
+  // OD1 job 12a — the stale-refresh strip. Quiet on purpose: it marks
+  // content as not-current, it is not an apology and it must not compete
+  // with the check-in CTA. Left-aligned row so the ↻ reads as the tap
+  // (the strip itself re-runs load), and flexWrap so the line can grow
+  // under large text without pushing the glyph off the edge.
+  refreshFailedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  refreshFailedGlyph: {
+    fontSize: 14,
+    color: colors.ink,
+  },
+  refreshFailedText: {
+    flexShrink: 1,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: colors.muted,
   },
   headline: {
     fontFamily: FONT_HEADER,

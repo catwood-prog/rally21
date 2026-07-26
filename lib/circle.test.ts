@@ -24,6 +24,7 @@ function fakeCircle(overrides: Partial<MyCircle> = {}): MyCircle {
     startDate: '2026-06-01',
     durationDays: 21,
     practiceName: 'Walk 20 minutes',
+    practiceIsUserCreated: false,
     durationMinutes: 20,
     inviteCode: 'ABC123',
     createdBy: 'user-1',
@@ -59,7 +60,7 @@ describe('mapCircleRow — the circle-first duration read (PB1)', () => {
     const circle = mapCircleRow({
       ...baseRow,
       duration_minutes: 15,
-      practices: { name: 'Meditate', duration_minutes: 5 },
+      practices: { name: 'Meditate', duration_minutes: 5, created_by: null },
     });
     expect(circle.durationMinutes).toBe(15);
   });
@@ -68,7 +69,7 @@ describe('mapCircleRow — the circle-first duration read (PB1)', () => {
     const circle = mapCircleRow({
       ...baseRow,
       duration_minutes: null,
-      practices: { name: 'Meditate 10 minutes', duration_minutes: 10 },
+      practices: { name: 'Meditate 10 minutes', duration_minutes: 10, created_by: null },
     });
     expect(circle.durationMinutes).toBe(10);
   });
@@ -77,9 +78,36 @@ describe('mapCircleRow — the circle-first duration read (PB1)', () => {
     const circle = mapCircleRow({
       ...baseRow,
       duration_minutes: null,
-      practices: { name: 'Take my vitamins', duration_minutes: null },
+      practices: { name: 'Take my vitamins', duration_minutes: null, created_by: null },
     });
     expect(circle.durationMinutes).toBeNull();
+  });
+
+  // OD1 job 16c (Cat's ruling, 26 July) — origin decides whether a
+  // practice name may be re-cased on Today, so the discriminator itself
+  // is worth pinning: it is created_by, and NOT is_shared.
+  test('a seeded practice (created_by null) is ours to lowercase', () => {
+    const circle = mapCircleRow({
+      ...baseRow,
+      duration_minutes: null,
+      practices: { name: 'Meditate 10 minutes', duration_minutes: 10, created_by: null },
+    });
+    expect(circle.practiceIsUserCreated).toBe(false);
+  });
+
+  test('a user-created practice is theirs, and stays theirs once a public circle shares it', () => {
+    const circle = mapCircleRow({
+      ...baseRow,
+      duration_minutes: null,
+      practices: { name: 'Read before bed', duration_minutes: null, created_by: 'user-9' },
+    });
+    // is_shared would have flipped true the moment a public circle used
+    // this practice; created_by never moves, which is why it is the test.
+    expect(circle.practiceIsUserCreated).toBe(true);
+  });
+
+  test('no practice row at all keeps the old behaviour rather than claiming authorship', () => {
+    expect(mapCircleRow({ ...baseRow, duration_minutes: null, practices: null }).practiceIsUserCreated).toBe(false);
   });
 
   test('PI1 — the host\'s instructions map straight through (null stays null)', () => {

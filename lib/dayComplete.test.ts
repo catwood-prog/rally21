@@ -9,6 +9,7 @@ function fakeCircle(overrides: Partial<MyCircle> = {}): MyCircle {
     startDate: '2026-06-01',
     durationDays: 21,
     practiceName: 'Walk 20 minutes',
+    practiceIsUserCreated: false,
     durationMinutes: 20,
     inviteCode: 'ABC123',
     createdBy: 'user-1',

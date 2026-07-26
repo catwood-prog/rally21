@@ -1,6 +1,14 @@
 import { STRINGS } from '@/constants/strings';
 
-import { buildNotificationSpot, CoverMoment, joinNames, SPOT_MAX_LINES } from './notificationSpot';
+import {
+  buildNotificationSpot,
+  CoverMoment,
+  joinNames,
+  LARGE_TEXT_FONT_SCALE,
+  SPOT_MAX_LINES,
+  SPOT_MAX_LINES_LARGE_TEXT,
+  spotMaxLines,
+} from './notificationSpot';
 import { FreshWarmth } from './warmth';
 
 function wave(senderName: string, createdAt: string): FreshWarmth {
@@ -13,7 +21,16 @@ function cover(covererName: string, at: string): CoverMoment {
   return { covererName, at };
 }
 
-const QUIET = { isReentry: false, warmth: [], covers: [], glowHeld: true, circleCount: 1 };
+// fontScale 1 = normal text, which is what every case below is about
+// unless it says otherwise (see the fold-gap describe at the bottom).
+const QUIET = {
+  isReentry: false,
+  warmth: [],
+  covers: [],
+  glowHeld: true,
+  circleCount: 1,
+  fontScale: 1,
+};
 
 // The spot inherits WL2's whisper laws (empty in = absent surface, a cap
 // with a quiet overflow line, newest first) plus TN1's own: welcome-back
@@ -201,6 +218,77 @@ describe('the welcome-back mode (mockup frame A)', () => {
     });
     const all = [spot?.kicker, spot?.headline, spot?.footnote, ...spot!.lines.map((l) => l.text)].join(' ');
     expect(all).not.toMatch(/\d+ (new|unread)|\bunread\b|\(\d+\)/i);
+  });
+});
+
+// TN1's fold gap (OD1 session A): a maximal spot at accessibility text
+// sizes pushed Today's check-in button below the fold. The lever is a
+// moment line, never a pixel cap — and a dropped line must still be
+// COUNTED, or the fix would quietly lose someone's warmth.
+describe('the fold gap — the spot never pushes check-in off the screen', () => {
+  const FOUR_MOMENTS = {
+    ...QUIET,
+    warmth: [
+      heart('Russ', '2026-07-24T12:00:00Z'),
+      heart('Catherine', '2026-07-24T11:00:00Z'),
+      heart('Bo', '2026-07-24T10:00:00Z'),
+      heart('Ada', '2026-07-24T09:00:00Z'),
+    ],
+  };
+
+  it('shows three moments at normal text, as it always has', () => {
+    const spot = buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1 });
+    expect(spot?.lines).toHaveLength(SPOT_MAX_LINES);
+    expect(spot?.overflowCount).toBe(1);
+  });
+
+  it('leaves the common one-step-up size (xLarge, 1.12) alone', () => {
+    expect(buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1.12 })?.lines).toHaveLength(3);
+  });
+
+  it('sheds a line from xxLarge (1.23) up — one step BELOW where the gap was reported', () => {
+    expect(buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1.23 })?.lines).toHaveLength(2);
+  });
+
+  it('sheds a line at the size the gap was actually measured at (1.35)', () => {
+    const spot = buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1.35 });
+    expect(spot?.lines).toHaveLength(SPOT_MAX_LINES_LARGE_TEXT);
+  });
+
+  it('the dropped moment is FOLDED, never lost — the overflow count absorbs it', () => {
+    const small = buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1 })!;
+    const large = buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1.35 })!;
+    const momentsAccountedFor = (s: typeof small) => s.lines.length + s.overflowCount;
+    expect(momentsAccountedFor(large)).toBe(momentsAccountedFor(small));
+    expect(large.overflowCount).toBe(2);
+  });
+
+  it('does not move the seen-marker — the same warmth is consumed either way', () => {
+    const small = buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1 });
+    const large = buildNotificationSpot({ ...FOUR_MOMENTS, fontScale: 1.35 });
+    expect(large?.newestAt).toBe(small?.newestAt);
+  });
+
+  it('the re-entry wave stays pinned even when the card is shorter', () => {
+    const spot = buildNotificationSpot({
+      ...FOUR_MOMENTS,
+      isReentry: true,
+      warmth: [
+        ...FOUR_MOMENTS.warmth,
+        // Older than every heart, so only the pin can keep it in.
+        wave('Sam', '2026-07-20T09:00:00Z'),
+      ],
+      fontScale: 1.35,
+    });
+    expect(spot?.lines).toHaveLength(2);
+    expect(spot?.lines[0].text).toBe(STRINGS.todaySpotWaveLine('Sam'));
+  });
+
+  it('spotMaxLines is the whole rule, and it is a step function not a budget', () => {
+    expect(spotMaxLines(1)).toBe(SPOT_MAX_LINES);
+    expect(spotMaxLines(LARGE_TEXT_FONT_SCALE)).toBe(SPOT_MAX_LINES);
+    expect(spotMaxLines(LARGE_TEXT_FONT_SCALE + 0.01)).toBe(SPOT_MAX_LINES_LARGE_TEXT);
+    expect(spotMaxLines(3)).toBe(SPOT_MAX_LINES_LARGE_TEXT);
   });
 });
 

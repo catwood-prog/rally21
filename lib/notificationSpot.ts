@@ -59,6 +59,38 @@ export type SpotContent = {
  * rest fold into one quiet line. Never a scrolling feed. */
 export const SPOT_MAX_LINES = 3;
 
+/** OD1/TN1's fold gap — under large text the spot shows TWO moments, not
+ * three. See spotMaxLines below for why this is the lever. */
+export const SPOT_MAX_LINES_LARGE_TEXT = 2;
+
+/** Above this font scale the spot is one line shorter. Chosen one
+ * Dynamic Type step BELOW the size the gap was actually reported at
+ * (1.35 — iOS xxxLarge), because the two failure modes are not
+ * symmetric: firing a step early costs one moment its own line and folds
+ * it into the quiet "and N more", where every moment is still counted;
+ * firing a step late costs the person the check-in button. This fires
+ * from xxLarge (1.23) up and leaves the common xLarge (1.12) alone. */
+export const LARGE_TEXT_FONT_SCALE = 1.2;
+
+/**
+ * TN1's fold gap (found by TN1's own handoff, 24 July; fixed here):
+ * at accessibility text sizes a MAXIMAL spot — kicker, headline, three
+ * moment lines, the overflow line and the footnote, seven rows — pushed
+ * Today's check-in button below the fold (measured at 877px, 1.35x),
+ * which Today on its own never does.
+ *
+ * THE RULE IS NOT A PIXEL BUDGET: the spot must never push check-in below
+ * the fold. Capping the card's HEIGHT would have been the wrong lever —
+ * it clips or scrolls warmth arbitrarily and the number would be a lie on
+ * the next device size. Dropping a moment line is the honest one: the
+ * dropped moment is not lost, it folds into the overflow count like any
+ * other, so the card gets shorter while still accounting for everything.
+ * Warmth yields to the core action.
+ */
+export function spotMaxLines(fontScale: number): number {
+  return fontScale > LARGE_TEXT_FONT_SCALE ? SPOT_MAX_LINES_LARGE_TEXT : SPOT_MAX_LINES;
+}
+
 /** "Russ" / "Russ and Catherine" / "Russ, Catherine and Bo" / "Russ,
  * Catherine and 2 others" — warm, never a headcount. */
 export function joinNames(names: string[]): string {
@@ -102,8 +134,13 @@ export function buildNotificationSpot(input: {
    * streak and a wrong one is exactly what job 14 corrected. */
   glowHeld: boolean | null;
   circleCount: number;
+  /** The reader's text scale (PixelRatio.getFontScale() on native, 1 on
+   * web). Passed in rather than read here so this module stays pure and
+   * the fold rule is pinned by tests, not eyeballed on a device. */
+  fontScale: number;
 }): SpotContent | null {
-  const { isReentry, warmth, covers, glowHeld, circleCount } = input;
+  const { isReentry, warmth, covers, glowHeld, circleCount, fontScale } = input;
+  const maxLines = spotMaxLines(fontScale);
 
   const waves = warmth.filter((w) => w.kind === 'wave');
   const hearts = warmth.filter((w) => w.kind === 'heart');
@@ -167,9 +204,9 @@ export function buildNotificationSpot(input: {
   grouped.sort((a, b) =>
     a.pinned !== b.pinned ? (a.pinned ? -1 : 1) : ms(b.line.at) - ms(a.line.at)
   );
-  const shown = grouped.slice(0, SPOT_MAX_LINES);
+  const shown = grouped.slice(0, maxLines);
   const overflowCount = grouped
-    .slice(SPOT_MAX_LINES)
+    .slice(maxLines)
     .reduce((sum, g) => sum + g.moments, 0);
 
   return {

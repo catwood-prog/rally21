@@ -12,6 +12,15 @@ export type MyCircle = {
   startDate: string;
   durationDays: number;
   practiceName: string | null;
+  /** OD1 job 16c (Cat's ruling, 26 July): did a PERSON name this practice,
+   * or did we? `practices.created_by is null` is the seeded test — the
+   * same one the practices RLS policy uses — and NOT `is_shared`, which
+   * flips to true for a custom practice the moment a public circle uses
+   * it while created_by stays set. Origin decides how the name may be
+   * rendered: ours can be lowercased into a warm sentence, theirs is
+   * rendered exactly as typed. False when the practice is missing, which
+   * keeps the old behaviour for a circle with no practice row. */
+  practiceIsUserCreated: boolean;
   /** PB1 (21 July): the dose lives on the CIRCLE (circles.duration_minutes,
    * chosen at setup) — this is that value, falling back to the practice's
    * legacy duration_minutes only for safety (old rows predating the
@@ -100,11 +109,11 @@ type CircleRow = {
   rallied_on_at: string | null;
   completed_at: string | null;
   duration_minutes: number | null;
-  practices: { name: string; duration_minutes: number | null } | null;
+  practices: { name: string; duration_minutes: number | null; created_by: string | null } | null;
 };
 
 const CIRCLE_SELECT =
-  'circles(id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, instructions, is_public, closed_to_joins, rallied_on_at, completed_at, duration_minutes, practices(name, duration_minutes))';
+  'circles(id, name, time_of_day, start_date, duration_days, invite_code, created_by, resource_url, instructions, is_public, closed_to_joins, rallied_on_at, completed_at, duration_minutes, practices(name, duration_minutes, created_by))';
 
 /** Exported for the unit test pinning the circle-first duration read —
  * screens never call this directly. */
@@ -116,6 +125,7 @@ export function mapCircleRow(c: CircleRow, myJoinSource: MyCircle['myJoinSource'
     startDate: c.start_date,
     durationDays: c.duration_days,
     practiceName: c.practices?.name ?? null,
+    practiceIsUserCreated: !!c.practices?.created_by,
     // Circle-first, practice as safety fallback only (PB1) — a circle
     // predating the backfill still gets its practice's legacy dose.
     durationMinutes: c.duration_minutes ?? c.practices?.duration_minutes ?? null,
