@@ -30,7 +30,7 @@ import { frameSwapSchedule } from '@/lib/mascotFx';
 import { MASCOT_FX, MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
 import { getMyProfile, markPushPromptSeen } from '@/lib/profile';
 import { getPushPermissionStatus, registerForPushNotificationsAsync } from '@/lib/pushNotifications';
-import { isEndOfDayComplete } from '@/lib/dayComplete';
+import { getDayCloseState } from '@/lib/dayComplete';
 import { getShareCardForToday, shouldOfferShareCard } from '@/lib/shareCards';
 import { buildShareCardNavParams } from '@/lib/shareCardTemplates';
 import { buildEchoLine, FreshWarmth, getFreshWarmth, markWarmthSeen } from '@/lib/warmth';
@@ -204,6 +204,10 @@ export default function CheckInComplete() {
   // in / covered today)? null = still resolving. Gates the card offer: a
   // card is an end-of-day beat, so it only fires once the day is done.
   const [isDayComplete, setIsDayComplete] = useState<boolean | null>(null);
+  // OD1 job 9d — how many practices are still awaiting today, for the
+  // closing beat's count-aware line. Rides the SAME read as the gate
+  // above, so the number said out loud and the gate can never disagree.
+  const [awaitingCount, setAwaitingCount] = useState(0);
   // PN1 — the earned-moment pre-permission ask: only worth showing when
   // the OS hasn't been asked yet (native only) AND our own card hasn't
   // already been shown once, ever.
@@ -275,8 +279,11 @@ export default function CheckInComplete() {
   // safe, never a false "see you tomorrow".
   useEffect(() => {
     if (!session?.user) return;
-    isEndOfDayComplete({ userId: session.user.id, localDate: getLocalDateString() })
-      .then(setIsDayComplete)
+    getDayCloseState({ userId: session.user.id, localDate: getLocalDateString() })
+      .then((state) => {
+        setIsDayComplete(state.isComplete);
+        setAwaitingCount(state.awaitingCount);
+      })
       .catch(() => {});
   }, [session?.user?.id]);
 
@@ -461,6 +468,39 @@ export default function CheckInComplete() {
     transform: [{ translateY: buttonY.value }],
   }));
 
+  // OD1 job 9d (Cat's ruling, 26 July) — the daily closing beat. This
+  // screen fires on EVERY check-in, so the button cannot simply say
+  // goodbye: someone with another practice open today must not be told to
+  // come back tomorrow.
+  //
+  // THE PRINCIPLE, which is what makes this three states and not two: the
+  // goodbye belongs to the LAST screen in the sequence, never to two. So
+  // whenever another screen follows this one, this one defers.
+  //
+  // Ordered exactly as handleDismiss below decides where to go, so the
+  // label can never promise a destination the dismissal does not take.
+  const closingBeatCta = (() => {
+    // Not known yet — never guess at a farewell. Keeps the shipped label
+    // for the moment before the day-close read lands.
+    if (isDayComplete === null) return STRINGS.checkinSuccessCta;
+    // (a) work remaining, counted: "one more today" is only TRUE when
+    // exactly one practice is left, and with a default cap of 3 two or
+    // three open is ordinary.
+    if (!isDayComplete) return STRINGS.checkinMoreTodayCta(awaitingCount);
+    // The glow beat comes next, so the goodbye is not this screen's to
+    // say. It has no closing label of its own ("keep it glowing" leads
+    // on to Today), so a glow-beat day currently ends without a farewell
+    // at all — REPORTED to Cat rather than fixed with invented copy.
+    if (shouldShowGlowBeat({ earnedToday: earnedToday === 'true', hasMilestone: !!glowMilestone })) {
+      return STRINGS.checkinSuccessCta;
+    }
+    // (c) the card comes next and closes the day itself (job 8's "see you
+    // tomorrow"), so this leads INTO it rather than closing anything.
+    if (cardNavParams) return STRINGS.checkinCardComingCta;
+    // (b) nothing follows — this screen owns the goodbye.
+    return STRINGS.checkinSeeYouTomorrowCta;
+  })();
+
   const handleDismiss = () => {
     // G5 (Rally21-Glow-Spec.md §1): the glow moment only replaces this
     // screen's normal dismissal on the check-in that actually earned the
@@ -538,7 +578,7 @@ export default function CheckInComplete() {
 
       <Animated.View style={[styles.buttonWrap, buttonStyle]}>
         <TouchableOpacity style={styles.button} onPress={handleDismiss}>
-          <Text style={styles.buttonText}>{STRINGS.checkinSuccessCta}</Text>
+          <Text style={styles.buttonText}>{closingBeatCta}</Text>
         </TouchableOpacity>
       </Animated.View>
 

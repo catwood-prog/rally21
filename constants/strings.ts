@@ -33,6 +33,11 @@ export function isVerbPhrasePractice(practiceName: string): boolean {
 // instead of inline, so it has one place to move into a real localization
 // system later. Strings that take values are small formatter functions
 // rather than raw templates, so call sites can't typo a `{n}` token.
+// OD1 job 9d — the closing beat's count words. Mirrors today.tsx's
+// CIRCLE_COUNT_WORD (words to three, numeral beyond) so the app has one
+// habit for counting circles rather than two.
+const CLOSING_BEAT_COUNT_WORD: Record<number, string> = { 1: 'one', 2: 'two', 3: 'three' };
+
 export const STRINGS = {
   // O1 (Google slice, 8/12 July) — sign-in screen, web only.
   signInWithGoogleCta: 'Continue with Google',
@@ -62,7 +67,35 @@ export const STRINGS = {
 
   checkinSuccessTitle: (n: number) => `Day ${n} done`,
   checkinSuccessBody: 'You showed up again.',
+  // OD1 job 9d — kept as the DEFERRAL label, no longer the everyday one.
+  // It still shows in exactly two places: before the day-close state has
+  // resolved (never guess at a farewell), and on a glow-beat day, where
+  // checkin-complete is not the last screen so the goodbye is not its to
+  // say. See the three ruled labels below.
   checkinSuccessCta: 'Nice',
+
+  // OD1 job 9d (Cat's ruling, 26 July) — the daily closing beat. The
+  // check-in success screen fires on EVERY check-in, so its button has to
+  // branch, and the goodbye belongs to the LAST screen in the sequence,
+  // never to two.
+  //   (a) day not done  -> checkinMoreTodayCta(n)   work remaining
+  //   (b) day done      -> checkinSeeYouTomorrowCta farewell
+  //   (c) card day      -> checkinCardComingCta     gift, defers to the
+  //                        share card's own "see you tomorrow" (job 8)
+  // Same shape, same length, all lowercase — three registers doing three
+  // jobs, which is what makes them one rhythm rather than three
+  // decisions. Lowercase is correct under LC2: button labels are
+  // fragments, not prose.
+  //
+  // The count is REQUIRED, not decorative: "one more today" is only true
+  // when exactly one practice remains, and with a default cap of 3 (and
+  // MAX_CIRCLES up to 10) two or three open is ordinary. Words to three
+  // then numerals, matching today.tsx's own CIRCLE_COUNT_WORD fallback
+  // rather than inventing a second rule.
+  checkinMoreTodayCta: (remaining: number) =>
+    `${CLOSING_BEAT_COUNT_WORD[remaining] ?? remaining} more today`,
+  checkinSeeYouTomorrowCta: 'see you tomorrow',
+  checkinCardComingCta: 'something for you',
 
   // ON1 (23 July) — the two-question Day-0 intake. Q1 options ARE the five
   // PT1 domains + connection; Q2 options are the fixed obstacle set. Titles

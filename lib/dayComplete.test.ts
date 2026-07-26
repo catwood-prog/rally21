@@ -1,5 +1,7 @@
 import { MyCircle } from './circle';
-import { hasPresenceToday, isEndOfDayComplete } from './dayComplete';
+import { STRINGS } from '@/constants/strings';
+
+import { getDayCloseState, hasPresenceToday, isEndOfDayComplete } from './dayComplete';
 
 function fakeCircle(overrides: Partial<MyCircle> = {}): MyCircle {
   return {
@@ -142,5 +144,131 @@ describe('isEndOfDayComplete', () => {
       },
     });
     expect(done).toBe(false);
+  });
+});
+
+// OD1 job 9d (Cat's ruling, 26 July) — the closing beat says the count
+// out loud ("two more today"), so the count has to be as trustworthy as
+// the gate. It comes from the SAME traversal, which is what stops the
+// number and the gate ever disagreeing.
+describe('getDayCloseState — the count behind the closing beat', () => {
+  it('one active circle: done, nothing awaiting, and no presence fetch at all', async () => {
+    const getCirclePresence = jest.fn();
+    const state = await getDayCloseState({
+      userId: ME,
+      localDate: TODAY,
+      deps: { listMyCircles: async () => [fakeCircle({ id: 'a' })], getCirclePresence },
+    });
+    expect(state).toEqual({ isComplete: true, awaitingCount: 0 });
+    // Job 9c's proof, restated for the count: single-circle users cost
+    // nothing extra and cannot reach the count-aware label.
+    expect(getCirclePresence).not.toHaveBeenCalled();
+  });
+
+  it('counts only the circles still awaiting, not the ones already done', async () => {
+    const present: Record<string, boolean> = { a: true, b: false, c: false };
+    const state = await getDayCloseState({
+      userId: ME,
+      localDate: TODAY,
+      deps: {
+        listMyCircles: async () => [
+          fakeCircle({ id: 'a' }),
+          fakeCircle({ id: 'b' }),
+          fakeCircle({ id: 'c' }),
+        ],
+        getCirclePresence: async (id) => (present[id] ? [{ userId: ME, localDate: TODAY }] : []),
+      },
+    });
+    expect(state).toEqual({ isComplete: false, awaitingCount: 2 });
+  });
+
+  it('a COMPLETED circle is never awaiting, so it never inflates the count', async () => {
+    const state = await getDayCloseState({
+      userId: ME,
+      localDate: TODAY,
+      deps: {
+        listMyCircles: async () => [
+          fakeCircle({ id: 'a' }),
+          fakeCircle({ id: 'b' }),
+          fakeCircle({ id: 'archived', completedAt: '2026-07-20T00:00:00Z' }),
+        ],
+        getCirclePresence: async (id) => (id === 'a' ? [{ userId: ME, localDate: TODAY }] : []),
+      },
+    });
+    expect(state.awaitingCount).toBe(1);
+  });
+
+  it('a COVERED day counts as done, so a covered circle is not awaiting', async () => {
+    const state = await getDayCloseState({
+      userId: ME,
+      localDate: TODAY,
+      deps: {
+        listMyCircles: async () => [fakeCircle({ id: 'a' }), fakeCircle({ id: 'b' })],
+        // getCirclePresence returns the covered member's OWN row, which
+        // is why a gift reads as done here exactly as it does on Today.
+        getCirclePresence: async () => [{ userId: ME, localDate: TODAY }],
+      },
+    });
+    expect(state).toEqual({ isComplete: true, awaitingCount: 0 });
+  });
+
+  it('awaitingCount is 0 whenever the day is complete — they can never disagree', async () => {
+    const state = await getDayCloseState({
+      userId: ME,
+      localDate: TODAY,
+      deps: {
+        listMyCircles: async () => [fakeCircle({ id: 'a' }), fakeCircle({ id: 'b' })],
+        getCirclePresence: async () => [{ userId: ME, localDate: TODAY }],
+      },
+    });
+    expect(state.isComplete).toBe(true);
+    expect(state.awaitingCount).toBe(0);
+  });
+
+  it('isEndOfDayComplete still answers exactly as before (same source, one definition)', async () => {
+    const deps = {
+      listMyCircles: async () => [fakeCircle({ id: 'a' }), fakeCircle({ id: 'b' })],
+      getCirclePresence: async (id: string) =>
+        id === 'a' ? [{ userId: ME, localDate: TODAY }] : [],
+    };
+    const [legacy, state] = await Promise.all([
+      isEndOfDayComplete({ userId: ME, localDate: TODAY, deps }),
+      getDayCloseState({ userId: ME, localDate: TODAY, deps }),
+    ]);
+    expect(legacy).toBe(state.isComplete);
+  });
+});
+
+// The labels themselves: three registers doing three jobs is what makes
+// them one rhythm, so the shape is worth pinning too.
+describe('the closing beat labels (OD1 job 9d)', () => {
+  it('counts in words to three, then numerals — matching today.tsx\'s own habit', () => {
+    expect(STRINGS.checkinMoreTodayCta(1)).toBe('one more today');
+    expect(STRINGS.checkinMoreTodayCta(2)).toBe('two more today');
+    expect(STRINGS.checkinMoreTodayCta(3)).toBe('three more today');
+    // MAX_CIRCLES allows up to 10, so past three must still read.
+    expect(STRINGS.checkinMoreTodayCta(4)).toBe('4 more today');
+  });
+
+  it('the three states never say the same thing, and only one is a farewell', () => {
+    const notDone = STRINGS.checkinMoreTodayCta(2);
+    const done = STRINGS.checkinSeeYouTomorrowCta;
+    const cardDay = STRINGS.checkinCardComingCta;
+    expect(new Set([notDone, done, cardDay]).size).toBe(3);
+    // (c) leads INTO the card; it must never be the goodbye, which the
+    // card screen itself owns (job 8's shareCardCloseCta).
+    expect(cardDay).not.toBe(done);
+    expect(cardDay).not.toBe(STRINGS.shareCardCloseCta);
+    expect(done).toBe(STRINGS.shareCardCloseCta);
+  });
+
+  it('all three are lowercase fragments (LC2: button labels are not prose)', () => {
+    for (const label of [
+      STRINGS.checkinMoreTodayCta(2),
+      STRINGS.checkinSeeYouTomorrowCta,
+      STRINGS.checkinCardComingCta,
+    ]) {
+      expect(label).toBe(label.toLowerCase());
+    }
   });
 });
