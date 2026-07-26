@@ -28,6 +28,7 @@ import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipTextShape, colors } from '@/constants/theme';
+import { useRevealIntoView } from '@/hooks/use-reveal-into-view';
 import { useTabBarClearance } from '@/hooks/use-tab-bar-clearance';
 import { useAuth } from '@/lib/auth-context';
 import { deriveWantPhrase, getWantActivationForCircle } from '@/lib/blueprint';
@@ -97,6 +98,10 @@ function YourCircle() {
   const { session } = useAuth();
   // TB3 — inset-aware pill clearance; applied to both states' scrolls.
   const tabBarClearance = useTabBarClearance();
+  // OD1 job 4a — every inline expander on this screen reveals content
+  // below the current scroll position; this brings it up above the pill.
+  const { scrollRef, onScroll, captureReveal, revealIntoView } =
+    useRevealIntoView(tabBarClearance);
   const { circleId } = useLocalSearchParams<{ circleId?: string }>();
   // Typed as a bottom-tab navigation so the OD1 Job 6 'tabPress' listener
   // below type-checks (expo-router's default useNavigation type has no tab
@@ -741,6 +746,9 @@ function YourCircle() {
 
   return (
     <ScrollView
+      ref={scrollRef}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}
       keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -788,7 +796,15 @@ function YourCircle() {
             </TouchableOpacity>
             {isCreator ? (
               isConfirmingComplete ? (
-                <View style={styles.journeyGateConfirmRow}>
+                // OD1 job 4b — the rally-on card's own complete-confirm.
+                // It sits near the TOP of the screen so the pill has
+                // never reached it; wired for the same reason as the link
+                // editor — the rule is the screen's, not the card's.
+                <View
+                  ref={captureReveal('gate-card-complete-confirm')}
+                  onLayout={() => revealIntoView('gate-card-complete-confirm')}
+                  style={styles.journeyGateConfirmRow}
+                >
                   <TouchableOpacity onPress={() => setIsConfirmingComplete(false)} disabled={isCompleting}>
                     <Text style={styles.leaveCancelText}>Cancel</Text>
                   </TouchableOpacity>
@@ -829,7 +845,16 @@ function YourCircle() {
       </Text>
 
       {isEditingLink ? (
-        <View style={styles.linkEditCard}>
+        // OD1 job 4b — the one expander HIGH on this screen (just under
+        // the header), so the pill has never covered it. Wired anyway:
+        // the treatment is the class's, not this card's, and it costs
+        // nothing when the card already fits — and with autoFocus the
+        // keyboard can shrink the viewport under it.
+        <View
+          ref={captureReveal('link-edit')}
+          onLayout={() => revealIntoView('link-edit')}
+          style={styles.linkEditCard}
+        >
           <TextInput
             style={styles.linkInput}
             value={linkDraft}
@@ -1121,7 +1146,15 @@ function YourCircle() {
               if (!target) return null;
               const isBlocked = blockedIds.has(target.userId);
               return (
-                <View style={styles.memberActionsPanel}>
+                // OD1 job 4b — the same class: this panel opens under the
+                // ⋯ in Who's Here and grows again when report or block
+                // swaps its contents, so onLayout (not a one-shot) is
+                // what keeps the grown card in view.
+                <View
+                  ref={captureReveal('member-actions')}
+                  onLayout={() => revealIntoView('member-actions')}
+                  style={styles.memberActionsPanel}
+                >
                   {memberActionMode === null && (
                     <View style={styles.memberActionsRow}>
                       <Text style={styles.memberActionsName}>{target.name ?? 'this member'}</Text>
@@ -1282,7 +1315,13 @@ function YourCircle() {
               {isManagingMembers &&
                 removingMemberId &&
                 members.some((m) => m.userId === removingMemberId) && (
-                  <View style={styles.hostMemberConfirmCard}>
+                  // OD1 job 4b/4c — remove-a-member: destructive, and it
+                  // opens at the bottom of the host-controls member list.
+                  <View
+                    ref={captureReveal('remove-member-confirm')}
+                    onLayout={() => revealIntoView('remove-member-confirm')}
+                    style={styles.hostMemberConfirmCard}
+                  >
                     <Text style={styles.hostMemberConfirmTitle}>
                       {STRINGS.hostRemoveMemberConfirm(
                         members.find((m) => m.userId === removingMemberId)?.name ?? 'this member'
@@ -1314,7 +1353,13 @@ function YourCircle() {
               own second "host controls" card — one card now). */}
           {!!circle.ralliedOnAt &&
             (isConfirmingComplete ? (
-              <View style={styles.journeyCompleteHostConfirmCard}>
+              // OD1 job 4b/4c — a destructive-ish confirm inside the
+              // host-controls card, low on the screen.
+              <View
+                ref={captureReveal('complete-confirm')}
+                onLayout={() => revealIntoView('complete-confirm')}
+                style={styles.journeyCompleteHostConfirmCard}
+              >
                 <Text style={styles.journeyCompleteHostConfirmTitle}>
                   {STRINGS.journeyCompleteConfirmTitle(circle.name)}
                 </Text>
@@ -1361,7 +1406,15 @@ function YourCircle() {
       ) : null}
 
       {isConfirmingLeave ? (
-        <View style={styles.leaveConfirmCard}>
+        // OD1 job 4a/4c — the card Cat reported. It is the last thing on
+        // a long screen, so it is the one most often revealed straight
+        // under the pill; both its Cancel and its destructive action have
+        // to be fully visible the moment it appears.
+        <View
+          ref={captureReveal('leave-confirm')}
+          onLayout={() => revealIntoView('leave-confirm')}
+          style={styles.leaveConfirmCard}
+        >
           <Text style={styles.leaveConfirmText}>
             Leave {circle.name}? Your check-ins stay yours, and you can always come back with an
             invite.
