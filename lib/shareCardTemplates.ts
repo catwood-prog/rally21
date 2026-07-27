@@ -56,9 +56,16 @@ export function fillJourneyTemplate(body: string, slots: JourneySlots): string |
 }
 
 /** "week three" — the journey week the circle is in, from its day
- * number (day 1–7 = week one, 8–14 = week two, ...). */
-export function journeyWeekNumber(journeyDay: number): number {
-  return Math.max(1, Math.ceil(journeyDay / 7));
+ * number (day 1–7 = week one, 8–14 = week two, ...).
+ *
+ * PA1 — this one deliberately keeps taking the CIRCLE'S AGE rather than
+ * the rally count. A week is seven elapsed days; dividing a practice
+ * count by 7 would produce "week three" for someone in their fifth
+ * calendar week, which is a different kind of wrong from the one PA1 is
+ * removing. The rally count drives the claims about the PERSON; the
+ * calendar drives the claims about the CALENDAR. */
+export function journeyWeekNumber(circleDay: number): number {
+  return Math.max(1, Math.ceil(circleDay / 7));
 }
 
 /**
@@ -90,14 +97,20 @@ export function buildShareCardNavParams(
   card: ShareCard,
   ctx: {
     week: WeekDay[];
-    dayNumber: number;
+    /** PA1 — practices this member has done in this circle. Every claim
+     * the card makes ABOUT THE PERSON is built from this: the `{day}`
+     * slot and the big figure with "DAYS" under it. */
+    rallyCount: number;
+    /** PA1 — the circle's age. Feeds the dot strip's calendar week and
+     * nothing else. Never rendered as the person's number. */
+    circleDay: number;
     timesShown: number | null;
     practiceName: string | null;
   }
 ): Record<string, string> | null {
   if (card.flavor === 'warm_journey') {
     const filled = fillJourneyTemplate(card.body, {
-      day: ctx.dayNumber,
+      day: ctx.rallyCount,
       timesShown: ctx.timesShown,
       practiceNoun: deriveCheckinAccent(ctx.practiceName),
     });
@@ -106,7 +119,7 @@ export function buildShareCardNavParams(
       flavor: card.flavor,
       cardKey: card.cardKey,
       body: filled,
-      dayNumber: String(ctx.dayNumber),
+      dayNumber: String(ctx.rallyCount),
     };
   }
   if (card.flavor === 'dot_strip') {
@@ -115,7 +128,7 @@ export function buildShareCardNavParams(
       flavor: card.flavor,
       cardKey: card.cardKey,
       week: JSON.stringify(ctx.week),
-      weekNumber: String(journeyWeekNumber(ctx.dayNumber)),
+      weekNumber: String(journeyWeekNumber(ctx.circleDay)),
       practiceName: ctx.practiceName ?? '',
     };
   }

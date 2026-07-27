@@ -1,3 +1,4 @@
+import { getMyRallyCount } from './journey';
 import { captureError } from './sentry';
 import { supabase } from './supabase';
 
@@ -247,15 +248,11 @@ export async function countMyCircleCompletions(params: {
   userId: string;
   circleId: string;
 }): Promise<number> {
-  const { count, error } = await supabase
-    .from('completions')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', params.userId)
-    .eq('circle_id', params.circleId)
-    .eq('kind', 'self');
-
-  if (error) throw error;
-  return count ?? 0;
+  // PA1 — this is the RALLY COUNT, and always was: same circle, same
+  // user, kind='self' only. It now delegates so there is exactly ONE
+  // definition of that number in the app; two identical queries in two
+  // files is how the covers trap gets re-introduced on one of them.
+  return getMyRallyCount(params.circleId, params.userId);
 }
 
 /** The day's mood/lines/question — one per person per local day, shared

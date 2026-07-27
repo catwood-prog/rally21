@@ -229,13 +229,26 @@ export const STRINGS = {
   addCircleLink: '+ add a circle',
   todayInviteHintLink: 'even better with your people →',
 
-  groupHeaderStatus: (n: number, x: number, y: number) => `day ${n} of 21 · ${x} of ${y} checked in`,
-  // HC1 job 1 — SignalMeter's day pill, hardcoded at SignalMeter.tsx:78
-  // and so unreachable by LC2. It renders on the SAME SCREEN as
-  // groupHeaderStatus directly above, which meant the circle screen read
-  // "day 1 of 21 · 1 of 2 checked in … Day 1 of 21". One counter now.
-  signalDayCounter: (n: number, total: number) => `day ${n} of ${total}`,
-  signalDayLeg: (n: number, legLabel: string) => `day ${n} · ${legLabel}`,
+  // PA1 job 3 — the two numbers are visibly different things, and the
+  // "of 21" is gone from both. A circle has an AGE, not a deadline
+  // (memo §3), so it counts up forever; the member's own progress is the
+  // separate rally line below. They are never summed, never compared and
+  // never merged into one number. Before PA1 this read "day 23 of 21" on
+  // every live circle in the cohort, which is what a deadline that has
+  // stopped meaning anything looks like.
+  //
+  // HC1 job 1 kept SignalMeter's pill and this header status in step
+  // ("day 1 of 21 · 1 of 2 checked in … Day 1 of 21" was two counters);
+  // they still agree on the NUMBER, and the pill carries the "together".
+  groupHeaderStatus: (n: number, x: number, y: number) => `day ${n} · ${x} of ${y} checked in`,
+  signalCircleAge: (n: number) => `day ${n} together`,
+  // A solo circle has an age too, but nobody to have it "together" with.
+  signalCircleAgeSolo: (n: number) => `day ${n}`,
+  // PA1 job 3 — the member's OWN clock, counted in practices. Labels and
+  // short fragments are lowercase under LC2 rule 2, and both of these
+  // are fragments, not sentences of prose.
+  signalRallyProgress: (count: number, target: number) => `your rally: ${count} of ${target}`,
+  signalRallyLeg: (count: number, legLabel: string) => `your rally: ${count} · ${legLabel}`,
   signalStateLabelCircle: 'your circle is',
   signalStateLabelSolo: 'your practice is',
   signalStateGlowing: 'glowing 🔥',

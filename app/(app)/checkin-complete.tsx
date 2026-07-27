@@ -22,6 +22,7 @@ import { FONT_HEADER } from '@/constants/fonts';
 import { colors, CONFETTI_GREENS } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { countMyCircleCompletions } from '@/lib/checkin';
+import { GATE_DAY, getMyRallyCount } from '@/lib/journey';
 import { playCheckinPop } from '@/lib/chime';
 import { getCircleById } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
@@ -172,17 +173,24 @@ export default function CheckInComplete() {
   const { height: windowHeight } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
 
-  // Assumption: day count comes from this circle's own start date (the
-  // same calc SignalMeter/Today use elsewhere), capped at its 21-day
-  // duration. Falls back to day 1 if the circle fetch fails or circleId is
-  // somehow missing, rather than showing broken text.
-  const [dayNumber, setDayNumber] = useState<number | null>(null);
-  // SC1: the day-21 (or later) ceremony always wins over a share card —
-  // today.tsx's own gate redirects to /journey-gate the moment this
-  // screen's dismissal lands back on Today, so offering a card on this
-  // exact day would just flash briefly before that redirect. Derived from
-  // the same raw (uncapped) day count as dayNumber, before it gets capped
-  // at durationDays for display.
+  // PA1 — TWO NUMBERS, kept apart (memo §4). `circleDay` is the circle's
+  // AGE (uncapped: a place has no deadline) and now feeds nothing but
+  // the dot strip's calendar week. `rallyCount` is what this member
+  // actually did in this circle, and it is the number every claim about
+  // them is made from — the screen title, the ceremony threshold and the
+  // share card's big figure. Before PA1 all three read a circle day
+  // capped at 21, so an 8-practice member's check-in said "day 21 done"
+  // and their share card printed a 21 with "DAYS" under it. That is the
+  // §9 guardrail's exact prohibition: no string may claim a practice
+  // count the person has not reached.
+  const [circleDay, setCircleDay] = useState<number | null>(null);
+  const [rallyCount, setRallyCount] = useState<number | null>(null);
+  // SC1: the ceremony always wins over a share card — today.tsx's own
+  // gate redirects to /journey-gate the moment this screen's dismissal
+  // lands back on Today, so offering a card on this exact day would just
+  // flash briefly before that redirect. PA1 — it is the member's 21st
+  // PRACTICE that triggers that redirect now, so this reads the same
+  // number the redirect does; they cannot disagree.
   const [isCeremonyDay, setIsCeremonyDay] = useState(false);
   const [glowMilestone, setGlowMilestone] = useState<number | null>(null);
   // SC2 — the journey card's {practiceNoun} slot and the dot strip's
@@ -259,17 +267,18 @@ export default function CheckInComplete() {
   };
 
   useEffect(() => {
-    if (!circleId) return;
-    getCircleById(circleId)
-      .then((circle) => {
+    if (!circleId || !session?.user) return;
+    const userId = session.user.id;
+    Promise.all([getCircleById(circleId), getMyRallyCount(circleId, userId)])
+      .then(([circle, count]) => {
         if (!circle) return;
-        const raw = Math.max(1, daysBetween(circle.startDate, getLocalDateString()) + 1);
-        setDayNumber(Math.min(raw, circle.durationDays));
-        setIsCeremonyDay(raw >= circle.durationDays);
+        setCircleDay(Math.max(1, daysBetween(circle.startDate, getLocalDateString()) + 1));
+        setRallyCount(count);
+        setIsCeremonyDay(count >= GATE_DAY);
         setPracticeName(circle.practiceName);
       })
       .catch(() => {});
-  }, [circleId]);
+  }, [circleId, session?.user?.id]);
 
   // OD1 Job 9a — resolve whether the day is fully done, from the ONE
   // shared definition (lib/dayComplete) that reads exactly what Today
@@ -301,9 +310,10 @@ export default function CheckInComplete() {
   // card screen consumes the cadence slot), so preparing a card that a
   // mid-day multi-circle check-in then declines to show costs nothing.
   useEffect(() => {
-    if (!session?.user || !milestoneChecked || dayNumber === null) return;
+    if (!session?.user || !milestoneChecked || rallyCount === null || circleDay === null) return;
     const userId = session.user.id;
-    const day = dayNumber;
+    const count = rallyCount;
+    const age = circleDay;
     const earned = earnedToday === 'true';
     if (!shouldOfferShareCard({
       isCeremonyDay,
@@ -329,15 +339,23 @@ export default function CheckInComplete() {
           localDate: getLocalDateString(),
           isRekindle: didRekindleToday(week),
           isCovered,
-          journeyDay: day,
+          // PA1 — the card bank's journey templates are keyed to how far
+          // along the person is, and that is the rally count now.
+          journeyDay: count,
           timesShown,
         });
         if (!card) return null;
-        return buildShareCardNavParams(card, { week, dayNumber: day, timesShown, practiceName });
+        return buildShareCardNavParams(card, {
+          rallyCount: count,
+          circleDay: age,
+          timesShown,
+          week,
+          practiceName,
+        });
       })
       .then((navParams) => setCardNavParams(navParams))
       .catch(() => setCardNavParams(null));
-  }, [session?.user, milestoneChecked, dayNumber, isCeremonyDay, glowMilestone, earnedToday, circleId, practiceName]);
+  }, [session?.user, milestoneChecked, rallyCount, circleDay, isCeremonyDay, glowMilestone, earnedToday, circleId, practiceName]);
 
   // Glow milestones (Rally21-Glow-Spec.md §4) — detected once per this
   // screen's mount, right at check-in time; a monotonic server-side
@@ -578,7 +596,7 @@ export default function CheckInComplete() {
       </Animated.View>
 
       <Animated.Text style={[styles.title, headingStyle]}>
-        {glowMilestone ? STRINGS.glowMilestoneTitle(glowMilestone) : STRINGS.checkinSuccessTitle(dayNumber ?? 1)}
+        {glowMilestone ? STRINGS.glowMilestoneTitle(glowMilestone) : STRINGS.checkinSuccessTitle(rallyCount ?? 1)}
       </Animated.Text>
       <Animated.Text style={[styles.subtitle, bodyStyle]}>
         {glowMilestone ? STRINGS.glowMilestoneBody : STRINGS.checkinSuccessBody}

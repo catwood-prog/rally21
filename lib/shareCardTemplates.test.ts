@@ -172,7 +172,7 @@ describe('buildShareCardNavParams', () => {
   };
 
   it('passes a quote card through untouched', () => {
-    expect(buildShareCardNavParams(quote, { week, dayNumber: 5, timesShown: 4, practiceName: 'Run 5k' })).toEqual({
+    expect(buildShareCardNavParams(quote, { week, rallyCount: 5, circleDay: 5, timesShown: 4, practiceName: 'Run 5k' })).toEqual({
       flavor: 'curated_quote',
       cardKey: 'QB-001',
       body: 'The quote.',
@@ -189,7 +189,7 @@ describe('buildShareCardNavParams', () => {
       attribution: null,
       gloss: null,
     };
-    expect(buildShareCardNavParams(card, { week, dayNumber: 12, timesShown: 11, practiceName: null })).toEqual({
+    expect(buildShareCardNavParams(card, { week, rallyCount: 12, circleDay: 19, timesShown: 11, practiceName: null })).toEqual({
       flavor: 'warm_journey',
       cardKey: 'WJ-01',
       body: 'You’ve kept a promise to yourself eleven times.',
@@ -205,14 +205,15 @@ describe('buildShareCardNavParams', () => {
       attribution: null,
       gloss: null,
     };
-    expect(buildShareCardNavParams(card, { week, dayNumber: 12, timesShown: null, practiceName: null })).toBeNull();
+    expect(buildShareCardNavParams(card, { week, rallyCount: 12, circleDay: 19, timesShown: null, practiceName: null })).toBeNull();
   });
 
   it('rides the dot strip as data: week JSON + week number + the practice name', () => {
     const card: ShareCard = { flavor: 'dot_strip', cardKey: 'DS-2026-29', body: '', attribution: null, gloss: null };
     const params = buildShareCardNavParams(card, {
       week,
-      dayNumber: 16,
+      rallyCount: 9,
+      circleDay: 16,
       timesShown: null,
       practiceName: 'Morning pages',
     });
@@ -228,6 +229,6 @@ describe('buildShareCardNavParams', () => {
 
   it('returns null for a dot strip with no week data', () => {
     const card: ShareCard = { flavor: 'dot_strip', cardKey: 'DS-2026-29', body: '', attribution: null, gloss: null };
-    expect(buildShareCardNavParams(card, { week: [], dayNumber: 16, timesShown: null, practiceName: null })).toBeNull();
+    expect(buildShareCardNavParams(card, { week: [], rallyCount: 9, circleDay: 16, timesShown: null, practiceName: null })).toBeNull();
   });
 });

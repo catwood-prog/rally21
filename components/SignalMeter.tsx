@@ -2,14 +2,14 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { STRINGS } from '@/constants/strings';
 import { chipShape, chipTextShape, colors } from '@/constants/theme';
-import { getJourneyLeg } from '@/lib/journey';
+import { GATE_DAY, getJourneyLeg } from '@/lib/journey';
 import { SignalState } from '@/lib/signal';
 
 /** The milestone just below the current journey leg's target — used to
  * anchor the ladder progress bar's 0% end (21 for the 50-leg, 50 for the
  * 100-leg, 100 for the 365-leg). Past 365 there's no further named stop,
  * so the bar just shows full. */
-function legStartDay(targetDay: number | null): number {
+function legStartCount(targetDay: number | null): number {
   if (targetDay === 50) return 21;
   if (targetDay === 100) return 50;
   if (targetDay === 365) return 100;
@@ -32,28 +32,36 @@ export function SignalMeter({
   state,
   dailyRates,
   dayNumber,
-  durationDays,
+  rallyCount,
   isSolo = false,
   size = 'default',
-  isRallied = false,
 }: {
   state: SignalState;
   dailyRates: number[];
+  /** PA1 — THE CIRCLE'S AGE. Counts up forever from the start date: a
+   * circle is a place, not an arc (memo §3), so it is never capped at a
+   * duration and never carries an "of 21". */
   dayNumber?: number;
-  durationDays?: number;
+  /** PA1 — THE MEMBER'S OWN RALLY, counted in practices they actually
+   * did in THIS circle (`countRallyDays`). Rendered on its own line
+   * under the circle's age, never beside it and never folded into it:
+   * memo §4's three clocks are "never summed, never compared, and never
+   * presented as one number". Omitted (welcome-back) = no rally line. */
+  rallyCount?: number;
   isSolo?: boolean;
   size?: 'default' | 'large';
-  /** Circle has rallied on past day 21 (Rally21-Glow-Spec.md §8) — the
-   * day pill switches from "Day N of 21" to the journey ladder ("day N ·
-   * rallying to 50") with its own progress bar for the current leg. */
-  isRallied?: boolean;
 }) {
   const barHeight = size === 'large' ? 46 : 28;
-  const leg = isRallied && dayNumber ? getJourneyLeg(dayNumber) : null;
-  const legStart = leg ? legStartDay(leg.targetDay) : 0;
+  // PA1 — the ladder is the PERSONAL rally ladder now (memo §11
+  // supersedes Glow-Spec §8), so it opens on the member's own 21st
+  // practice rather than on the circle's rallied_on_at flag. That flag
+  // is PA2's to delete; nothing here reads it any more.
+  const leg =
+    rallyCount !== undefined && rallyCount >= GATE_DAY ? getJourneyLeg(rallyCount) : null;
+  const legStart = leg ? legStartCount(leg.targetDay) : 0;
   const legProgress =
     leg && leg.targetDay
-      ? Math.min(1, Math.max(0, (dayNumber! - legStart) / (leg.targetDay - legStart)))
+      ? Math.min(1, Math.max(0, (rallyCount! - legStart) / (leg.targetDay - legStart)))
       : 1;
 
   return (
@@ -65,21 +73,25 @@ export function SignalMeter({
             {STATE_LABEL[state]}
           </Text>
         </Text>
-        {leg ? (
+        {!!dayNumber && (
           <View style={styles.dayBadge}>
-            <Text style={styles.dayBadgeText}>{STRINGS.signalDayLeg(dayNumber!, leg.label)}</Text>
+            <Text style={styles.dayBadgeText}>
+              {isSolo ? STRINGS.signalCircleAgeSolo(dayNumber) : STRINGS.signalCircleAge(dayNumber)}
+            </Text>
           </View>
-        ) : (
-          !!dayNumber &&
-          !!durationDays && (
-            <View style={styles.dayBadge}>
-              <Text style={styles.dayBadgeText}>
-                {STRINGS.signalDayCounter(Math.min(dayNumber, durationDays), durationDays)}
-              </Text>
-            </View>
-          )
         )}
       </View>
+      {rallyCount !== undefined && (
+        // Its own full-width row rather than a second pill in the header:
+        // at 1.35× Dynamic Type two chips on one line collide, and more
+        // importantly two numbers side by side invite exactly the
+        // comparison §4 forbids.
+        <Text style={styles.rallyLine}>
+          {leg
+            ? STRINGS.signalRallyLeg(rallyCount, leg.label)
+            : STRINGS.signalRallyProgress(rallyCount, GATE_DAY)}
+        </Text>
+      )}
       {leg && (
         <View style={styles.legProgressTrack}>
           <View style={[styles.legProgressFill, { width: `${legProgress * 100}%` }]} />
@@ -126,6 +138,17 @@ const styles = StyleSheet.create({
   dayBadgeText: {
     ...chipTextShape,
     color: colors.muted,
+  },
+  // PA1 job 3 — deliberately NOT a chip. The circle's age is chrome (a
+  // muted pill); your rally is yours, so it is plain ink text on its own
+  // line. Different position, different shape, different weight — three
+  // ways of saying "these are not the same number". No fixed lineHeight,
+  // so it grows properly at accessibility text sizes.
+  rallyLine: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.ink,
+    marginBottom: 8,
   },
   legProgressTrack: {
     height: 4,

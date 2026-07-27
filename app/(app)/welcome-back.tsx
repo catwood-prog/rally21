@@ -170,15 +170,16 @@ export default function WelcomeBack() {
           <View key={circle.id} style={styles.circleBlock}>
             <Text style={styles.circleName}>{STRINGS.reentryKeptLightOn(circle.name)}</Text>
 
+            {/* PA1 — no rallyCount passed, so no rally line here. TN1
+                made this screen DORMANT (Today's notification spot
+                replaced it); it is kept compiling, not re-fitted. */}
             <View style={styles.signalCard}>
               <SignalMeter
                 state={signal.state}
                 dailyRates={signal.dailyRates}
                 dayNumber={signal.dayNumber}
-                durationDays={circle.durationDays}
                 isSolo={isSolo}
                 size="large"
-                isRallied={!!circle.ralliedOnAt && !circle.completedAt}
               />
             </View>
 

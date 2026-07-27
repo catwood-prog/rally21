@@ -44,12 +44,12 @@ export function hasShownJourneyGate(circleId: string): boolean {
  * — never `shouldShowJourneyGate` directly. */
 export function shouldRouteToJourneyGate(
   circleId: string,
-  dayNumber: number,
+  rallyCount: number,
   circle: { completedAt: string | null },
   myLastCelebratedDay: number
 ): boolean {
   if (hasShownJourneyGate(circleId)) return false;
-  return shouldShowJourneyGate(dayNumber, circle, myLastCelebratedDay);
+  return shouldShowJourneyGate(rallyCount, circle, myLastCelebratedDay);
 }
 
 /** Tests only — module state would otherwise leak between cases. */

@@ -1,4 +1,185 @@
-import { getJourneyLeg, getNextMilestone, rallyNumber, shouldShowJourneyGate } from './journey';
+import {
+  countRallyDays,
+  GATE_DAY,
+  getJourneyLeg,
+  getNextMilestone,
+  rallyNumber,
+  shouldShowJourneyGate,
+} from './journey';
+
+/**
+ * PA1 — THE COUNT. Every number in this app's milestone ladder is now a
+ * count of practices, so these cases are the ladder's foundation.
+ *
+ * The fixtures are modelled on the LIVE cohort as it stood on 27 July,
+ * because both of the traps this section exists to close were found in
+ * real rows rather than in the abstract: a user-level count with no
+ * circle filter, and covered days inflating a personal number.
+ */
+const ME = 'user-me';
+const FRIEND = 'user-friend';
+
+type Row = { userId: string; localDate: string; kind: 'self' | 'covered' };
+const self = (userId: string, localDate: string): Row => ({ userId, localDate, kind: 'self' });
+const covered = (userId: string, localDate: string): Row => ({
+  userId,
+  localDate,
+  kind: 'covered',
+});
+
+describe('countRallyDays — PA1 job 1', () => {
+  test('a day-0 joiner: every practice since the circle began is theirs', () => {
+    // Joined on the start date and practised on 5 of the first 6 days.
+    const presence = [
+      self(ME, '2026-07-04'),
+      self(ME, '2026-07-05'),
+      self(ME, '2026-07-06'),
+      self(ME, '2026-07-08'),
+      self(ME, '2026-07-09'),
+    ];
+    expect(countRallyDays(presence, ME)).toBe(5);
+  });
+
+  test('a day-14 joiner reads their OWN practices, not the circle’s age', () => {
+    // The live case that started the memo: Cathy S joined Breath of Fire
+    // on 18 July, fourteen days into a circle that started on 4 July. On
+    // circle-day 24 she had practised 7 times. The old number handed her
+    // a 21-day ceremony; the rally count says 7.
+    const presence = [
+      // The circle's first two weeks, before she arrived — all someone else's.
+      ...Array.from({ length: 14 }, (_, i) =>
+        self(FRIEND, `2026-07-${String(4 + i).padStart(2, '0')}`)
+      ),
+      self(ME, '2026-07-18'),
+      self(ME, '2026-07-19'),
+      self(ME, '2026-07-20'),
+      self(ME, '2026-07-22'),
+      self(ME, '2026-07-23'),
+      self(ME, '2026-07-25'),
+      self(ME, '2026-07-26'),
+    ];
+    expect(countRallyDays(presence, ME)).toBe(7);
+  });
+
+  test('more elapsed days than practices: the count never borrows from the calendar', () => {
+    // 24 days have passed; this member showed up on 8 of them. The
+    // circle-day number said 24 (capped to 21); the rally says 8.
+    const presence = Array.from({ length: 8 }, (_, i) =>
+      self(ME, `2026-07-${String(4 + i * 3).padStart(2, '0')}`)
+    );
+    expect(countRallyDays(presence, ME)).toBe(8);
+    expect(countRallyDays(presence, ME)).toBeLessThan(24);
+  });
+
+  test('TRAP (b): covered days protect the glow and NEVER advance the rally', () => {
+    // Live proof, 27 July: Catherine S in Stretching/Yoga had 6 self days
+    // and 5 covered. A rule that counted covers reports 11 instead of 6 —
+    // re-inflating the number exactly as the circle-day number did.
+    const presence = [
+      ...Array.from({ length: 6 }, (_, i) =>
+        self(ME, `2026-07-${String(5 + i).padStart(2, '0')}`)
+      ),
+      ...Array.from({ length: 5 }, (_, i) =>
+        covered(ME, `2026-07-${String(12 + i).padStart(2, '0')}`)
+      ),
+    ];
+    expect(countRallyDays(presence, ME)).toBe(6);
+    expect(countRallyDays(presence, ME)).not.toBe(11);
+  });
+
+  test('a member covered on every single day has a rally of zero', () => {
+    // The starkest form of the same rule: a friend saying "I've got you"
+    // is never a practice you did, however often they say it.
+    const presence = Array.from({ length: 21 }, (_, i) =>
+      covered(ME, `2026-07-${String(1 + i).padStart(2, '0')}`)
+    );
+    expect(countRallyDays(presence, ME)).toBe(0);
+    expect(shouldShowJourneyGate(countRallyDays(presence, ME), { completedAt: null }, 0)).toBe(
+      false
+    );
+  });
+
+  test('TRAP (a): only THIS member’s rows count, never a circle-mate’s', () => {
+    const presence = [
+      self(FRIEND, '2026-07-05'),
+      self(FRIEND, '2026-07-06'),
+      self(ME, '2026-07-05'),
+      self(FRIEND, '2026-07-07'),
+    ];
+    expect(countRallyDays(presence, ME)).toBe(1);
+    expect(countRallyDays(presence, FRIEND)).toBe(3);
+  });
+
+  test('TRAP (a): a rally in one circle is unmoved by practice in another', () => {
+    // The helper is handed ONE circle's presence rows, so a second
+    // circle's practice is not merely filtered out — it is never in
+    // scope. This is the structural reason the memo forbids reusing
+    // glow_qualifying_days, which is user-level with no circle filter.
+    // Modelled on Catherine S, live in three circles at 8, 9 and 6.
+    const circleA = Array.from({ length: 8 }, (_, i) =>
+      self(ME, `2026-07-${String(4 + i).padStart(2, '0')}`)
+    );
+    const circleB = Array.from({ length: 9 }, (_, i) =>
+      self(ME, `2026-07-${String(3 + i).padStart(2, '0')}`)
+    );
+    expect(countRallyDays(circleA, ME)).toBe(8);
+    expect(countRallyDays(circleB, ME)).toBe(9);
+    // And the naive user-level rule the memo warns about would have
+    // reported 17 for both.
+    expect(countRallyDays([...circleA, ...circleB], ME)).not.toBe(8);
+  });
+
+  test('counts DISTINCT local dates, so a duplicated row cannot inflate it', () => {
+    const presence = [self(ME, '2026-07-05'), self(ME, '2026-07-05'), self(ME, '2026-07-06')];
+    expect(countRallyDays(presence, ME)).toBe(2);
+  });
+
+  test('nobody in the live cohort reaches 21 on a correct count', () => {
+    // The cohort's best record on 27 July is 18 self days (Russ). The
+    // acceptance test from memo §9: no ceremony may fire for a practice
+    // count the person has not reached.
+    const best = Array.from({ length: 18 }, (_, i) =>
+      self(ME, `2026-07-${String(5 + i).padStart(2, '0')}`)
+    );
+    expect(countRallyDays(best, ME)).toBe(18);
+    expect(shouldShowJourneyGate(countRallyDays(best, ME), { completedAt: null }, 0)).toBe(false);
+    expect(getNextMilestone(countRallyDays(best, ME), 0)).toBeNull();
+  });
+});
+
+describe('the monotonic contract, re-proved in practice counts', () => {
+  test('a skipped milestone cannot re-fire after a newer one', () => {
+    // 42, 63 and the 50 major stop all became eligible during a gap.
+    // Only the most recent fires...
+    expect(getNextMilestone(70, 0)).toEqual({ day: 63, isMajorStop: false });
+    // ...and once it is marked, the older ones stay gone for good.
+    expect(getNextMilestone(70, 63)).toBeNull();
+    expect(getNextMilestone(70, 63)).not.toEqual({ day: 50, isMajorStop: true });
+  });
+
+  test('an older milestone can never regress the tracker', () => {
+    // getNextMilestone only ever returns something STRICTLY above the
+    // tracker, so no caller can be handed a day that walks it backwards.
+    for (const lastCelebrated of [21, 42, 50, 63, 100]) {
+      const next = getNextMilestone(120, lastCelebrated);
+      expect(next).not.toBeNull();
+      expect(next!.day).toBeGreaterThan(lastCelebrated);
+    }
+    expect(getNextMilestone(120, 105)).toBeNull();
+  });
+
+  test('the reset to 0 does not re-fire anything for the live cohort', () => {
+    // What the PA1 migration does: six rows holding a circle-day 21 go
+    // to 0. With counts of 8, 7, 9, 6, 3 and 18, nothing becomes
+    // eligible — not the gate, not a quiet celebration.
+    for (const count of [8, 7, 9, 6, 3, 18]) {
+      expect(shouldShowJourneyGate(count, { completedAt: null }, 0)).toBe(false);
+      expect(getNextMilestone(count, 0)).toBeNull();
+    }
+    // And the first thing that WILL fire, when someone earns it:
+    expect(shouldShowJourneyGate(GATE_DAY, { completedAt: null }, 0)).toBe(true);
+  });
+});
 
 describe('getJourneyLeg', () => {
   test('below 50 targets 50', () => {

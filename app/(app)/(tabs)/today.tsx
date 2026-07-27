@@ -52,7 +52,7 @@ import {
 import { isBirthdayToday } from '@/lib/birthday';
 import { daysBetween, getLocalDateString, shiftDate } from '@/lib/date';
 import { getGlowForCircleMates, getMyGlow, getMyWeek, Glow, WeekDay } from '@/lib/glow';
-import { getMyLastCelebratedDay, getNextMilestone } from '@/lib/journey';
+import { countRallyDays, getMyLastCelebratedDay, getNextMilestone } from '@/lib/journey';
 import { shouldRouteToJourneyGate } from '@/lib/journeyGateGuard';
 import { updateNotificationPrefs } from '@/lib/notifications';
 import { buildNotificationSpot, CoverMoment, shouldMoveSpotBelowCta } from '@/lib/notificationSpot';
@@ -469,27 +469,28 @@ function Today() {
   // full-screen moment — both are idempotent via last_celebrated_day, so
   // once seen neither fires again for that circle across refetches.
   useEffect(() => {
-    if (isLoading || !circles.length) return;
-    const today = getLocalDateString();
+    if (isLoading || !circles.length || !session?.user) return;
+    const userId = session.user.id;
     for (const c of circles) {
       const data = circleData[c.id];
       if (!data) continue;
-      const dayNumber = computeSignal({
-        presence: data.presence,
-        memberCount: data.members.length,
-        today,
-        circleStartDate: c.startDate,
-      }).dayNumber;
+      // PA1 — the ceremony and the milestones now key off THIS member's
+      // rally count (practices they did in THIS circle), never the
+      // circle's age. `data.presence` is the circle's full completion
+      // history, already loaded, so this costs no extra fetch. A count
+      // of 0 (presence not in yet) simply fires nothing — the safe
+      // direction, and the effect re-runs when the rows land.
+      const rallyCount = countRallyDays(data.presence, userId);
       // CB1 job 1b — shouldRouteToJourneyGate, never shouldShowJourneyGate:
       // Today is where the ceremony's exit lands, so routing on
       // eligibility ALONE is what let the cycle close when the marker
       // write failed. Eligibility is unchanged; the guard is the extra.
-      if (shouldRouteToJourneyGate(c.id, dayNumber, c, data.lastCelebratedDay)) {
+      if (shouldRouteToJourneyGate(c.id, rallyCount, c, data.lastCelebratedDay)) {
         router.push({ pathname: '/journey-gate', params: { circleId: c.id } });
         return;
       }
       if (c.ralliedOnAt && !c.completedAt) {
-        const milestone = getNextMilestone(dayNumber, data.lastCelebratedDay);
+        const milestone = getNextMilestone(rallyCount, data.lastCelebratedDay);
         if (milestone) {
           router.push({
             pathname: '/celebration',
@@ -499,7 +500,7 @@ function Today() {
         }
       }
     }
-  }, [circles, circleData, isLoading, router]);
+  }, [circles, circleData, isLoading, router, session?.user?.id]);
 
   if (isLoading) {
     return (
@@ -632,7 +633,11 @@ function Today() {
             ? { durationMinutes: String(circle.durationMinutes) }
             : {}),
           circleName: circle.name,
-          dayNumber: String(Math.min(dayNumber, circle.durationDays)),
+          // PA1 — the timer's "day N" is the CIRCLE'S AGE, and a circle
+          // has no deadline to cap it against (memo §3). The old
+          // Math.min pinned every live circle at "day 21" forever, which
+          // is the same stopped clock the pill carried.
+          dayNumber: String(dayNumber),
           ...(circle.resourceUrl ? { resourceUrl: circle.resourceUrl } : {}),
         }
       : {};
@@ -955,9 +960,8 @@ function Today() {
             state={signal.state}
             dailyRates={signal.dailyRates}
             dayNumber={signal.dayNumber}
-            durationDays={circle.durationDays}
+            rallyCount={countRallyDays(presence, session?.user?.id ?? '')}
             isSolo={isSolo}
-            isRallied={!!circle.ralliedOnAt && !circle.completedAt}
           />
           <Text style={styles.cardLink}>
             {isSolo
@@ -1206,9 +1210,8 @@ function Today() {
                 state={signal.state}
                 dailyRates={signal.dailyRates}
                 dayNumber={signal.dayNumber}
-                durationDays={circle.durationDays}
+                rallyCount={countRallyDays(presence, session?.user?.id ?? '')}
                 isSolo={isSolo}
-                isRallied={!!circle.ralliedOnAt && !circle.completedAt}
               />
               <Text style={styles.cardLink}>
                 {isSolo

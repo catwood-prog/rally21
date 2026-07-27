@@ -36,6 +36,7 @@ import { deriveWantPhrase, getWantActivationForCircle } from '@/lib/blueprint';
 import {
   attachRestingStatus,
   CircleMember,
+  CirclePresenceRow,
   getCircleMembers,
   getCirclePresence,
   getCoverableMembers,
@@ -55,6 +56,7 @@ import { getGlowForCircleMates, getPairStreaks, PairStreak } from '@/lib/glow';
 import {
   completeCircle,
   GATE_DAY,
+  countRallyDays,
   getMyLastCelebratedDay,
   getNextMilestone,
   rallyOnCircle,
@@ -92,7 +94,7 @@ function sortToHuddleEdge<T extends { isResting: boolean; awaySince: string | nu
   return [...members].sort((a, b) => Number(isAtHuddleEdge(a)) - Number(isAtHuddleEdge(b)));
 }
 
-type ListCircleData = { members: CircleMember[]; presence: PresenceRow[] };
+type ListCircleData = { members: CircleMember[]; presence: CirclePresenceRow[] };
 
 function YourCircle() {
   const router = useRouter();
@@ -110,7 +112,15 @@ function YourCircle() {
   const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>();
   const [circle, setCircle] = useState<MyCircle | null>(null);
   const [members, setMembers] = useState<CircleMember[]>([]);
-  const [presence, setPresence] = useState<PresenceRow[]>([]);
+  // PA1 — typed as the FULL row (kind required), not signal.ts's
+  // optional-kind PresenceRow: `countRallyDays` refuses a row whose kind
+  // might be missing, because a kind-less covered row counting as a
+  // practice is exactly the trap the memo's §4 correction exists to stop.
+  const [presence, setPresence] = useState<CirclePresenceRow[]>([]);
+  // Distinguishes "no completions yet" from "not fetched yet" — the
+  // ceremony effect must not decide on an empty array it was handed
+  // before the rows arrived.
+  const [presenceLoaded, setPresenceLoaded] = useState(false);
   // GS1 — the Who's Here glow ride-along (7+ days only; server-floored).
   const [glowByUserId, setGlowByUserId] = useState<Map<string, number>>(new Map());
   // CV1 — memberId → their missed local day (yesterday), for members who
@@ -238,6 +248,7 @@ function YourCircle() {
         setHasOtherCircles(myCirclesList.length > 1);
         setMembers(circleMembers);
         setPresence(circlePresence);
+        setPresenceLoaded(true);
         setGlowByUserId(mateGlows);
         setCoverableByUserId(coverable);
         setWallPreview(preview);
@@ -324,19 +335,26 @@ function YourCircle() {
     // hasn't loaded yet", and routing to a CEREMONY on a value that isn't
     // in yet is how a seen ceremony re-fires. Wait for the real one; the
     // effect re-runs the moment it lands (it's a dependency).
-    if (!circle || myLastCelebratedDay === null) return;
-    const dayNumber = Math.max(1, daysBetween(circle.startDate, getLocalDateString()) + 1);
+    if (!circle || myLastCelebratedDay === null || !presenceLoaded || !session?.user) return;
+    // PA1 — the ceremony threshold is this member's own rally count
+    // (practices in THIS circle), not the circle's age. Gated on
+    // presenceLoaded for the same reason CB1 gates on the marker: an
+    // empty array is "not in yet", not "zero practices", and a ceremony
+    // must never be decided on a value that hasn't arrived. Here the
+    // untruth would fail SAFE (no ceremony), but the guard makes the
+    // intent explicit rather than relying on which way the bug points.
+    const rallyCount = countRallyDays(presence, session.user.id);
     // CB1 job 1b — shouldRouteToJourneyGate, never shouldShowJourneyGate.
     // This push is the half of the cycle Cat hit: the ceremony exited to
     // /circle and this line sent her straight back, forever, because the
     // marker write had silently failed. Eligibility is untouched; the
     // guard (lib/journeyGateGuard.ts) is what stops the re-entry.
-    if (shouldRouteToJourneyGate(circle.id, dayNumber, circle, myLastCelebratedDay)) {
+    if (shouldRouteToJourneyGate(circle.id, rallyCount, circle, myLastCelebratedDay)) {
       router.push({ pathname: '/journey-gate', params: { circleId: circle.id } });
       return;
     }
     if (circle.ralliedOnAt && !circle.completedAt) {
-      const milestone = getNextMilestone(dayNumber, myLastCelebratedDay);
+      const milestone = getNextMilestone(rallyCount, myLastCelebratedDay);
       if (milestone) {
         router.push({
           pathname: '/celebration',
@@ -348,7 +366,7 @@ function YourCircle() {
         });
       }
     }
-  }, [circle, myLastCelebratedDay, router]);
+  }, [circle, myLastCelebratedDay, presence, presenceLoaded, session?.user?.id, router]);
 
   // Completing a first cover teaches the same thing the hint says —
   // dismiss it for good the moment that happens, same as the voice hint
@@ -427,9 +445,8 @@ function YourCircle() {
                 state={signal.state}
                 dailyRates={signal.dailyRates}
                 dayNumber={signal.dayNumber}
-                durationDays={c.durationDays}
+                rallyCount={countRallyDays(data.presence, session?.user?.id ?? '')}
                 isSolo={isSolo}
-                isRallied={!!c.ralliedOnAt && !c.completedAt}
               />
               <View style={[styles.avatarRow, styles.listCardAvatarRow]}>
                 {shown.map((member) => {
@@ -924,10 +941,9 @@ function YourCircle() {
           state={signal.state}
           dailyRates={signal.dailyRates}
           dayNumber={signal.dayNumber}
-          durationDays={circle.durationDays}
+          rallyCount={countRallyDays(presence, session?.user?.id ?? '')}
           isSolo={isSolo}
           size="large"
-          isRallied={!!circle.ralliedOnAt && !circle.completedAt}
         />
       </View>
 
