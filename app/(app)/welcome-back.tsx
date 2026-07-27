@@ -200,7 +200,7 @@ export default function WelcomeBack() {
                 onPress={() => handlePractice(circle.id)}
                 disabled={isNavigating}
               >
-                <Text style={styles.primaryButtonText}>Do today&apos;s practice</Text>
+                <Text style={styles.primaryButtonText}>{STRINGS.welcomeBackDoPracticeCta}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -208,7 +208,7 @@ export default function WelcomeBack() {
       })}
 
       <TouchableOpacity style={styles.secondaryButton} onPress={handleBackToToday} disabled={isNavigating}>
-        <Text style={styles.secondaryButtonText}>Back to today</Text>
+        <Text style={styles.secondaryButtonText}>{STRINGS.welcomeBackToTodayCta}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

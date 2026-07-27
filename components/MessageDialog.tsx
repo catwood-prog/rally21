@@ -3,6 +3,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import { MASCOT } from '@/assets/mascot';
 import { MascotEntrance } from '@/components/MascotEntrance';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 
 type Props = {
@@ -40,7 +41,7 @@ export function MessageDialog({ visible, title, message, onDismiss, variant = 'p
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
           <TouchableOpacity style={styles.button} onPress={onDismiss}>
-            <Text style={styles.buttonText}>Got it</Text>
+            <Text style={styles.buttonText}>{STRINGS.gotItCta}</Text>
           </TouchableOpacity>
         </View>
       </View>

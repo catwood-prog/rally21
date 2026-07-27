@@ -167,7 +167,7 @@ export default function CoverAFriend() {
               <Text style={styles.optionText}>{STRINGS.coverActionLabel}</Text>
               {mode === 'cover' && (
                 <View style={styles.pickPill}>
-                  <Text style={styles.pickPillText}>Pick</Text>
+                  <Text style={styles.pickPillText}>{STRINGS.coverPickPill}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -182,7 +182,7 @@ export default function CoverAFriend() {
               <Text style={styles.optionText}>{STRINGS.waveActionLabel}</Text>
               {mode === 'wave' && (
                 <View style={styles.pickPill}>
-                  <Text style={styles.pickPillText}>Pick</Text>
+                  <Text style={styles.pickPillText}>{STRINGS.coverPickPill}</Text>
                 </View>
               )}
             </TouchableOpacity>

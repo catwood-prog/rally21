@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RemindersAskCard } from '@/components/RemindersAskCard';
+import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { updateNotificationPrefs } from '@/lib/notifications';
@@ -50,7 +51,7 @@ export default function RemindersAsk() {
         style={[styles.back, { top: 20 + insets.top }]}
         onPress={() => router.push('/onboarding/profile')}
       >
-        <Text style={styles.backText}>← back</Text>
+        <Text style={styles.backText}>{STRINGS.backLink}</Text>
       </TouchableOpacity>
       {/* OD1 job 17a — the ask was a non-scrolling centred card, so at
           large Dynamic Type the bell, the headline, the CTA and "maybe

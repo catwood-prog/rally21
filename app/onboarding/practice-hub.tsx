@@ -168,7 +168,9 @@ export default function PracticeHub() {
                 {joiningCircleId === circle.circleId ? (
                   <ActivityIndicator size="small" color={colors.green} />
                 ) : (
-                  <Text style={styles.joinChipText}>{circle.spotsLeft === 0 ? 'Full' : 'Join'}</Text>
+                  <Text style={styles.joinChipText}>
+                    {circle.spotsLeft === 0 ? STRINGS.joinCircleFullChip : STRINGS.joinCta}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>

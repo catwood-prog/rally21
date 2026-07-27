@@ -77,7 +77,7 @@ export default function CheckinIntro() {
         {isSaving ? (
           <ActivityIndicator color={colors.ink} />
         ) : (
-          <Text style={styles.buttonText}>Got it</Text>
+          <Text style={styles.buttonText}>{STRINGS.gotItCta}</Text>
         )}
       </TouchableOpacity>
     </View>

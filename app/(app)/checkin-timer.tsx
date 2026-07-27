@@ -359,9 +359,9 @@ export default function CheckinTimer() {
         <TouchableOpacity onPress={() => router.replace('/today')}>
           <Text style={styles.backChevron}>⌄</Text>
         </TouchableOpacity>
-        <Text style={styles.circleName}>{circleName || 'Your circle'}</Text>
+        <Text style={styles.circleName}>{circleName || STRINGS.timerCircleFallback}</Text>
         <View style={styles.topbarRight}>
-          {dayNumber ? <Text style={styles.dayLabel}>Day {dayNumber}</Text> : null}
+          {dayNumber ? <Text style={styles.dayLabel}>{STRINGS.timerDayLabel(dayNumber)}</Text> : null}
           <TouchableOpacity onPress={handleToggleMute} hitSlop={8}>
             <Text style={styles.muteIcon}>{soundsEnabled ? '🔊' : '🔇'}</Text>
           </TouchableOpacity>
@@ -385,7 +385,7 @@ export default function CheckinTimer() {
           </>
         ) : (
           <>
-            <Text style={styles.prompt}>breathe, and let it settle</Text>
+            <Text style={styles.prompt}>{STRINGS.timerSettlePrompt}</Text>
             {showPacer ? (
               <BreathingPacer>
                 <TimerRing remaining={remaining} totalSeconds={totalSeconds} />
@@ -398,7 +398,8 @@ export default function CheckinTimer() {
 
         {hasTimerUI && (
           <Text style={styles.footNote}>
-            Timed practice · or just <Text style={styles.footNoteBold}>mark as done</Text>
+            {STRINGS.timerFootNotePrefix}
+            <Text style={styles.footNoteBold}>{STRINGS.timerFootNoteAction}</Text>
           </Text>
         )}
 
@@ -420,14 +421,16 @@ export default function CheckinTimer() {
       <View style={styles.buttonRow}>
         {hasTimerUI && (
           <TouchableOpacity style={styles.ghostButton} onPress={handlePauseToggle}>
-            <Text style={styles.ghostButtonText}>{phase === 'paused' ? 'Resume' : 'Pause'}</Text>
+            <Text style={styles.ghostButtonText}>
+              {phase === 'paused' ? STRINGS.timerResumeCta : STRINGS.timerPauseCta}
+            </Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity
           style={[styles.doneButton, !hasTimerUI && styles.doneButtonFull]}
           onPress={handleMarkDone}
         >
-          <Text style={styles.doneButtonText}>Mark as done</Text>
+          <Text style={styles.doneButtonText}>{STRINGS.timerMarkDoneCta}</Text>
         </TouchableOpacity>
       </View>
     </View>

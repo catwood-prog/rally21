@@ -108,15 +108,15 @@ export default function Reflection() {
 
       {!error && observation?.available && (
         <>
-          <Text style={styles.subtitle}>Based on your check-ins so far ✨</Text>
+          <Text style={styles.subtitle}>{STRINGS.observationSubtitle}</Text>
           <View style={styles.patternCard}>
-            <Text style={styles.patternLabel}>A GENTLE PATTERN</Text>
+            <Text style={styles.patternLabel}>{STRINGS.blueprintPatternLabel}</Text>
             <Text style={styles.patternHeadline}>
               {DIRECTION_TEXT[observation.direction].lead}{' '}
               <Text style={styles.patternAccent}>{DIRECTION_TEXT[observation.direction].accent}</Text>.
             </Text>
             <Text style={styles.patternMeta}>
-              Based on {observation.agreementCount} of your last {observation.totalCount} check-ins.
+              {STRINGS.observationBasis(observation.agreementCount, observation.totalCount)}
             </Text>
 
             {response === null ? (
@@ -126,24 +126,26 @@ export default function Reflection() {
                   onPress={() => handleRespond('confirmed')}
                   disabled={isSaving}
                 >
-                  <Text style={styles.soundsRightText}>Sounds right</Text>
+                  <Text style={styles.soundsRightText}>{STRINGS.blueprintSoundsRight}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.notQuite}
                   onPress={() => handleRespond('rejected')}
                   disabled={isSaving}
                 >
-                  <Text style={styles.notQuiteText}>Not quite</Text>
+                  <Text style={styles.notQuiteText}>{STRINGS.blueprintNotQuite}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <Text style={styles.respondedText}>
-                {response === 'confirmed' ? '✓ you said this sounds right' : 'noted — thanks for the correction'}
+                {response === 'confirmed' ? STRINGS.blueprintConfirmedText : STRINGS.observationRejectedText}
               </Text>
             )}
           </View>
           <Text style={styles.footer}>
-            Built only from your check-ins.{'\n'}You can correct or delete anything.
+            {STRINGS.observationFooter}
+            {'\n'}
+            {STRINGS.observationFooterSecondLine}
           </Text>
           {hasBlueprintPattern && (
             <TouchableOpacity onPress={() => router.push('/private-map')} style={styles.blueprintLinkWrap}>

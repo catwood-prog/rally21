@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackLink } from '@/components/BackLink';
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors, scaledLineHeight } from '@/constants/theme';
 
 export default function CircleSetup() {
@@ -70,7 +71,7 @@ export default function CircleSetup() {
         onPress={() => goStart({})}
       >
         <Text style={styles.cardEmoji}>✨</Text>
-        <Text style={styles.cardTitle}>Start or join a circle</Text>
+        <Text style={styles.cardTitle}>{STRINGS.circleSetupStartCardTitle}</Text>
         <Text style={styles.cardBody}>
           Find a practice, then start your own or hop into one that&apos;s already running.
         </Text>
@@ -86,7 +87,7 @@ export default function CircleSetup() {
         }
       >
         <Text style={styles.cardEmoji}>🤝</Text>
-        <Text style={styles.cardTitle}>Use an invite code</Text>
+        <Text style={styles.cardTitle}>{STRINGS.circleSetupInviteCardTitle}</Text>
         <Text style={styles.cardBody}>
           Got a code from a friend? Hop straight into their circle.
         </Text>
@@ -97,7 +98,7 @@ export default function CircleSetup() {
         onPress={() => goStart({ solo: 'true' })}
       >
         <Text style={styles.cardEmoji}>🌱</Text>
-        <Text style={styles.cardTitle}>Go solo</Text>
+        <Text style={styles.cardTitle}>{STRINGS.circleSetupSoloCardTitle}</Text>
         <Text style={styles.cardBody}>
           just you, for now — your circle can grow later
         </Text>

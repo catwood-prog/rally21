@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 
 import { AppHeader } from '@/components/AppHeader';
 import { FONT_HEADER } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { removeMemberFromCircle } from '@/lib/circle';
 import {
@@ -158,22 +159,22 @@ export default function Reports() {
 
               <View style={styles.actionsRow}>
                 <TouchableOpacity onPress={() => handleDismiss(report)} disabled={isActing}>
-                  <Text style={styles.dismissText}>Dismiss</Text>
+                  <Text style={styles.dismissText}>{STRINGS.reportsDismissCta}</Text>
                 </TouchableOpacity>
 
                 {report.targetKind === 'wall_message' && (
                   <TouchableOpacity onPress={() => handleDeleteWallMessage(report)} disabled={isActing}>
-                    <Text style={styles.destructiveText}>{isActing ? '…' : 'Delete message'}</Text>
+                    <Text style={styles.destructiveText}>{isActing ? '…' : STRINGS.reportsDeleteMessageCta}</Text>
                   </TouchableOpacity>
                 )}
                 {report.targetKind === 'member' && report.memberCircleId && (
                   <TouchableOpacity onPress={() => handleRemoveMember(report)} disabled={isActing}>
-                    <Text style={styles.destructiveText}>{isActing ? '…' : 'Remove from circle'}</Text>
+                    <Text style={styles.destructiveText}>{isActing ? '…' : STRINGS.reportsRemoveMemberCta}</Text>
                   </TouchableOpacity>
                 )}
                 {report.targetKind === 'circle' && (
                   <TouchableOpacity onPress={() => handleHideCircle(report)} disabled={isActing}>
-                    <Text style={styles.destructiveText}>{isActing ? '…' : 'Hide from browse'}</Text>
+                    <Text style={styles.destructiveText}>{isActing ? '…' : STRINGS.reportsHideCircleCta}</Text>
                   </TouchableOpacity>
                 )}
               </View>

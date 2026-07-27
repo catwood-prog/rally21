@@ -1,5 +1,6 @@
 import { Linking, Platform, StyleProp, StyleSheet, Text, TouchableOpacity, ViewStyle } from 'react-native';
 
+import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { getUrlDomain } from '@/lib/resourceLink';
 
@@ -30,7 +31,7 @@ export function LinkCard({
       <Text style={[styles.domain, light && styles.textLight]} numberOfLines={1}>
         {getUrlDomain(url)}
       </Text>
-      <Text style={[styles.cta, light && styles.ctaLight]}>open link →</Text>
+      <Text style={[styles.cta, light && styles.ctaLight]}>{STRINGS.linkCardOpenCta}</Text>
     </TouchableOpacity>
   );
 }

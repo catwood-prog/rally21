@@ -103,7 +103,7 @@ export default function SignIn() {
         style={[styles.back, { top: 52 + insets.top }]}
         onPress={() => router.replace('/welcome')}
       >
-        <Text style={styles.backText}>← back</Text>
+        <Text style={styles.backText}>{STRINGS.backLink}</Text>
       </TouchableOpacity>
       <Text style={styles.title}>let&apos;s get your circle going</Text>
       <Text style={styles.subtitle}>no password — just a link to your email</Text>
@@ -159,7 +159,7 @@ export default function SignIn() {
         {status === 'sending' ? (
           <ActivityIndicator color={colors.ink} />
         ) : (
-          <Text style={styles.buttonText}>Send magic link</Text>
+          <Text style={styles.buttonText}>{STRINGS.signInSendMagicLinkCta}</Text>
         )}
       </TouchableOpacity>
     </KeyboardAvoidingView>

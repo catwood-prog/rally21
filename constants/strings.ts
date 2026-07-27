@@ -56,18 +56,31 @@ const CLOSING_BEAT_COUNT_WORD: Record<number, string> = { 1: 'one', 2: 'two', 3:
 // and checkinSuccessTitle came lowercase with that ruling. The one standing
 // exception is emptyGroupTitle, a deliberate hero headline.
 //
-// Where a string below carries an "LC2 HELD" comment, it is knowingly the
-// other way and needs Cat, not a tidy-up — re-casing it silently re-opens
-// the split the comment names. Both remaining HELD families are blocked on
-// the same thing: 26 user-facing labels hardcoded in screens instead of
-// living here, which is its own section's work, not a casing decision.
+// HC1 (27 July) released the last two families LC2 had to hold back. Both
+// were blocked on the same thing — user-facing labels hardcoded in screens
+// instead of living here, so a label here could be re-cased and its
+// hardcoded twin on the same screen could not. HC1 moved the twins in, so
+// those families are now cased by the law like everything else. Nothing in
+// this file is held back from the casing law any more.
 export const STRINGS = {
+  // HC1 (27 July) — the shared button labels. These are the plain verbs
+  // that appear on more than one screen; every screen that had one typed
+  // inline now reads it from here, so the casing law reaches all of them
+  // at once. Context-specific buttons keep their own named key below
+  // (birthdaySave, hostRemoveMemberCta, journeyGateRallyOnCta, …).
+  saveCta: 'save',
+  cancelCta: 'cancel',
+  removeCta: 'remove',
+  signOutCta: 'sign out',
+  gotItCta: 'got it',
+  continueCta: 'continue',
+  joinCta: 'join',
+  backLink: '← back',
+
   // O1 (Google slice, 8/12 July) — sign-in screen, web only.
-  // LC2 HELD: these two are buttons, so the law says lowercase — but the
-  // primary button in the same stack, "Send magic link", is hardcoded at
-  // sign-in.tsx:162. Lowercasing only these puts two styles of the same
-  // button kind side by side on the sign-in screen.
-  signInWithGoogleCta: 'Continue with Google',
+  // "Google" and "Apple" keep their capitals — they are names, the same
+  // exception the law makes for "Rally".
+  signInWithGoogleCta: 'continue with Google',
   signInOrDivider: 'or',
   signInGoogleError: "couldn't sign in with Google — try again",
   // NAV1: the "check your email" state's way back — a typo'd address
@@ -79,7 +92,10 @@ export const STRINGS = {
   // "Hide My Email" trap: an existing member choosing Hide gets a private
   // relay address that can never match their real account, so the copy
   // nudges them toward Share before they tap.
-  signInWithAppleCta: 'Continue with Apple',
+  signInWithAppleCta: 'continue with Apple',
+  // HC1 — was hardcoded at sign-in.tsx:162, the primary button in the same
+  // stack as the two above; that split is why they were held back.
+  signInSendMagicLinkCta: 'send magic link',
   signInAppleShareEmailHint: 'already have Rally? choose share my email so we can find your account',
   signInAppleError: "couldn't sign in with Apple — try again",
 
@@ -202,15 +218,31 @@ export const STRINGS = {
   // Today's per-circle CTA — bold-on-fill only while the day is still
   // open; once checked in, the glow is the reward and editing is a quiet,
   // occasional correction, not the day's main action.
-  // LC2 HELD: a button, so the law says lowercase — but the two siblings
-  // that fill the SAME slot on a timed circle are hardcoded in today.tsx
-  // ("Just mark as done" / "Start timer", lines ~1053/1059 and ~1290/1296),
-  // and a multi-circle Today renders both shapes at once. Lowercasing this
-  // alone splits the app's primary CTA. Needs Cat plus those two lines.
-  checkInCta: 'Check in',
+  // HC1 — the two siblings that fill the SAME slot on a timed circle came
+  // in from today.tsx here, so the whole primary-CTA family moves together
+  // and a multi-circle Today can no longer render two casings at once.
+  checkInCta: 'check in',
+  markDoneCta: 'just mark as done',
+  startTimerCta: 'start timer',
   editCheckinCta: 'edit check-in',
+  // HC1 — Today's two quiet links, also typed inline until now.
+  addCircleLink: '+ add a circle',
+  todayInviteHintLink: 'even better with your people →',
 
   groupHeaderStatus: (n: number, x: number, y: number) => `day ${n} of 21 · ${x} of ${y} checked in`,
+  // HC1 job 1 — SignalMeter's day pill, hardcoded at SignalMeter.tsx:78
+  // and so unreachable by LC2. It renders on the SAME SCREEN as
+  // groupHeaderStatus directly above, which meant the circle screen read
+  // "day 1 of 21 · 1 of 2 checked in … Day 1 of 21". One counter now.
+  signalDayCounter: (n: number, total: number) => `day ${n} of ${total}`,
+  signalDayLeg: (n: number, legLabel: string) => `day ${n} · ${legLabel}`,
+  signalStateLabelCircle: 'your circle is',
+  signalStateLabelSolo: 'your practice is',
+  signalStateGlowing: 'glowing 🔥',
+  signalStateWarm: 'warm',
+  signalStateResting: 'resting',
+  signalCaptionCircle: "kept warm together — it can't break, only glow brighter",
+  signalCaptionSolo: "kept warm — it can't break, only glow brighter",
   cardLinkStatus: (x: number, y: number) => `${x} of ${y} in today`,
   groupAllInCelebration: (count: number, circleName: string) => `that's all ${count} of ${circleName} in today 🔥`,
 
@@ -300,6 +332,22 @@ export const STRINGS = {
   timerDoneLabel: 'nice — you showed up',
   timerCatchUpNote: 'your sit ended while you were away — it still counts',
   timerBackgroundHint: "keep this screen open to hear the chime — we'll keep it awake for you.",
+  // HC1 job 1 — the timer screen's own chrome, hardcoded until now. Its
+  // day pill is the same counter SignalMeter renders (signalDayCounter
+  // below); both were capitalized while groupHeaderStatus was not.
+  // Takes string|number: on this screen the day arrives as a route param,
+  // so it is already a string and was interpolated as one before the move.
+  timerDayLabel: (n: number | string) => `day ${n}`,
+  timerCircleFallback: 'your circle',
+  timerSettlePrompt: 'breathe, and let it settle',
+  // The foot note reads "timed practice · or just mark as done", with the
+  // second half bolded in place — two strings because it is one sentence
+  // with one emphasized fragment, not two labels.
+  timerFootNotePrefix: 'timed practice · or just ',
+  timerFootNoteAction: 'mark as done',
+  timerResumeCta: 'resume',
+  timerPauseCta: 'pause',
+  timerMarkDoneCta: 'mark as done',
 
   // BR1 (16 July) — the breathing pacer on the timer screen. The two
   // phase labels crossfade with the circle's swell/settle; the toggle is
@@ -414,10 +462,10 @@ export const STRINGS = {
   birthdayCelebrateLabel: 'celebrate my birthday',
   birthdayCelebrateHelper:
     'when on, your circles see your birthday and can celebrate you on the day. off means it stays hidden — nothing shows anywhere.',
-  // LC2 HELD (with unblockCta and shareCardReEnableCta, the other two
-  // settings-screen buttons): settings.tsx:346 hardcodes a plain "Save",
-  // so lowercasing these three splits that one screen.
-  birthdaySave: 'Save birthday',
+  // HC1 — settings.tsx's plain "Save" and "Sign out" moved in below
+  // (saveCta / signOutCta), which is what unblocked this one and the other
+  // two settings-screen buttons (unblockCta, shareCardReEnableCta).
+  birthdaySave: 'save birthday',
   // YD1 — each save on the settings screen confirms what it actually
   // saved: the birthday save was reusing the name-save toast ("your name
   // has been updated" after saving a birthday, Cat's on-device find).
@@ -624,12 +672,24 @@ export const STRINGS = {
     'Others here will see your name, photo, and daily check-ins — your reflections stay private.',
   hostRemoveMemberConfirm: (name: string) => `remove ${name} from this circle?`,
   hostRemoveMemberBody: 'They can rejoin later with the invite code — this just clears a spot for now.',
-  // LC2 HELD (with the report/block button set below): circle.tsx hardcodes
-  // five "Cancel" buttons and one "Remove" (lines ~810, ~875, ~879, ~1337,
-  // ~1375, ~1429), and wall.tsx renders these same keys. Lowercasing the
-  // strings.ts half leaves circle.tsx showing both styles of the same
-  // confirm-row button. The whole family moves together or not at all.
-  hostRemoveMemberCta: 'Remove',
+  // HC1 — circle.tsx's five hardcoded "Cancel" buttons and its "Remove"
+  // now read cancelCta/removeCta, so this whole confirm-row family (here
+  // and the report/block set below) could move together as LC2 required.
+  hostRemoveMemberCta: 'remove',
+  // HC1 — the circle screen's own buttons and quiet links, typed inline
+  // until now. The confirm bodies are prose and keep sentence case; every
+  // label and link takes the law's lowercase.
+  circleLeaveLink: 'leave this circle',
+  circleLeaveConfirmCta: 'leave circle',
+  circleLeaveConfirmBody: (circleName: string) =>
+    `Leave ${circleName}? Your check-ins stay yours, and you can always come back with an invite.`,
+  circleInviteSomeoneCta: '✨ invite someone',
+  circleManageMembersLink: 'manage members',
+  circleHideMembersLink: 'hide members',
+  circleMemberFallbackName: 'circle-mate',
+  circleEditLinkLink: 'edit link',
+  circleAddLinkPrompt: '+ add a link your circle follows',
+  circleOpenWallLink: 'open the circle wall →',
   hostCloseToJoinsLabel: 'closed to new joins',
   hostCloseToJoinsHelperOpen: 'anyone with the code or browsing open circles can join',
 
@@ -874,6 +934,17 @@ export const STRINGS = {
   blueprintConfirmedText: '✓ you said this sounds right',
   blueprintSeeYourBlueprint: 'see your private map →',
   somethingWeNoticedLinkLabel: 'something we noticed',
+  // HC1 — the day-14 observation screen's own copy, typed inline in
+  // reflection.tsx until now. Its two response chips are the same pair the
+  // private map already read from blueprintSoundsRight/blueprintNotQuite,
+  // which is why the two screens disagreed on casing. Prose keeps sentence
+  // case; the chips take the map's lowercase.
+  observationSubtitle: 'Based on your check-ins so far ✨',
+  observationBasis: (agreed: number, total: number) =>
+    `Based on ${agreed} of your last ${total} check-ins.`,
+  observationRejectedText: 'noted — thanks for the correction',
+  observationFooter: 'Built only from your check-ins.',
+  observationFooterSecondLine: 'You can correct or delete anything.',
 
   // Blueprint v2 (B3, Rally21-Blueprint-Notes.md wants layer) — traits,
   // the evolution view, and the wants act flow.
@@ -1010,7 +1081,7 @@ export const STRINGS = {
   blueprintQuotesRemove: 'remove',
 
   wallComposerPlaceholder: 'message your circle…',
-  hostDeleteWallMessageCancel: 'Cancel',
+  hostDeleteWallMessageCancel: 'cancel',
   hostDeleteWallMessageLink: 'remove',
 
   // MOD1 (7 July) — report + block, the safety floor. Quiet, dignified
@@ -1018,19 +1089,18 @@ export const STRINGS = {
   // destructive actions elsewhere.
   reportLink: 'report',
   reportReasonPlaceholder: 'say what happened (optional)',
-  // LC2 HELD, this button set and the block set below — see the note at
-  // hostRemoveMemberCta. hostDeleteWallMessageCancel is held for the same
-  // reason: it shares wall.tsx with reportCancelCta, so it cannot move alone.
-  reportCancelCta: 'Cancel',
-  reportSubmitCta: 'Send report',
+  // HC1 released this button set and the block set below with the rest of
+  // the family — see the note at hostRemoveMemberCta.
+  reportCancelCta: 'cancel',
+  reportSubmitCta: 'send report',
   reportedConfirmationTitle: 'thank you',
   reportedConfirmationBody: "We'll take a look. You won't see this again.",
   blockLink: 'block',
   blockConfirmTitle: (name: string) => `block ${name}?`,
   blockConfirmBody: "You won't see their wall messages or reactions anymore, and waves stop both ways. They won't be told.",
-  blockConfirmCta: 'Block',
-  blockCancelCta: 'Cancel',
-  unblockCta: 'Unblock',
+  blockConfirmCta: 'block',
+  blockCancelCta: 'cancel',
+  unblockCta: 'unblock',
   blockedPeopleSectionLabel: 'blocked people',
   // W2 (13 July) — send_friend_nudge returns 'blocked' for BOTH directions
   // of a block (the blocked person waving at their blocker included), so
@@ -1168,7 +1238,7 @@ export const STRINGS = {
   shareCardFlavorWarmJourney: 'journey cards',
   shareCardFlavorWrapped: 'day-21 keepsake cards',
   shareCardFlavorDotStrip: 'week-strip cards',
-  shareCardReEnableCta: 'Turn back on',
+  shareCardReEnableCta: 'turn back on',
   shareCardShareError: 'could not share that — try again',
   // SC2 (18 July) — the two new flavors' screen chrome. The journey
   // card's day header ("12 / DAYS") and the dot strip's kicker are card
@@ -1198,6 +1268,40 @@ export const STRINGS = {
   wrappedDone: 'done',
   shareCardHidePracticeName: 'hide practice name',
   shareCardShowPracticeName: 'show practice name',
+
+  // HC1 (27 July) — the rest of the labels that were typed inline in
+  // screens rather than living here. Grouped by screen. Every one is a
+  // MOVE plus the casing law applied; not a word of any of them changed.
+  // Card TITLES on a tappable card (circle-setup) are labels, not prose,
+  // so they take the law's lowercase; the card bodies beneath them are
+  // full sentences and keep sentence case exactly as they were.
+  celebrationDismissCta: 'nice',
+  coverPickPill: 'pick',
+  practiceRestoreCta: 'restore',
+  practiceEditCta: 'edit',
+  practiceArchiveCta: 'archive',
+  practiceCreateCta: '+ create a new practice',
+  weeklySeeJournalCta: 'see full journal',
+  welcomeBackDoPracticeCta: "do today's practice",
+  welcomeBackToTodayCta: 'back to today',
+  notFoundHomeLink: 'go back home',
+  linkCardOpenCta: 'open link →',
+  circleCapBackToTodayCta: 'back to today',
+  circleCapManageCircleCta: 'manage my circles',
+  circleSetupStartCardTitle: 'start or join a circle',
+  circleSetupInviteCardTitle: 'use an invite code',
+  circleSetupSoloCardTitle: 'go solo',
+  inviteShareCta: 'share invite',
+  inviteCopyCodeCta: 'copy code only',
+  inviteContinueCta: 'continue to my circle',
+  joinCircleCta: 'join circle',
+  joinCircleFullChip: 'full',
+  profileSignOutLink: 'sign out',
+  startCircleSetItCta: 'set it',
+  reportsDismissCta: 'dismiss',
+  reportsDeleteMessageCta: 'delete message',
+  reportsRemoveMemberCta: 'remove from circle',
+  reportsHideCircleCta: 'hide from browse',
 } as const;
 
 // The daily nudge's rotating warm-line pool (Notifications spec §3) — one

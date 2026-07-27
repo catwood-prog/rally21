@@ -211,7 +211,7 @@ export default function MyPractices() {
                   onPress={() => handleRestore(practice)}
                   hitSlop={8}
                 >
-                  <Text style={styles.actionText}>Restore</Text>
+                  <Text style={styles.actionText}>{STRINGS.practiceRestoreCta}</Text>
                 </TouchableOpacity>
               ) : (
                 <>
@@ -220,14 +220,14 @@ export default function MyPractices() {
                     onPress={() => startEdit(practice)}
                     hitSlop={8}
                   >
-                    <Text style={styles.actionText}>Edit</Text>
+                    <Text style={styles.actionText}>{STRINGS.practiceEditCta}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.actionTap}
                     onPress={() => handleArchive(practice)}
                     hitSlop={8}
                   >
-                    <Text style={styles.actionTextMuted}>Archive</Text>
+                    <Text style={styles.actionTextMuted}>{STRINGS.practiceArchiveCta}</Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -246,7 +246,7 @@ export default function MyPractices() {
         />
       ) : (
         <TouchableOpacity style={styles.createButton} onPress={startCreate}>
-          <Text style={styles.createButtonText}>+ create a new practice</Text>
+          <Text style={styles.createButtonText}>{STRINGS.practiceCreateCta}</Text>
         </TouchableOpacity>
       )}
 
@@ -302,7 +302,7 @@ function PracticeForm({
       />
       <View style={styles.formActions}>
         <TouchableOpacity style={styles.cancelButton} onPress={onCancel} disabled={isSaving}>
-          <Text style={styles.cancelButtonText}>Cancel</Text>
+          <Text style={styles.cancelButtonText}>{STRINGS.cancelCta}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.saveButton, (!form.name.trim() || !form.selection) && styles.buttonDisabled]}
@@ -312,7 +312,7 @@ function PracticeForm({
           {isSaving ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.saveButtonText}>Save</Text>
+            <Text style={styles.saveButtonText}>{STRINGS.saveCta}</Text>
           )}
         </TouchableOpacity>
       </View>

@@ -190,7 +190,7 @@ export default function Invite() {
       </View>
 
       <TouchableOpacity style={styles.button} onPress={handleShare} disabled={!inviteCode}>
-        <Text style={styles.buttonText}>Share invite</Text>
+        <Text style={styles.buttonText}>{STRINGS.inviteShareCta}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -198,7 +198,7 @@ export default function Invite() {
         onPress={handleCopyCode}
         disabled={!inviteCode}
       >
-        <Text style={styles.copyCodeText}>Copy code only</Text>
+        <Text style={styles.copyCodeText}>{STRINGS.inviteCopyCodeCta}</Text>
       </TouchableOpacity>
 
       {/* OD1 job 15 — this used to be router.replace('/'), which made the
@@ -219,7 +219,7 @@ export default function Invite() {
           router.replace(circleId ? { pathname: '/circle', params: { circleId } } : '/circle')
         }
       >
-        <Text style={styles.secondaryButtonText}>Continue to my circle</Text>
+        <Text style={styles.secondaryButtonText}>{STRINGS.inviteContinueCta}</Text>
       </TouchableOpacity>
         </View>
       </ScrollView>

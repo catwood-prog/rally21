@@ -165,7 +165,7 @@ export default function WeeklyLookBack() {
       )}
 
       <TouchableOpacity style={styles.button} onPress={() => router.push('/journal')}>
-        <Text style={styles.buttonText}>See full journal</Text>
+        <Text style={styles.buttonText}>{STRINGS.weeklySeeJournalCta}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

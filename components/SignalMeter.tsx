@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { STRINGS } from '@/constants/strings';
 import { chipShape, chipTextShape, colors } from '@/constants/theme';
 import { getJourneyLeg } from '@/lib/journey';
 import { SignalState } from '@/lib/signal';
@@ -16,9 +17,9 @@ function legStartDay(targetDay: number | null): number {
 }
 
 const STATE_LABEL: Record<SignalState, string> = {
-  glowing: 'glowing 🔥',
-  warm: 'warm',
-  resting: 'resting',
+  glowing: STRINGS.signalStateGlowing,
+  warm: STRINGS.signalStateWarm,
+  resting: STRINGS.signalStateResting,
 };
 
 const STATE_COLOR: Record<SignalState, string> = {
@@ -59,23 +60,21 @@ export function SignalMeter({
     <View>
       <View style={styles.headerRow}>
         <Text style={styles.label}>
-          {isSolo ? 'Your practice is' : 'Your circle is'}{' '}
+          {isSolo ? STRINGS.signalStateLabelSolo : STRINGS.signalStateLabelCircle}{' '}
           <Text style={[styles.labelState, { color: STATE_COLOR[state] }]}>
             {STATE_LABEL[state]}
           </Text>
         </Text>
         {leg ? (
           <View style={styles.dayBadge}>
-            <Text style={styles.dayBadgeText}>
-              day {dayNumber} · {leg.label}
-            </Text>
+            <Text style={styles.dayBadgeText}>{STRINGS.signalDayLeg(dayNumber!, leg.label)}</Text>
           </View>
         ) : (
           !!dayNumber &&
           !!durationDays && (
             <View style={styles.dayBadge}>
               <Text style={styles.dayBadgeText}>
-                Day {Math.min(dayNumber, durationDays)} of {durationDays}
+                {STRINGS.signalDayCounter(Math.min(dayNumber, durationDays), durationDays)}
               </Text>
             </View>
           )
@@ -94,9 +93,7 @@ export function SignalMeter({
         ))}
       </View>
       <Text style={styles.caption}>
-        {isSolo
-          ? "kept warm — it can't break, only glow brighter"
-          : "kept warm together — it can't break, only glow brighter"}
+        {isSolo ? STRINGS.signalCaptionSolo : STRINGS.signalCaptionCircle}
       </Text>
     </View>
   );

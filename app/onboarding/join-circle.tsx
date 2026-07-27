@@ -125,7 +125,7 @@ export default function JoinCircle() {
         {isJoining ? (
           <ActivityIndicator color={colors.ink} />
         ) : (
-          <Text style={styles.buttonText}>Join circle</Text>
+          <Text style={styles.buttonText}>{STRINGS.joinCircleCta}</Text>
         )}
       </TouchableOpacity>
 
@@ -160,7 +160,7 @@ export default function JoinCircle() {
                 {joiningCircleId === circle.circleId ? (
                   <ActivityIndicator size="small" color={colors.green} />
                 ) : (
-                  <Text style={styles.joinChipText}>Join</Text>
+                  <Text style={styles.joinChipText}>{STRINGS.joinCta}</Text>
                 )}
               </TouchableOpacity>
               <TouchableOpacity

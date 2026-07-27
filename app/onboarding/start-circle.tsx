@@ -255,7 +255,7 @@ export default function StartCircle() {
           {isCreating ? (
             <ActivityIndicator color={colors.ink} />
           ) : (
-            <Text style={styles.buttonText}>Set it</Text>
+            <Text style={styles.buttonText}>{STRINGS.startCircleSetItCta}</Text>
           )}
         </TouchableOpacity>
       )}

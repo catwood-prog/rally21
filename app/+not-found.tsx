@@ -5,6 +5,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import { MASCOT } from '@/assets/mascot';
 import { MascotEntrance } from '@/components/MascotEntrance';
+import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { frameSwapSchedule } from '@/lib/mascotFx';
 import { MASCOT_FX } from '@/lib/motion';
@@ -48,7 +49,7 @@ export default function NotFoundScreen() {
             Cat's 27 July follow-up ruling. */}
         <Text style={styles.title}>this screen doesn&apos;t exist.</Text>
         <Link href="/" style={styles.link}>
-          <Text style={styles.linkText}>go back home</Text>
+          <Text style={styles.linkText}>{STRINGS.notFoundHomeLink}</Text>
         </Link>
       </View>
     </>

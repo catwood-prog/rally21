@@ -807,7 +807,7 @@ function YourCircle() {
                   style={styles.journeyGateConfirmRow}
                 >
                   <TouchableOpacity onPress={() => setIsConfirmingComplete(false)} disabled={isCompleting}>
-                    <Text style={styles.leaveCancelText}>Cancel</Text>
+                    <Text style={styles.leaveCancelText}>{STRINGS.cancelCta}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={handleCompleteCircle} disabled={isCompleting}>
                     <Text style={styles.journeyGateCompleteConfirmText}>
@@ -872,14 +872,14 @@ function YourCircle() {
           <View style={styles.linkEditRow}>
             {circle.resourceUrl && (
               <TouchableOpacity onPress={removeLink} disabled={isSavingLink}>
-                <Text style={styles.linkRemoveText}>Remove</Text>
+                <Text style={styles.linkRemoveText}>{STRINGS.removeCta}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={() => setIsEditingLink(false)} disabled={isSavingLink}>
-              <Text style={styles.nameEditActionMuted}>Cancel</Text>
+              <Text style={styles.nameEditActionMuted}>{STRINGS.cancelCta}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={saveLink} disabled={isSavingLink}>
-              <Text style={styles.nameEditAction}>{isSavingLink ? '…' : 'Save'}</Text>
+              <Text style={styles.nameEditAction}>{isSavingLink ? '…' : STRINGS.saveCta}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -892,13 +892,13 @@ function YourCircle() {
           )}
           {isCreator && !circle.completedAt && (
             <TouchableOpacity onPress={startEditingLink} hitSlop={8}>
-              <Text style={styles.linkEditLink}>edit link</Text>
+              <Text style={styles.linkEditLink}>{STRINGS.circleEditLinkLink}</Text>
             </TouchableOpacity>
           )}
         </View>
       ) : isCreator && !circle.completedAt ? (
         <TouchableOpacity style={styles.linkEmptyPrompt} onPress={startEditingLink}>
-          <Text style={styles.linkEmptyPromptText}>+ add a link your circle follows</Text>
+          <Text style={styles.linkEmptyPromptText}>{STRINGS.circleAddLinkPrompt}</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -949,7 +949,7 @@ function YourCircle() {
             <TouchableOpacity
               onPress={() => router.push({ pathname: '/wall', params: { circleId: circle.id } })}
             >
-              <Text style={styles.wallPreviewFooter}>open the circle wall →</Text>
+              <Text style={styles.wallPreviewFooter}>{STRINGS.circleOpenWallLink}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -1254,7 +1254,7 @@ function YourCircle() {
             })
           }
         >
-          <Text style={styles.inviteButtonText}>✨ Invite someone</Text>
+          <Text style={styles.inviteButtonText}>{STRINGS.circleInviteSomeoneCta}</Text>
         </TouchableOpacity>
       )}
 
@@ -1295,7 +1295,7 @@ function YourCircle() {
 
               <TouchableOpacity onPress={() => setIsManagingMembers(!isManagingMembers)}>
                 <Text style={styles.hostManageMembersLink}>
-                  {isManagingMembers ? 'hide members' : 'manage members'}
+                  {isManagingMembers ? STRINGS.circleHideMembersLink : STRINGS.circleManageMembersLink}
                 </Text>
               </TouchableOpacity>
 
@@ -1305,10 +1305,10 @@ function YourCircle() {
                   .map((member) => (
                     <View key={member.userId} style={styles.hostMemberRow}>
                       <Avatar name={member.name} userId={member.userId} avatarUrl={member.avatarUrl} size={26} />
-                      <Text style={styles.hostMemberName}>{member.name ?? 'circle-mate'}</Text>
+                      <Text style={styles.hostMemberName}>{member.name ?? STRINGS.circleMemberFallbackName}</Text>
                       {removingMemberId !== member.userId && (
                         <TouchableOpacity onPress={() => setRemovingMemberId(member.userId)} hitSlop={6}>
-                          <Text style={styles.hostMemberRemoveLink}>remove</Text>
+                          <Text style={styles.hostMemberRemoveLink}>{STRINGS.removeCta}</Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -1334,7 +1334,7 @@ function YourCircle() {
                         onPress={() => setRemovingMemberId(null)}
                         disabled={isRemovingMember}
                       >
-                        <Text style={styles.hostMemberCancelText}>Cancel</Text>
+                        <Text style={styles.hostMemberCancelText}>{STRINGS.cancelCta}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => handleRemoveMember(removingMemberId)}
@@ -1372,7 +1372,7 @@ function YourCircle() {
                     onPress={() => setIsConfirmingComplete(false)}
                     disabled={isCompleting}
                   >
-                    <Text style={styles.leaveCancelText}>Cancel</Text>
+                    <Text style={styles.leaveCancelText}>{STRINGS.cancelCta}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={handleCompleteCircle} disabled={isCompleting}>
                     <Text style={styles.journeyGateCompleteConfirmText}>
@@ -1416,17 +1416,14 @@ function YourCircle() {
           onLayout={() => revealIntoView('leave-confirm')}
           style={styles.leaveConfirmCard}
         >
-          <Text style={styles.leaveConfirmText}>
-            Leave {circle.name}? Your check-ins stay yours, and you can always come back with an
-            invite.
-          </Text>
+          <Text style={styles.leaveConfirmText}>{STRINGS.circleLeaveConfirmBody(circle.name)}</Text>
           <View style={styles.leaveConfirmRow}>
             <TouchableOpacity
               style={styles.leaveCancelButton}
               onPress={() => setIsConfirmingLeave(false)}
               disabled={isLeaving}
             >
-              <Text style={styles.leaveCancelText}>Cancel</Text>
+              <Text style={styles.leaveCancelText}>{STRINGS.cancelCta}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.leaveConfirmButton}
@@ -1436,14 +1433,14 @@ function YourCircle() {
               {isLeaving ? (
                 <ActivityIndicator size="small" color={colors.ink} />
               ) : (
-                <Text style={styles.leaveConfirmButtonText}>Leave circle</Text>
+                <Text style={styles.leaveConfirmButtonText}>{STRINGS.circleLeaveConfirmCta}</Text>
               )}
             </TouchableOpacity>
           </View>
         </View>
       ) : (
         <TouchableOpacity style={styles.leaveLink} onPress={() => setIsConfirmingLeave(true)}>
-          <Text style={styles.leaveLinkText}>Leave this circle</Text>
+          <Text style={styles.leaveLinkText}>{STRINGS.circleLeaveLink}</Text>
         </TouchableOpacity>
       )}
 

@@ -338,7 +338,7 @@ export default function JourneyGate() {
                         onPress={() => setIsConfirmingComplete(false)}
                         disabled={isCompleting}
                       >
-                        <Text style={styles.completeCancelText}>Cancel</Text>
+                        <Text style={styles.completeCancelText}>{STRINGS.cancelCta}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={handleComplete} disabled={isCompleting}>
                         <Text style={styles.completeConfirmActionText}>

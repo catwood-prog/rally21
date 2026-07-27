@@ -353,7 +353,7 @@ export default function CheckIn() {
         {isSaving ? (
           <ActivityIndicator color={colors.ink} />
         ) : (
-          <Text style={styles.buttonText}>Save</Text>
+          <Text style={styles.buttonText}>{STRINGS.saveCta}</Text>
         )}
       </TouchableOpacity>
 

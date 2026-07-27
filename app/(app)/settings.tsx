@@ -343,7 +343,7 @@ export default function Settings() {
         {isSaving ? (
           <ActivityIndicator size="small" color={colors.ink} />
         ) : (
-          <Text style={styles.saveButtonText}>Save</Text>
+          <Text style={styles.saveButtonText}>{STRINGS.saveCta}</Text>
         )}
       </TouchableOpacity>
 
@@ -619,7 +619,7 @@ export default function Settings() {
       )}
 
       <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
-        <Text style={styles.signOutText}>Sign out</Text>
+        <Text style={styles.signOutText}>{STRINGS.signOutCta}</Text>
       </TouchableOpacity>
 
       <MessageDialog

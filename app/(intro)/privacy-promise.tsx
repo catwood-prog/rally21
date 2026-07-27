@@ -20,7 +20,7 @@ export default function PrivacyPromise() {
         style={[styles.back, { top: 20 + insets.top }]}
         onPress={() => router.replace('/welcome')}
       >
-        <Text style={styles.backText}>← back</Text>
+        <Text style={styles.backText}>{STRINGS.backLink}</Text>
       </TouchableOpacity>
       <View style={styles.body}>
         <View style={styles.iconWrap}>

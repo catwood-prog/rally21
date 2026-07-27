@@ -658,7 +658,7 @@ function Today() {
 
   const addCircleButton = (
     <TouchableOpacity style={styles.addCircleLink} onPress={handleAddCircle}>
-      <Text style={styles.addCircleLinkText}>+ add a circle</Text>
+      <Text style={styles.addCircleLinkText}>{STRINGS.addCircleLink}</Text>
     </TouchableOpacity>
   );
 
@@ -1050,13 +1050,13 @@ function Today() {
                 onPress={() => goToCheckin(circle, false, signal.dayNumber)}
                 disabled={oneTapCircleId === circle.id}
               >
-                <Text style={styles.markDoneButtonText}>Just mark as done</Text>
+                <Text style={styles.markDoneButtonText}>{STRINGS.markDoneCta}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.startTimerButton}
                 onPress={() => goToCheckin(circle, true, signal.dayNumber)}
               >
-                <Text style={styles.startTimerButtonText}>Start timer</Text>
+                <Text style={styles.startTimerButtonText}>{STRINGS.startTimerCta}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -1094,7 +1094,7 @@ function Today() {
               })
             }
           >
-            <Text style={styles.inviteHintText}>even better with your people →</Text>
+            <Text style={styles.inviteHintText}>{STRINGS.todayInviteHintLink}</Text>
           </TouchableOpacity>
         )}
 
@@ -1287,13 +1287,13 @@ function Today() {
                   onPress={() => goToCheckin(circle, false, signal.dayNumber)}
                   disabled={oneTapCircleId === circle.id}
                 >
-                  <Text style={styles.markDoneButtonText}>Just mark as done</Text>
+                  <Text style={styles.markDoneButtonText}>{STRINGS.markDoneCta}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.startTimerButton}
                   onPress={() => goToCheckin(circle, true, signal.dayNumber)}
                 >
-                  <Text style={styles.startTimerButtonText}>Start timer</Text>
+                  <Text style={styles.startTimerButtonText}>{STRINGS.startTimerCta}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -1323,7 +1323,7 @@ function Today() {
                   })
                 }
               >
-                <Text style={styles.inviteHintText}>even better with your people →</Text>
+                <Text style={styles.inviteHintText}>{STRINGS.todayInviteHintLink}</Text>
               </TouchableOpacity>
             )}
           </View>

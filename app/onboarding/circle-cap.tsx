@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
+import { STRINGS } from '@/constants/strings';
 import { colors, scaledLineHeight } from '@/constants/theme';
 import { MAX_CIRCLES } from '@/lib/caps';
 
@@ -47,10 +48,10 @@ export default function CircleCap() {
         </Text>
 
         <TouchableOpacity style={styles.button} onPress={() => router.replace('/today')}>
-          <Text style={styles.buttonText}>Back to Today</Text>
+          <Text style={styles.buttonText}>{STRINGS.circleCapBackToTodayCta}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryLink} onPress={() => router.replace('/circle')}>
-          <Text style={styles.secondaryLinkText}>Manage my circles</Text>
+          <Text style={styles.secondaryLinkText}>{STRINGS.circleCapManageCircleCta}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

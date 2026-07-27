@@ -262,7 +262,7 @@ export default function Celebration() {
 
       <Animated.View style={[styles.buttonWrap, buttonStyle]}>
         <TouchableOpacity style={styles.button} onPress={handleContinue}>
-          <Text style={styles.buttonText}>Nice</Text>
+          <Text style={styles.buttonText}>{STRINGS.celebrationDismissCta}</Text>
         </TouchableOpacity>
       </Animated.View>
     </View>

@@ -132,7 +132,7 @@ export default function ProfileSetup() {
         onPress={signOut}
         accessibilityRole="button"
       >
-        <Text style={styles.signOutText}>sign out</Text>
+        <Text style={styles.signOutText}>{STRINGS.profileSignOutLink}</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>your profile</Text>
@@ -186,7 +186,7 @@ export default function ProfileSetup() {
         {isSaving ? (
           <ActivityIndicator color={colors.ink} />
         ) : (
-          <Text style={styles.buttonText}>Continue</Text>
+          <Text style={styles.buttonText}>{STRINGS.continueCta}</Text>
         )}
       </TouchableOpacity>
 
