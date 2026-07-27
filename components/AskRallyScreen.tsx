@@ -493,6 +493,12 @@ export function AskRallyScreen({
               // exists this scrolls away like any message.
               <View style={styles.greetingWrap}>
                 <View style={styles.greetingBubble}>
+                  {/* AR4 job 2 — the tail. It sits at the bubble's
+                      bottom-right corner, in the wedge of clear
+                      background beside the listener's head; the
+                      geometry is worked out in full on the style
+                      below, because the geometry is the whole job. */}
+                  <View style={styles.greetingTail} />
                   <Text style={styles.greetingText}>{STRINGS.askRallyGreetingP1}</Text>
                   {/* NO-NAG LAW (SK1): the ordinary second paragraph
                       pitches reflections ("the more you share..."), so
@@ -778,26 +784,84 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   // AR2 (Cat's ruling, 26 July) — the approved mockup's bubble: WHITE
-  // with a plum border. This replaces the plumSoft fill, and it is the
-  // fix for the defect OD1 job 7c's tail was compensating for: plumSoft
+  // with a border. This replaced the plumSoft fill, and it is the fix
+  // for the defect OD1 job 7c's tail was compensating for: plumSoft
   // #F0EBF3 sits 2-7 RGB points from bg #F2F1EC, so the bubble's edges
   // barely existed and it read as a tinted patch rather than as speech.
-  // A border is what makes a bubble read as a bubble; the tail 7c asked
-  // for is gone, because the mockup it cited never had one.
+  // A border is what makes a bubble read as a bubble.
   //
-  // The border is colors.plum, not the mockup's #C9BFD1, so no new token
-  // is needed (theme.ts is session C's): this screen's two other bordered
-  // surfaces — the starter chips and the composer — are already exactly
-  // card + 1.5px plum, at radius 18 and 22, so the bubble at radius 20
-  // lands inside the family rather than inventing a shade. The mockup's
-  // softer border is noted for Cat in the handoff.
+  // AR4 job 1 (Cat's ruling, 26 July) — the border is colors.spokenBorder
+  // (#C9BFD1), NOT colors.plum. AR2 chose plum for consistency: the
+  // starter chips (radius 18) and the composer (radius 22) are already
+  // card + 1.5px plum, so the bubble at radius 20 joined the family. Cat
+  // overruled it, and her reason is the thing to keep: the chips and the
+  // composer are things you TOUCH, the greeting is Rally SPEAKING, and an
+  // identical border weight flattens that hierarchy. The lighter shade is
+  // what preserved it in the approved mockup. Don't "fix" this back.
+  //
+  // The bottom-right corner tightens to 6 because that is where the tail
+  // attaches — see greetingTail below. Radius 20 elsewhere is untouched.
   greetingBubble: {
     backgroundColor: colors.card,
     borderWidth: 1.5,
-    borderColor: colors.plum,
+    borderColor: colors.spokenBorder,
     borderRadius: 20,
+    borderBottomRightRadius: 6,
     padding: 16,
     maxWidth: '90%',
+  },
+  // AR4 job 2 — THE TAIL, and the geometry IS the job. An 18px square
+  // rotated 45°, filled in the bubble's own white with the same 1.5px
+  // spokenBorder on its two protruding edges (a tail in a different
+  // weight reads as a separate object), so only its lower point shows and
+  // its fill covers the seam where it crosses the bubble's own border.
+  //
+  // WHERE, AND WHY THERE. Measured on the shipped build at 390px, empty
+  // thread: the bubble is x 20-335 with its bottom edge at y 341; the
+  // listener's box is x 224-344 with its top at y 335, because the -6
+  // marginTop below TUCKS the penguin under that edge. The penguin's
+  // OPAQUE head (alpha-mapped from the PNG, not eyeballed) spans x
+  // 253-323 with its crown at y 339 — two pixels ABOVE the bubble's
+  // bottom edge. So the head is not merely near the natural tail
+  // position, it is touching the bubble across the whole middle of that
+  // edge, and the PNG paints after the bubble (its entrance wrapper is
+  // transformed, so it lands later in the positioned layer). That is why
+  // job 7c's first attempt rendered perfectly and was invisible, and
+  // Cat's ruling pins the penguin, so the head is not moving out of the
+  // way. 7c's answer was to put the tail x 92 to the left of the corner,
+  // which cleared the head and pointed at nothing.
+  //
+  // The head's right silhouette slopes down-and-right (x≈302 at y 341,
+  // 308 at 347, 312 at 351, 316 at 357), leaving a wedge of clear
+  // background between the head and the bubble's bottom-right corner.
+  // The tail lives in that wedge: base x 312-331 along the bottom edge,
+  // point at (321.5, 350). It clears the head's ink by ~10px at the base
+  // and ~11px at the point, and it points down into the listener's right
+  // shoulder — the tail is beside the penguin's head, not over it, which
+  // is where a tail meets its speaker anyway. Nothing moved to achieve
+  // this: same bubble, same penguin, same everything below.
+  //
+  // The ONE geometric consequence: at radius 20 the bubble's straight
+  // bottom edge stops at x 315, so a tail in that wedge would attach to
+  // the corner ARC and read as detached (prototyped; it does). The
+  // bottom-right radius therefore drops to 6, which is the corner the
+  // tail comes out of. THIS IS SCALE-INVARIANT: the bubble's width is
+  // maxWidth 90% and the copy fills it at every text size, and the
+  // penguin is positioned from the bubble's own bottom edge, so the tail,
+  // the edge and the head keep these exact relative positions as the
+  // bubble grows — verified at 1.35x.
+  greetingTail: {
+    position: 'absolute',
+    right: 3,
+    bottom: -7,
+    width: 18,
+    height: 18,
+    backgroundColor: colors.card,
+    borderRightWidth: 1.5,
+    borderBottomWidth: 1.5,
+    borderColor: colors.spokenBorder,
+    borderBottomRightRadius: 3,
+    transform: [{ rotate: '45deg' }],
   },
   greetingText: {
     fontSize: 15,

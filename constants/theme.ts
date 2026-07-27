@@ -64,6 +64,19 @@ export const colors = {
   // private map" (see CLAUDE.md's color-roles convention).
   plum: '#7A6486',
   plumSoft: '#F0EBF3',
+  // AR4 job 1 (Cat's ruling, 26 July) — the border on a surface that is
+  // SPOKEN rather than touched. The bordered surfaces on Ask Rally are
+  // otherwise all card + 1.5px plum (starter chips at radius 18, the
+  // composer at radius 22), and AR2 gave the greeting bubble the same
+  // border for exactly that consistency. Cat overruled it: the chips and
+  // the composer are things you TOUCH, the greeting is Rally SPEAKING,
+  // and an identical border weight flattens that hierarchy. This lighter
+  // shade is what preserved it in the approved mockup.
+  // REACH FOR THIS when the surface talks back and cannot be tapped —
+  // not for anything interactive, which stays plum. Do not "correct" the
+  // greeting bubble back to plum for consistency; the difference is the
+  // point.
+  spokenBorder: '#C9BFD1',
   // Hearts — warmth between friends (AC1, 15 July) — plus you-are-here,
   // the tab bar's active state (Cat's TB2 ruling, 20 July; see CLAUDE.md's
   // color-roles convention). Scarce and specific: the heart gesture, its
