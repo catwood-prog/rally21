@@ -42,9 +42,25 @@ const CLOSING_BEAT_COUNT_WORD: Record<number, string> = { 1: 'one', 2: 'two', 3:
 // LC1). Screen titles are lowercase, except a title that is a NAME. Body
 // copy splits by FUNCTION: lowercase for labels, buttons, chrome and short
 // fragments; sentence case for anything that is a full sentence of prose.
-// User-created content is NEVER re-cased. Where a string below carries an
-// "LC2 HELD" comment, it is knowingly the other way and needs Cat, not a
-// tidy-up — re-casing it silently re-opens the split the comment names.
+// User-created content is NEVER re-cased.
+//
+// SUB-RULE (Cat, 27 July): A STRING THAT QUOTES A UI LABEL INHERITS THAT
+// LABEL'S CASING. Where a sentence opens on the name of a button, the
+// button's casing wins over sentence case — printing "Rally on," when the
+// button beneath says "rally on" is worse than the inconsistency it fixes.
+// Two strings live under this rule today: journeyGateCardBody and
+// askRallyDeleteConfirm, each marked at its own entry.
+//
+// Dialog and confirm TITLES are titles, so they take rule 1, not rule 2
+// (Cat, 27 July) — hostRemoveMemberConfirm, journeyCompleteConfirmTitle
+// and checkinSuccessTitle came lowercase with that ruling. The one standing
+// exception is emptyGroupTitle, a deliberate hero headline.
+//
+// Where a string below carries an "LC2 HELD" comment, it is knowingly the
+// other way and needs Cat, not a tidy-up — re-casing it silently re-opens
+// the split the comment names. Both remaining HELD families are blocked on
+// the same thing: 26 user-facing labels hardcoded in screens instead of
+// living here, which is its own section's work, not a casing decision.
 export const STRINGS = {
   // O1 (Google slice, 8/12 July) — sign-in screen, web only.
   // LC2 HELD: these two are buttons, so the law says lowercase — but the
@@ -76,7 +92,7 @@ export const STRINGS = {
     "Something on our side slipped — nothing you've done is lost. Let's get you back to solid ground.",
   errorBoundaryCta: 'take me back',
 
-  checkinSuccessTitle: (n: number) => `Day ${n} done`,
+  checkinSuccessTitle: (n: number) => `day ${n} done`,
   checkinSuccessBody: 'You showed up again.',
   // OD1 job 9d — kept as the DEFERRAL label, no longer the everyday one.
   // It still shows in exactly two places: before the day-close state has
@@ -416,8 +432,8 @@ export const STRINGS = {
   // the Who's Here ride-along's own a11y text.
   glowSocialWallLine: (name: string, days: number) => `${name} has been glowing ${days} days 🔥`,
   glowFlameA11yLabel: (name: string, days: number) => `${name} has been glowing ${days} days`,
-  publicShareDisclosure: 'public circles share their practice to the library, so others can start their own',
-  myPracticesSubtitle: 'your practice library — reuse them in new circles. Shared ones can be picked by others.',
+  publicShareDisclosure: 'Public circles share their practice to the library, so others can start their own',
+  myPracticesSubtitle: 'your practice library — reuse them in new circles. shared ones can be picked by others.',
   practicePillShared: 'shared',
   // CF2: "only you" reworded warmer — same logic (a custom practice
   // visible to nobody else), the badge just reads as belonging, not
@@ -605,8 +621,8 @@ export const STRINGS = {
   openCircleReactOnlyHint: 'react now, write after 7 check-ins',
   openCircleVoiceUnlockedTitle: '7 days in — your voice is welcome on the wall.',
   joinDisclosure:
-    'others here will see your name, photo, and daily check-ins — your reflections stay private.',
-  hostRemoveMemberConfirm: (name: string) => `Remove ${name} from this circle?`,
+    'Others here will see your name, photo, and daily check-ins — your reflections stay private.',
+  hostRemoveMemberConfirm: (name: string) => `remove ${name} from this circle?`,
   hostRemoveMemberBody: 'They can rejoin later with the invite code — this just clears a spot for now.',
   // LC2 HELD (with the report/block button set below): circle.tsx hardcodes
   // five "Cancel" buttons and one "Remove" (lines ~810, ~875, ~879, ~1337,
@@ -732,8 +748,12 @@ export const STRINGS = {
   // The one gentle confirm. Comma, not an em dash (Cat's standing
   // preference), and it names every way back so the choice never feels
   // like a door locking.
+  // CASING RULED 27 July: sentence case, because this is prose and the
+  // other four confirm bodies moved with LC2 — leaving this one lowercase
+  // was visible drift, not a preserved ruling. Cat's 24 July ruling was
+  // about the WORDS, and every word here is still hers.
   checkinReflectionsOffConfirmBody:
-    'you can turn these back on anytime, from your journal, your private map, or settings.',
+    'You can turn these back on anytime, from your journal, your private map, or settings.',
   checkinReflectionsOffConfirmCta: 'just check-ins for me',
   checkinReflectionsOffConfirmCancel: 'keep reflections',
   // The inline toggle (components/ReflectionsToggleRow.tsx), worn
@@ -782,13 +802,12 @@ export const STRINGS = {
   journeyGateWaitingOnHost: "your host can complete the circle whenever they're ready.",
   // NAV1: the gate must never dead-end — deciding later is always allowed
   // (the circle screen carries the same choice as a card).
-  journeyGateNotNow: 'not now — back to Today',
+  journeyGateNotNow: 'not now — back to today',
   journeyGateCardTitle: (circleName: string) => `${circleName} hit 21 days`,
-  // LC2 HELD: this is prose, so the law says sentence case — but its first
-  // two words ARE the button directly beneath it (journeyGateRallyOnCta,
-  // lowercase), and "complete it" echoes journeyGateCompleteCta. Sentence
-  // case would capitalise a quoted lowercase label. Same snag as
-  // askRallyDeleteConfirm; fixing it properly means rewording, not re-casing.
+  // RULED 27 July, and the reason the quoted-label sub-rule exists (see the
+  // law at the top): this is prose, but its first two words ARE the button
+  // directly beneath it (journeyGateRallyOnCta, lowercase) and "complete it"
+  // echoes journeyGateCompleteCta. The label's casing wins — leave it.
   journeyGateCardBody: 'rally on, or your host can complete it, whenever feels right.',
   // Shared by journey-gate.tsx and celebration.tsx — both resolve a circle
   // by id from route params and show this if it's missing/inaccessible.
@@ -809,11 +828,14 @@ export const STRINGS = {
   journeyCompletedCta: 'back to today',
   journeyCompleteHostControlLabel: 'complete this circle',
   journeyCompleteHostControlHelper: 'archives it warmly for everyone — this can be undone only by us, so take a moment first.',
-  journeyCompleteConfirmTitle: (circleName: string) => `Complete ${circleName}?`,
+  journeyCompleteConfirmTitle: (circleName: string) => `complete ${circleName}?`,
   journeyCompleteConfirmBody: "Everyone keeps their history. The circle becomes read-only — a finished thing, not a lost one.",
 
   // The personal glow (Rally21-Glow-Spec.md §1-2, §6).
   glowGlowingLabel: (n: number) => `${n} day${n === 1 ? '' : 's'} glowing`,
+  // RULED 27 July: stays LOWERCASE. It is a full sentence by form but a
+  // badge LABEL by function (GlowBadge's label slot, sharing it with
+  // glowGlowingLabel), and the casing law splits by function.
   glowEmbersLabel: 'your glow is down to embers — one small thing today rekindles it.',
   glowHeldTodayNote: (name: string) => `${name} kept your glow warm today 🧡`,
   glowDetailTitle: 'your glow',
@@ -880,9 +902,9 @@ export const STRINGS = {
   // lost and that nothing brings it back, because that is the whole
   // reason this action earns friction and 'start fresh' (which destroys
   // nothing) does not. The confirm CTA reuses askRallyDelete above.
-  // LC2 HELD: prose, so the law says sentence case — but sentence two opens
-  // on "start fresh", which is askRallyStartFresh's own lowercase label, and
-  // capitalising it would print a button's name differently from the button.
+  // RULED 27 July under the quoted-label sub-rule (see the law at the top):
+  // prose, but sentence two opens on "start fresh", which is
+  // askRallyStartFresh's own lowercase label. The label's casing wins.
   askRallyDeleteConfirm:
     'this deletes the whole conversation for good — nothing brings it back. start fresh just opens a new one and keeps this.',
   askRallyDeleteCancelCta: 'cancel',
@@ -971,6 +993,10 @@ export const STRINGS = {
   askRallySheetTitle: 'about ask Rally',
   askRallySheetSafePlace:
     'This is a totally safe place, our chats are completely private and never shared.',
+  // RULED 27 July: this stays LOWERCASE. It reads as a fragment, so the
+  // function split treats it as one — and that is the answer to the clash
+  // SK2's audit named, this line sitting beside askRallySheetSafePlace's
+  // prose. Different KINDS, so two styles here is correct, not drift.
   askRallySheetScope: 'private to you — nothing here shapes your private map or circle',
   askRallySheetDisclaimer:
     "One thing to be clear about: I'm a companion, not a therapist. If things feel heavy, please talk to someone qualified — and in a crisis, contact emergency services or a crisis line right away.",
@@ -1055,7 +1081,12 @@ export const STRINGS = {
   profilePhotoUploadFailed:
     "your photo didn't upload, but your name is saved — try again later from settings",
 
-  yourDataDeletePhotoConfirm: "Remove your photo? Your initials will show instead — nothing else changes.",
+  // The fact, corrected 27 July: this said "your initials will show
+  // instead", which AV1 made false on 20 July — there is no initials
+  // fallback any more, a photo-less member is always their penguin
+  // (components/Avatar.tsx). "your penguin" is the term the app already
+  // uses to the same person (photoAskDismiss: 'keep the penguin').
+  yourDataDeletePhotoConfirm: "Remove your photo? Your penguin will show instead — nothing else changes.",
   yourDataDeletePhotoConfirmCta: 'remove photo',
   yourDataDeletePhotoCancelCta: 'cancel',
   yourDataDeletePhotoError: 'could not remove that — try again',

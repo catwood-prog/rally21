@@ -29,7 +29,7 @@ export default function NotFoundScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
+      <Stack.Screen options={{ title: 'oops!' }} />
       <View style={styles.container}>
         <View style={styles.mascotBox}>
           <MascotEntrance source={MASCOT.apologeticSlip} style={styles.mascot} />
@@ -41,14 +41,14 @@ export default function NotFoundScreen() {
             alt=""
           />
         </View>
-        {/* LC2 job 4 — this is the screen's identifying heading, so it is
-            lowercase per rule 1 (SK2's audit found it as the one capitalised
-            screen title left after LC1). The header title above and the link
-            below are inline copy outside this section's scope; both are
-            reported as owed rather than swept here. */}
+        {/* LC2 — this is the screen's identifying heading, so it is lowercase
+            per rule 1 (SK2's audit found it as the one capitalised screen
+            title left after LC1). The header title above is a screen title by
+            the same rule, and the link below is a back-link; both came with
+            Cat's 27 July follow-up ruling. */}
         <Text style={styles.title}>this screen doesn&apos;t exist.</Text>
         <Link href="/" style={styles.link}>
-          <Text style={styles.linkText}>Go back home</Text>
+          <Text style={styles.linkText}>go back home</Text>
         </Link>
       </View>
     </>
