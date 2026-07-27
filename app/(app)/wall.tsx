@@ -242,7 +242,19 @@ export default function CircleWall() {
     );
   }
 
-  if (!circle || error) {
+  // OD1 job 12c — this used to be `if (!circle || error)`, and `error` is
+  // set by FOUR catches, only one of which is fatal. A failed send, a
+  // failed reaction-removal or a failed report would replace the ENTIRE
+  // wall with a bare centred line — the circle was loaded and on screen a
+  // moment earlier — and leave no way back but navigating away. It also
+  // made the MessageDialog below (visible={!!error}, title "hmm", with an
+  // onDismiss that clears the error) unreachable dead code for every
+  // error the screen can raise, because this early return always won.
+  // Only a genuinely missing circle is fatal now; the transient action
+  // failures reach the dialog they were written for. Same family as job
+  // 12a and its exact mirror — there an error was set and never rendered,
+  // here it was set and rendered far too greedily.
+  if (!circle) {
     return (
       <View style={styles.loading}>
         <Text style={styles.subtitle}>{error ?? "you're not in a circle yet"}</Text>
