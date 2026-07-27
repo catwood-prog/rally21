@@ -2,6 +2,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { BackLink } from '@/components/BackLink';
 import { MessageDialog } from '@/components/MessageDialog';
 import { ShareCardView } from '@/components/ShareCardView';
 import { STRINGS } from '@/constants/strings';
@@ -141,9 +142,7 @@ export default function Wrapped() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <TouchableOpacity style={styles.back} onPress={handleDone}>
-          <Text style={styles.backText}>← {circleName ?? 'your circle'}</Text>
-        </TouchableOpacity>
+        <BackLink label={circleName ?? 'your circle'} onPress={handleDone} style={styles.back} />
 
         <ShareCardView {...cardProps} />
 
@@ -224,11 +223,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingVertical: 8,
     marginBottom: 6,
-  },
-  backText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
   },
   pickerCard: {
     width: '100%',

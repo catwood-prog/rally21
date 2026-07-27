@@ -12,6 +12,7 @@ import Animated, {
 
 import { MASCOT } from '@/assets/mascot';
 import { Avatar } from '@/components/Avatar';
+import { BackLink } from '@/components/BackLink';
 import { Brandmark } from '@/components/Brandmark';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { MASCOT_FX, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
@@ -137,9 +138,7 @@ export default function CoverAFriend() {
   return (
     <View style={[styles.container, { paddingTop: 20 + insets.top, paddingBottom: 14 + insets.bottom }]}>
       <Brandmark style={styles.brandmark} />
-      <TouchableOpacity onPress={goBackToCircle}>
-        <Text style={styles.back}>← circle</Text>
-      </TouchableOpacity>
+      <BackLink label="circle" onPress={goBackToCircle} />
 
       <View style={styles.content}>
         <Animated.View style={squeezeStyle}>
@@ -219,11 +218,6 @@ const styles = StyleSheet.create({
   },
   brandmark: {
     marginBottom: 14,
-  },
-  back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
   },
   content: {
     flex: 1,

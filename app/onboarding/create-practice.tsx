@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BackLink } from '@/components/BackLink';
 import { Brandmark } from '@/components/Brandmark';
 import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
 import { MicTextInput } from '@/components/MicTextInput';
@@ -93,13 +94,13 @@ export default function CreateAPractice() {
       contentContainerStyle={[styles.content, { paddingTop: 20 + insets.top }]}
     >
       <Brandmark style={styles.brandmark} />
-      <TouchableOpacity
+      <BackLink
+        label="back"
         onPress={() =>
           router.canGoBack() ? router.back() : router.push('/onboarding/create-circle')
         }
-      >
-        <Text style={styles.back}>← back</Text>
-      </TouchableOpacity>
+        style={styles.back}
+      />
 
       <Text style={styles.title}>{STRINGS.createPracticeTitle}</Text>
 
@@ -170,9 +171,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
     marginBottom: 16,
   },
   title: {

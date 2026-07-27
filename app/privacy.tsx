@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BackLink } from '@/components/BackLink';
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -24,9 +25,7 @@ export default function Privacy() {
       contentContainerStyle={[styles.content, { paddingTop: 24 + insets.top }]}
     >
       <Brandmark style={styles.brandmark} />
-      <TouchableOpacity style={styles.back} onPress={() => router.replace('/privacy-promise')}>
-        <Text style={styles.backText}>← back</Text>
-      </TouchableOpacity>
+      <BackLink label="back" onPress={() => router.replace('/privacy-promise')} style={styles.back} />
       <Text style={styles.title}>{STRINGS.privacyPolicyTitle}</Text>
       <Text style={styles.effectiveDate}>{STRINGS.privacyPolicyEffectiveDate}</Text>
       <Text style={styles.intro}>{STRINGS.privacyPolicyIntro}</Text>
@@ -57,11 +56,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingVertical: 4,
     marginBottom: 12,
-  },
-  backText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
   },
   title: {
     fontFamily: FONT_HEADER,

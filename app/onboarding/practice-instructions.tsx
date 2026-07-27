@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BackLink } from '@/components/BackLink';
 import { Brandmark } from '@/components/Brandmark';
 import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
 import { circleFormStyles, ResourceLinkField } from '@/components/CircleFormFields';
@@ -60,9 +61,11 @@ export default function PracticeInstructions() {
       contentContainerStyle={[styles.content, { paddingTop: 24 + insets.top }]}
     >
       <Brandmark style={styles.brandmark} />
-      <TouchableOpacity onPress={() => router.back()}>
-        <Text style={styles.back}>{STRINGS.practiceInstructionsBackToSetup}</Text>
-      </TouchableOpacity>
+      <BackLink
+        label={STRINGS.practiceInstructionsBackToSetup}
+        onPress={() => router.back()}
+        style={styles.back}
+      />
 
       <Text style={styles.title}>{STRINGS.practiceInstructionsTitle}</Text>
       <Text style={styles.helper}>{STRINGS.practiceInstructionsHelper}</Text>
@@ -112,9 +115,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
     marginBottom: 16,
   },
   title: {

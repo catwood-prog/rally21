@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MASCOT } from '@/assets/mascot';
 import { AppHeader } from '@/components/AppHeader';
+import { BackLink } from '@/components/BackLink';
 import { InviteChannelChooser } from '@/components/InviteChannelChooser';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { MessageDialog } from '@/components/MessageDialog';
@@ -134,9 +135,7 @@ export default function Invite() {
         {/* NAV1: the picker state had no way back at all — no circleId
             param means "which circle?" is ambiguous, so Today is the
             one safe parent. */}
-        <TouchableOpacity style={styles.back} onPress={() => router.push('/today')}>
-          <Text style={styles.backText}>← today</Text>
-        </TouchableOpacity>
+        <BackLink label="today" onPress={() => router.push('/today')} style={styles.back} />
         <View style={styles.body}>
           <Text style={styles.title}>invite to which circle?</Text>
           <Text style={styles.subtitle}>you're in a few — pick the one to invite someone into</Text>
@@ -169,16 +168,15 @@ export default function Invite() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom }]}
       >
         <AppHeader style={styles.header} />
-        <TouchableOpacity
-          style={styles.back}
+        <BackLink
+          label={isFromToday ? 'today' : 'your circle'}
           onPress={() =>
             isFromToday
               ? router.push('/today')
               : router.push(circleId ? { pathname: '/circle', params: { circleId } } : '/circle')
           }
-        >
-          <Text style={styles.backText}>{isFromToday ? '← today' : '← your circle'}</Text>
-        </TouchableOpacity>
+          style={styles.back}
+        />
 
         <View style={styles.body}>
       <MascotEntrance source={MASCOT.invitationHuddle} style={styles.mascot} />
@@ -303,11 +301,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 4,
     alignSelf: 'flex-start',
-  },
-  backText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
   },
   loading: {
     flex: 1,

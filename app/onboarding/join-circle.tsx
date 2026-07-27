@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BackLink } from '@/components/BackLink';
 import { Brandmark } from '@/components/Brandmark';
 import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
 import { MicTextInput } from '@/components/MicTextInput';
@@ -95,9 +96,11 @@ export default function JoinCircle() {
       contentContainerStyle={[styles.content, { paddingTop: 24 + insets.top }]}
     >
       <Brandmark style={styles.brandmark} />
-      <TouchableOpacity onPress={() => router.push(isFromToday ? '/today' : '/onboarding/circle-setup')}>
-        <Text style={styles.back}>{isFromToday ? '← today' : '← back'}</Text>
-      </TouchableOpacity>
+      <BackLink
+        label={isFromToday ? 'today' : 'back'}
+        onPress={() => router.push(isFromToday ? '/today' : '/onboarding/circle-setup')}
+        style={styles.back}
+      />
 
       <Text style={styles.title}>{STRINGS.joinCircleTitle}</Text>
       <Text style={styles.subtitle}>{STRINGS.joinCircleSubtitle}</Text>
@@ -231,9 +234,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
     marginBottom: 16,
   },
   title: {

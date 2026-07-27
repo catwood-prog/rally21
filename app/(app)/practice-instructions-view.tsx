@@ -1,8 +1,9 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
+import { BackLink } from '@/components/BackLink';
 import { LinkCard } from '@/components/LinkCard';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -66,9 +67,7 @@ export default function PracticeInstructionsView() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <AppHeader style={styles.brandmark} />
-      <TouchableOpacity onPress={goBack}>
-        <Text style={styles.back}>{STRINGS.practiceInstructionsViewBack}</Text>
-      </TouchableOpacity>
+      <BackLink label={STRINGS.practiceInstructionsViewBack} onPress={goBack} style={styles.back} />
 
       <Text style={styles.title}>{STRINGS.practiceInstructionsTitle}</Text>
 
@@ -106,9 +105,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
     marginBottom: 16,
   },
   title: {

@@ -1,3 +1,4 @@
+import { BackLink } from '@/components/BackLink';
 import { withErrorBoundary } from '@/components/ErrorBoundary';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { ParamListBase } from '@react-navigation/native';
@@ -759,11 +760,11 @@ function YourCircle() {
           real membership count, not the fromTab flag (the flag that failed
           here): a multi-circle user always gets back to "your circles"
           however they arrived; a single-circle user goes to Today. */}
-      <TouchableOpacity
+      <BackLink
+        label={hasOtherCircles ? 'your circles' : 'today'}
         onPress={() => (hasOtherCircles ? router.replace('/circle') : router.push('/today'))}
-      >
-        <Text style={styles.back}>{hasOtherCircles ? '← your circles' : '← today'}</Text>
-      </TouchableOpacity>
+        style={styles.back}
+      />
 
       {circle.completedAt && (
         <View style={styles.journeyCompletedBanner}>
@@ -1515,9 +1516,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
     marginBottom: 16,
   },
   title: {

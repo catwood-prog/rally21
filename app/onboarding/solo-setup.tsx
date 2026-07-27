@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BackLink } from '@/components/BackLink';
 import { Brandmark } from '@/components/Brandmark';
 import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
 import {
@@ -183,7 +184,7 @@ export default function SoloSetup() {
       contentContainerStyle={[styles.content, { paddingTop: 24 + insets.top }]}
     >
       <Brandmark style={styles.brandmark} />
-      <TouchableOpacity
+      <BackLink
         onPress={() =>
           isFromToday && !router.canGoBack()
             ? router.push('/today')
@@ -191,9 +192,9 @@ export default function SoloSetup() {
               ? router.back()
               : router.push('/onboarding/create-circle')
         }
-      >
-        <Text style={styles.back}>← back</Text>
-      </TouchableOpacity>
+        label="back"
+        style={styles.back}
+      />
 
       {/* OD1 job 16a — rendered as stored (see practice-hub.tsx). The
           name LEADS this title, so its own capital is exactly right; the
@@ -286,9 +287,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
     marginBottom: 16,
   },
   title: {

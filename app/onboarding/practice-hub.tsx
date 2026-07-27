@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BackLink } from '@/components/BackLink';
 import { Brandmark } from '@/components/Brandmark';
 import { MessageDialog } from '@/components/MessageDialog';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
@@ -98,7 +99,7 @@ export default function PracticeHub() {
       contentContainerStyle={[styles.content, { paddingTop: 20 + insets.top }]}
     >
       <Brandmark style={styles.brandmark} />
-      <TouchableOpacity
+      <BackLink
         onPress={() =>
           isFromToday
             ? router.push('/today')
@@ -106,9 +107,9 @@ export default function PracticeHub() {
               ? router.back()
               : router.push('/onboarding/create-circle')
         }
-      >
-        <Text style={styles.back}>{isFromToday ? '← today' : '← back'}</Text>
-      </TouchableOpacity>
+        label={isFromToday ? 'today' : 'back'}
+        style={styles.back}
+      />
 
       {/* OD1 job 16a — rendered as stored. This is a user-created name
           standing alone as the title, so lowercasing bought nothing and
@@ -199,9 +200,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
     marginBottom: 16,
   },
   title: {

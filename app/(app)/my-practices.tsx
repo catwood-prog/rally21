@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
+import { BackLink } from '@/components/BackLink';
 import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
 import { MicTextInput } from '@/components/MicTextInput';
 import { MessageDialog } from '@/components/MessageDialog';
@@ -153,9 +154,7 @@ export default function MyPractices() {
   return (
     <KeyboardFriendlyScrollView style={styles.container} contentContainerStyle={styles.content}>
       <AppHeader style={styles.brandmark} />
-      <TouchableOpacity onPress={() => router.push('/settings')}>
-        <Text style={styles.back}>← settings</Text>
-      </TouchableOpacity>
+      <BackLink label="settings" onPress={() => router.push('/settings')} style={styles.back} />
 
       <Text style={styles.title}>my practices</Text>
       <Text style={styles.subtitle}>{STRINGS.myPracticesSubtitle}</Text>
@@ -340,9 +339,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
     marginBottom: 16,
   },
   title: {

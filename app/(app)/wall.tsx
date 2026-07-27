@@ -14,6 +14,7 @@ import {
 
 import { Avatar } from '@/components/Avatar';
 import { AppHeader } from '@/components/AppHeader';
+import { BackLink } from '@/components/BackLink';
 import { MessageDialog } from '@/components/MessageDialog';
 import { appendTranscript, VoiceMicButton } from '@/components/VoiceMicButton';
 import { FONT_HEADER } from '@/constants/fonts';
@@ -256,11 +257,10 @@ export default function CircleWall() {
     >
       <View style={styles.backWrap}>
         <AppHeader style={styles.brandmark} />
-        <TouchableOpacity
+        <BackLink
+          label="your circle"
           onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
-        >
-          <Text style={styles.back}>← your circle</Text>
-        </TouchableOpacity>
+        />
       </View>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{STRINGS.wallHeaderTitle(circle.name)}</Text>
@@ -475,11 +475,6 @@ const styles = StyleSheet.create({
   },
   brandmark: {
     marginBottom: 10,
-  },
-  back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
   },
   header: {
     alignItems: 'center',

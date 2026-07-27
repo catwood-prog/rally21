@@ -635,10 +635,10 @@ export const STRINGS = {
   practiceInstructionsLabel: 'the routine',
   practiceInstructionsPlaceholder: 'e.g. 3 rounds — 10 slow breaths, then rest a minute',
   practiceInstructionsSaveCta: 'Save',
-  practiceInstructionsBackToSetup: '← back',
+  practiceInstructionsBackToSetup: 'back',
   // The quiet link on the circle screen, shown only when instructions exist.
   practiceInstructionsLink: 'practice instructions →',
-  practiceInstructionsViewBack: '← your circle',
+  practiceInstructionsViewBack: 'your circle',
   practiceInstructionsViewLinkLabel: 'the link',
   manageCircleAffordance: '✎ manage',
   manageCircleA11yLabel: 'manage circle',

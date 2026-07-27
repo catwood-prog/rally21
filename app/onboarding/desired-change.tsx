@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BackLink } from '@/components/BackLink';
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -58,9 +59,11 @@ export default function DesiredChangeScreen() {
       contentContainerStyle={[styles.content, { paddingTop: 24 + insets.top }]}
     >
       <Brandmark style={styles.brandmark} />
-      <TouchableOpacity style={styles.back} onPress={() => (router.canGoBack() ? router.back() : goToBrowse({}))}>
-        <Text style={styles.backText}>← back</Text>
-      </TouchableOpacity>
+      <BackLink
+        label="back"
+        onPress={() => (router.canGoBack() ? router.back() : goToBrowse({}))}
+        style={styles.back}
+      />
 
       <Text style={styles.title}>{STRINGS.onboardingQ1Title}</Text>
       <Text style={styles.subtitle}>{STRINGS.onboardingQ1Subtitle}</Text>
@@ -83,7 +86,6 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 24, paddingBottom: 40 },
   brandmark: { marginBottom: 18 },
   back: { marginBottom: 18 },
-  backText: { fontSize: 13, fontWeight: '600', color: colors.muted },
   title: { fontFamily: FONT_HEADER, fontSize: 25, lineHeight: 30, color: colors.ink },
   subtitle: { fontSize: 13, color: colors.muted, marginTop: 8, marginBottom: 22 },
   card: {

@@ -52,13 +52,30 @@ export function AppHeader({
       <View style={[styles.row, style]}>
         <Brandmark />
         <View style={styles.icons}>
+          {/* OD1 job 13a — two icons with no label and no role read to a
+              screen reader as indistinguishable, unnamed controls. The
+              labels are the destinations' own lowercase titles, per LC1.
+              (The tap targets themselves were already a proper 44x44 —
+              the audit's tap-target worry did not apply here.) */}
           {!hideHouse && (
-            <TouchableOpacity style={styles.tapTarget} onPress={() => router.push('/today')} hitSlop={4}>
+            <TouchableOpacity
+              style={styles.tapTarget}
+              onPress={() => router.push('/today')}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="today"
+            >
               <Ionicons name="home-outline" size={20} color={colors.muted} />
             </TouchableOpacity>
           )}
           {!hideGear && (
-            <TouchableOpacity style={styles.tapTarget} onPress={() => router.push('/settings')} hitSlop={4}>
+            <TouchableOpacity
+              style={styles.tapTarget}
+              onPress={() => router.push('/settings')}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="settings"
+            >
               <Ionicons name="settings-outline" size={20} color={colors.muted} />
             </TouchableOpacity>
           )}

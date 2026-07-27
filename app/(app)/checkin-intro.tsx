@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BackLink } from '@/components/BackLink';
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -57,9 +58,7 @@ export default function CheckinIntro() {
         <Brandmark />
         {/* NAV1: a mistaken "check in" tap needs a way out that isn't
             the consent button — quiet, never blocks the moment. */}
-        <TouchableOpacity style={styles.back} onPress={() => router.replace('/today')}>
-          <Text style={styles.backText}>← today</Text>
-        </TouchableOpacity>
+        <BackLink label="today" onPress={() => router.replace('/today')} style={styles.back} />
       </View>
       <View style={styles.lock}>
         <Text style={styles.lockText}>{STRINGS.privateBadge}</Text>
@@ -101,11 +100,6 @@ const styles = StyleSheet.create({
   back: {
     marginTop: 10,
     paddingVertical: 4,
-  },
-  backText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
   },
   lock: {
     backgroundColor: colors.greenSoft,

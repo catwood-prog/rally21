@@ -4,6 +4,7 @@ import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PRACTICE_TILES } from '@/assets/images/practices';
+import { BackLink } from '@/components/BackLink';
 
 import { Brandmark } from '@/components/Brandmark';
 import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
@@ -148,9 +149,11 @@ export default function ChooseAPractice() {
       contentContainerStyle={[styles.content, { paddingTop: 20 + insets.top }]}
     >
       <Brandmark style={styles.brandmark} />
-      <TouchableOpacity onPress={() => router.push(isFromToday ? '/today' : '/onboarding/circle-setup')}>
-        <Text style={styles.back}>{isFromToday ? '← today' : '← back'}</Text>
-      </TouchableOpacity>
+      <BackLink
+        label={isFromToday ? 'today' : 'back'}
+        onPress={() => router.push(isFromToday ? '/today' : '/onboarding/circle-setup')}
+        style={styles.back}
+      />
 
       <Text style={styles.title}>{STRINGS.choosePracticeTitle}</Text>
 
@@ -284,9 +287,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
     marginBottom: 16,
   },
   title: {

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
+import { BackLink } from '@/components/BackLink';
 import { KeyboardFriendlyScrollView } from '@/components/KeyboardFriendlyScrollView';
 import { MicTextInput } from '@/components/MicTextInput';
 import {
@@ -154,11 +155,11 @@ export default function EditCircle() {
   return (
     <KeyboardFriendlyScrollView style={styles.container} contentContainerStyle={styles.content}>
       <AppHeader style={styles.brandmark} />
-      <TouchableOpacity
+      <BackLink
+        label="your circle"
         onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
-      >
-        <Text style={styles.back}>← your circle</Text>
-      </TouchableOpacity>
+        style={styles.back}
+      />
 
       <Text style={styles.title}>{STRINGS.editCircleTitle}</Text>
 
@@ -237,9 +238,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   back: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
     marginBottom: 16,
   },
   title: {

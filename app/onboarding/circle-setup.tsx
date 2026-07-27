@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BackLink } from '@/components/BackLink';
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
 import { cardShadow, colors, scaledLineHeight } from '@/constants/theme';
@@ -53,12 +54,11 @@ export default function CircleSetup() {
       ]}
     >
       <Brandmark style={styles.brandmark} />
-      <TouchableOpacity
-        style={styles.back}
+      <BackLink
+        label={fromToday === 'true' ? 'today' : 'back'}
         onPress={() => router.push(fromToday === 'true' ? '/today' : '/onboarding/profile')}
-      >
-        <Text style={styles.backText}>{fromToday === 'true' ? '← today' : '← back'}</Text>
-      </TouchableOpacity>
+        style={styles.back}
+      />
 
       <Text style={styles.title}>
         how do you{'\n'}want to begin?
@@ -121,11 +121,6 @@ const styles = StyleSheet.create({
   },
   back: {
     marginBottom: 20,
-  },
-  backText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
   },
   title: {
     fontFamily: FONT_HEADER,
