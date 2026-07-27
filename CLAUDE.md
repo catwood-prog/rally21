@@ -68,6 +68,59 @@ mirrored in `supabase/functions/compose-nudges/nudge-lines.ts`).
 - **Seed/system practices must set `is_shared = true`.** The practices SELECT policy is `is_shared = true or created_by = auth.uid()` — a system/seed practice with `is_shared` left `false` (or `created_by is null` alone) is invisible to everyone but its own row's creator check, which seed rows fail (`created_by is null`). Any seeding path (migration, admin script) must set it explicitly.
 - **A SECURITY DEFINER function never accepts client-composed content destined for email or another user's surface.** If an RPC needs to notify or message someone else, it composes that copy itself from a fixed template (interpolating only trusted values like names it looked up, never a client-supplied string) — never a client-supplied subject/HTML/body param. See `send_friend_nudge`: the client passes only `circle_id`/`recipient_id`/`local_date`; the email and wall-post text are both composed server-side.
 
+## Verification and publishing — three absolute rules (27 July)
+
+From a real near-miss: a verification walk commented out the `!session`
+redirects in BOTH `app/onboarding/_layout.tsx` and `app/(app)/_layout.tsx`,
+marked them `// TEMP BYPASS — REVERT BEFORE COMMIT`, and left them in the
+SHARED working tree while other sessions were live. One `git add -A` from
+anyone would have shipped a disabled sign-in gate to a public app. Two
+separate sessions invented the technique independently, and one of them had
+written it into its own memory as a recipe — **so these rules override any
+remembered practice, including your own.**
+
+- **NEVER disable an auth guard. For any reason.** Not temporarily, not
+  behind a REVERT-BEFORE-COMMIT comment, not to reach a gated screen for a
+  layout walk. **The sanctioned route is a disposable-account session
+  token**, which makes both guards pass legitimately — it was later proven
+  to reach every route, including the onboarding ones previously assumed to
+  need a bypass. If a screen genuinely cannot be reached that way, measure
+  it from code and say so plainly in your handoff.
+- **NEVER publish from the shared working tree.** `eas update` and
+  `vercel --prod` bundle the WORKING TREE, not HEAD, so a publish carries
+  every other session's uncommitted work. Publish from an isolated git
+  worktree checked out at the exact commit, with a real `npm ci` and the
+  gitignored fingerprint inputs (`eas.json`, `.env.local`) copied in, then
+  remove the worktree. Proven necessary twice in two days: once to avoid
+  shipping another section's in-flight feature work, once to avoid shipping
+  the auth bypass above.
+- **Verify the published ARTIFACT, not the source.** Grep the built bundle
+  for what must be ABSENT and what must be PRESENT (the auth gate, the
+  shipped string). Source correct at HEAD does not mean the shipped bundle
+  is correct — that gap is exactly what the rule above closes, and this is
+  how you prove it closed.
+
+## Every handoff ends with a VERIFY RECEIPT (24 July)
+
+- **One line per numbered VERIFY step, marked DONE / NOT DONE / N/A, with
+  evidence.** A deploy names its commit sha AND its Vercel deployment id AND
+  how it was created (`githubDeployment: 1` = the webhook fired;
+  `gitCommitRef: HEAD` = a CLI deploy). A native lane names its eas update
+  group ids and confirms fingerprints were checked BEFORE publish. A green
+  run names suite and test counts. A walk names what was walked, on what,
+  and that disposable rows were deleted after.
+- **"NOT DONE" is an acceptable answer.** It is what the OWED ledger is built
+  from. Silently skipping is not, and neither is implying completion by
+  describing everything around a step without saying whether it ran. A prose
+  handoff can be excellent and still omit an item; a receipt makes absence
+  loud, which is the whole point.
+- **Running short on context or credits? Write the receipt FIRST** from what
+  you have, then stop. A truthful partial receipt beats another paragraph of
+  narrative.
+- **A deployment that is not visible yet is not a failed deployment.** After
+  pushing, wait for the build, then identify it by metadata. Four separate
+  sessions reported a webhook miss that the metadata disproved.
+
 ## Docs pen (23 July — prevents the overwrite class)
 
 - **Build sessions NEVER edit the docs repo.** PROMPTS.md, DEFERRED.md, specs, memos and mockups live in the project root one level up — a separate git repo whose pen is held by the single Cowork docs session. Do not edit, stage or commit anything outside `rally21/`, ever, even if a prompt's wording seems to ask for it.
