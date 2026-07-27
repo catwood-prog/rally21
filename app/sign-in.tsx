@@ -182,10 +182,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 24,
     zIndex: 1,
-    paddingVertical: 8,
+    // SO1 (27 July) — the 44px target OD1 job 13 left owed on family C.
+    // These float at a per-screen `top` with no flow to preserve, so the
+    // box just grows from 32 to 44 (14 + 16 + 14) and marginTop hands the
+    // 6px back upward, leaving the link's text exactly where it was.
+    // hitSlop is not the mechanism: RNW 0.21.2 does not implement it.
+    paddingVertical: 14,
+    marginTop: -6,
   },
   backText: {
     fontSize: 13,
+    // Pinned so the -6 above is exact on every platform — an unset
+    // lineHeight resolves to ~1.2em on RNW and to their own metrics on
+    // iOS and Android: three answers, three different offsets.
+    lineHeight: 16,
     fontWeight: '600',
     color: colors.muted,
   },

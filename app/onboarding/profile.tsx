@@ -111,8 +111,28 @@ export default function ProfileSetup() {
       contentContainerStyle={styles.container}
     >
       <Brandmark style={[styles.brandmark, { top: 20 + insets.top }]} />
-      <TouchableOpacity style={[styles.back, { top: 52 + insets.top }]} onPress={signOut}>
-        <Text style={styles.backText}>← Sign out</Text>
+      {/* SO1 (27 July) — this ends your session; it is not navigation, and
+          it used to be dressed as navigation. It sat in the back slot
+          (absolute, left: 24, under the brandmark) wearing a back link's
+          arrow and its muted 13/600 styling — which is exactly where and
+          how "go back" is drawn everywhere else in this app (sign-in,
+          privacy-promise and reminders all put "← back" at left: 24).
+          Restyling it in place would have left the positional lie intact,
+          so it moves to the top RIGHT: the corner AppHeader already gives
+          to account chrome (its row is space-between, brandmark left, the
+          gear right), and it takes settings.tsx's sign-out treatment
+          verbatim (card fill, line border, 13/700 ink) so the app's two
+          sign-outs read as the same control. It stays in the top band
+          rather than moving below Continue because onboardingAppleRescueLine,
+          rendered just under the title, tells an Apple duplicate account to
+          "sign out above" — a bottom-of-screen sign-out would falsify copy
+          Cat ruled in O1. No confirm: see the handoff. */}
+      <TouchableOpacity
+        style={[styles.signOut, { top: 12 + insets.top }]}
+        onPress={signOut}
+        accessibilityRole="button"
+      >
+        <Text style={styles.signOutText}>sign out</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>your profile</Text>
@@ -202,15 +222,29 @@ const styles = StyleSheet.create({
     top: 20,
     left: 24,
   },
-  back: {
+  signOut: {
     position: 'absolute',
-    top: 52,
-    left: 24,
+    right: 24,
+    // A real 44px target — the owed half of OD1 job 13's family C. The
+    // control itself is 44 tall rather than 13px text with padding around
+    // it, because react-native-web 0.21.2 does not implement hitSlop at
+    // all (job 13's finding), so a slop-based target would measure correct
+    // on device and stay 16px on web. `top` is 12 rather than the
+    // brandmark's 20 so this 44px box centres on the brandmark's line.
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: 14,
   },
-  backText: {
+  signOutText: {
+    // settings.tsx's signOutText exactly. Ink on card, not the old
+    // colors.muted, which was 3.00:1 and under the 4.5:1 small-text bar.
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
+    fontWeight: '700',
+    color: colors.ink,
   },
   title: {
     fontFamily: FONT_HEADER,
