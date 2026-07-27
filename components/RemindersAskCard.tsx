@@ -2,7 +2,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, colors } from '@/constants/theme';
+import { cardShadow, colors, scaledLineHeight } from '@/constants/theme';
 
 /** RM1 (13 July) — the reminders ask (mockup screen 6, rev-7): "full" is
  * the onboarding step shown once between profile and circle-setup;
@@ -41,7 +41,13 @@ export function RemindersAskCard({
 
 const styles = StyleSheet.create({
   fullWrap: {
-    flex: 1,
+    // OD1 job 17a — flexGrow, not flex: 1. `flex: 1` carries flexBasis: 0,
+    // which pins this wrap to exactly one viewport no matter how tall its
+    // content grows, so the reminders screen's new ScrollView would have
+    // had nothing to scroll. flexGrow keeps short content centred and lets
+    // tall content size the scroll. Only the 'full' (onboarding) variant
+    // uses this; the compact Today card is unaffected.
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 28,
@@ -61,14 +67,17 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: FONT_HEADER,
     fontSize: 22,
-    lineHeight: 27,
+    // OD1 job 17c — YD1's fix: iOS scales glyphs but not a fixed
+    // lineHeight, clipping wrapping copy. Both variants wrap, so both
+    // get it. Web and Android are returned unchanged.
+    lineHeight: scaledLineHeight(27),
     letterSpacing: -0.3,
     color: colors.ink,
     textAlign: 'center',
   },
   titleCompact: {
     fontSize: 18,
-    lineHeight: 23,
+    lineHeight: scaledLineHeight(23),
   },
   titleAccent: {
     fontFamily: FONT_SERIF_ITALIC,
@@ -77,7 +86,8 @@ const styles = StyleSheet.create({
   body: {
     fontSize: 13,
     color: colors.muted,
-    lineHeight: 19,
+    // OD1 job 17c — the longest copy on the ask, so the worst clipper.
+    lineHeight: scaledLineHeight(19),
     textAlign: 'center',
     marginTop: 10,
     marginBottom: 20,

@@ -1,10 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
-import { colors } from '@/constants/theme';
+import { colors, scaledLineHeight } from '@/constants/theme';
 import { MAX_CIRCLES } from '@/lib/caps';
 
 const CAP_WORD: Record<number, string> = { 1: 'one', 2: 'two', 3: 'three' };
@@ -19,24 +19,40 @@ export default function CircleCap() {
   const capWord = CAP_WORD[cap] ?? String(cap);
 
   return (
+    // OD1 job 17a — the brandmark is absolutely positioned against the
+    // screen, so it stays OUTSIDE the scroll (scrolling it would peel it
+    // off the top edge); everything else moves inside, where at large
+    // Dynamic Type the body copy and both buttons used to run off-screen
+    // with no way to reach them.
     <View style={styles.container}>
       <Brandmark style={[styles.brandmark, { top: 20 + insets.top }]} />
-      <Text style={styles.emoji}>🌱</Text>
-      <Text style={styles.title}>
-        {capWord} circles is <Text style={styles.titleAccent}>a full life</Text>
-      </Text>
-      <Text style={styles.body}>
-        You&apos;re showing up in {capWord} places already — that&apos;s the whole point. To join
-        another, finish a 21-day arc, or leave one from its circle screen — your check-ins stay
-        yours either way.
-      </Text>
+      <ScrollView
+        style={styles.scroll}
+        // Only the real insets are added, never extra padding: both
+        // resolve to 0 on web, so web centring stays pixel-identical
+        // (job 17d) while iOS keeps clear of the notch and home indicator.
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top, paddingBottom: insets.bottom },
+        ]}
+      >
+        <Text style={styles.emoji}>🌱</Text>
+        <Text style={styles.title}>
+          {capWord} circles is <Text style={styles.titleAccent}>a full life</Text>
+        </Text>
+        <Text style={styles.body}>
+          You&apos;re showing up in {capWord} places already — that&apos;s the whole point. To join
+          another, finish a 21-day arc, or leave one from its circle screen — your check-ins stay
+          yours either way.
+        </Text>
 
-      <TouchableOpacity style={styles.button} onPress={() => router.replace('/today')}>
-        <Text style={styles.buttonText}>Back to Today</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.secondaryLink} onPress={() => router.replace('/circle')}>
-        <Text style={styles.secondaryLinkText}>Manage my circles</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={() => router.replace('/today')}>
+          <Text style={styles.buttonText}>Back to Today</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryLink} onPress={() => router.replace('/circle')}>
+          <Text style={styles.secondaryLinkText}>Manage my circles</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 }
@@ -45,6 +61,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  scroll: {
+    flex: 1,
+  },
+  content: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 26,
@@ -63,7 +85,9 @@ const styles = StyleSheet.create({
     fontSize: 21,
     color: colors.ink,
     textAlign: 'center',
-    lineHeight: 27,
+    // OD1 job 17c — YD1's fix: a fixed lineHeight on wrapping copy clips
+    // its tail under iOS Dynamic Type. Unchanged on web and Android.
+    lineHeight: scaledLineHeight(27),
     marginBottom: 14,
   },
   titleAccent: {
@@ -75,7 +99,8 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: colors.muted,
     textAlign: 'center',
-    lineHeight: 20,
+    // OD1 job 17c — the longest copy on the screen, so the worst clipper.
+    lineHeight: scaledLineHeight(20),
     marginBottom: 28,
   },
   button: {

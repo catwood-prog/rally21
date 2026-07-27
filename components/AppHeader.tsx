@@ -21,6 +21,19 @@ import { colors } from '@/constants/theme';
  * web is visually unchanged. Screens WITHOUT the header (the deliberate
  * full-screen moments, intro/onboarding) apply the same
  * useSafeAreaInsets() value themselves.
+ *
+ * OD1 job 3 (26 July) — the inset now lives on an OUTER wrapper that no
+ * caller style can reach, because it used to sit in the same style array
+ * as `style` and the caller's object came LAST: invite.tsx passed a
+ * `paddingTop: 12` and silently replaced the whole safe-area inset, so
+ * the wordmark rendered under the iOS clock. NAV1's promise that
+ * "AppHeader owns the safe-area inset" is now structural rather than a
+ * convention a screen can break by accident. A screen that genuinely
+ * wants extra room below the notch sets padding on `style` as usual and
+ * it ADDS to the inset instead of replacing it. NOTE the row's other
+ * properties (flexDirection / justifyContent / alignItems) are still
+ * caller-overridable by design — the row's layout is the screen's
+ * business; the safe area is not.
  */
 export function AppHeader({
   hideHouse = false,
@@ -35,19 +48,21 @@ export function AppHeader({
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.row, { paddingTop: insets.top }, style]}>
-      <Brandmark />
-      <View style={styles.icons}>
-        {!hideHouse && (
-          <TouchableOpacity style={styles.tapTarget} onPress={() => router.push('/today')} hitSlop={4}>
-            <Ionicons name="home-outline" size={20} color={colors.muted} />
-          </TouchableOpacity>
-        )}
-        {!hideGear && (
-          <TouchableOpacity style={styles.tapTarget} onPress={() => router.push('/settings')} hitSlop={4}>
-            <Ionicons name="settings-outline" size={20} color={colors.muted} />
-          </TouchableOpacity>
-        )}
+    <View style={{ paddingTop: insets.top }}>
+      <View style={[styles.row, style]}>
+        <Brandmark />
+        <View style={styles.icons}>
+          {!hideHouse && (
+            <TouchableOpacity style={styles.tapTarget} onPress={() => router.push('/today')} hitSlop={4}>
+              <Ionicons name="home-outline" size={20} color={colors.muted} />
+            </TouchableOpacity>
+          )}
+          {!hideGear && (
+            <TouchableOpacity style={styles.tapTarget} onPress={() => router.push('/settings')} hitSlop={4}>
+              <Ionicons name="settings-outline" size={20} color={colors.muted} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );

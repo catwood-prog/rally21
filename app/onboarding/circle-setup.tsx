@@ -1,10 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
-import { cardShadow, colors } from '@/constants/theme';
+import { cardShadow, colors, scaledLineHeight } from '@/constants/theme';
 
 export default function CircleSetup() {
   const router = useRouter();
@@ -37,7 +37,21 @@ export default function CircleSetup() {
     );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    // OD1 job 17a — this was a non-scrolling centred View, so at large
+    // Dynamic Type the third card (and the back-link above it) simply had
+    // nowhere to go. flexGrow (never flex: 1, whose flexBasis: 0 is exactly
+    // what caps the content at one viewport) keeps the short-content
+    // layout centred and lets tall content push the scroll instead.
+    <ScrollView
+      style={styles.container}
+      // paddingTop is the inset this screen already applied; paddingBottom
+      // is new but resolves to 0 on web, so web stays pixel-identical
+      // (job 17d) while iOS clears the home indicator.
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top, paddingBottom: insets.bottom },
+      ]}
+    >
       <Brandmark style={styles.brandmark} />
       <TouchableOpacity
         style={styles.back}
@@ -88,7 +102,7 @@ export default function CircleSetup() {
           just you, for now — your circle can grow later
         </Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -96,6 +110,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  content: {
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
@@ -113,7 +130,11 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: FONT_HEADER,
     fontSize: 25,
-    lineHeight: 30,
+    // OD1 job 17c — YD1's existing fix, not a new one: iOS grows the
+    // glyphs with Dynamic Type but never a fixed lineHeight, so this
+    // hard-wrapped two-line title clipped its second line. Web and
+    // Android are returned unchanged by scaledLineHeight.
+    lineHeight: scaledLineHeight(30),
     color: colors.ink,
   },
   subtitle: {
@@ -145,7 +166,8 @@ const styles = StyleSheet.create({
   cardBody: {
     fontSize: 11.5,
     color: colors.muted,
-    lineHeight: 16,
+    // OD1 job 17c — same YD1 fix: wrapping card copy on a fixed lineHeight.
+    lineHeight: scaledLineHeight(16),
     marginTop: 4,
   },
 });

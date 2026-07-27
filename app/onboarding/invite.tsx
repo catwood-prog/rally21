@@ -4,12 +4,14 @@ import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
+  ScrollView,
   Share,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MASCOT } from '@/assets/mascot';
 import { AppHeader } from '@/components/AppHeader';
@@ -24,6 +26,7 @@ import { useAuth } from '@/lib/auth-context';
 
 export default function Invite() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const { circleId, fromToday } = useLocalSearchParams<{
     circleId?: string;
@@ -121,7 +124,12 @@ export default function Invite() {
 
   if (pickerCircles) {
     return (
-      <View style={styles.container}>
+      // OD1 job 17a — the picker grows a row per circle, so it needs the
+      // same scroll the main state does.
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom }]}
+      >
         <AppHeader style={styles.header} />
         {/* NAV1: the picker state had no way back at all — no circleId
             param means "which circle?" is ambiguous, so Today is the
@@ -144,25 +152,35 @@ export default function Invite() {
             ))}
           </View>
         </View>
-      </View>
+      </ScrollView>
     );
   }
 
   return (
     <View style={styles.container}>
-      <AppHeader style={styles.header} />
-      <TouchableOpacity
-        style={styles.back}
-        onPress={() =>
-          isFromToday
-            ? router.push('/today')
-            : router.push({ pathname: '/circle', params: { circleId } })
-        }
+      {/* OD1 job 17a — this screen was the audit's worst case: a
+          non-scrolling centred View carrying a FIXED 255x185 mascot
+          (Cat's 20 July ruling made the huddle 70% bigger), so Dynamic
+          Type had to fit the code card and all three buttons into
+          whatever vertical space the huddle left. The dialogs stay
+          OUTSIDE the scroll — they overlay the screen, not the content. */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom }]}
       >
-        <Text style={styles.backText}>{isFromToday ? '← today' : '← your circle'}</Text>
-      </TouchableOpacity>
+        <AppHeader style={styles.header} />
+        <TouchableOpacity
+          style={styles.back}
+          onPress={() =>
+            isFromToday
+              ? router.push('/today')
+              : router.push(circleId ? { pathname: '/circle', params: { circleId } } : '/circle')
+          }
+        >
+          <Text style={styles.backText}>{isFromToday ? '← today' : '← your circle'}</Text>
+        </TouchableOpacity>
 
-      <View style={styles.body}>
+        <View style={styles.body}>
       <MascotEntrance source={MASCOT.invitationHuddle} style={styles.mascot} />
       <Text style={styles.title}>invite your people</Text>
       <Text style={styles.subtitle}>
@@ -185,10 +203,28 @@ export default function Invite() {
         <Text style={styles.copyCodeText}>Copy code only</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace('/')}>
+      {/* OD1 job 15 — this used to be router.replace('/'), which made the
+          label false (index redirects to /today) AND replayed WO1's warm
+          open mid-session, since index.tsx gates it on component-local
+          `warmOpenDone` that a fresh mount resets. WO1 scoped that moment
+          to once per real launch. `replace`, not push: nobody should land
+          back on the invite screen by going back after finishing with it.
+          The circleId guard is circle.tsx's documented trap: a solo user
+          reaches this screen with NO circleId param (resolveCircleSelection
+          found their sole circle), and handing expo-router an undefined
+          param can serialise to the literal string "undefined", which
+          resolveCircleSelection then treats as an explicit, not-found id.
+          The clean route resolves the sole circle by itself. */}
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() =>
+          router.replace(circleId ? { pathname: '/circle', params: { circleId } } : '/circle')
+        }
+      >
         <Text style={styles.secondaryButtonText}>Continue to my circle</Text>
       </TouchableOpacity>
-      </View>
+        </View>
+      </ScrollView>
 
       <InviteChannelChooser
         visible={chooserVisible}
@@ -213,14 +249,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
   // NAV1: header + back sit in flow at the top (AppHeader owns the
   // safe-area inset); the old centered layout moves into `body`.
+  // OD1 job 3: the paddingTop: 12 that used to sit here was silently
+  // REPLACING that inset (the caller's style won the array), which put
+  // the wordmark under the iOS clock. AppHeader now owns the inset on a
+  // wrapper this style can't reach, and this screen takes the same plain
+  // inset every other AppHeader screen gets.
   header: {
     paddingHorizontal: 24,
-    paddingTop: 12,
   },
   body: {
-    flex: 1,
+    // OD1 job 17a — flexGrow, not flex: 1: flexBasis: 0 would cap this at
+    // one viewport and leave the new ScrollView nothing to scroll.
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,

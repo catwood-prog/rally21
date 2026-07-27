@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RemindersAskCard } from '@/components/RemindersAskCard';
@@ -52,7 +52,21 @@ export default function RemindersAsk() {
       >
         <Text style={styles.backText}>← back</Text>
       </TouchableOpacity>
-      <RemindersAskCard variant="full" onTurnOn={handleTurnOn} onMaybeLater={handleMaybeLater} />
+      {/* OD1 job 17a — the ask was a non-scrolling centred card, so at
+          large Dynamic Type the bell, the headline, the CTA and "maybe
+          later" competed for one viewport and the bottom of the stack
+          became unreachable. The back-link is absolutely positioned
+          against the screen and deliberately stays outside the scroll.
+          Only the real insets are added, so web is unchanged (17d). */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top, paddingBottom: insets.bottom },
+        ]}
+      >
+        <RemindersAskCard variant="full" onTurnOn={handleTurnOn} onMaybeLater={handleMaybeLater} />
+      </ScrollView>
     </View>
   );
 }
@@ -61,6 +75,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  scroll: {
+    flex: 1,
+  },
+  content: {
+    flexGrow: 1,
   },
   back: {
     position: 'absolute',
