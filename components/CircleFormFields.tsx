@@ -141,16 +141,53 @@ export function FirstRallyStrip({ style }: { style?: StyleProp<ViewStyle> }) {
     <View style={style}>
       <Text style={circleFormStyles.firstRallyHeader}>{STRINGS.firstRallyHeader}</Text>
       <Text style={circleFormStyles.firstRallySupportingLine}>{STRINGS.firstRallySupportingLine}</Text>
-      <View style={circleFormStyles.milestoneRow}>
-        {FIRST_RALLY_MILESTONES.map((n, i) => (
-          <View key={n} style={circleFormStyles.milestoneItem}>
-            <Text style={[circleFormStyles.milestoneNumber, n === 21 && circleFormStyles.milestoneNumberActive]}>
-              {n}
-            </Text>
-            {i < FIRST_RALLY_MILESTONES.length - 1 && <Text style={circleFormStyles.milestoneDot}>·</Text>}
-          </View>
-        ))}
-      </View>
+      <MilestoneStrip />
+    </View>
+  );
+}
+
+/**
+ * RF1 job 3j's ladder strip, as a VARIANT of the one above rather than a
+ * fork — Cat's instruction was explicit that the two must never drift.
+ *
+ * `reached` marks every stop the person has passed with a green ✓, and
+ * `next` is drawn gold and ~70% larger (29 vs 13px in the mockup) so the
+ * eye lands on where they are going, not where they have been. With no
+ * props it is the commitment-time strip: nothing reached, 21 highlighted,
+ * which is exactly what FirstRallyStrip rendered before this split.
+ *
+ * PA2 — the numbers are PRACTICE COUNTS now, not calendar days.
+ */
+export function MilestoneStrip({
+  reached,
+  next,
+  style,
+}: {
+  reached?: number[];
+  next?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const reachedSet = new Set(reached ?? []);
+  // No `next` given = the pre-circle commitment frame, where 21 is the
+  // one to look at because there is no progress to mark yet.
+  const highlighted = next ?? 21;
+  return (
+    <View style={[circleFormStyles.milestoneRow, style]}>
+      {FIRST_RALLY_MILESTONES.map((n, i) => (
+        <View key={n} style={circleFormStyles.milestoneItem}>
+          <Text
+            style={[
+              circleFormStyles.milestoneNumber,
+              n === highlighted && circleFormStyles.milestoneNumberActive,
+              reachedSet.has(n) && circleFormStyles.milestoneNumberReached,
+              n === highlighted && !!next && circleFormStyles.milestoneNumberNext,
+            ]}
+          >
+            {reachedSet.has(n) ? `${n} ✓` : n}
+          </Text>
+          {i < FIRST_RALLY_MILESTONES.length - 1 && <Text style={circleFormStyles.milestoneDot}>·</Text>}
+        </View>
+      ))}
     </View>
   );
 }
@@ -273,6 +310,31 @@ export const circleFormStyles = StyleSheet.create({
     color: colors.muted,
   },
   milestoneNumberActive: {
+    fontWeight: '800',
+    color: colors.ink,
+  },
+  // 3j — a stop already passed. greenText, never colors.green: green is a
+  // FILL colour and fails contrast as text (OD1 job 10).
+  milestoneNumberReached: {
+    fontWeight: '800',
+    color: colors.greenText,
+  },
+  // 3j — the stop being rallied toward, ~70% larger than the rest
+  // (mockup 29 vs 13; 11.5 → 19.5 here, the same ratio at this strip's
+  // scale). SIZE carries the emphasis.
+  //
+  // NEEDS-CAT, AND DELIBERATELY NOT RESOLVED HERE: she ruled this number
+  // GOLD. `colors.gold` as TEXT measures 1.41:1 on bg — it fails the
+  // 4.5:1 normal-text bar AND the 3:1 large-text bar, so CLAUDE.md's
+  // colour law ("if it is text, it never takes colors.green or
+  // colors.gold") forbids it outright, and there is no goldText in the
+  // palette to reach for. Rather than invent a palette entry or ship a
+  // number nobody can read, this renders ink at her ruled SIZE. Her
+  // gold ruling stands unbuilt and is listed in the handoff, next to
+  // the display-accent contrast question CLAUDE.md already parks with
+  // her.
+  milestoneNumberNext: {
+    fontSize: 19.5,
     fontWeight: '800',
     color: colors.ink,
   },

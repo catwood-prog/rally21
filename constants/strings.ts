@@ -864,24 +864,81 @@ export const STRINGS = {
   askRallyGreetingP2ReflectionsOff:
     'Reflections are off right now, turn them back on anytime in settings.',
 
-  // The journey ladder (Rally21-Glow-Spec.md §8) — circles stop ending at
-  // day 21. Ceremonies reward, never interrogate: the app never re-asks.
-  journeyGateTitle: '21 days together',
-  journeyGateBody: 'You showed up for each other for three weeks. What now?',
-  journeyGateRallyOnCta: 'rally on — through to 50',
-  journeyGateRallyOnHelper: 'keep the same circle climbing — day 22, day 34, and on.',
+  // THE FIRST-RALLY CEREMONY (PA2, 27 July). It is PERSONAL now: it fires
+  // on the member's OWN 21st practice (PA1's count), it celebrates what
+  // THEY did, and nothing they tap here decides anything for anyone else.
+  //
+  // COPY PROVENANCE, so nobody re-litigates it: these are Cat's verbatim
+  // rulings from RF1 job 3 (22-23 July), which PA2 inherits — the trigger
+  // changed, the wording did not. Where a ruled string made a claim that
+  // the personal model turns FALSE, the false clause is DELETED rather
+  // than rewritten, because inventing Cat's voice is worse than saying
+  // less (the same call SK2 made when it dropped the journal's zero-state
+  // line instead of shipping a false one). Every such deletion, and every
+  // string PA2 had to author outright, is marked PROPOSED and listed in
+  // the handoff for Cat.
+  journeyGateTitle: '21 days, your first rally!',
+  // CAT'S 3b BODY, MINUS ITS FIRST CLAUSE. She ruled: "You showed up for
+  // each other for three weeks. A strong first rally, and the momentum's
+  // yours now. Keep it going." The opening clause is now false twice
+  // over — the rally is not "for each other" (it is one person's), and it
+  // is not "three weeks" (21 practices can span any stretch of calendar;
+  // in the live cohort 21 practices would take Cathy S about eight
+  // weeks). The other two clauses were already personal ("yours") and are
+  // untouched. NEEDS-CAT: whether she wants a replacement opener.
+  journeyGateBody: "A strong first rally, and the momentum's yours now. Keep it going.",
+  journeyGateRallyOnCta: 'rally on, next stop 50',
+  journeyGateRallyOnHelper: 'same circle, same practice. nothing resets.',
+  // 3e — the gate's own opener, at secondaryButton prominence. PA2 gives
+  // it a NEW MEANING that finally matches its words: it finishes YOUR
+  // rally (memberships.finished_at), it is not the creator archiving the
+  // circle for everyone. So it is no longer host-gated, which resolves
+  // 3e's open HOST GATING question in the direction the personal model
+  // forces. The circle keeps running; you have simply finished here.
+  journeyGateCompleteOpener: 'finish here',
   journeyGateCompleteCta: 'complete this circle',
   journeyGateCompleteHelper: 'celebrate what you built and archive it warmly.',
-  journeyGateWaitingOnHost: "your host can complete the circle whenever they're ready.",
-  // NAV1: the gate must never dead-end — deciding later is always allowed
-  // (the circle screen carries the same choice as a card).
-  journeyGateNotNow: 'not now — back to today',
+  // 3d — "Today" keeps its capital: it names the tab.
+  journeyGateNotNow: 'decide later, back to Today',
   journeyGateCardTitle: (circleName: string) => `${circleName} hit 21 days`,
   // RULED 27 July, and the reason the quoted-label sub-rule exists (see the
   // law at the top): this is prose, but its first two words ARE the button
   // directly beneath it (journeyGateRallyOnCta, lowercase) and "complete it"
   // echoes journeyGateCompleteCta. The label's casing wins — leave it.
   journeyGateCardBody: 'rally on, or your host can complete it, whenever feels right.',
+
+  // PA2 — FINISHING YOUR OWN RALLY. All PROPOSED: the personal finish did
+  // not exist when Cat ruled RF1 job 3, whose 3k outcome described the
+  // creator ARCHIVING a circle ("what you built together is archived, not
+  // lost") — false here, because the circle carries on without you.
+  journeyFinishConfirmTitle: 'finish your rally here?',
+  journeyFinishConfirmBody:
+    'The circle keeps going, and so does everything you did in it. You can pick your rally back up whenever you want.',
+  journeyFinishConfirmCta: 'finish my rally',
+  // 3k, translated from circle-archive to personal-finish. Title is
+  // Cat's verbatim; the rest is PROPOSED.
+  journeyFinishedTitle: 'your first rally, complete',
+  journeyFinishedSubline: (circleName: string, practices: number) =>
+    `${circleName} · ${practices} practices`,
+  journeyFinishedBody:
+    'Great work on your first rally. Nothing you did is going anywhere, and the circle carries on without missing you.',
+  journeyFinishedResumeCta: 'pick it back up',
+  journeyFinishedExitCta: "I'll choose later",
+  // The settled state a finished member wears in the huddle (memo §10 Q1
+  // — visible, never vanished). PROPOSED.
+  journeyFinishedMemberBadge: 'rally complete',
+  journeyFinishedCardTitle: 'your rally here is complete',
+  journeyFinishedCardBody: (practices: number) =>
+    `${practices} practices, and the circle is still here whenever you want it.`,
+
+  // PA2 — OUTCOME A, after "rally on, next stop 50". Cat LOCKED the title
+  // and the button (3j). The body is her 3c helper in sentence case: her
+  // ruled 3j body ended "Day 22 starts tomorrow", which the personal
+  // model makes false — your 22nd practice starts when you do it, not
+  // tomorrow. PROPOSED only in that recombination.
+  journeyNextStopTitle: 'next stop, 50',
+  journeyNextStopBody: 'Same circle, same practice. Nothing resets.',
+  journeyNextStopCta: "let's go",
   // Shared by journey-gate.tsx and celebration.tsx — both resolve a circle
   // by id from route params and show this if it's missing/inaccessible.
   circleNotFound: "couldn't find that circle",

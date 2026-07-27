@@ -52,7 +52,7 @@ import {
 import { isBirthdayToday } from '@/lib/birthday';
 import { daysBetween, getLocalDateString, shiftDate } from '@/lib/date';
 import { getGlowForCircleMates, getMyGlow, getMyWeek, Glow, WeekDay } from '@/lib/glow';
-import { countRallyDays, getMyLastCelebratedDay, getNextMilestone } from '@/lib/journey';
+import { countRallyDays, getMyLastCelebratedDay, getNextMilestone, resumeMyRally } from '@/lib/journey';
 import { shouldRouteToJourneyGate } from '@/lib/journeyGateGuard';
 import { updateNotificationPrefs } from '@/lib/notifications';
 import { buildNotificationSpot, CoverMoment, shouldMoveSpotBelowCta } from '@/lib/notificationSpot';
@@ -92,7 +92,10 @@ type CircleData = {
   // notification spot's cover moment needs the row's insert time, not
   // just the day it covers. computeSignal still takes it as a PresenceRow.
   presence: CirclePresenceRow[];
-  lastCelebratedDay: number;
+  /** PA2 JOB 4 — null means NOT LOADED YET, never "zero". A ceremony
+   * decision made on an invented 0 is how an answered ceremony re-fires
+   * (CB1's trap, arriving through the realtime handler). */
+  lastCelebratedDay: number | null;
   // GS1 — circle-mates at 7+ days glowing (server-floored), by user id.
   mateGlows: Map<string, number>;
   // WL2 — the latest wall line someone else left (post or celebration),
@@ -113,6 +116,9 @@ function Today() {
   // state, because only their VERDICT should ever cause a re-render — a
   // layout pass that changes nothing must not loop.
   const [spotBelowCta, setSpotBelowCta] = useState(false);
+  // PA2 — which circle's rally is mid-resume, so the link can show a
+  // pending state without a second boolean per card.
+  const [resumingCircleId, setResumingCircleId] = useState<string | null>(null);
   const viewportHeight = useRef(0);
   const spotBlockHeight = useRef(0);
   const ctaBottom = useRef(0);
@@ -453,7 +459,20 @@ function Today() {
             [id]: {
               members: prev[id]?.members ?? [],
               presence,
-              lastCelebratedDay: prev[id]?.lastCelebratedDay ?? 0,
+              // PA2 JOB 4 (routed here from CB1, 25 July) — this used to
+              // read `?? 0`. It is the same defect class CB1 closed on
+              // the circle screen: a realtime presence event can arrive
+              // for a circle whose entry has not been built yet (a
+              // circle-mate checks in during the initial load), and the
+              // old default invented "this member has celebrated
+              // nothing" out of "we have not looked yet". Fed straight
+              // into shouldRouteToJourneyGate, an invented 0 is exactly
+              // what re-fires an already-answered ceremony.
+              //
+              // null now means UNKNOWN, and the gate effect below skips
+              // any circle whose marker is unknown rather than guessing
+              // at it. The real value lands on the next load().
+              lastCelebratedDay: prev[id]?.lastCelebratedDay ?? null,
               mateGlows: prev[id]?.mateGlows ?? new Map<string, number>(),
               teaser: prev[id]?.teaser ?? null,
             },
@@ -474,6 +493,9 @@ function Today() {
     for (const c of circles) {
       const data = circleData[c.id];
       if (!data) continue;
+      // PA2 JOB 4 — CB1's rule, now enforced on Today too: never decide a
+      // ceremony on a marker that has not arrived. Skip, don't guess.
+      if (data.lastCelebratedDay === null) continue;
       // PA1 — the ceremony and the milestones now key off THIS member's
       // rally count (practices they did in THIS circle), never the
       // circle's age. `data.presence` is the circle's full completion
@@ -489,7 +511,11 @@ function Today() {
         router.push({ pathname: '/journey-gate', params: { circleId: c.id } });
         return;
       }
-      if (c.ralliedOnAt && !c.completedAt) {
+      // PA2 — the `c.ralliedOnAt &&` condition is GONE, for the same
+      // reason as on the circle screen: rally markers and major stops
+      // are PERSONAL now, so gating them on a circle-level flag nothing
+      // writes any more would switch every later celebration off.
+      if (!c.completedAt) {
         const milestone = getNextMilestone(rallyCount, data.lastCelebratedDay);
         if (milestone) {
           router.push({
@@ -582,6 +608,24 @@ function Today() {
   // after a written check-in. Nothing about the gate is hard-coded here,
   // and whatever that path becomes (the personal rally ceremony) this
   // flow keeps meeting it for free.
+  // PA2 — the road back from a finished rally (memo §8: "nulling it is
+  // the road back"). One tap, no confirm: resuming costs nothing and
+  // undoes nothing, so asking "are you sure?" would only add friction to
+  // the direction the product wants to be easy.
+  const handleResumeRally = async (circleId: string) => {
+    if (resumingCircleId) return;
+    setResumingCircleId(circleId);
+    try {
+      await resumeMyRally(circleId);
+      await load();
+    } catch {
+      // ER1's warm line, never the raw message.
+      setCheckinError(STRINGS.loadFailedLine('your rally'));
+    } finally {
+      setResumingCircleId(null);
+    }
+  };
+
   const recordOneTapCheckin = async (circle: MyCircle) => {
     if (!session?.user || oneTapCircleId) return;
     setOneTapCircleId(circle.id);
@@ -832,8 +876,10 @@ function Today() {
     // at the edge for now); the circle screen owns the actual visual
     // fade/sleeping badge, this screen's own member row is untouched
     // per RS1's scope.
+    // PA2 — finished members leave the active roster, same as resting
+    // and away members (memo §8). They remain members and remain visible.
     const activeMemberCount = attachRestingStatus(members, presence, today).filter(
-      (m) => !m.isResting && !m.awaySince
+      (m) => !m.isResting && !m.awaySince && !m.finishedAt
     ).length;
     const isSolo = isSoloCircle(members.length);
     const signal = computeSignal({
@@ -899,6 +945,44 @@ function Today() {
             <Text style={styles.completedCardBadge}>{STRINGS.journeyCompletedBadge}</Text>
             <Text style={styles.completedCardTitle}>{STRINGS.journeyCompletedTitle(circle.name)}</Text>
             <Text style={styles.completedCardBody}>{STRINGS.journeyCompletedBody}</Text>
+          </TouchableOpacity>
+          {addCircleButton}
+        </ScrollView>
+      );
+    }
+
+    // PA2 — the single-circle version of the finished state. Same rule:
+    // a finished member is never asked to check in, and always has the
+    // road back one tap away (memo §8 — "nulling it is the road back").
+    if (circle.myFinishedAt) {
+      return (
+        <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance }]}>
+          <AppHeader hideHouse style={styles.topbar} />
+          {refreshFailedBanner}
+          <Text style={styles.greeting}>{greeting(myName)}</Text>
+          <GlowBadge
+            glow={glow}
+            coveredByName={iWasCoveredToday ? memberFullName(members, iWasCoveredToday.coveredBy) : null}
+            flickerOnce={glowOneShot}
+          />
+          {birthdayBanner}
+          {spotAlways}
+          <View style={styles.card}>
+            <Text style={styles.completedCardTitle}>{STRINGS.journeyFinishedCardTitle}</Text>
+            <Text style={styles.completedCardBody}>
+              {STRINGS.journeyFinishedCardBody(countRallyDays(presence, session?.user?.id ?? ''))}
+            </Text>
+            <TouchableOpacity onPress={() => handleResumeRally(circle.id)} disabled={resumingCircleId === circle.id}>
+              <Text style={styles.resumeRallyLink}>
+                {resumingCircleId === circle.id ? '…' : STRINGS.journeyFinishedResumeCta}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
+          >
+            <Text style={styles.cardLink}>view circle →</Text>
           </TouchableOpacity>
           {addCircleButton}
         </ScrollView>
@@ -1175,8 +1259,10 @@ function Today() {
         // the notification spot.
         const inCount = inTodayUserIds.size;
         // RS1/RS2 — see the single-circle branch above for the full note.
+        // PA2 — see the single-circle branch above: finished members
+        // leave the active roster but never the huddle.
         const activeMemberCount = attachRestingStatus(members, presence, today).filter(
-          (m) => !m.isResting && !m.awaySince
+          (m) => !m.isResting && !m.awaySince && !m.finishedAt
         ).length;
         const isSolo = isSoloCircle(members.length);
         const signal = computeSignal({
@@ -1197,6 +1283,29 @@ function Today() {
               <Text style={styles.completedCardTitle}>{STRINGS.journeyCompletedTitle(circle.name)}</Text>
               <Text style={styles.completedCardBody}>{STRINGS.journeyCompletedBody}</Text>
             </TouchableOpacity>
+          );
+        }
+
+        // PA2 — a member who FINISHED their rally here. Without this the
+        // whole feature would be cosmetic: the huddle would call them
+        // finished while Today went on asking them to check in every
+        // morning. The circle keeps its place in the stack (they are
+        // still a member, and it is still theirs to look at), it simply
+        // stops asking — and carries the road back.
+        if (circle.myFinishedAt) {
+          return (
+            <View key={circle.id} style={styles.stackCard}>
+              <Text style={styles.stackCardName}>{circle.name}</Text>
+              <Text style={styles.completedCardTitle}>{STRINGS.journeyFinishedCardTitle}</Text>
+              <Text style={styles.completedCardBody}>
+                {STRINGS.journeyFinishedCardBody(countRallyDays(presence, session?.user?.id ?? ''))}
+              </Text>
+              <TouchableOpacity onPress={() => handleResumeRally(circle.id)} disabled={resumingCircleId === circle.id}>
+                <Text style={styles.resumeRallyLink}>
+                  {resumingCircleId === circle.id ? '…' : STRINGS.journeyFinishedResumeCta}
+                </Text>
+              </TouchableOpacity>
+            </View>
           );
         }
 
@@ -1541,6 +1650,18 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: colors.muted,
     lineHeight: 18,
+  },
+  // PA2 — the road back. greenText, not colors.green: green is a FILL
+  // colour and fails contrast as text (OD1 job 10). Green because coming
+  // back is progress, and this is deliberately the warmest thing on a
+  // finished card.
+  resumeRallyLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.greenText,
+    marginTop: 10,
+    minHeight: 44,
+    paddingTop: 12,
   },
   cardLink: {
     fontSize: 11,

@@ -133,9 +133,9 @@ export function rallyNumber(milestone: number): number {
 }
 
 /** The caller's own last_celebrated_day for this circle — governs both
- * whether the day-21 gate still needs answering (for THIS member; the
- * circle-level decision itself lives on rallied_on_at/completed_at) and
- * whether a later rally marker / major stop is still unseen. */
+ * whether the first-rally ceremony has been answered (PA2: by THIS
+ * member, and there is no circle-level decision left for it to defer to)
+ * and whether a later rally marker / major stop is still unseen. */
 export async function getMyLastCelebratedDay(circleId: string, userId: string): Promise<number> {
   const { data, error } = await supabase
     .from('memberships')
@@ -148,15 +148,38 @@ export async function getMyLastCelebratedDay(circleId: string, userId: string): 
   return data?.last_celebrated_day ?? 0;
 }
 
-/** Any member can rally on — first tap wins, idempotent (a second tap by
- * anyone, including after someone else already answered, is a no-op). */
-export async function rallyOnCircle(circleId: string): Promise<void> {
-  const { error } = await supabase.rpc('rally_on_circle', { p_circle_id: circleId });
+/** PA2 — THE CIRCLE-LEVEL RALLY DECISION IS GONE, and `rallyOnCircle` went
+ * with it. There is no circle-wide "rally on" to make: a circle is a
+ * place with an age, not an arc with a renewal decision, so it simply
+ * persists (memo §3, §7). The RPC it called is DROPPED in migration
+ * 20260727234000, so the race is unrepresentable rather than merely
+ * un-buttoned. `circles.rallied_on_at` survives as history and for two
+ * readers outside this section — see that migration for the ruling.
+ *
+ * Continuing past your first rally is now the DEFAULT rather than a
+ * decision: PA1's ladder already fires 42/50/100/365 off your own
+ * practice count, with nothing to opt into.
+ */
+
+/** PA2 — a member finishes their OWN rally in this circle. Not
+ * leave_circle (which hard-deletes the membership row): the row, the
+ * history and the journal all survive, the member stays visible to the
+ * people still rallying, and `resumeMyRally` is the road back. */
+export async function finishMyRally(circleId: string): Promise<void> {
+  const { error } = await supabase.rpc('finish_my_rally', { p_circle_id: circleId });
   if (error) throw error;
 }
 
-/** Creator-only. Available from the day-21 gate AND anytime after from
- * host controls — completing an already-completed circle is a no-op. */
+/** PA2 — the road back (memo §8: "nulling it is the road back"). */
+export async function resumeMyRally(circleId: string): Promise<void> {
+  const { error } = await supabase.rpc('resume_my_rally', { p_circle_id: circleId });
+  if (error) throw error;
+}
+
+/** Creator-only, and it ends the whole CIRCLE for everyone — deliberately
+ * a different act from finishing your own rally above. Available from
+ * host controls at any time; completing an already-completed circle is a
+ * no-op. */
 export async function completeCircle(circleId: string): Promise<void> {
   const { error } = await supabase.rpc('complete_circle', { p_circle_id: circleId });
   if (error) throw error;

@@ -36,13 +36,17 @@ export type MyCircle = {
   instructions: string | null;
   isPublic: boolean;
   closedToJoins: boolean;
-  /** The journey ladder (Rally21-Glow-Spec.md §8) — null/null means still
-   * pre-gate or past day 21 with the gate unanswered. rallied_on_at set
-   * means the circle continues past 21 up the same ladder; completed_at
-   * set means it's archived read-only history. A circle should never have
-   * both set (rally-on and complete are mutually exclusive circle-level
-   * decisions), but completedAt wins if it somehow ever did. */
+  /** PA2 — HISTORY ONLY, read by nothing in the app any more. The
+   * circle-level rally decision is gone (memo §3, §7): a circle is a
+   * place with an age, not an arc with a renewal decision, so nothing
+   * writes this and no screen branches on it. Three live rows carry it
+   * and are kept because they are true; the column survives for the
+   * question engine and compose-digest, which read it server-side. See
+   * migration 20260727234000 for the full ruling. */
   ralliedOnAt: string | null;
+  /** Creator-only, and it ends the whole circle for everyone: archived,
+   * read-only history. Deliberately a different act from a MEMBER
+   * finishing their own rally (memberships.finished_at). */
   completedAt: string | null;
   /** OC1 (13 July) — the caller's OWN join_source for this circle. Drives
    * the earned-voice wall gate: only a browse joiner (found the circle
@@ -62,6 +66,12 @@ export type MyCircle = {
    * populated by listMyCircles; optional so other fetch paths and existing
    * fixtures stay untouched. */
   keepGoingObstacle?: string | null;
+  /** PA2 (27 July) — the caller's OWN memberships.finished_at for this
+   * circle: non-null once they have finished their rally here. Only
+   * populated by listMyCircles (Today needs it to stop asking a finished
+   * member for a check-in); optional so the other fetch paths and the
+   * existing fixtures stay untouched. */
+  myFinishedAt?: string | null;
 };
 
 export type CircleMember = {
@@ -85,6 +95,13 @@ export type CircleMember = {
   // derivation): drives the sleeping-penguin treatment at the circle
   // screen's huddle edge, independent of how many days have passed.
   awaySince: string | null;
+  // PA2 (27 July) — non-null once this member has finished their own
+  // rally in this circle. They leave the ACTIVE roster but stay VISIBLE
+  // in a settled state (memo §10 Q1): someone quietly disappearing from
+  // a huddle is the feeling this product exists to prevent. Distinct
+  // from awaySince (a pause, glow-protecting) and from leaving, which
+  // deletes the row outright.
+  finishedAt: string | null;
 };
 
 /** A circle with exactly one member gets the solo-practice UI treatment
@@ -147,10 +164,10 @@ export function mapCircleRow(c: CircleRow, myJoinSource: MyCircle['myJoinSource'
 export async function listMyCircles(userId: string): Promise<MyCircle[]> {
   const { data, error } = await supabase
     .from('memberships')
-    .select(`join_source, wall_seen_at, keep_going_obstacle, ${CIRCLE_SELECT}`)
+    .select(`join_source, wall_seen_at, keep_going_obstacle, finished_at, ${CIRCLE_SELECT}`)
     .eq('user_id', userId)
     .order('joined_at', { ascending: true })
-    .returns<{ join_source: string; wall_seen_at: string | null; keep_going_obstacle: string | null; circles: CircleRow }[]>();
+    .returns<{ join_source: string; wall_seen_at: string | null; keep_going_obstacle: string | null; finished_at: string | null; circles: CircleRow }[]>();
 
   if (error) throw error;
 
@@ -160,6 +177,7 @@ export async function listMyCircles(userId: string): Promise<MyCircle[]> {
       ...mapCircleRow(row.circles, row.join_source as MyCircle['myJoinSource']),
       wallSeenAt: row.wall_seen_at,
       keepGoingObstacle: row.keep_going_obstacle,
+      myFinishedAt: row.finished_at,
     }))
     .sort((a, b) => {
       if (a.timeOfDay === b.timeOfDay) return 0;
@@ -370,7 +388,7 @@ export async function getCircleMembers(circleId: string): Promise<CircleMember[]
   const { data, error } = await supabase
     .from('memberships')
     .select(
-      'user_id, role, joined_at, users(name, avatar_url, birth_month, birth_day, celebrate_birthday, timezone, away_since)'
+      'user_id, role, joined_at, finished_at, users(name, avatar_url, birth_month, birth_day, celebrate_birthday, timezone, away_since)'
     )
     .eq('circle_id', circleId)
     .returns<
@@ -378,6 +396,7 @@ export async function getCircleMembers(circleId: string): Promise<CircleMember[]
         user_id: string;
         role: string;
         joined_at: string;
+        finished_at: string | null;
         users: {
           name: string | null;
           avatar_url: string | null;
@@ -403,6 +422,7 @@ export async function getCircleMembers(circleId: string): Promise<CircleMember[]
     timezone: m.users?.timezone ?? null,
     joinedAt: m.joined_at,
     awaySince: m.users?.away_since ?? null,
+    finishedAt: m.finished_at,
   }));
 }
 

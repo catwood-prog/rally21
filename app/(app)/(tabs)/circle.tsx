@@ -59,7 +59,6 @@ import {
   countRallyDays,
   getMyLastCelebratedDay,
   getNextMilestone,
-  rallyOnCircle,
 } from '@/lib/journey';
 import { shouldRouteToJourneyGate } from '@/lib/journeyGateGuard';
 import { blockUser, getMyBlocks, reportContent, unblockUser } from '@/lib/moderation';
@@ -165,7 +164,6 @@ function YourCircle() {
   // below now waits for the real value.
   const [myLastCelebratedDay, setMyLastCelebratedDay] = useState<number | null>(null);
   const [pairStreaks, setPairStreaks] = useState<PairStreak[]>([]);
-  const [isRallying, setIsRallying] = useState(false);
   const [isConfirmingComplete, setIsConfirmingComplete] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [wantStatementForCircle, setWantStatementForCircle] = useState<string | null>(null);
@@ -353,7 +351,12 @@ function YourCircle() {
       router.push({ pathname: '/journey-gate', params: { circleId: circle.id } });
       return;
     }
-    if (circle.ralliedOnAt && !circle.completedAt) {
+    // PA2 — the `circle.ralliedOnAt &&` condition is GONE. Rally markers
+    // and major stops are PERSONAL milestones off this member's own
+    // practice count (PA1), so gating them on a circle-level flag that
+    // nothing writes any more would have silently switched every later
+    // celebration off for good.
+    if (!circle.completedAt) {
       const milestone = getNextMilestone(rallyCount, myLastCelebratedDay);
       if (milestone) {
         router.push({
@@ -531,7 +534,13 @@ function YourCircle() {
   // members, just softly at the edge for now), and heart/wave/cover
   // stay fully reachable for them — they're exactly who those are for.
   const orderedMembers = sortToHuddleEdge(attachRestingStatus(members, presence, today));
-  const activeMemberCount = orderedMembers.filter((m) => !m.isResting && !m.awaySince).length;
+  // PA2 — a member who has FINISHED their rally leaves the ACTIVE
+  // roster (memo §8), joining resting and away members in being real
+  // members who are not part of today's "N of M checked in". They stay
+  // fully VISIBLE in the huddle below — only the headcount changes.
+  const activeMemberCount = orderedMembers.filter(
+    (m) => !m.isResting && !m.awaySince && !m.finishedAt
+  ).length;
   const shownMembers = orderedMembers.slice(0, MAX_AVATARS_SHOWN);
   // HW1: in a fuller huddle the gesture pills shrink to their glyphs so
   // the row never crowds at 390px — a gesture is never dropped, the
@@ -615,18 +624,6 @@ function YourCircle() {
       setError(e instanceof Error ? e.message : 'could not update — try again');
     } finally {
       setIsTogglingClosed(false);
-    }
-  };
-
-  const handleRallyOn = async () => {
-    setIsRallying(true);
-    try {
-      await rallyOnCircle(circle.id);
-      setCircle({ ...circle, ralliedOnAt: new Date().toISOString() });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not rally on — try again');
-    } finally {
-      setIsRallying(false);
     }
   };
 
@@ -795,53 +792,14 @@ function YourCircle() {
         </View>
       )}
 
-      {!circle.completedAt &&
-        !circle.ralliedOnAt &&
-        // CB1 job 1b — null is "not loaded"; the card stays away until the
-        // real marker lands, same as it did when this defaulted to 0.
-        (myLastCelebratedDay ?? 0) >= GATE_DAY && (
-          <View style={styles.journeyGateCard}>
-            <Text style={styles.journeyGateCardTitle}>{STRINGS.journeyGateCardTitle(circle.name)}</Text>
-            <Text style={styles.journeyGateCardBody}>{STRINGS.journeyGateCardBody}</Text>
-            <TouchableOpacity
-              style={styles.journeyGateCardButton}
-              onPress={handleRallyOn}
-              disabled={isRallying}
-            >
-              <Text style={styles.journeyGateCardButtonText}>
-                {isRallying ? '…' : STRINGS.journeyGateRallyOnCta}
-              </Text>
-            </TouchableOpacity>
-            {isCreator ? (
-              isConfirmingComplete ? (
-                // OD1 job 4b — the rally-on card's own complete-confirm.
-                // It sits near the TOP of the screen so the pill has
-                // never reached it; wired for the same reason as the link
-                // editor — the rule is the screen's, not the card's.
-                <View
-                  ref={captureReveal('gate-card-complete-confirm')}
-                  onLayout={() => revealIntoView('gate-card-complete-confirm')}
-                  style={styles.journeyGateConfirmRow}
-                >
-                  <TouchableOpacity onPress={() => setIsConfirmingComplete(false)} disabled={isCompleting}>
-                    <Text style={styles.leaveCancelText}>{STRINGS.cancelCta}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handleCompleteCircle} disabled={isCompleting}>
-                    <Text style={styles.journeyGateCompleteConfirmText}>
-                      {isCompleting ? '…' : STRINGS.journeyGateCompleteCta}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity onPress={() => setIsConfirmingComplete(true)}>
-                  <Text style={styles.journeyGateCardLink}>{STRINGS.journeyGateCompleteCta}</Text>
-                </TouchableOpacity>
-              )
-            ) : (
-              <Text style={styles.journeyGateCardWaiting}>{STRINGS.journeyGateWaitingOnHost}</Text>
-            )}
-          </View>
-        )}
+      {/* PA2 — THE PERSISTENT RALLY-ON CARD IS GONE. It was the circle
+          screen's half of the first-mover race: any member could tap it
+          and set the whole circle's course, and everyone else read "your
+          host can complete the circle whenever they're ready". There is
+          no circle-wide decision left to offer, so there is no card.
+          Continuing is the default; a member who wants to finish THEIR
+          rally does it from their own ceremony, and the creator's
+          circle-ending control lives in host controls below. */}
 
       <View style={styles.nameRow}>
         <Text style={styles.title}>{circle.name}</Text>
@@ -1021,7 +979,18 @@ function YourCircle() {
               const sent = sentGestures[member.userId] ?? {};
               return (
                 <View key={member.userId} style={styles.whoHereItem}>
-                  <View style={[styles.avatarWrap, (member.isResting || isAway) && styles.avatarWrapResting]}>
+                  <View
+                    style={[
+                      styles.avatarWrap,
+                      // PA2 — a finished member wears the same softened
+                      // treatment resting and away members already wear.
+                      // They are OFF the active roster, not out of the
+                      // huddle: memo §10 Q1 — "someone quietly
+                      // disappearing from a huddle is the feeling Rally
+                      // exists to prevent".
+                      (member.isResting || isAway || !!member.finishedAt) && styles.avatarWrapResting,
+                    ]}
+                  >
                     {/* AV1 — tapping YOUR OWN placeholder penguin opens
                         the photo upload in settings; the Who's Here
                         avatar itself had no tap before (the gesture
@@ -1060,6 +1029,14 @@ function YourCircle() {
                       {member.name}
                     </Text>
                   ) : null}
+                  {/* PA2 — the settled state: a finished member is
+                      marked as having COMPLETED something, never as
+                      having gone quiet. Deliberately a word, not a
+                      count: a standing per-member number in the huddle
+                      is a leaderboard, which memo §5 forbids outright. */}
+                  {!!member.finishedAt && (
+                    <Text style={styles.finishedBadgeText}>{STRINGS.journeyFinishedMemberBadge}</Text>
+                  )}
                   {/* GS1 — ambient pride from 7 days: flame + count, or
                       NOTHING at all (absence must read as "doesn't
                       apply", never a gap — the server already floors and
@@ -1366,9 +1343,18 @@ function YourCircle() {
             </>
           )}
 
-          {/* Rallied-on circles add the wind-down control (previously its
-              own second "host controls" card — one card now). */}
-          {!!circle.ralliedOnAt &&
+          {/* The host's wind-down control — ends the whole circle for
+              everyone, and stays creator-only (memo §7 removes the
+              circle-level RALLY decision, not the creator's ability to
+              close a circle).
+              PA2 — THE `ralliedOnAt` GATE IS REMOVED, and it had to be:
+              with nothing writing that column any more, gating on it
+              would have left every circle created from here on with NO
+              way for its creator to ever end it. That would have been a
+              silent, permanent loss of a shipped control — the kind of
+              thing deleting a decision quietly takes with it. The
+              confirm card carries the explanation, as before. */}
+          {!circle.completedAt &&
             (isConfirmingComplete ? (
               // OD1 job 4b/4c — a destructive-ish confirm inside the
               // host-controls card, low on the screen.
@@ -1738,6 +1724,16 @@ const styles = StyleSheet.create({
   },
   // RS2 — the sleeping-penguin treatment: a small calm badge instead of
   // the usual done/covered checkmark, no duration ever shown.
+  // PA2 — greenText (never colors.green, which is 2.58:1 as text): this
+  // is a completed thing, so it takes the progress colour, not the muted
+  // one that resting and away wear.
+  finishedBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.greenText,
+    marginTop: 2,
+    textAlign: 'center',
+  },
   awayBadge: {
     position: 'absolute',
     bottom: -2,

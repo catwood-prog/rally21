@@ -14,6 +14,7 @@ import Animated, {
 
 import { MASCOT } from '@/assets/mascot';
 import { Brandmark } from '@/components/Brandmark';
+import { MilestoneStrip } from '@/components/CircleFormFields';
 import { ConfettiBurst } from '@/components/ConfettiBurst';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
@@ -22,7 +23,7 @@ import { useAuth } from '@/lib/auth-context';
 import { playDay21Flourish } from '@/lib/chime';
 import { getCircleById, MyCircle } from '@/lib/circle';
 import { daysBetween, getLocalDateString } from '@/lib/date';
-import { completeCircle, GATE_DAY, markCelebrationSeen, rallyOnCircle } from '@/lib/journey';
+import { finishMyRally, GATE_DAY, getMyRallyCount, markCelebrationSeen } from '@/lib/journey';
 import { markJourneyGateShown } from '@/lib/journeyGateGuard';
 import { MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
 import { getMyProfile } from '@/lib/profile';
@@ -37,7 +38,27 @@ const CONFETTI_COUNT = 34;
 // M2: always green (CONFETTI_GREENS is the one source of truth).
 const CONFETTI_COLORS = [...CONFETTI_GREENS];
 
-type Decision = 'pending' | 'rallied' | 'completed';
+// 3j — the "let's go" fall: ~1.2s of confetti, then Today. The navigate
+// timer sits just past the fall so the beat completes, and is a TIMER
+// rather than an animation callback so nothing can strand the person.
+const LETS_GO_FALL_MS = 1200;
+const LETS_GO_NAVIGATE_MS = 1250;
+
+/**
+ * PA2 — THE CEREMONY IS PERSONAL. It fires on this member's own 21st
+ * PRACTICE (PA1's count), it celebrates what THEY did, and nothing
+ * tapped here decides anything for anybody else.
+ *
+ * 'pending'  — the celebration, not yet answered.
+ * 'ralliedOn'— they chose to keep going (RF1 3j's outcome screen A).
+ * 'finished' — they finished THEIR OWN rally here (3k, translated from
+ *              circle-archive to personal-finish). The circle carries on.
+ *
+ * The old 'rallied' fait-accompli branch is GONE with the circle-level
+ * decision it announced: there is no longer anything a first-mover could
+ * have already spent on this person's behalf.
+ */
+type Decision = 'pending' | 'ralliedOn' | 'finished';
 
 /** CB1 job 1a — where the ceremony's exit actually goes, in the same
  * place as the label it renders. The trap Cat hit on 25 July was exactly
@@ -46,13 +67,13 @@ type Decision = 'pending' | 'rallied' | 'completed';
  * here on the same gate check. Today is where a returning person
  * belongs, so the DESTINATION was the defect, never the label.
  *
- * BOTH decided branches (rallied and completed) render this one button
- * and share this one destination — they deliberately do NOT differ. They
- * render the SAME string (STRINGS.journeyCompletedCta, "Back to today"),
- * so a branch that went anywhere else would be lying again; and after
- * either decision the circle screen has nothing left to ask, so there is
- * no reason to send someone there instead. journey-gate.test.tsx pins
- * label-to-destination so the two cannot drift apart again. */
+ * PA2 — this is now the FINISHED branch's exit (and the not-found
+ * state's). The rallied-on branch has its own gold "let's go" button
+ * because 3j gives it a confetti beat first, but it lands in exactly the
+ * same place: after either answer the circle screen has nothing left to
+ * ask, so there is no reason to send anyone there instead.
+ * journey-gate.test.tsx pins label-to-destination so the two cannot
+ * drift apart again. */
 export const JOURNEY_GATE_EXIT_HREF = '/today' as const;
 
 export function JourneyGateExitButton() {
@@ -76,11 +97,17 @@ export default function JourneyGate() {
   const reduceMotion = useReducedMotion();
 
   const [circle, setCircle] = useState<MyCircle | null>(null);
+  // PA2 — the member's own practice count in this circle. It is what the
+  // ceremony is ABOUT, so it is fetched rather than assumed to be 21:
+  // the gate fires at "21 or more, not yet answered", so someone who was
+  // away when they crossed it can arrive here on their 23rd.
+  const [rallyCount, setRallyCount] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [decision, setDecision] = useState<Decision>('pending');
-  const [isRallying, setIsRallying] = useState(false);
-  const [isConfirmingComplete, setIsConfirmingComplete] = useState(false);
-  const [isCompleting, setIsCompleting] = useState(false);
+  const [isAnswering, setIsAnswering] = useState(false);
+  const [isConfirmingFinish, setIsConfirmingFinish] = useState(false);
+  // 3j — bumped to remount ConfettiBurst for the "let's go" fall.
+  const [letsGoBurst, setLetsGoBurst] = useState(0);
 
   useEffect(() => {
     // CB1 job 1b — reached without a circleId (a stale link, a direct
@@ -96,40 +123,44 @@ export default function JourneyGate() {
     // write) can leave a screen re-routing to a ceremony the person has
     // already been shown. See lib/journeyGateGuard.ts.
     markJourneyGateShown(circleId);
-    getCircleById(circleId)
-      .then((c) => {
+    Promise.all([
+      getCircleById(circleId),
+      session?.user ? getMyRallyCount(circleId, session.user.id) : Promise.resolve(0),
+    ])
+      .then(([c, count]) => {
         if (!c) return;
         setCircle(c);
+        setRallyCount(count);
         if (c.completedAt) {
           // Reached directly with nothing left to decide — the archive
           // view (task R1.4) is the right home for this, not the gate.
           router.replace({ pathname: '/circle', params: { circleId: c.id } });
-          return;
         }
-        if (c.ralliedOnAt) setDecision('rallied');
-        // First relevant open disarms the full-screen gate for good,
-        // regardless of what (if anything) gets decided here — later
-        // visits fall through to the quiet persistent card instead.
+        // PA2 — THE MOUNT WRITE IS GONE, and this is the whole point of
+        // JOB 2. `markCelebrationSeen(c.id, GATE_DAY)` used to fire right
+        // here, which meant the ceremony was SPENT BY BEING LOOKED AT
+        // (memo §2, §7): a glance, a mis-tap, a back-swipe, or an app
+        // killed mid-render burned someone's first-rally moment for good,
+        // with no way to get it back. The personal ceremony must not
+        // inherit that.
         //
-        // CB1 job 1c — this write used to swallow its own failure whole
-        // (`.catch(() => {})`), which is how a permanently-unmarked
-        // ceremony went unnoticed for two days on a live device. It is
-        // still not awaited (nothing on this screen should block on it),
-        // but a failure is now REPORTED through the app's one error path
-        // — and, crucially, no longer strands anyone either: the routing
-        // guard above holds regardless of whether this succeeds.
-        markCelebrationSeen(c.id, GATE_DAY).catch((error) => {
-          captureError(error, { screen: 'journey-gate', op: 'markCelebrationSeen' });
-        });
+        // It is now written only from `answer()` below — when the person
+        // actually chooses. The consequence, stated rather than hidden:
+        // "decide later" leaves it UNANSWERED, so the celebration is
+        // offered again on a later app launch. CB1's session guard
+        // (markJourneyGateShown, set above on the way IN) means that is
+        // at most once per app session, never a loop — and being offered
+        // your own milestone again is not a nag, whereas silently eating
+        // it is a loss.
       })
       .catch((error) => {
         // The fetch's own failure lands on the not-found state (which has
         // an exit). Worth reporting: it is one of the ways someone
         // reaches this screen with nothing on it.
-        captureError(error, { screen: 'journey-gate', op: 'getCircleById' });
+        captureError(error, { screen: 'journey-gate', op: 'load' });
       })
       .finally(() => setIsLoading(false));
-  }, [circleId, router]);
+  }, [circleId, router, session?.user?.id]);
 
   const heroOpacity = useSharedValue(reduceMotion ? 1 : 0);
   const heroY = useSharedValue(reduceMotion ? 0 : 12);
@@ -232,31 +263,67 @@ export default function JourneyGate() {
     );
   }
 
-  const isCreator = circle.createdBy === session?.user?.id;
-
-  const handleRallyOn = async () => {
-    setIsRallying(true);
+  /**
+   * PA2 — the ONE place the ceremony is marked answered, replacing the
+   * mount write. Both answers go through it so neither can forget.
+   *
+   * The marker is AWAITED here, unlike the mount version: this is a
+   * deliberate reversal. On mount, awaiting would have blocked the
+   * screen's own render on a network call; from a button press there is
+   * already a spinner, and it means a person who taps "rally on" and
+   * sees the next screen has genuinely had their answer recorded. A
+   * failure keeps them on the celebration with the choice still in front
+   * of them, which is the honest outcome — better than advancing them
+   * past a moment the server never heard about.
+   */
+  const answer = async (next: 'ralliedOn' | 'finished', write?: () => Promise<void>) => {
+    setIsAnswering(true);
     try {
-      await rallyOnCircle(circle.id);
-      setDecision('rallied');
-    } catch {
-      // low-stakes — the persistent card on the circle screen offers
-      // another chance if this attempt was lost to a network blip
+      if (write) await write();
+      await markCelebrationSeen(circle.id, GATE_DAY);
+      setDecision(next);
+    } catch (error) {
+      captureError(error, { screen: 'journey-gate', op: `answer:${next}` });
+      setIsConfirmingFinish(false);
     } finally {
-      setIsRallying(false);
+      setIsAnswering(false);
     }
   };
 
-  const handleComplete = async () => {
-    setIsCompleting(true);
-    try {
-      await completeCircle(circle.id);
-      setDecision('completed');
-    } catch {
-      setIsConfirmingComplete(false);
-    } finally {
-      setIsCompleting(false);
+  // Continuing is now the DEFAULT rather than a decision — PA1's ladder
+  // already fires 42/50/100/365 off this member's own count with nothing
+  // to opt into. So this writes no circle state at all: it acknowledges
+  // the milestone and moves to 3j's outcome screen.
+  const handleRallyOn = () => answer('ralliedOn');
+
+  // "finish here" is PERSONAL now (memberships.finished_at): it ends
+  // THIS member's rally, never the circle. The creator's separate
+  // circle-ending control lives in host controls on the circle screen.
+  const handleFinishHere = () => answer('finished', () => finishMyRally(circle.id));
+
+  /**
+   * 3j's confetti interaction, exactly as Cat felt and approved it in the
+   * clickable mockup: the ambient pieces sit STILL on the outcome screen,
+   * and tapping "let's go" fires a short green fall BEFORE navigating.
+   *
+   * The fall is produced by remounting ConfettiBurst under a new key —
+   * its specs are generated once per mount, so a new key is a new burst
+   * without touching the shared component.
+   *
+   * NAVIGATION RUNS ON A TIMER, never gated on the animation finishing.
+   * That is deliberate and load-bearing: if it awaited the animation,
+   * anything that stopped the animation (reduced motion mid-flight, a
+   * backgrounded app, a dropped frame budget) would strand the person on
+   * a screen whose only button they had already pressed. Reduced motion
+   * skips the fall and goes immediately.
+   */
+  const handleLetsGo = () => {
+    if (reduceMotion) {
+      router.replace('/today');
+      return;
     }
+    setLetsGoBurst((n) => n + 1);
+    setTimeout(() => router.replace('/today'), LETS_GO_NAVIGATE_MS);
   };
 
   return (
@@ -264,6 +331,16 @@ export default function JourneyGate() {
       <Brandmark style={[styles.brandmark, { top: 20 + insets.top }]} />
 
       <ConfettiBurst count={CONFETTI_COUNT} colors={CONFETTI_COLORS} reduceMotion={reduceMotion} />
+      {letsGoBurst > 0 && (
+        <ConfettiBurst
+          key={`lets-go-${letsGoBurst}`}
+          count={CONFETTI_COUNT}
+          colors={CONFETTI_COLORS}
+          reduceMotion={reduceMotion}
+          lifetimeMs={LETS_GO_FALL_MS}
+          fadeMs={300}
+        />
+      )}
 
       {/* OD1 job 17b — this screen has no scroll fallback when Dynamic
           Type grows the title/body/confirm-card content past the
@@ -284,88 +361,111 @@ export default function JourneyGate() {
           />
         </Animated.View>
 
-        {decision === 'completed' ? (
+        {decision === 'finished' ? (
+          /* PA2 — RF1 3k's outcome, translated from circle-archive to
+             personal-finish. Cat's ruled 3k body said "what you built
+             together is archived, not lost", which was true when
+             finishing meant the CREATOR archiving the circle. It is false
+             here: the circle is untouched and everyone else carries on.
+             Finishing is honoured with the same confetti ambience the
+             continue path gets (3f's warmth law — choosing to finish is
+             not a miss, and the product must not put its thumb on the
+             scale for its own retention). */
           <>
             <Animated.Text style={[styles.title, headingStyle]}>
-              {STRINGS.journeyCompletedTitle(circle.name)}
+              {STRINGS.journeyFinishedTitle}
             </Animated.Text>
-            <Animated.Text style={[styles.body, bodyStyle]}>{STRINGS.journeyCompletedBody}</Animated.Text>
+            <Animated.Text style={[styles.subline, bodyStyle]}>
+              {STRINGS.journeyFinishedSubline(circle.name, rallyCount ?? GATE_DAY)}
+            </Animated.Text>
+            <Animated.Text style={[styles.body, bodyStyle]}>
+              {STRINGS.journeyFinishedBody}
+            </Animated.Text>
             <Animated.View style={[styles.actionsWrap, actionsStyle]}>
               <JourneyGateExitButton />
             </Animated.View>
           </>
-        ) : decision === 'rallied' ? (
+        ) : decision === 'ralliedOn' ? (
+          /* PA2 — RF1 3j's outcome screen A, LOCKED by Cat. The strip is
+             the SHIPPED FirstRallyStrip's own component via its new
+             variant, never a fork: 21 carries a green tick, 50 is the
+             larger next stop. */
           <>
-            <Animated.Text style={[styles.title, headingStyle]}>{STRINGS.journeyGateTitle}</Animated.Text>
+            <Animated.Text style={[styles.title, headingStyle]}>
+              {STRINGS.journeyNextStopTitle}
+            </Animated.Text>
+            <Animated.View style={[styles.stripWrap, bodyStyle]}>
+              <MilestoneStrip reached={[GATE_DAY]} next={50} />
+            </Animated.View>
             <Animated.Text style={[styles.body, bodyStyle]}>
-              {STRINGS.journeyRalliedOnCard(circle.name)}
+              {STRINGS.journeyNextStopBody}
             </Animated.Text>
             <Animated.View style={[styles.actionsWrap, actionsStyle]}>
-              {/* CB1 job 1a — in this branch this is the ONLY exit on the
-                  screen. That is what made the wrong destination a trap
-                  rather than a nuisance. */}
-              <JourneyGateExitButton />
+              <TouchableOpacity style={styles.primaryButton} onPress={handleLetsGo}>
+                <Text style={styles.primaryButtonText}>{STRINGS.journeyNextStopCta}</Text>
+              </TouchableOpacity>
             </Animated.View>
           </>
         ) : (
           <>
             <Animated.Text style={[styles.title, headingStyle]}>{STRINGS.journeyGateTitle}</Animated.Text>
+            {/* 3a's personal row: the circle this rally happened in.
+                Rendered as stored — never re-cased (CLAUDE.md). */}
+            <Animated.Text style={[styles.subline, bodyStyle]}>{circle.name}</Animated.Text>
             <Animated.Text style={[styles.body, bodyStyle]}>{STRINGS.journeyGateBody}</Animated.Text>
 
             <Animated.View style={[styles.actionsWrap, actionsStyle]}>
               <TouchableOpacity
                 style={styles.primaryButton}
                 onPress={handleRallyOn}
-                disabled={isRallying}
+                disabled={isAnswering}
               >
-                {isRallying ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                {isAnswering && !isConfirmingFinish ? (
+                  <ActivityIndicator size="small" color={colors.ink} />
                 ) : (
                   <Text style={styles.primaryButtonText}>{STRINGS.journeyGateRallyOnCta}</Text>
                 )}
               </TouchableOpacity>
               <Text style={styles.helperText}>{STRINGS.journeyGateRallyOnHelper}</Text>
 
-              {isCreator ? (
-                isConfirmingComplete ? (
-                  <View style={styles.completeConfirmCard}>
-                    <Text style={styles.completeConfirmTitle}>
-                      {STRINGS.journeyCompleteConfirmTitle(circle.name)}
-                    </Text>
-                    <Text style={styles.completeConfirmBody}>{STRINGS.journeyCompleteConfirmBody}</Text>
-                    <View style={styles.completeConfirmRow}>
-                      <TouchableOpacity
-                        onPress={() => setIsConfirmingComplete(false)}
-                        disabled={isCompleting}
-                      >
-                        <Text style={styles.completeCancelText}>{STRINGS.cancelCta}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={handleComplete} disabled={isCompleting}>
-                        <Text style={styles.completeConfirmActionText}>
-                          {isCompleting ? '…' : STRINGS.journeyGateCompleteCta}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+              {/* 3e/3f — "finish here" keeps its secondaryButton
+                  prominence and is NOT demoted to a quiet text link
+                  (Cat re-affirmed this against a proposal to demote it).
+                  PA2 changes only WHAT it does: it finishes YOUR rally,
+                  so it is no longer host-gated — every member can reach
+                  it, which is what the personal model requires. The
+                  explanation lives in the revealed confirm card, not the
+                  standing stack. */}
+              {isConfirmingFinish ? (
+                <View style={styles.finishConfirmCard}>
+                  <Text style={styles.finishConfirmTitle}>{STRINGS.journeyFinishConfirmTitle}</Text>
+                  <Text style={styles.finishConfirmBody}>{STRINGS.journeyFinishConfirmBody}</Text>
+                  <View style={styles.finishConfirmRow}>
+                    <TouchableOpacity
+                      onPress={() => setIsConfirmingFinish(false)}
+                      disabled={isAnswering}
+                    >
+                      <Text style={styles.finishCancelText}>{STRINGS.cancelCta}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleFinishHere} disabled={isAnswering}>
+                      <Text style={styles.finishConfirmActionText}>
+                        {isAnswering ? '…' : STRINGS.journeyFinishConfirmCta}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.secondaryButton}
-                    onPress={() => setIsConfirmingComplete(true)}
-                  >
-                    <Text style={styles.secondaryButtonText}>{STRINGS.journeyGateCompleteCta}</Text>
-                  </TouchableOpacity>
-                )
+                </View>
               ) : (
-                <Text style={styles.helperTextMuted}>{STRINGS.journeyGateWaitingOnHost}</Text>
-              )}
-              {isCreator && !isConfirmingComplete && (
-                <Text style={styles.helperText}>{STRINGS.journeyGateCompleteHelper}</Text>
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={() => setIsConfirmingFinish(true)}
+                >
+                  <Text style={styles.secondaryButtonText}>{STRINGS.journeyGateCompleteOpener}</Text>
+                </TouchableOpacity>
               )}
 
-              {/* NAV1: the undecided state had no exit at all — a member
-                  who isn't ready to choose (or isn't the host) needs a
-                  quiet way out. The circle screen keeps offering the same
-                  choice as a card, so nothing is lost by leaving. */}
+              {/* 3d — deciding later is always allowed. PA2: this
+                  deliberately does NOT mark the ceremony answered, so
+                  the moment is still there next launch. */}
               <TouchableOpacity style={styles.notNowButton} onPress={() => router.replace('/today')}>
                 <Text style={styles.notNowText}>{STRINGS.journeyGateNotNow}</Text>
               </TouchableOpacity>
@@ -486,37 +586,55 @@ const styles = StyleSheet.create({
     marginTop: 18,
     fontStyle: 'italic',
   },
-  completeConfirmCard: {
+  // 3a — the personal row under the title (the circle this rally
+  // happened in), and 3k's "{circle} · N practices" line. One style: both
+  // are the same quiet identifying line directly beneath a title.
+  subline: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.mutedStrong,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  // 3j — the ladder strip sits between the title and the body, centred.
+  stripWrap: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  // 3e — the archive/finish explanation lives in the revealed confirm
+  // card, not the standing stack, so the pre-decision screen keeps ONE
+  // explanatory layer (3i's declutter).
+  finishConfirmCard: {
     marginTop: 18,
     width: '100%',
     backgroundColor: colors.card,
     borderRadius: 14,
     padding: 16,
   },
-  completeConfirmTitle: {
+  finishConfirmTitle: {
     fontFamily: FONT_HEADER,
     fontSize: 16,
     color: colors.ink,
     marginBottom: 6,
     textAlign: 'center',
   },
-  completeConfirmBody: {
+  finishConfirmBody: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginBottom: 14,
   },
-  completeConfirmRow: {
+  finishConfirmRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 24,
   },
-  completeCancelText: {
+  finishCancelText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
-  completeConfirmActionText: {
+  finishConfirmActionText: {
     fontSize: 13,
     fontWeight: '700',
     color: colors.ink,
