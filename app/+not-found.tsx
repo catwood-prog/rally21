@@ -41,7 +41,12 @@ export default function NotFoundScreen() {
             alt=""
           />
         </View>
-        <Text style={styles.title}>This screen doesn&apos;t exist.</Text>
+        {/* LC2 job 4 — this is the screen's identifying heading, so it is
+            lowercase per rule 1 (SK2's audit found it as the one capitalised
+            screen title left after LC1). The header title above and the link
+            below are inline copy outside this section's scope; both are
+            reported as owed rather than swept here. */}
+        <Text style={styles.title}>this screen doesn&apos;t exist.</Text>
         <Link href="/" style={styles.link}>
           <Text style={styles.linkText}>Go back home</Text>
         </Link>

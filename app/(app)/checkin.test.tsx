@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, TouchableOpacity } from 'react-native';
 import { act, create } from 'react-test-renderer';
 
+import { STRINGS } from '@/constants/strings';
 import { DailyQuestion } from '@/lib/checkin';
 
 import { QuestionInput } from './checkin';
@@ -42,8 +43,8 @@ describe('QuestionInput — binary format renders its own two options', () => {
       .flat();
     expect(labels).toContain('want to');
     expect(labels).toContain('have to');
-    expect(labels).not.toContain('Yes');
-    expect(labels).not.toContain('No');
+    expect(labels).not.toContain(STRINGS.checkinBinaryFallbackYes);
+    expect(labels).not.toContain(STRINGS.checkinBinaryFallbackNo);
   });
 
   it('stores the tapped option verbatim, exactly like the chips branch', () => {
@@ -62,8 +63,8 @@ describe('QuestionInput — binary format renders its own two options', () => {
       .findAllByType(Text)
       .map((n) => n.props.children)
       .flat();
-    expect(labels).toContain('Yes');
-    expect(labels).toContain('No');
+    expect(labels).toContain(STRINGS.checkinBinaryFallbackYes);
+    expect(labels).toContain(STRINGS.checkinBinaryFallbackNo);
   });
 
   it('falls back to Yes/No when options is malformed (not exactly 2 entries)', () => {
@@ -72,7 +73,7 @@ describe('QuestionInput — binary format renders its own two options', () => {
       .findAllByType(Text)
       .map((n) => n.props.children)
       .flat();
-    expect(labels).toContain('Yes');
-    expect(labels).toContain('No');
+    expect(labels).toContain(STRINGS.checkinBinaryFallbackYes);
+    expect(labels).toContain(STRINGS.checkinBinaryFallbackNo);
   });
 });

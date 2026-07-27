@@ -38,8 +38,19 @@ export function isVerbPhrasePractice(practiceName: string): boolean {
 // habit for counting circles rather than two.
 const CLOSING_BEAT_COUNT_WORD: Record<number, string> = { 1: 'one', 2: 'two', 3: 'three' };
 
+// LC2 (the casing law, split by function — Cat's ruling 25 July, amending
+// LC1). Screen titles are lowercase, except a title that is a NAME. Body
+// copy splits by FUNCTION: lowercase for labels, buttons, chrome and short
+// fragments; sentence case for anything that is a full sentence of prose.
+// User-created content is NEVER re-cased. Where a string below carries an
+// "LC2 HELD" comment, it is knowingly the other way and needs Cat, not a
+// tidy-up — re-casing it silently re-opens the split the comment names.
 export const STRINGS = {
   // O1 (Google slice, 8/12 July) — sign-in screen, web only.
+  // LC2 HELD: these two are buttons, so the law says lowercase — but the
+  // primary button in the same stack, "Send magic link", is hardcoded at
+  // sign-in.tsx:162. Lowercasing only these puts two styles of the same
+  // button kind side by side on the sign-in screen.
   signInWithGoogleCta: 'Continue with Google',
   signInOrDivider: 'or',
   signInGoogleError: "couldn't sign in with Google — try again",
@@ -62,7 +73,7 @@ export const STRINGS = {
   // Title lowercase per LC1. PROPOSED copy — Cat to confirm/adjust.
   errorBoundaryTitle: 'well, that came loose',
   errorBoundaryBody:
-    "something on our side slipped — nothing you've done is lost. let's get you back to solid ground.",
+    "Something on our side slipped — nothing you've done is lost. Let's get you back to solid ground.",
   errorBoundaryCta: 'take me back',
 
   checkinSuccessTitle: (n: number) => `Day ${n} done`,
@@ -72,7 +83,7 @@ export const STRINGS = {
   // resolved (never guess at a farewell), and on a glow-beat day, where
   // checkin-complete is not the last screen so the goodbye is not its to
   // say. See the three ruled labels below.
-  checkinSuccessCta: 'Nice',
+  checkinSuccessCta: 'nice',
 
   // OD1 job 9d (Cat's ruling, 26 July) — the daily closing beat. The
   // check-in success screen fires on EVERY check-in, so its button has to
@@ -165,7 +176,7 @@ export const STRINGS = {
   // YD1 (21 July) — the line carries the 2-a-day promise (Cat's ruling;
   // semantics verified in send-notifications, see notificationsCapPromise).
   pushAskLine: 'Want a little nudge if you forget to check in? Never more than 2 a day.',
-  pushAskCta: 'Turn on notifications',
+  pushAskCta: 'turn on notifications',
 
   // Glow milestones (Rally21-Glow-Spec.md §4) — a variant of the same
   // check-in success screen, no new assets or badges.
@@ -175,10 +186,15 @@ export const STRINGS = {
   // Today's per-circle CTA — bold-on-fill only while the day is still
   // open; once checked in, the glow is the reward and editing is a quiet,
   // occasional correction, not the day's main action.
+  // LC2 HELD: a button, so the law says lowercase — but the two siblings
+  // that fill the SAME slot on a timed circle are hardcoded in today.tsx
+  // ("Just mark as done" / "Start timer", lines ~1053/1059 and ~1290/1296),
+  // and a multi-circle Today renders both shapes at once. Lowercasing this
+  // alone splits the app's primary CTA. Needs Cat plus those two lines.
   checkInCta: 'Check in',
   editCheckinCta: 'edit check-in',
 
-  groupHeaderStatus: (n: number, x: number, y: number) => `Day ${n} of 21 · ${x} of ${y} checked in`,
+  groupHeaderStatus: (n: number, x: number, y: number) => `day ${n} of 21 · ${x} of ${y} checked in`,
   cardLinkStatus: (x: number, y: number) => `${x} of ${y} in today`,
   groupAllInCelebration: (count: number, circleName: string) => `that's all ${count} of ${circleName} in today 🔥`,
 
@@ -257,8 +273,8 @@ export const STRINGS = {
   // Q3 (12 July) — binary questions render their own two options from the
   // DB (e.g. "want to" / "have to"); this pair is only a fallback for a
   // null/malformed options array, never the normal path.
-  checkinBinaryFallbackYes: 'Yes',
-  checkinBinaryFallbackNo: 'No',
+  checkinBinaryFallbackYes: 'yes',
+  checkinBinaryFallbackNo: 'no',
 
   // T1 (8 July) — timer resilience. The done-state label stays the same
   // whether the sit finished in the foreground or was caught up on
@@ -295,7 +311,7 @@ export const STRINGS = {
   checkinLearnedFallbackPlaceholder: 'anything you noticed',
   practiceNamePlaceholder: 'e.g. Walk 20 minutes',
   practiceDurationPlaceholder: 'duration in minutes (optional)',
-  findPracticePlaceholder: 'Find a practice',
+  findPracticePlaceholder: 'find a practice',
   profileNamePlaceholder: 'your name',
   createPracticeRow: '+ create a practice',
   inviteCodeRow: 'have an invite code?',
@@ -337,7 +353,7 @@ export const STRINGS = {
   // explicit confirm step, never buried in visibility copy.
   shareFlipConfirmTitle: 'one thing before you open it up',
   shareFlipConfirmBody: (practiceName: string) =>
-    `a public circle lists “${practiceName}” for other people to find and use — right now only you can see it. all good?`,
+    `A public circle lists “${practiceName}” for other people to find and use — right now only you can see it. All good?`,
   shareFlipConfirmCta: 'yes, share my practice',
   shareFlipCancel: 'keep it private',
   // PT1 guided creation — the classifier's one editable chip line, and
@@ -382,6 +398,9 @@ export const STRINGS = {
   birthdayCelebrateLabel: 'celebrate my birthday',
   birthdayCelebrateHelper:
     'when on, your circles see your birthday and can celebrate you on the day. off means it stays hidden — nothing shows anywhere.',
+  // LC2 HELD (with unblockCta and shareCardReEnableCta, the other two
+  // settings-screen buttons): settings.tsx:346 hardcodes a plain "Save",
+  // so lowercasing these three splits that one screen.
   birthdaySave: 'Save birthday',
   // YD1 — each save on the settings screen confirms what it actually
   // saved: the birthday save was reusing the name-save toast ("your name
@@ -434,10 +453,10 @@ export const STRINGS = {
   waveSubtitle: 'a wave is always welcome, even after they\'ve shown up',
   waveNotePreview: (waverName: string, name: string) =>
     `${name} will see: "${waverName} waved at ${name} 👋" on the circle wall.`,
-  coverActionLabel: '🧡 Cover & send love',
-  waveActionLabel: '👋 Just a wave hello',
-  coverCta: (name: string) => `Cover ${name} for yesterday`,
-  waveCta: (name: string) => `Wave hello to ${name}`,
+  coverActionLabel: '🧡 cover & send love',
+  waveActionLabel: '👋 just a wave hello',
+  coverCta: (name: string) => `cover ${name} for yesterday`,
+  waveCta: (name: string) => `wave hello to ${name}`,
   waveCapReachedError: "you've sent a lot of waves today — give it a little rest and try again tomorrow 🧡",
   waveOptedOutError: (name: string) => `${name} isn't taking waves right now`,
   // HW1 — the heart's warm outcomes, mirroring the wave's patterns
@@ -589,6 +608,11 @@ export const STRINGS = {
     'others here will see your name, photo, and daily check-ins — your reflections stay private.',
   hostRemoveMemberConfirm: (name: string) => `Remove ${name} from this circle?`,
   hostRemoveMemberBody: 'They can rejoin later with the invite code — this just clears a spot for now.',
+  // LC2 HELD (with the report/block button set below): circle.tsx hardcodes
+  // five "Cancel" buttons and one "Remove" (lines ~810, ~875, ~879, ~1337,
+  // ~1375, ~1429), and wall.tsx renders these same keys. Lowercasing the
+  // strings.ts half leaves circle.tsx showing both styles of the same
+  // confirm-row button. The whole family moves together or not at all.
   hostRemoveMemberCta: 'Remove',
   hostCloseToJoinsLabel: 'closed to new joins',
   hostCloseToJoinsHelperOpen: 'anyone with the code or browsing open circles can join',
@@ -619,7 +643,7 @@ export const STRINGS = {
   editCirclePracticeLabel: 'the practice',
   editCirclePracticeHelper: 'what your circle does each day',
   editCirclePracticeDurationPlaceholder: 'duration in minutes (optional)',
-  editCircleSaveCta: 'Save changes',
+  editCircleSaveCta: 'save changes',
   hostEditCircleLabel: 'edit circle',
   hostEditCircleHelper: 'name, time of day, link, or the practice itself',
   // PI1 — practice instructions: an optional routine + link, tucked
@@ -634,7 +658,7 @@ export const STRINGS = {
     'a routine your circle follows — sets and reps, a breathing pattern, a warm-up. optional, and only your circle sees it.',
   practiceInstructionsLabel: 'the routine',
   practiceInstructionsPlaceholder: 'e.g. 3 rounds — 10 slow breaths, then rest a minute',
-  practiceInstructionsSaveCta: 'Save',
+  practiceInstructionsSaveCta: 'save',
   practiceInstructionsBackToSetup: 'back',
   // The quiet link on the circle screen, shown only when instructions exist.
   practiceInstructionsLink: 'practice instructions →',
@@ -654,8 +678,8 @@ export const STRINGS = {
   // A quiet solo-inclusive line under the body — the huddle is still the
   // headline, but a stranger arriving alone shouldn't feel out of place
   // (SF1, Cat 7 July).
-  introWelcomeSoloLine: 'start alone if you like — the huddle can come later.',
-  introWelcomeNext: 'Next',
+  introWelcomeSoloLine: 'Start alone if you like — the huddle can come later.',
+  introWelcomeNext: 'next',
   introWelcomeSignInLink: 'I already have an account',
   introPrivacyTitleLead: 'your inner life,',
   introPrivacyTitleAccent: 'yours alone',
@@ -667,8 +691,8 @@ export const STRINGS = {
     // what the your-data screen actually offers so it never overpromises.
     'You can see, export, or delete your data, anytime.',
   ],
-  introPrivacyCta: 'Sounds good',
-  introPrivacyReadFullLink: 'Read the full privacy policy',
+  introPrivacyCta: 'sounds good',
+  introPrivacyReadFullLink: 'read the full privacy policy',
 
   // RM1 (13 July) — the reminders ask (mockup screen 6, rev-7): a new
   // sign-up sees this once, in flow, between profile and circle-setup;
@@ -682,8 +706,8 @@ export const STRINGS = {
   // notificationsCapPromise and pushAskLine.
   remindersAskBody:
     "A gentle nudge when it's time to check in, and when your circle could use you. No noise, no spam — never more than 2 a day.",
-  remindersAskCta: 'Turn on reminders',
-  remindersAskMaybeLater: 'Maybe later',
+  remindersAskCta: 'turn on reminders',
+  remindersAskMaybeLater: 'maybe later',
 
   // Today's reflection teaser (D4 design review) — an invitation, never a
   // reminder of something missed. Only shows before today's reflection is
@@ -760,6 +784,11 @@ export const STRINGS = {
   // (the circle screen carries the same choice as a card).
   journeyGateNotNow: 'not now — back to Today',
   journeyGateCardTitle: (circleName: string) => `${circleName} hit 21 days`,
+  // LC2 HELD: this is prose, so the law says sentence case — but its first
+  // two words ARE the button directly beneath it (journeyGateRallyOnCta,
+  // lowercase), and "complete it" echoes journeyGateCompleteCta. Sentence
+  // case would capitalise a quoted lowercase label. Same snag as
+  // askRallyDeleteConfirm; fixing it properly means rewording, not re-casing.
   journeyGateCardBody: 'rally on, or your host can complete it, whenever feels right.',
   // Shared by journey-gate.tsx and celebration.tsx — both resolve a circle
   // by id from route params and show this if it's missing/inaccessible.
@@ -777,7 +806,7 @@ export const STRINGS = {
   // the archive banner names it; the review beat, nothing more.
   journeyCompletedWantTitle: (wantPhrase: string) => `21 days toward ${wantPhrase}`,
   journeyCompletedBody: 'This circle is now a warm piece of your history — read-only, always yours.',
-  journeyCompletedCta: 'Back to today',
+  journeyCompletedCta: 'back to today',
   journeyCompleteHostControlLabel: 'complete this circle',
   journeyCompleteHostControlHelper: 'archives it warmly for everyone — this can be undone only by us, so take a moment first.',
   journeyCompleteConfirmTitle: (circleName: string) => `Complete ${circleName}?`,
@@ -789,8 +818,8 @@ export const STRINGS = {
   glowHeldTodayNote: (name: string) => `${name} kept your glow warm today 🧡`,
   glowDetailTitle: 'your glow',
   glowDetailBody:
-    "your glow is the run of days you've shown up — anywhere, for anyone. a friend can cover you and it holds, up to a few times a month depending how far you've come. miss a day uncovered and it dims to embers for 48 hours — one small thing brings it right back.",
-  glowDetailCta: 'Got it',
+    "Your glow is the run of days you've shown up — anywhere, for anyone. A friend can cover you and it holds, up to a few times a month depending how far you've come. Miss a day uncovered and it dims to embers for 48 hours — one small thing brings it right back.",
+  glowDetailCta: 'got it',
 
   // The glow moment — G5, Duolingo-style post-check-in beat (7 July).
   // Only shown on the check-in that earns the day (never a milestone
@@ -815,32 +844,32 @@ export const STRINGS = {
   // meaning the private map, on the day-14 observation card's grow state.
   blueprintGrowsText: 'This grows as you go. In a month, your map gets a lot richer.',
   blueprintPatternLabel: 'A GENTLE PATTERN',
-  blueprintSoundsRight: 'Sounds right',
-  blueprintNotQuite: 'Not quite',
+  blueprintSoundsRight: 'sounds right',
+  blueprintNotQuite: 'not quite',
   blueprintNotePlaceholder: 'what was it really? (optional)',
-  blueprintNoteSubmit: 'Save',
-  blueprintNoteSkip: 'Skip',
+  blueprintNoteSubmit: 'save',
+  blueprintNoteSkip: 'skip',
   blueprintConfirmedText: '✓ you said this sounds right',
   blueprintSeeYourBlueprint: 'see your private map →',
-  somethingWeNoticedLinkLabel: 'Something we noticed',
+  somethingWeNoticedLinkLabel: 'something we noticed',
 
   // Blueprint v2 (B3, Rally21-Blueprint-Notes.md wants layer) — traits,
   // the evolution view, and the wants act flow.
   blueprintTraitsLabel: 'what I’m noticing about you',
   blueprintEvolutionLabel: 'how your private map’s grown',
   blueprintWantLabel: 'WHAT YOU’RE REACHING FOR',
-  blueprintWantActCta: 'Make this your next 21 days',
+  blueprintWantActCta: 'make this your next 21 days',
   blueprintWantNowPractice: 'now your practice — find it with your circles',
   blueprintWantBecame: (circleName: string) =>
     circleName ? `became "${circleName}"` : 'became a practice',
 
   // Ask Rally, part 1 (A1, Rally21-Ask-Rally-Spec.md) — entry points.
-  askRallyLinkLabel: 'Ask Rally',
+  askRallyLinkLabel: 'ask Rally',
   askRallyAboutThis: 'ask Rally about this',
   askRallyStartFresh: 'start fresh',
   askRallyDelete: 'delete',
   askRallyComposerPlaceholder: 'ask Rally anything…',
-  askRallySendCta: 'Send',
+  askRallySendCta: 'send',
   // AR1 (21 July) — failure copy, warmth law: warm words only, never a
   // status code or a raw error message at a user.
   askRallyUnavailable: "Rally couldn't answer just now — try again in a moment",
@@ -851,9 +880,12 @@ export const STRINGS = {
   // lost and that nothing brings it back, because that is the whole
   // reason this action earns friction and 'start fresh' (which destroys
   // nothing) does not. The confirm CTA reuses askRallyDelete above.
+  // LC2 HELD: prose, so the law says sentence case — but sentence two opens
+  // on "start fresh", which is askRallyStartFresh's own lowercase label, and
+  // capitalising it would print a button's name differently from the button.
   askRallyDeleteConfirm:
     'this deletes the whole conversation for good — nothing brings it back. start fresh just opens a new one and keeps this.',
-  askRallyDeleteCancelCta: 'Cancel',
+  askRallyDeleteCancelCta: 'cancel',
 
   // EX1 (22 July) — "export chat": shares the on-screen conversation only,
   // via the OS share sheet (Cat's ruling — plain text, this conversation
@@ -951,7 +983,7 @@ export const STRINGS = {
   blueprintQuotesSeeAll: (n: number) => `see all ${n}`,
   blueprintQuotesRemove: 'remove',
 
-  wallComposerPlaceholder: 'Message your circle…',
+  wallComposerPlaceholder: 'message your circle…',
   hostDeleteWallMessageCancel: 'Cancel',
   hostDeleteWallMessageLink: 'remove',
 
@@ -960,13 +992,16 @@ export const STRINGS = {
   // destructive actions elsewhere.
   reportLink: 'report',
   reportReasonPlaceholder: 'say what happened (optional)',
+  // LC2 HELD, this button set and the block set below — see the note at
+  // hostRemoveMemberCta. hostDeleteWallMessageCancel is held for the same
+  // reason: it shares wall.tsx with reportCancelCta, so it cannot move alone.
   reportCancelCta: 'Cancel',
   reportSubmitCta: 'Send report',
   reportedConfirmationTitle: 'thank you',
-  reportedConfirmationBody: "we'll take a look. you won't see this again.",
+  reportedConfirmationBody: "We'll take a look. You won't see this again.",
   blockLink: 'block',
   blockConfirmTitle: (name: string) => `block ${name}?`,
-  blockConfirmBody: "you won't see their wall messages or reactions anymore, and waves stop both ways. they won't be told.",
+  blockConfirmBody: "You won't see their wall messages or reactions anymore, and waves stop both ways. They won't be told.",
   blockConfirmCta: 'Block',
   blockCancelCta: 'Cancel',
   unblockCta: 'Unblock',
@@ -988,10 +1023,10 @@ export const STRINGS = {
   // never read as the same thing on this screen.
   yourDataReassurance:
     'Your reflections are yours. Only you see your private map. Your circle sees only what you choose. We never sell your data.',
-  yourDataSectionLabel: 'You can, anytime:',
-  yourDataSeeEverything: 'See everything we keep',
-  yourDataExport: 'Export it all',
-  yourDataDeletePhoto: 'Delete my photo',
+  yourDataSectionLabel: 'you can, anytime:',
+  yourDataSeeEverything: 'see everything we keep',
+  yourDataExport: 'export it all',
+  yourDataDeletePhoto: 'delete my photo',
   yourDataDeletePhotoNote: '(keep streaks)',
   yourDataFooterNote: 'Deletions and exports happen right away — nothing is queued or delayed.',
 
@@ -1020,18 +1055,18 @@ export const STRINGS = {
   profilePhotoUploadFailed:
     "your photo didn't upload, but your name is saved — try again later from settings",
 
-  yourDataDeletePhotoConfirm: "remove your photo? your initials will show instead — nothing else changes.",
-  yourDataDeletePhotoConfirmCta: 'Remove photo',
-  yourDataDeletePhotoCancelCta: 'Cancel',
+  yourDataDeletePhotoConfirm: "Remove your photo? Your initials will show instead — nothing else changes.",
+  yourDataDeletePhotoConfirmCta: 'remove photo',
+  yourDataDeletePhotoCancelCta: 'cancel',
   yourDataDeletePhotoError: 'could not remove that — try again',
 
   yourDataDangerZoneLabel: 'danger zone',
-  yourDataDeleteAccountCta: 'Delete my account',
+  yourDataDeleteAccountCta: 'delete my account',
   yourDataDeleteAccountConfirmIntro:
     "This deletes your profile, check-ins, and reflections for good — it can't be undone. Circles you started stay with your circle-mates.",
   yourDataDeleteAccountTypeToConfirmLabel: 'type DELETE to confirm',
-  yourDataDeleteAccountConfirmCta: 'Delete forever',
-  yourDataDeleteAccountCancelCta: 'Cancel',
+  yourDataDeleteAccountConfirmCta: 'delete forever',
+  yourDataDeleteAccountCancelCta: 'cancel',
   yourDataDeleteAccountError: 'could not delete your account — try again',
 
   // Public /privacy route (13 July) — a real policy, not marketing, for
@@ -1082,9 +1117,9 @@ export const STRINGS = {
   // SC1 (13 July) — share cards, phase 1a. Quiet, dignified actions
   // matching the app's established confirm-inline pattern; no drama
   // styling, no frown/emoji-face iconography for "not for me" (spec §3).
-  shareCardLikeCta: 'Like',
-  shareCardShareCta: 'Share',
-  shareCardNotForMeCta: 'Not for me',
+  shareCardLikeCta: 'like',
+  shareCardShareCta: 'share',
+  shareCardNotForMeCta: 'not for me',
   // OD1 Job 8a (22 July) — the card's big, warm, obvious neutral exit: it
   // records 'dismissed' (never 'passed'), actively closing out the
   // practice instead of leaving the person hunting for a ✕. Job 9 gates
@@ -1128,7 +1163,7 @@ export const STRINGS = {
   wrappedPickerTitle: 'add a line of yours? (optional)',
   wrappedPickerHint: 'from your own reflections — only you can put one here.',
   wrappedPickerNone: 'no line — the card is complete without one',
-  wrappedShareCta: 'Share',
+  wrappedShareCta: 'share',
   wrappedDone: 'done',
   shareCardHidePracticeName: 'hide practice name',
   shareCardShowPracticeName: 'show practice name',
