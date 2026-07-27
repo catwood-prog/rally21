@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
-    color: colors.green,
+    color: colors.greenText,
     marginBottom: 8,
   },
   photoWrap: {
@@ -795,7 +795,7 @@ const styles = StyleSheet.create({
   blockedRowUnblock: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.green,
+    color: colors.greenText,
   },
   prefRowLabel: {
     fontSize: 13,
@@ -850,7 +850,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   chipTextSelected: {
-    color: colors.green,
+    color: colors.greenText,
   },
   signOutButton: {
     marginTop: 28,

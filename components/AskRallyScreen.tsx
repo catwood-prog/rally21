@@ -749,7 +749,7 @@ const styles = StyleSheet.create({
   privateLink: {
     fontSize: 13.5,
     fontWeight: '600',
-    color: colors.green,
+    color: colors.greenText,
   },
   contextDot: {
     fontSize: 13.5,
@@ -916,7 +916,7 @@ const styles = StyleSheet.create({
   chipFeaturedLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.green,
+    color: colors.greenText,
     marginBottom: 3,
   },
   // The doubled composer: plum outline, mic first-class inside right,

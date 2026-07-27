@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   slotEarnedMark: {
     fontSize: 14,
     fontWeight: '800',
-    color: colors.gold,
+    color: colors.ink,
   },
   slotHeldMark: {
     fontSize: 12,

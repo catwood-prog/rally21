@@ -1497,7 +1497,7 @@ const styles = StyleSheet.create({
   completedBadgeSmall: {
     ...chipTextShape,
     backgroundColor: colors.greenSoft,
-    color: colors.green,
+    color: colors.greenText,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 999,
@@ -1539,7 +1539,7 @@ const styles = StyleSheet.create({
   nameEditAction: {
     fontWeight: '700',
     fontSize: 13,
-    color: colors.green,
+    color: colors.greenText,
   },
   nameEditActionMuted: {
     fontWeight: '600',
@@ -1586,7 +1586,7 @@ const styles = StyleSheet.create({
   linkEmptyPromptText: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: colors.green,
+    color: colors.greenText,
   },
   // PI1 — a quiet ink link (not a CTA), sitting just under the link area.
   instructionsLink: {
@@ -1633,7 +1633,7 @@ const styles = StyleSheet.create({
   inviteHint: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: colors.green,
+    color: colors.greenText,
     textAlign: 'center',
     marginBottom: 10,
   },
@@ -1649,14 +1649,14 @@ const styles = StyleSheet.create({
   inviteButtonText: {
     fontWeight: '700',
     fontSize: 14,
-    color: colors.green,
+    color: colors.greenText,
   },
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
-    color: colors.green,
+    color: colors.greenText,
     marginBottom: 10,
   },
   birthdayLine: {
@@ -1683,7 +1683,7 @@ const styles = StyleSheet.create({
   wallPreviewFooter: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.green,
+    color: colors.greenText,
     marginTop: 4,
   },
   avatarRow: {
@@ -1777,7 +1777,7 @@ const styles = StyleSheet.create({
   coverPillText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: colors.gold,
+    color: colors.ink,
   },
   // HW1 — the two gesture pills, heart then wave, under every reachable
   // circle-mate. The heart wears AC1's colors.heart (warmth between
@@ -1818,7 +1818,7 @@ const styles = StyleSheet.create({
     color: colors.heart,
   },
   wavePillText: {
-    color: colors.gold,
+    color: colors.ink,
   },
   memberMoreLink: {
     fontSize: 14,
@@ -1883,7 +1883,7 @@ const styles = StyleSheet.create({
   pairStreakText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.gold,
+    color: colors.ink,
     marginTop: -4,
     marginBottom: 10,
   },
@@ -1956,7 +1956,7 @@ const styles = StyleSheet.create({
   hostManageMembersLink: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.green,
+    color: colors.greenText,
     marginTop: 4,
   },
   hostMemberRow: {
@@ -2204,7 +2204,7 @@ const styles = StyleSheet.create({
   journeyCompletedBadge: {
     ...chipTextShape,
     backgroundColor: colors.greenSoft,
-    color: colors.green,
+    color: colors.greenText,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 999,

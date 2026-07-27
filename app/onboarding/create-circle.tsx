@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     ...chipTextShape,
-    color: colors.green,
+    color: colors.greenText,
   },
   chipTextActive: {
     color: '#fff',
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   cardCount: {
     fontSize: 10,
     fontWeight: '700',
-    color: colors.green,
+    color: colors.greenText,
     marginTop: 3,
   },
 });

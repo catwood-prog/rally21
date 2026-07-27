@@ -164,7 +164,7 @@ export const circleFormStyles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
-    color: colors.green,
+    color: colors.greenText,
     marginBottom: 8,
   },
   helperText: {
@@ -274,7 +274,7 @@ export const circleFormStyles = StyleSheet.create({
   },
   milestoneNumberActive: {
     fontWeight: '800',
-    color: colors.gold,
+    color: colors.ink,
   },
   milestoneDot: {
     fontSize: 11.5,

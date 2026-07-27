@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   pillShared: {
-    color: colors.green,
+    color: colors.greenText,
     backgroundColor: colors.greenSoft,
   },
   pillOnlyYou: {

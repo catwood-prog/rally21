@@ -1517,7 +1517,7 @@ const styles = StyleSheet.create({
     ...chipTextShape,
     alignSelf: 'flex-start',
     backgroundColor: colors.greenSoft,
-    color: colors.green,
+    color: colors.greenText,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 999,
@@ -1606,7 +1606,7 @@ const styles = StyleSheet.create({
   },
   ctaSecondaryText: {
     fontWeight: '600',
-    color: colors.gold,
+    color: colors.ink,
   },
   timerChoiceRow: {
     flexDirection: 'row',
@@ -1645,7 +1645,7 @@ const styles = StyleSheet.create({
   inviteHintText: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: colors.green,
+    color: colors.greenText,
   },
   reflectionTeaser: {
     alignItems: 'center',
@@ -1664,7 +1664,7 @@ const styles = StyleSheet.create({
   addCircleLinkText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.green,
+    color: colors.greenText,
   },
 });
 

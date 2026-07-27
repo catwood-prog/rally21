@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   dotEarnedMark: {
     fontSize: 11,
     fontWeight: '800',
-    color: colors.green,
+    color: colors.greenText,
   },
   // Matches CheckedInBadge's own covered treatment exactly (gold, never
   // a substitute green checkmark — a covered day is a distinct,

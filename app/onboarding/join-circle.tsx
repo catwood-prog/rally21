@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
-    color: colors.green,
+    color: colors.greenText,
     marginTop: 28,
     marginBottom: 12,
   },
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   joinChipText: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: colors.green,
+    color: colors.greenText,
   },
   circleReportPanel: {
     marginTop: 10,

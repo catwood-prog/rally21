@@ -125,13 +125,19 @@ const styles = StyleSheet.create({
   flame: {
     fontSize: 13,
   },
+  // OD1 job 10b — the glow's count and its embers state are INFORMATION,
+  // and both were unreadable: gold on card is 1.59:1 and goldMuted worse
+  // still. Gold-ness here was decoration — the 🔥 beside the label already
+  // carries it, and the flame is untouched — so the words take ink, and
+  // embers stays quieter than glowing via mutedStrong (5.29:1) rather
+  // than via a colour nobody can read. Never red; the flame just quiets.
   label: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: colors.gold,
+    color: colors.ink,
   },
   labelEmbers: {
-    color: colors.goldMuted,
+    color: colors.mutedStrong,
     fontWeight: '600',
   },
   heart: {

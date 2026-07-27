@@ -174,6 +174,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   chipTextSelected: {
-    color: colors.green,
+    color: colors.greenText,
   },
 });

@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
-    color: colors.green,
+    color: colors.greenText,
     marginBottom: 8,
   },
 });

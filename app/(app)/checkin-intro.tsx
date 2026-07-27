@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   lockText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.green,
+    color: colors.greenText,
   },
   title: {
     fontFamily: FONT_HEADER,

@@ -730,6 +730,6 @@ const styles = StyleSheet.create({
   pushAskCta: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.green,
+    color: colors.greenText,
   },
 });

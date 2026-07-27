@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   },
   bulletDot: {
     fontSize: 15,
-    color: colors.green,
+    color: colors.greenText,
     lineHeight: 19,
   },
   bulletText: {

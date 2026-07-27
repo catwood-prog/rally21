@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
   lockText: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: colors.green,
+    color: colors.greenText,
   },
   subtitle: {
     fontSize: 12.5,
@@ -838,7 +838,7 @@ const styles = StyleSheet.create({
   askChipFeaturedLabel: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: colors.green,
+    color: colors.greenText,
     marginBottom: 2,
   },
   noteWrap: {

@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   cta: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: colors.green,
+    color: colors.greenText,
   },
   ctaLight: {
     color: colors.gold,

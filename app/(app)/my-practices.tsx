@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.green,
+    color: colors.greenText,
   },
   actionTextMuted: {
     fontSize: 12,
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   createButtonText: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.green,
+    color: colors.greenText,
   },
   formCard: {
     backgroundColor: colors.card,

@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
-    color: colors.green,
+    color: colors.greenText,
     marginBottom: 8,
     marginTop: 4,
   },
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
   goalsQuestion: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: colors.green,
+    color: colors.greenText,
     lineHeight: 17,
     marginBottom: 8,
     marginTop: 4,
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   },
   voiceHintText: {
     fontSize: 11.5,
-    color: colors.green,
+    color: colors.greenText,
     lineHeight: 16,
   },
   questionCard: {

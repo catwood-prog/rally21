@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   linkText: {
-    color: colors.green,
+    color: colors.greenText,
     fontWeight: '600',
   },
 });

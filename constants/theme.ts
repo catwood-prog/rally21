@@ -43,6 +43,16 @@ export const colors = {
   // colors.green over greenSoft lands ~2.4:1, well under AA, so the
   // notification spot's kicker uses the deeper green instead.
   greenDeep: '#3E7C3E',
+  // OD1 job 10 (26 July) — the TEXT-weight green. colors.green is a FILL
+  // colour and measures 2.58:1 on bg / 2.92:1 on card as text, which
+  // fails not only WCAG's 4.5:1 for small text but its 3:1 for LARGE
+  // text too — so no green text anywhere was compliant, including the
+  // headings job 10c expected to find already passing. greenText is
+  // 4.64:1 on bg, 5.25:1 on card and 4.63:1 on greenSoft. Green keeps
+  // owning progress; this is the same role at a legible weight.
+  // USE THIS FOR TEXT. colors.green stays exactly as it is for fills,
+  // borders, bars, confetti and the glow — see 10e and CLAUDE.md.
+  greenText: '#3D793D',
   // Gold at low opacity — "mine"/active chip fills, gold-tinted banners
   // and pills. Promoted from a repeated literal.
   goldSoft: 'rgba(244, 200, 75, 0.15)',

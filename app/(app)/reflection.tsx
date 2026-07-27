@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   lockText: {
     fontSize: 9.5,
     fontWeight: '700',
-    color: colors.green,
+    color: colors.greenText,
   },
   subtitle: {
     fontSize: 12,
