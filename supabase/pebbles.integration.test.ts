@@ -307,6 +307,171 @@ describeIfConfigured('PA3 — the pebble economy at the boundaries', () => {
     expect(on(after, '2026-06-11').pebbles_after).toBe(spentBalance + 1);
   });
 
+  // ══════════════════════════════════════════════════════════════════
+  // ED1 — "days together" counts EARNED days (Cat's ruling, 28 July).
+  // ══════════════════════════════════════════════════════════════════
+  // These live here rather than in a suite of their own because they are
+  // assertions about the PEBBLE's reach, not about pair formation (which
+  // rally-milestone.integration.test.ts already owns): the question is
+  // exactly where the economy above stops, and the fixture harness that
+  // can put a day into a known held state is right here.
+  //
+  // The line ED1 draws: a pebble still holds YOUR day — your glow, your
+  // run, your week row are all untouched — but it cannot buy a day with
+  // someone else, because a friendship number is about two people and a
+  // pebble involves neither of them. Covers and away spells are human
+  // acts of continuity and keep counting.
+
+  test('ED1 — a pebble holds the glow and the run, and does NOT advance days together', async () => {
+    const a = await createFakeUser('Pebble Pair A');
+    const circle = await seedCircle(a);
+    const b = await createFakeUser('Pebble Pair B');
+    await addMember(circle, b);
+    // The same ten days, the same five-day gap, the same return: every
+    // day of this history is shared, so the intersection is the whole of
+    // it and the only thing separating the two numbers is the pebble.
+    for (const u of [a, b]) {
+      await practiseOn(u, circle, [...range('2026-06-01', '2026-06-10'), '2026-06-16']);
+    }
+
+    const all = await days(a, '2026-06-16');
+    // PA3, deliberately unchanged and restated here so a future session
+    // moving this line has to move it in front of the ruling: the gap is
+    // held, and the run walks straight across it.
+    expect(
+      range('2026-06-11', '2026-06-15')
+        .map((d) => on(all, d))
+        .every((r) => r.state === 'held' && r.held_by === 'pebble')
+    ).toBe(true);
+    expect(on(all, '2026-06-16').run_after).toBe(11);
+    expect(all.filter((r) => r.break_kind !== null)).toEqual([]);
+
+    // Sixteen days qualified for each of them…
+    //
+    // Windowed to June deliberately. createFakeUser backdates the account
+    // to 1 January so the nest is full by the time a scenario starts, and
+    // the simulation walks from the account's own start — so an unwindowed
+    // count also picks up the five pebble-held days of the dormant January
+    // that opens every fixture. Those days are real and are excluded from
+    // the pair number for exactly the same reason as June's; counting them
+    // here would just make the subtraction below unreadable.
+    const qualifying = await client.query(
+      `select count(*)::int as n from public.glow_qualifying_days($1, $2::date)
+       where qualifies and d >= '2026-06-01'::date`,
+      [a, '2026-06-16']
+    );
+    expect(qualifying.rows[0].n).toBe(16);
+
+    // …and eleven of them were earned, which is the friendship's number.
+    const together = await client.query(
+      'select public.get_pair_days_together_between($1, $2, $3::date) as n',
+      [a, b, '2026-06-16']
+    );
+    expect(together.rows[0].n).toBe(11);
+  });
+
+  test('ED1 — covered and away days still count toward days together; only the pebble does not', async () => {
+    const a = await createFakeUser('Human Pair A');
+    const circle = await seedCircle(a);
+    const b = await createFakeUser('Human Pair B');
+    await addMember(circle, b);
+    const friend = await createFakeUser('The Coverer');
+    await addMember(circle, friend);
+
+    for (const u of [a, b]) {
+      await practiseOn(u, circle, range('2026-06-01', '2026-06-05'));
+      // 06-06 — a friend showed up for them. ONE cover each, because
+      // capacity is 1 per calendar month below a 21-day best run and a
+      // second would fall through to the pebble and quietly test nothing.
+      await client.query(
+        `insert into public.completions (user_id, circle_id, local_date, kind, covered_by)
+         values ($1, $2, '2026-06-06'::date, 'covered', $3)`,
+        [u, circle, friend]
+      );
+      // 06-07 — they said they were away.
+      await client.query(
+        `insert into public.completions (user_id, circle_id, local_date, kind)
+         values ($1, $2, '2026-06-07'::date, 'away')`,
+        [u, circle]
+      );
+      // 06-08 is missed by both and held by a pebble each. 06-09 is theirs again.
+      await practiseOn(u, circle, ['2026-06-09']);
+    }
+
+    const all = await days(a, '2026-06-09');
+    expect(on(all, '2026-06-06').held_by).toBe('cover');
+    expect(on(all, '2026-06-07').held_by).toBe('away');
+    expect(on(all, '2026-06-08').held_by).toBe('pebble');
+
+    // Nine days qualified; eight were earned. The single day of
+    // difference is 06-08, and nothing else moved — this is the whole
+    // ruling in one subtraction. (Windowed to June for the same reason
+    // as the test above: the dormant January contributes pebble-held
+    // days of its own.)
+    const qualifying = await client.query(
+      `select count(*)::int as n from public.glow_qualifying_days($1, $2::date)
+       where qualifies and d >= '2026-06-01'::date`,
+      [a, '2026-06-09']
+    );
+    expect(qualifying.rows[0].n).toBe(9);
+
+    const together = await client.query(
+      'select public.get_pair_days_together_between($1, $2, $3::date) as n',
+      [a, b, '2026-06-09']
+    );
+    expect(together.rows[0].n).toBe(8);
+  });
+
+  test('ED1 — the pair RUN reads the earned series too, while the personal run does not', async () => {
+    // Cat's in-session ruling, and the reason it was asked: PA4's own
+    // law is that the cumulative number and the run are "two readings of
+    // that same series, not two rules". Leaving the pair run on the
+    // pebble-inclusive series would have put a flourish larger than the
+    // headline it decorates onto a real screen ("5 days together · 25 in
+    // a row 🔥" was live for five of the eleven pairs).
+    //
+    // Anchored to current_date rather than a fixed June, because
+    // get_pair_streaks reads current_date itself — a pair run only exists
+    // if the last shared day is today or yesterday.
+    const a = await createFakeUser('Run Pair A');
+    const circle = await seedCircle(a);
+    const b = await createFakeUser('Run Pair B');
+    await addMember(circle, b);
+    for (const u of [a, b]) {
+      // t-6, t-5, t-4 … a shared miss at t-3 … t-2, t-1, t.
+      for (const back of [6, 5, 4, 2, 1, 0]) {
+        await client.query(
+          `insert into public.completions (user_id, circle_id, local_date, kind)
+           values ($1, $2, current_date - $3::int, 'self')`,
+          [u, circle, back]
+        );
+      }
+    }
+
+    // The PERSONAL run is six and unbroken — the pebble did its job.
+    const { rows: personal } = await client.query(
+      `select run_after, held_by from public.glow_day_states($1, current_date) where d = current_date`,
+      [a]
+    );
+    expect(personal[0].run_after).toBe(6);
+    const { rows: heldDay } = await client.query(
+      `select held_by from public.glow_day_states($1, current_date) where d = current_date - 3`,
+      [a]
+    );
+    expect(heldDay[0].held_by).toBe('pebble');
+
+    // The PAIR reads six days together and a run of three — the sheltered
+    // day neither counts nor bridges.
+    await actAs(a);
+    const { rows } = await client.query(
+      'select * from get_pair_streaks($1) where other_user_id = $2',
+      [circle, b]
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].days_together).toBe(6);
+    expect(rows[0].streak).toBe(3);
+  });
+
   test('a cover of only PART of a gap shifts the spend rather than refunding it', async () => {
     // Worth pinning because the refund above is easy to over-read. Cover
     // the first day of a two-day gap and the second day is still missed,

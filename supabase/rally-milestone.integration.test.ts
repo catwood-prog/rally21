@@ -312,6 +312,16 @@ describeIfConfigured('PA4 — a friend streak outlives the circle that formed it
       );
     }
     // Five shared days for both.
+    //
+    // THE 5 BELOW IS ED1-LOAD-BEARING, not just a fixture count (28 July).
+    // These users then miss every day up to current_date, and PA3's
+    // pebble shelters the first five of that gap — so between PA3 landing
+    // and ED1 landing the same night, every days_together assertion in
+    // this file silently read 10, and would have kept reading 10 with
+    // nobody noticing, since these suites skip without SUPABASE_DB_URL.
+    // ED1 excluded pebble-held days from the pair series and put it back
+    // to 5. If a future change to the economy moves this number again,
+    // that is the ruling breaking, not the fixture drifting.
     for (const u of [a, b]) {
       for (let i = 0; i < 5; i++) {
         await client.query(
