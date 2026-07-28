@@ -71,15 +71,15 @@ const LIVE = {
 
 describe('the rendered friendship headline, on live cohort numbers', () => {
   it("renders Russ's best friendship as its cumulative 9, not the run's 0", () => {
-    expect(renderText(LIVE.russ)).toEqual(['you and Catherine S: 9 days together']);
+    expect(renderText(LIVE.russ)).toEqual(['you and Catherine S, 9 days together']);
   });
 
   it("renders Catherine S's best THIS-CIRCLE friendship as 8 — her 9 with Russ belongs to another circle's screen", () => {
-    expect(renderText(LIVE.catherineS)).toEqual(['you and Catherine: 8 days together']);
+    expect(renderText(LIVE.catherineS)).toEqual(['you and Catherine, 8 days together']);
   });
 
   it("renders Louise S's best friendship as 5", () => {
-    expect(renderText(LIVE.louise)).toEqual(['you and Catherine S: 5 days together']);
+    expect(renderText(LIVE.louise)).toEqual(['you and Catherine S, 5 days together']);
   });
 
   it('renders NO zero anywhere, for any live caller — the defect this section exists to fix', () => {
@@ -101,7 +101,7 @@ describe('the rendered friendship headline, on live cohort numbers', () => {
 describe('the live run, once there is one', () => {
   it('appears beside the headline without replacing it', () => {
     expect(renderText([row('Russ', 4, 9)])).toEqual([
-      'you and Russ: 9 days together',
+      'you and Russ, 9 days together',
       '4 in a row 🔥',
     ]);
   });
@@ -109,8 +109,8 @@ describe('the live run, once there is one', () => {
   it('breaking the run leaves the headline untouched — the friendship keeps its worth', () => {
     const withRun = renderText([row('Russ', 4, 9)]);
     const runBroken = renderText([row('Russ', 0, 9)]);
-    expect(withRun[0]).toBe('you and Russ: 9 days together');
-    expect(runBroken[0]).toBe('you and Russ: 9 days together');
+    expect(withRun[0]).toBe('you and Russ, 9 days together');
+    expect(runBroken[0]).toBe('you and Russ, 9 days together');
     expect(runBroken).toHaveLength(1);
   });
 });

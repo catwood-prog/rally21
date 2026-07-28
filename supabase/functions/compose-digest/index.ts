@@ -25,7 +25,12 @@ const MAJOR_STOPS = [50, 100, 365];
 // busy demoting it would have been the same dishonesty §5.1 exists to
 // remove. Mirrors lib/pairStreaks.ts's PAIR_MILESTONES by hand — Deno
 // edge functions can't import the client's module graph.
-const PAIR_MILESTONES = [25, 50, 100];
+//
+// RUNGS RULED BY CAT, 28 July (CY1), replacing PA4's [25, 50, 100]: with
+// the cohort's best pair at 9 cumulative, a first rung of 25 meant no
+// friendship would be acknowledged for months. 21 leads because 21 days
+// together IS the first rally, and its line says so.
+const PAIR_MILESTONES = [21, 50, 75, 100];
 
 /** One calendar day before `dateStr` (YYYY-MM-DD), computed in UTC so
  * it's never skewed by DST — mirrors compose-nudges' own helper. */
@@ -323,8 +328,16 @@ Deno.serve(async (req) => {
             if (todayVal >= milestone && yesterdayVal < milestone) crossed = milestone;
           }
           if (crossed !== null) {
+            // RULED 28 July (CY1). Kept in step BY HAND with
+            // pairMilestoneDigestLine in constants/strings.ts — that one
+            // is reference copy; THIS is the sentence that ships.
+            // 🎉 across the whole ladder, never 🔥: the flame marks the
+            // live run, and this is the cumulative number.
+            const otherName = otherNameById.get(otherId) ?? "someone in your circle";
             pairLines.push(
-              `you and ${otherNameById.get(otherId) ?? "someone in your circle"} have ${crossed} days together 🔥`
+              crossed === 21
+                ? `you and ${otherName}, 21 days together. your first rally together 🎉`
+                : `you and ${otherName}, ${crossed} days together 🎉`
             );
           }
         }

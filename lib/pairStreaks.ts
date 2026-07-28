@@ -68,8 +68,24 @@ export function shouldShowPairRun(pair: PairStreak): boolean {
  * an achievement while the memo was busy demoting it, and a pair could
  * be congratulated twice for one friendship. One ladder, on the number
  * that cannot be taken away.
+ *
+ * THE RUNGS ARE CAT'S, RULED 28 July (CY1), replacing PA4's [25, 50, 100]
+ * — which she was shown had a real cost: the cohort's best pair sits at 9
+ * cumulative, so a first rung of 25 meant no friendship in the app would
+ * be acknowledged for months, where the old run ladder fired at 7.
+ *
+ * 21 IS THE FIRST RALLY, and that is the whole reason it leads: it is the
+ * same meaning the personal ladder's 21 carries, so the 21-rung copy says
+ * "your first rally together" rather than reusing the generic line (see
+ * pairMilestoneDigestLine in constants/strings.ts). KNOWN AND ACCEPTED by
+ * Cat, not a bug: a perfectly daily pair can cross their personal 21 and
+ * their pair 21 on the same day.
+ *
+ * MIRRORED BY HAND in supabase/functions/compose-digest/index.ts — Deno
+ * edge functions cannot import the client's module graph, so a change
+ * here is only half a change until that constant moves with it.
  */
-export const PAIR_MILESTONES = [25, 50, 100] as const;
+export const PAIR_MILESTONES = [21, 50, 75, 100] as const;
 
 /** The milestone crossed between two readings of the cumulative number,
  * or null. Only ever ONE — the highest crossed — so a long gap in the

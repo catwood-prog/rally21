@@ -151,10 +151,18 @@ export function FirstRallyStrip({ style }: { style?: StyleProp<ViewStyle> }) {
  * fork — Cat's instruction was explicit that the two must never drift.
  *
  * `reached` marks every stop the person has passed with a green ✓, and
- * `next` is drawn gold and ~70% larger (29 vs 13px in the mockup) so the
- * eye lands on where they are going, not where they have been. With no
- * props it is the commitment-time strip: nothing reached, 21 highlighted,
- * which is exactly what FirstRallyStrip rendered before this split.
+ * `next` is drawn ~70% larger (19.5px vs 11.5) so the eye lands on where
+ * they are going, not where they have been. With no props it is the
+ * commitment-time strip: nothing reached, 21 highlighted, which is
+ * exactly what FirstRallyStrip rendered before this split.
+ *
+ * THE `next` NUMBER IS INK. This comment said "drawn gold" long after
+ * OD1 job 10 had moved it to ink, which is an invitation to "restore"
+ * something nobody wants restored. Cat looked at the live 3j screen at
+ * 390px on 28 July (CY1) and ruled, verbatim: "ink by Cat's ruling, 28
+ * July (CY1): gold is fill-only and belongs to the CTA on this screen;
+ * do not re-gild." A gold chip behind an ink 50 was on the table and she
+ * turned it down.
  *
  * PA2 — the numbers are PRACTICE COUNTS now, not calendar days.
  */

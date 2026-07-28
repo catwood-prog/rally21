@@ -874,18 +874,25 @@ export const STRINGS = {
   // the personal model turns FALSE, the false clause is DELETED rather
   // than rewritten, because inventing Cat's voice is worse than saying
   // less (the same call SK2 made when it dropped the journal's zero-state
-  // line instead of shipping a false one). Every such deletion, and every
-  // string PA2 had to author outright, is marked PROPOSED and listed in
-  // the handoff for Cat.
+  // line instead of shipping a false one).
+  //
+  // CY1 (28 July) — CAT HAS NOW RULED EVERY ONE OF THEM, from the live
+  // screens at 390px. Nothing in this block is PROPOSED any more; the
+  // markers are gone because there is no longer an open question behind
+  // them. Each ruling is recorded beside the string it governs.
   journeyGateTitle: '21 days, your first rally!',
-  // CAT'S 3b BODY, MINUS ITS FIRST CLAUSE. She ruled: "You showed up for
-  // each other for three weeks. A strong first rally, and the momentum's
-  // yours now. Keep it going." The opening clause is now false twice
-  // over — the rally is not "for each other" (it is one person's), and it
-  // is not "three weeks" (21 practices can span any stretch of calendar;
-  // in the live cohort 21 practices would take Cathy S about eight
-  // weeks). The other two clauses were already personal ("yours") and are
-  // untouched. NEEDS-CAT: whether she wants a replacement opener.
+  // CAT'S 3b BODY, MINUS ITS FIRST CLAUSE — RULED 28 July (CY1): the
+  // deletion STANDS and there is NO replacement opener. Her words: "keep
+  // it honest". She ruled it having seen the shipped-vs-ruled diff.
+  //
+  // The cut clause was "You showed up for each other for three weeks."
+  // It is false twice over under the personal model — the rally is one
+  // person's, not "for each other", and 21 practices span any stretch of
+  // calendar (in the live cohort, about eight weeks for Cathy S). Saying
+  // less beats inventing a replacement in her voice. The other two
+  // clauses were already personal ("yours") and are untouched.
+  //
+  // Do not restore the clause, and do not write a new opener.
   journeyGateBody: "A strong first rally, and the momentum's yours now. Keep it going.",
   journeyGateRallyOnCta: 'rally on, next stop 50',
   journeyGateRallyOnHelper: 'same circle, same practice. nothing resets.',
@@ -897,35 +904,51 @@ export const STRINGS = {
   // forces. The circle keeps running; you have simply finished here.
   journeyGateCompleteOpener: 'finish here',
   journeyGateCompleteCta: 'complete this circle',
-  journeyGateCompleteHelper: 'celebrate what you built and archive it warmly.',
   // 3d — "Today" keeps its capital: it names the tab.
   journeyGateNotNow: 'decide later, back to Today',
-  journeyGateCardTitle: (circleName: string) => `${circleName} hit 21 days`,
-  // RULED 27 July, and the reason the quoted-label sub-rule exists (see the
-  // law at the top): this is prose, but its first two words ARE the button
-  // directly beneath it (journeyGateRallyOnCta, lowercase) and "complete it"
-  // echoes journeyGateCompleteCta. The label's casing wins — leave it.
-  journeyGateCardBody: 'rally on, or your host can complete it, whenever feels right.',
+  // DELETED 28 July (CY1), on Cat's explicit authorisation: journeyGate-
+  // CompleteHelper, journeyGateCardTitle and journeyGateCardBody had no
+  // call site left anywhere in the app — PA2 removed the surfaces that
+  // rendered them (the circle-level gate card, and the standing archive
+  // explanation that moved into the revealed confirm card). They were not
+  // junk: the two card strings carried Cat's 27 July casing rulings. But a
+  // ruled string with no surface is a trap — the next section to need a
+  // gate card would have found copy that says "your host can complete it"
+  // and a circle-level "{circle} hit 21 days", both of which the personal
+  // model made false. Deleted rather than left to be picked up.
 
-  // PA2 — FINISHING YOUR OWN RALLY. All PROPOSED: the personal finish did
-  // not exist when Cat ruled RF1 job 3, whose 3k outcome described the
-  // creator ARCHIVING a circle ("what you built together is archived, not
-  // lost") — false here, because the circle carries on without you.
+  // PA2 — FINISHING YOUR OWN RALLY. PA2 authored these outright, because
+  // the personal finish did not exist when Cat ruled RF1 job 3 (whose 3k
+  // outcome described the creator ARCHIVING a circle — "what you built
+  // together is archived, not lost" — which is false here, since the
+  // circle carries on without you).
+  //
+  // ACCEPTED 28 July (CY1): Cat read all of them on the live screens and
+  // accepted them as written, with the single exception recorded on
+  // journeyFinishedBody below. They are hers now, not drafts.
   journeyFinishConfirmTitle: 'finish your rally here?',
   journeyFinishConfirmBody:
     'The circle keeps going, and so does everything you did in it. You can pick your rally back up whenever you want.',
   journeyFinishConfirmCta: 'finish my rally',
   // 3k, translated from circle-archive to personal-finish. Title is
-  // Cat's verbatim; the rest is PROPOSED.
+  // Cat's verbatim; the rest she accepted on 28 July (CY1).
   journeyFinishedTitle: 'your first rally, complete',
   journeyFinishedSubline: (circleName: string, practices: number) =>
     `${circleName} · ${practices} practices`,
+  // REWORDED 28 July (CY1) — Cat's one change to this group. It ended
+  // "...and the circle carries on without missing you", which was written
+  // to mean "nothing breaks" and can land as "you won't be missed". She
+  // ruled: drop the clause. Nothing replaces it, same call as 3b above.
+  // Do not add a reassurance back on the end of this sentence.
   journeyFinishedBody:
-    'Great work on your first rally. Nothing you did is going anywhere, and the circle carries on without missing you.',
+    'Great work on your first rally. Nothing you did is going anywhere, and the circle carries on.',
   journeyFinishedResumeCta: 'pick it back up',
-  journeyFinishedExitCta: "I'll choose later",
+  // DELETED 28 July (CY1), on Cat's explicit authorisation: journeyFinished-
+  // ExitCta ("I'll choose later") had no call site — the finished screen
+  // has ONE exit (journeyCompletedCta, "back to today"), so a second,
+  // softer way out was copy for a choice the screen does not offer.
   // The settled state a finished member wears in the huddle (memo §10 Q1
-  // — visible, never vanished). PROPOSED.
+  // — visible, never vanished). Accepted 28 July (CY1).
   journeyFinishedMemberBadge: 'rally complete',
   journeyFinishedCardTitle: 'your rally here is complete',
   journeyFinishedCardBody: (practices: number) =>
@@ -935,7 +958,11 @@ export const STRINGS = {
   // and the button (3j). The body is her 3c helper in sentence case: her
   // ruled 3j body ended "Day 22 starts tomorrow", which the personal
   // model makes false — your 22nd practice starts when you do it, not
-  // tomorrow. PROPOSED only in that recombination.
+  // tomorrow. Cat accepted that recombination on 28 July (CY1), from the
+  // live screen.
+  //
+  // THE 50 IN THE STRIP BESIDE THIS IS INK, AND STAYS INK — see the
+  // ruling recorded on MilestoneStrip in components/CircleFormFields.tsx.
   journeyNextStopTitle: 'next stop, 50',
   journeyNextStopBody: 'Same circle, same practice. Nothing resets.',
   journeyNextStopCta: "let's go",
@@ -943,7 +970,10 @@ export const STRINGS = {
   // by id from route params and show this if it's missing/inaccessible.
   circleNotFound: "couldn't find that circle",
 
-  journeyRalliedOnCard: (circleName: string) => `${circleName} rallied on 🔥`,
+  // DELETED 28 July (CY1), on Cat's explicit authorisation: journeyRallied-
+  // OnCard ("{circle} rallied on 🔥") had no call site — it announced a
+  // CIRCLE-level decision, which PA2 removed when rallying on stopped
+  // being something one member could spend on everyone's behalf.
   journeyRallyMarkerTitle: (rallyNum: number) => `rally ${rallyNum} complete`,
   journeyRallyMarkerBody: (circleName: string, day: number) => `day ${day} with ${circleName}`,
   journeyMajorStopTitle: (day: number) => `${day} days together`,
@@ -986,14 +1016,46 @@ export const STRINGS = {
   // PA4 — the headline is the CUMULATIVE number and carries no flame:
   // the 🔥 is the live run's mark, and putting it on a number that
   // survives a broken run would claim a fire that may not be lit.
-  pairDaysTogetherLabel: (name: string, n: number) => `you and ${name}: ${n} days together`,
+  // RULED 28 July (CY1), from the live circle screen at 390px, on two
+  // points Cat was asked to separate:
+  //   WORD — "days", not the memo's "mornings". A practice is not
+  //   necessarily a morning; this one string renders for every circle
+  //   whatever its time_of_day, and "days" is also what
+  //   shareCardWrappedKicker and journeyMajorStopTitle already say.
+  //   PUNCTUATION — the colon PA4 shipped becomes a COMMA, which is the
+  //   memo's own shape and Cat's standing preference.
+  // No emoji here, deliberately (see the flame rule below).
+  pairDaysTogetherLabel: (name: string, n: number) => `you and ${name}, ${n} days together`,
   /** The small live flourish beside the headline, only when the run is
-   * genuinely running (>= 2). Never rendered as a zero. */
+   * genuinely running (>= 2). Never rendered as a zero.
+   *
+   * THE ONLY 🔥 IN THE PAIR FAMILY, and that is the law working rather
+   * than an exception: the flame marks the LIVE RUN, so it can never sit
+   * on a cumulative number that survives a broken run (CY1, 28 July). */
   pairRunFlourish: (n: number) => `${n} in a row 🔥`,
-  /** Digest only — the shared milestone at 25/50/100, on the cumulative
-   * number. A digest line, never its own send (Glow-Spec §3). */
+  /** Digest only — the shared milestones, on the CUMULATIVE number. A
+   * digest line, never its own send (Glow-Spec §3).
+   *
+   * REFERENCE COPY. The sentence that actually goes out is composed
+   * SERVER-side in supabase/functions/compose-digest/index.ts (S1 — a
+   * definer function never accepts client-composed content destined for
+   * another user's surface), so these two must be kept in step BY HAND,
+   * exactly as wallRallyMilestoneLine is.
+   *
+   * RULED 28 July (CY1). Cat set the ladder to [21, 50, 75, 100] and
+   * ruled 🎉 across ALL of it, replacing PA4's 🔥 — the flame belongs to
+   * the live run alone, and with 🎉 here there is no cumulative number
+   * anywhere carrying a fire that may not be lit. She explicitly ruled
+   * that NO law exception needs noting, because none is being made.
+   *
+   * The 21 rung gets its own sentence: 21 days together IS the first
+   * rally, the same meaning the personal ladder's 21 carries, and the
+   * copy says so. KNOWN AND ACCEPTED by Cat, not a bug: a perfectly
+   * daily pair can fire their personal 21 and their pair 21 on one day. */
   pairMilestoneDigestLine: (name: string, n: number) =>
-    `you and ${name} have ${n} days together 🔥`,
+    n === 21
+      ? `you and ${name}, 21 days together. your first rally together 🎉`
+      : `you and ${name}, ${n} days together 🎉`,
 
   // PA4 JOB 3 (memo §6) — the rally milestone's wall line. REFERENCE
   // COPY: the live sentence is composed SERVER-side inside

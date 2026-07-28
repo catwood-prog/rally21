@@ -108,13 +108,16 @@ describe('the run is a flourish, never a zero', () => {
 });
 
 describe('shared milestones ride the cumulative number', () => {
-  it('is the 25/50/100 ladder the memo names', () => {
-    expect([...PAIR_MILESTONES]).toEqual([25, 50, 100]);
+  // CY1 (28 July) — Cat's ruled ladder, replacing PA4's [25, 50, 100].
+  // 21 leads because 21 days together IS the first rally.
+  it('is the 21/50/75/100 ladder Cat ruled', () => {
+    expect([...PAIR_MILESTONES]).toEqual([21, 50, 75, 100]);
   });
 
   it('fires on the crossing and never again', () => {
-    expect(crossedPairMilestone(24, 25)).toBe(25);
-    expect(crossedPairMilestone(25, 26)).toBeNull();
+    expect(crossedPairMilestone(20, 21)).toBe(21);
+    expect(crossedPairMilestone(21, 22)).toBeNull();
+    expect(crossedPairMilestone(74, 75)).toBe(75);
   });
 
   it('collapses a skipped backlog to one congratulation, the highest', () => {
