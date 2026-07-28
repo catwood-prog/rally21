@@ -71,15 +71,6 @@ export async function giftPebble(circleId: string, recipientId: string): Promise
   return (data as number | null) ?? 0;
 }
 
-/** Circle-mates whose nest is empty or whose run is at risk — the moment
- * the gesture happens in. Derived entirely server-side from the circle id;
- * there is no parameter naming a user, so no arbitrary-uuid read exists. */
-export async function getPebbleCandidates(circleId: string): Promise<Set<string>> {
-  const { data, error } = await supabase.rpc('get_pebble_candidates', { p_circle_id: circleId });
-  if (error) throw error;
-  return new Set(((data ?? []) as { user_id: string }[]).map((r) => r.user_id));
-}
-
 /** Pebbles given to the caller that they have not been told about yet,
  * gated server-side against the SAME users.warmth_seen_at marker TN1
  * already uses for waves, hearts and covers. */

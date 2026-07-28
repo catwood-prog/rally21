@@ -114,7 +114,12 @@ export function GlowBadge({
         <TouchableOpacity style={styles.row} onPress={() => setShowDetail(true)} hitSlop={6}>
           <Text style={styles.labelEmbers}>{STRINGS.glowLongestRallyKept(glow.longestRally)}</Text>
         </TouchableOpacity>
-        <GlowDetailSheet visible={showDetail} onDismiss={() => setShowDetail(false)} heldTodayMessage={null} />
+        <GlowDetailSheet
+          visible={showDetail}
+          onDismiss={() => setShowDetail(false)}
+          heldTodayMessage={null}
+          pebbles={glow.pebbles}
+        />
       </>
     );
   }
@@ -140,6 +145,7 @@ export function GlowBadge({
       <GlowDetailSheet
         visible={showDetail}
         onDismiss={() => setShowDetail(false)}
+        pebbles={glow.pebbles}
         heldTodayMessage={
           isEmbers || !glow.heldToday
             ? null
