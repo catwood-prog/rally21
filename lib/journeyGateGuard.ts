@@ -46,10 +46,13 @@ export function shouldRouteToJourneyGate(
   circleId: string,
   rallyCount: number,
   circle: { completedAt: string | null },
-  myLastCelebratedDay: number
+  myLastCelebratedDay: number,
+  /** PA2 — a member who has finished their rally here is never routed
+   * into the ceremony that starts one. See shouldShowJourneyGate. */
+  myFinishedAt?: string | null
 ): boolean {
   if (hasShownJourneyGate(circleId)) return false;
-  return shouldShowJourneyGate(rallyCount, circle, myLastCelebratedDay);
+  return shouldShowJourneyGate(rallyCount, circle, myLastCelebratedDay, myFinishedAt);
 }
 
 /** Tests only — module state would otherwise leak between cases. */

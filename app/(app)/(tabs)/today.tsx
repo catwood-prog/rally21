@@ -507,7 +507,11 @@ function Today() {
       // Today is where the ceremony's exit lands, so routing on
       // eligibility ALONE is what let the cycle close when the marker
       // write failed. Eligibility is unchanged; the guard is the extra.
-      if (shouldRouteToJourneyGate(c.id, rallyCount, c, data.lastCelebratedDay)) {
+      // PA2 — a member who has FINISHED their rally here gets neither
+      // the first-rally ceremony nor the later milestone beats. They
+      // ended this rally; the app does not keep celebrating it at them.
+      if (c.myFinishedAt) continue;
+      if (shouldRouteToJourneyGate(c.id, rallyCount, c, data.lastCelebratedDay, c.myFinishedAt)) {
         router.push({ pathname: '/journey-gate', params: { circleId: c.id } });
         return;
       }

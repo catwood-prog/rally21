@@ -265,4 +265,25 @@ describe('shouldShowJourneyGate', () => {
   test('never shows for an already-completed circle', () => {
     expect(shouldShowJourneyGate(25, completedCircle, 0)).toBe(false);
   });
+
+  // PA2 — found by the disposable walk, not predicted. The ceremony's
+  // answer path writes finish_my_rally FIRST and mark_celebration_seen
+  // second, so a failure between the two leaves a member finished with
+  // their marker still at 0 — and they were being routed straight back
+  // into the ceremony that starts a rally they had just ended.
+  test('never shows to a member who has FINISHED their rally here', () => {
+    expect(shouldShowJourneyGate(25, openCircle, 0, '2026-07-27T00:00:00Z')).toBe(false);
+    // ...including the exact half-written state that produced the bug:
+    // finished, but the marker write never landed.
+    expect(shouldShowJourneyGate(GATE_DAY, openCircle, 0, '2026-07-27T00:00:00Z')).toBe(false);
+  });
+
+  test('still shows to a member who has NOT finished (null and undefined both mean "not finished")', () => {
+    expect(shouldShowJourneyGate(25, openCircle, 0, null)).toBe(true);
+    expect(shouldShowJourneyGate(25, openCircle, 0, undefined)).toBe(true);
+  });
+
+  test('finishing does not resurrect a ceremony the member already answered', () => {
+    expect(shouldShowJourneyGate(25, openCircle, 21, null)).toBe(false);
+  });
 });

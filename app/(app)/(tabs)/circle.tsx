@@ -342,12 +342,20 @@ function YourCircle() {
     // untruth would fail SAFE (no ceremony), but the guard makes the
     // intent explicit rather than relying on which way the bug points.
     const rallyCount = countRallyDays(presence, session.user.id);
+    // PA2 — my own finished_at for THIS circle. It rides the members
+    // fetch (getCircleMembers now selects it) rather than a second
+    // query, and it is read from `members` rather than the circle row
+    // because this screen resolves its circle by id, which carries no
+    // membership columns. A finished member is never routed into the
+    // ceremony that starts a rally, nor its later milestone beats.
+    const myFinishedAt = members.find((m) => m.userId === session.user.id)?.finishedAt ?? null;
+    if (myFinishedAt) return;
     // CB1 job 1b — shouldRouteToJourneyGate, never shouldShowJourneyGate.
     // This push is the half of the cycle Cat hit: the ceremony exited to
     // /circle and this line sent her straight back, forever, because the
     // marker write had silently failed. Eligibility is untouched; the
     // guard (lib/journeyGateGuard.ts) is what stops the re-entry.
-    if (shouldRouteToJourneyGate(circle.id, rallyCount, circle, myLastCelebratedDay)) {
+    if (shouldRouteToJourneyGate(circle.id, rallyCount, circle, myLastCelebratedDay, myFinishedAt)) {
       router.push({ pathname: '/journey-gate', params: { circleId: circle.id } });
       return;
     }
@@ -369,7 +377,7 @@ function YourCircle() {
         });
       }
     }
-  }, [circle, myLastCelebratedDay, presence, presenceLoaded, session?.user?.id, router]);
+  }, [circle, members, myLastCelebratedDay, presence, presenceLoaded, session?.user?.id, router]);
 
   // Completing a first cover teaches the same thing the hint says —
   // dismiss it for good the moment that happens, same as the voice hint

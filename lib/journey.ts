@@ -243,8 +243,23 @@ export async function markCelebrationSeen(
 export function shouldShowJourneyGate(
   rallyCount: number,
   circle: { completedAt: string | null },
-  myLastCelebratedDay: number
+  myLastCelebratedDay: number,
+  /** PA2 — this member's own memberships.finished_at for this circle.
+   * FOUND BY THE PA2 DISPOSABLE WALK, not reasoned about in advance: a
+   * member who has finished their rally was still being routed into the
+   * first-rally ceremony. The state that produces it is one this code
+   * creates itself — the ceremony's answer path writes finish_my_rally
+   * FIRST and mark_celebration_seen second, so a failure between the two
+   * leaves exactly "finished, marker still 0". CB1's whole lesson is
+   * that the second of two writes does fail in the wild.
+   *
+   * Re-ordering the writes would only move the damage (marker written,
+   * finish lost = the ceremony is spent AND they are not finished, which
+   * is worse). So finishing is treated as what it is: an answer. You
+   * cannot be asked to start a rally you have already ended. */
+  myFinishedAt?: string | null
 ): boolean {
+  if (myFinishedAt) return false;
   return rallyCount >= GATE_DAY && !circle.completedAt && myLastCelebratedDay < GATE_DAY;
 }
 
