@@ -51,11 +51,24 @@ import {
 } from '@/lib/circle';
 import { isBirthdayToday } from '@/lib/birthday';
 import { daysBetween, getLocalDateString, shiftDate } from '@/lib/date';
-import { getGlowForCircleMates, getMyGlow, getMyWeek, Glow, WeekDay } from '@/lib/glow';
+import {
+  getGlowForCircleMates,
+  getMyFreshPebbleGifts,
+  getMyGlow,
+  getMyWeek,
+  Glow,
+  recordMyRallyCliff,
+  WeekDay,
+} from '@/lib/glow';
 import { countRallyDays, getMyLastCelebratedDay, getNextMilestone, resumeMyRally } from '@/lib/journey';
 import { shouldRouteToJourneyGate } from '@/lib/journeyGateGuard';
 import { updateNotificationPrefs } from '@/lib/notifications';
-import { buildNotificationSpot, CoverMoment, shouldMoveSpotBelowCta } from '@/lib/notificationSpot';
+import {
+  buildNotificationSpot,
+  CoverMoment,
+  PebbleGiftMoment,
+  shouldMoveSpotBelowCta,
+} from '@/lib/notificationSpot';
 import { getMyProfile, markPhotoAskSeen, markReentryAcknowledged, markRemindersAskSeen } from '@/lib/profile';
 import { isDesiredChange, isObstacle, OBSTACLE_KEYS, setKeepGoingObstacle } from '@/lib/onboardingIntake';
 import { hasUnrespondedDayObservation } from '@/lib/reflections';
@@ -248,6 +261,9 @@ function Today() {
   // stops the moment repeating — there is no interstitial to tap now.
   const [covers, setCovers] = useState<CoverMoment[]>([]);
   const [reentry, setReentry] = useState<{ lastCompletionDate: string } | null>(null);
+  // PA3 job 3 — pebbles friends have put in this nest, gated server-side
+  // against the same users.warmth_seen_at marker the covers use.
+  const [pebbleGifts, setPebbleGifts] = useState<PebbleGiftMoment[]>([]);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -255,7 +271,7 @@ function Today() {
     setError(null);
     const today = getLocalDateString();
     try {
-      const [profile, myCircles, myCircleCap, question, todayReflection, myGlow, myWeek, hasNotice, freshWarmth] = await Promise.all([
+      const [profile, myCircles, myCircleCap, question, todayReflection, myGlow, myWeek, hasNotice, freshWarmth, freshPebbleGifts] = await Promise.all([
         getMyProfile(session.user.id),
         listMyCircles(session.user.id),
         getMyCircleCap(),
@@ -267,6 +283,12 @@ function Today() {
         // WL2 — ambient warmth; a failed fetch just means no whisper
         // this visit, never an error state.
         getFreshWarmth().catch(() => []),
+        // PA3 — same shape and same reasoning as the warmth read above:
+        // a failed fetch means no pebble line this visit. Substituting []
+        // here is safe under FF1's rule because it feeds a MOMENT LINE,
+        // not a write and not a number about the person — an absent line
+        // says nothing false, where a fabricated one would.
+        getMyFreshPebbleGifts().catch(() => []),
       ]);
       setMyName(profile?.name ?? null);
       setDesiredChange(profile?.onboarding_desired_change ?? null);
@@ -289,6 +311,7 @@ function Today() {
       setWeek(myWeek);
       setHasSurfacedPattern(hasNotice);
       setWarmth(freshWarmth);
+      setPebbleGifts(freshPebbleGifts);
       // TN1 — cleared up front so neither survives a refetch that ends
       // early (no circles) or in the catch below; both are set for real
       // once the per-circle entries land.
@@ -411,6 +434,10 @@ function Today() {
         isReentry: !!reentry,
         warmth,
         covers,
+        pebbleGifts,
+        // PA3 job 2 — read from the SAME glow fetch as glowHeld below, so
+        // a failed read cannot produce a pebble sentence either.
+        pebbleHeldPlace: glow ? glow.heldByToday === 'pebble' : false,
         // A failed glow read means the truth is unknown, so the
         // re-entry sentence is omitted rather than guessed (OD1 job 14).
         glowHeld: glow ? glow.state === 'glowing' : null,
@@ -420,7 +447,7 @@ function Today() {
         // the spot as null and gets the neutral welcome line.
         obstacle: isObstacle(obstacle) ? obstacle : null,
       }),
-    [reentry, warmth, covers, glow, circles.length, obstacle]
+    [reentry, warmth, covers, pebbleGifts, glow, circles.length, obstacle]
   );
 
   // WL2/TN1 — the spot fades once seen: the FIRST actual render of fresh
@@ -441,6 +468,28 @@ function Today() {
       // low-stakes: worst case the same warmth shows once more
     });
   }, [isLoading, spot, session?.user?.id]);
+
+  // PA3 job 2 (memo §5.1) — a run that ended keeps its record. The glow
+  // READS stay side-effect-free, so the durable journal fact is written
+  // by this explicit call, following check_glow_milestone's shipped
+  // detect-and-write pattern. Idempotent at the database (a partial
+  // unique index on the break date), so however many times Today loads
+  // after a run ended there is exactly one fact for it.
+  //
+  // Fired only when the glow is actually cold — no call on the ordinary
+  // path, where there is nothing to record.
+  const recordedCliffRef = useRef(false);
+  useEffect(() => {
+    if (isLoading || !session?.user || glow?.state !== 'cold') return;
+    if (recordedCliffRef.current) return;
+    recordedCliffRef.current = true;
+    recordMyRallyCliff().catch((e) => {
+      // Reported, never swallowed (FF1 rule 3): this is a durable WRITE,
+      // and a lost longest-rally record is the one thing memo §5.1
+      // promises survives the loss.
+      captureError(e, { screen: 'today', op: 'recordMyRallyCliff' });
+    });
+  }, [isLoading, glow?.state, session?.user?.id]);
 
   // TN1 — the re-entry moment is acknowledged on RENDER, since there is
   // no interstitial left to tap. Same idempotence as before (the gap's

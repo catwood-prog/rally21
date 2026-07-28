@@ -23,10 +23,21 @@ import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { coverMember } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
+import { getMyGlow, giftPebble } from '@/lib/glow';
 import { captureError } from '@/lib/sentry';
 import { isFriendNudgeEnabled, sendFriendNudge } from '@/lib/wall';
 
-type Mode = 'cover' | 'wave';
+// PA3 job 3 — a pebble joins cover and wave as a third gesture.
+//
+// THE CV1 COLLISION, and why gifting is NOT built on the cover window.
+// Cover is a next-day rescue: it can only target the member's own local
+// YESTERDAY and only while they are missing it. A pebble has no such
+// moment — it goes into a nest, where it waits. So a pebble is offered
+// even when a cover is impossible (they already checked in, or the day
+// in question is not yesterday), which is precisely the "friends gifting
+// pebbles still needs a moment to happen in" the memo asks for. CV1 is
+// left running exactly as shipped; nothing here replaces it.
+type Mode = 'cover' | 'wave' | 'pebble';
 
 export default function CoverAFriend() {
   const router = useRouter();
@@ -58,6 +69,12 @@ export default function CoverAFriend() {
   // starts hidden and stays hidden if the read fails. Offering a gesture
   // someone opted out of lies about consent between friends.
   const [nudgeAllowed, setNudgeAllowed] = useState(false);
+  // PA3 — the giver's own nest, re-derived server-side. Starts null and
+  // the option stays hidden until a successful read says there is a
+  // pebble to give: FF2's conservative direction (Cat, 28 July) applies
+  // squarely here, since offering a gesture that then fails on an empty
+  // nest is a promise about your own generosity you cannot keep.
+  const [myPebbles, setMyPebbles] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +87,17 @@ export default function CoverAFriend() {
         setNudgeAllowed(false);
       });
   }, [memberId]);
+
+  useEffect(() => {
+    getMyGlow()
+      .then((g) => setMyPebbles(g.pebbles))
+      .catch((e) => {
+        captureError(e, { screen: 'cover', op: 'getMyGlow' });
+        setMyPebbles(null);
+      });
+  }, []);
+
+  const canGiftPebble = (myPebbles ?? 0) >= 1;
 
   const goBackToCircle = () => router.replace({ pathname: '/circle', params: { circleId } });
 
@@ -100,6 +128,12 @@ export default function CoverAFriend() {
         // The date comes from getCoverableMembers; the RLS policy rejects
         // any other date, so this is the single source of the rescued day.
         await coverMember(circleId, memberId, session.user.id, missedDate ?? getLocalDateString());
+        squeezeThen(goBackToCircle);
+      } else if (mode === 'pebble') {
+        // The server re-derives the giver's balance and refuses an empty
+        // nest; nothing here trusts myPebbles as an authorisation (PA4's
+        // class lesson — a client-computed number never decides a write).
+        await giftPebble(circleId, memberId);
         squeezeThen(goBackToCircle);
       } else {
         // Security spec S1 (F4): the RPC composes the email + wall copy
@@ -136,6 +170,12 @@ export default function CoverAFriend() {
       const message = e instanceof Error ? e.message : '';
       if (message.includes('nudges disabled')) {
         setError(STRINGS.waveOptedOutError(name));
+      } else if (message.includes('nest is empty')) {
+        setError(STRINGS.pebbleEmptyNestError);
+      } else if (message.includes('already sent them a pebble today')) {
+        setError(STRINGS.pebbleAlreadySentError(name));
+      } else if (mode === 'pebble') {
+        setError(STRINGS.pebbleNotDeliveredError);
       } else {
         setError('something went wrong — try again');
       }
@@ -160,7 +200,11 @@ export default function CoverAFriend() {
 
         <View style={styles.noteCard}>
           <Text style={styles.noteText}>
-            {isWaveOnly ? STRINGS.waveNotePreview(covererName, name) : STRINGS.coverNotePreview(covererName)}
+            {mode === 'pebble'
+              ? STRINGS.pebbleNotePreview(covererName)
+              : isWaveOnly
+                ? STRINGS.waveNotePreview(covererName, name)
+                : STRINGS.coverNotePreview(covererName)}
           </Text>
         </View>
 
@@ -174,6 +218,21 @@ export default function CoverAFriend() {
             >
               <Text style={styles.optionText}>{STRINGS.coverActionLabel}</Text>
               {mode === 'cover' && (
+                <View style={styles.pickPill}>
+                  <Text style={styles.pickPillText}>{STRINGS.coverPickPill}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+          {canGiftPebble && (
+            <TouchableOpacity
+              style={styles.optionRow}
+              onPress={() => setMode('pebble')}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: mode === 'pebble' }}
+            >
+              <Text style={styles.optionText}>{STRINGS.pebbleActionLabel}</Text>
+              {mode === 'pebble' && (
                 <View style={styles.pickPill}>
                   <Text style={styles.pickPillText}>{STRINGS.coverPickPill}</Text>
                 </View>
@@ -202,7 +261,13 @@ export default function CoverAFriend() {
         {isSaving ? (
           <ActivityIndicator color={colors.ink} />
         ) : (
-          <Text style={styles.ctaText}>{mode === 'cover' ? STRINGS.coverCta(name) : STRINGS.waveCta(name)}</Text>
+          <Text style={styles.ctaText}>
+            {mode === 'cover'
+              ? STRINGS.coverCta(name)
+              : mode === 'pebble'
+                ? STRINGS.pebbleCta(name)
+                : STRINGS.waveCta(name)}
+          </Text>
         )}
       </TouchableOpacity>
 

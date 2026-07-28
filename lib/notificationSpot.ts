@@ -37,6 +37,12 @@ import { FreshWarmth } from './warmth';
  * so the seen-marker never loses microseconds (WL2's rule). */
 export type CoverMoment = { covererName: string; at: string };
 
+/** PA3 job 3 — a pebble a friend put in your nest. Same shape and same
+ * freshness rule as a cover: the server gates it against
+ * users.warmth_seen_at, so the spot keeps ONE freshness rule rather than
+ * one per event type. */
+export type PebbleGiftMoment = { senderName: string; at: string };
+
 export type SpotLine = { key: string; text: string; at: string };
 
 export type SpotContent = {
@@ -182,6 +188,20 @@ export function buildNotificationSpot(input: {
   /** Fresh warmth as served by get_my_fresh_warmth (newest first). */
   warmth: FreshWarmth[];
   covers: CoverMoment[];
+  /** PA3 — pebbles friends have put in this person's nest, not yet told. */
+  pebbleGifts: PebbleGiftMoment[];
+  /** PA3 job 2 — TRUE when a pebble from the person's OWN nest is what is
+   * holding their place right now (getMyGlow().heldByToday === 'pebble').
+   *
+   * This is the whole of "applied automatically, and the person is told
+   * warmly AFTERWARDS rather than asked in advance" (memo §5.2). The
+   * users most needing protection are exactly the ones not opening the
+   * app, so an offer requiring acceptance would protect the wrong people
+   * — which is why nothing here asks, and why the telling rides the
+   * re-entry moment TN1 already detects and already acknowledges
+   * durably (users.last_reentry_ack_date), rather than inventing a
+   * second marker that could nag. */
+  pebbleHeldPlace: boolean;
   /** getMyGlow().state === 'glowing' — the ONE source of truth for
    * whether "no streak lost" is honest right now (OD1 job 14). Never
    * assumed from the re-entry trigger alone. NULL when the glow read
@@ -195,7 +215,8 @@ export function buildNotificationSpot(input: {
    * when skipped or never asked, which is every pre-ON1 account. */
   obstacle: KeepGoingObstacle | null;
 }): SpotContent | null {
-  const { isReentry, warmth, covers, glowHeld, circleCount, obstacle } = input;
+  const { isReentry, warmth, covers, pebbleGifts, pebbleHeldPlace, glowHeld, circleCount, obstacle } =
+    input;
 
   const waves = warmth.filter((w) => w.kind === 'wave');
   const hearts = warmth.filter((w) => w.kind === 'heart');
@@ -242,6 +263,17 @@ export function buildNotificationSpot(input: {
       pinned: false,
     });
   }
+  for (const p of pebbleGifts) {
+    grouped.push({
+      line: {
+        key: `pebble-${p.at}-${p.senderName}`,
+        text: STRINGS.todaySpotPebbleGiftLine(p.senderName),
+        at: p.at,
+      },
+      moments: 1,
+      pinned: false,
+    });
+  }
 
   // Nothing to say and no re-entry to mark → the spot is absent
   // entirely, never an empty frame (mockup frame B).
@@ -269,10 +301,23 @@ export function buildNotificationSpot(input: {
     headline: isReentry ? welcomeLineForObstacle(obstacle) : null,
     lines: shown.map((g) => g.line),
     overflowCount,
+    // PA3 job 2 — the telling-afterwards. When a pebble from their own
+    // nest is what held the place, SAY SO: "no streak lost" is true but
+    // silent about the mechanic, and a mechanic nobody is told about is
+    // not "visible and self-serve". The pebble line replaces the generic
+    // held line rather than joining it — two sentences making the same
+    // claim would be the nag this surface exists to avoid.
+    //
+    // Still gated on glowHeld !== null: a failed glow read means the
+    // truth is unknown, and both branches state a fact about this
+    // person's own streak (OD1 job 14). pebbleHeldPlace comes from the
+    // SAME read, so it is never trusted when that read failed.
     footnote:
       isReentry && glowHeld !== null
         ? glowHeld
-          ? STRINGS.welcomeBackSubtitleHeld(circleCount)
+          ? pebbleHeldPlace
+            ? STRINGS.todaySpotPebbleHeldLine
+            : STRINGS.welcomeBackSubtitleHeld(circleCount)
           : STRINGS.welcomeBackSubtitleReset
         : null,
     newestAt,

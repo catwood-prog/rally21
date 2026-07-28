@@ -23,7 +23,7 @@ describe('shouldShowGlowBeat', () => {
 });
 
 function week(states: WeekDay['state'][]): WeekDay[] {
-  return states.map((state, i) => ({ date: `2026-07-0${i + 1}`, state }));
+  return states.map((state, i) => ({ date: `2026-07-0${i + 1}`, state, heldBy: null }));
 }
 
 describe('didRekindleToday', () => {

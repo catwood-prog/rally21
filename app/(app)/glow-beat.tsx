@@ -94,7 +94,15 @@ function WeekSlot({
       <Text style={styles.slotWeekday}>{weekdayInitial}</Text>
       <Animated.View style={[styles.slotPill, pillStyle, style]}>
         {day.state === 'earned' && <Animated.Text style={[styles.slotEarnedMark, markStyle]}>✓</Animated.Text>}
-        {day.state === 'held' && <Animated.Text style={[styles.slotHeldMark, markStyle]}>🧡</Animated.Text>}
+        {/* PA3 (memo §5.3) — the pebble sits where the practice would have
+            been. The heart stays the mark for a friend's cover and for an
+            away pause; a pebble is your own reserve, not warmth from
+            someone else, so the two never share a glyph. */}
+        {day.state === 'held' && (
+          <Animated.Text style={[styles.slotHeldMark, markStyle]}>
+            {day.heldBy === 'pebble' ? STRINGS.pebbleMark : '🧡'}
+          </Animated.Text>
+        )}
         {day.state === 'none' && <View style={styles.slotNoneDot} />}
       </Animated.View>
     </View>

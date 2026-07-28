@@ -21,7 +21,16 @@ function cover(covererName: string, at: string): CoverMoment {
   return { covererName, at };
 }
 
-const QUIET = { isReentry: false, warmth: [], covers: [], glowHeld: true, circleCount: 1, obstacle: null };
+const QUIET = {
+  isReentry: false,
+  warmth: [],
+  covers: [],
+  pebbleGifts: [],
+  pebbleHeldPlace: false,
+  glowHeld: true,
+  circleCount: 1,
+  obstacle: null,
+};
 
 // The spot inherits WL2's whisper laws (empty in = absent surface, a cap
 // with a quiet overflow line, newest first) plus TN1's own: welcome-back

@@ -158,9 +158,9 @@ describe('dotStripLine', () => {
 
 describe('buildShareCardNavParams', () => {
   const week = [
-    { date: '2026-07-12', state: 'earned' as const },
-    { date: '2026-07-13', state: 'held' as const },
-    { date: '2026-07-14', state: 'none' as const },
+    { date: '2026-07-12', state: 'earned' as const, heldBy: null },
+    { date: '2026-07-13', state: 'held' as const, heldBy: 'cover' as const },
+    { date: '2026-07-14', state: 'none' as const, heldBy: null },
   ];
 
   const quote: ShareCard = {

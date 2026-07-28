@@ -6,6 +6,12 @@ import { supabase } from './supabase';
 // it never computes streak logic itself.
 export type GlowState = 'glowing' | 'embers' | 'cold';
 
+/** PA3 — WHAT HELD A DAY, so the flame can say which (memo §5.3). A held
+ * day is never "at risk": embers means at risk and a pebble has already
+ * resolved it, so showing embers over a held day would be a warning about
+ * a situation that no longer exists. */
+export type HeldBy = 'away' | 'cover' | 'pebble';
+
 export type Glow = {
   glow: number;
   state: GlowState;
@@ -13,6 +19,19 @@ export type Glow = {
   heldToday: boolean;
   shelterUsed: number;
   shelterCapacity: number;
+  /** PA3 — the nest (memo §5.2): 3 on joining, +1 every 3 days, cap 6, and
+   * a friend's gift may push it OVER the cap. Server-derived on every
+   * read; nothing client-side ever computes or caches a balance. */
+  pebbles: number;
+  /** What held TODAY, when today is held at all. */
+  heldByToday: HeldBy | null;
+  /** Kept permanently once a run ends (memo §5.1) — "you return to a live
+   * number of 1 and a permanent record of 40". */
+  longestRally: number;
+  /** True when the run ended because a pebble-held gap reached six days.
+   * Distinct from an ordinary cold: the pebble WAS the grace, so there is
+   * no ember window to offer and nothing left to rescue. */
+  endedAtCliff: boolean;
 };
 
 export async function getMyGlow(): Promise<Glow> {
@@ -26,7 +45,62 @@ export async function getMyGlow(): Promise<Glow> {
     heldToday: row?.held_today ?? false,
     shelterUsed: row?.shelter_used ?? 0,
     shelterCapacity: row?.shelter_capacity ?? 1,
+    pebbles: row?.pebbles ?? 0,
+    heldByToday: (row?.held_by_today as HeldBy | null) ?? null,
+    longestRally: row?.longest_rally ?? 0,
+    endedAtCliff: row?.ended_at_cliff ?? false,
   };
+}
+
+/** The nest's cap (memo §5.2). Held here only so the give-a-pebble surface
+ * can describe a full nest; the BALANCE itself is never computed client-
+ * side — `getMyGlow().pebbles` is the one source, re-derived server-side
+ * on every read exactly as the glow is. */
+export const PEBBLE_CAP = 6;
+
+/** Give one of your own pebbles to someone you share a circle with (memo
+ * §5.2, job 3). The recipient's nest may go OVER the cap — the cap governs
+ * regeneration, not generosity. Returns the giver's remaining balance,
+ * re-derived by the server rather than decremented here. */
+export async function giftPebble(circleId: string, recipientId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('gift_pebble', {
+    p_circle_id: circleId,
+    p_recipient: recipientId,
+  });
+  if (error) throw error;
+  return (data as number | null) ?? 0;
+}
+
+/** Circle-mates whose nest is empty or whose run is at risk — the moment
+ * the gesture happens in. Derived entirely server-side from the circle id;
+ * there is no parameter naming a user, so no arbitrary-uuid read exists. */
+export async function getPebbleCandidates(circleId: string): Promise<Set<string>> {
+  const { data, error } = await supabase.rpc('get_pebble_candidates', { p_circle_id: circleId });
+  if (error) throw error;
+  return new Set(((data ?? []) as { user_id: string }[]).map((r) => r.user_id));
+}
+
+/** Pebbles given to the caller that they have not been told about yet,
+ * gated server-side against the SAME users.warmth_seen_at marker TN1
+ * already uses for waves, hearts and covers. */
+export async function getMyFreshPebbleGifts(): Promise<{ senderName: string; at: string }[]> {
+  const { data, error } = await supabase.rpc('get_my_fresh_pebble_gifts');
+  if (error) throw error;
+  return ((data ?? []) as { sender_name: string | null; created_at: string }[]).map((r) => ({
+    senderName: r.sender_name ?? 'someone in your circle',
+    at: r.created_at,
+  }));
+}
+
+/** Records the permanent longest-rally journal fact when a run has ended
+ * (memo §5.1), and returns that number on the ONE call that recorded it —
+ * null every time after, so the sentence is shown once and never nags.
+ * Detect-and-write, following check_glow_milestone: the glow READS stay
+ * side-effect-free and this is the explicit call that writes. */
+export async function recordMyRallyCliff(): Promise<number | null> {
+  const { data, error } = await supabase.rpc('record_my_rally_cliff');
+  if (error) throw error;
+  return (data as number | null) ?? null;
 }
 
 // Friend streaks (Rally21-Glow-Spec.md §3, Personal-Arc memo §5.1) —
@@ -129,9 +203,14 @@ export async function getPairStreaks(circleId: string): Promise<PairStreak[]> {
 // week row. States mirror get_week_for_user()'s own shelter-capacity
 // accounting exactly, so this never disagrees with getMyGlow()'s number.
 export type WeekDayState = 'earned' | 'held' | 'none';
-export type WeekDay = { date: string; state: WeekDayState };
+/** PA3 — `state` is UNCHANGED and still the three shipped values; the
+ * memo's instruction was to extend this vocabulary to the flame, not to
+ * add a fourth day state. `heldBy` rides alongside so a pebble-held day
+ * can show the pebble as its marker where a covered day shows the heart
+ * (memo §5.3). Null on any day that is not held. */
+export type WeekDay = { date: string; state: WeekDayState; heldBy: HeldBy | null };
 
-type WeekDayRow = { day_date: string; state: string };
+type WeekDayRow = { day_date: string; state: string; held_by: string | null };
 
 /** The last 7 local days (oldest first, today last), for the glow
  * moment's week row. All streak/shelter-capacity math happens
@@ -139,10 +218,14 @@ type WeekDayRow = { day_date: string; state: string };
 export async function getMyWeek(): Promise<WeekDay[]> {
   const { data, error } = await supabase.rpc('get_my_week');
   if (error) throw error;
-  return ((data ?? []) as WeekDayRow[]).map((row) => ({
-    date: row.day_date,
-    state: row.state === 'earned' || row.state === 'held' ? row.state : 'none',
-  }));
+  return ((data ?? []) as WeekDayRow[]).map((row) => {
+    const state: WeekDayState = row.state === 'earned' || row.state === 'held' ? row.state : 'none';
+    const heldBy =
+      row.held_by === 'away' || row.held_by === 'cover' || row.held_by === 'pebble'
+        ? row.held_by
+        : null;
+    return { date: row.day_date, state, heldBy: state === 'held' ? heldBy : null };
+  });
 }
 
 /** The G3/G5 composition rule: a milestone day always shows the

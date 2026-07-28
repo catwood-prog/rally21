@@ -41,7 +41,19 @@ export function GlowBadge({
   const [showDetail, setShowDetail] = useState(false);
   const reduceMotion = useReducedMotion();
 
+  // PA3 job 4 — THREE STATES, NOT TWO (memo §5.3). A sheltered day is
+  // HELD, never embers: embers means at risk, and a pebble has already
+  // resolved it, so breathing an ember flame over a held day would be a
+  // warning about a situation that no longer exists. The pebble is the
+  // marker — it sits where the practice would have been.
+  //
+  // Multi-day ember decay is gone from this badge as a CONSEQUENCE rather
+  // than a special case: a gap is now pebble-held server-side, so the run
+  // does not break and `state` never leaves 'glowing' across it. What is
+  // left of embers is the grace for an empty nest, which is rare.
   const isEmbers = !!glow && glow.state === 'embers';
+  const isPebbleHeld = !!glow && glow.heldToday && glow.heldByToday === 'pebble';
+  const isCoverHeld = !!glow && glow.heldToday && glow.heldByToday === 'cover';
 
   const breatheScale = useSharedValue(1);
   const breatheOpacity = useSharedValue(1);
@@ -90,6 +102,23 @@ export function GlowBadge({
     transform: [{ scale: breatheScale.value }],
   }));
 
+  // PA3 (memo §5.1) — when a run ends, the flame goes out and the LONGEST
+  // RALLY appears in its place. "You return to a live number of 1 and a
+  // permanent record of 40": nothing is taken and nothing is falsely
+  // claimed, so the loss is structural rather than emotional. No flame
+  // glyph here — 🔥 is the live run's mark and never sits on a number
+  // that survived a broken run (CY1's no-flame law).
+  if (glow && glow.state === 'cold' && glow.longestRally > 0) {
+    return (
+      <>
+        <TouchableOpacity style={styles.row} onPress={() => setShowDetail(true)} hitSlop={6}>
+          <Text style={styles.labelEmbers}>{STRINGS.glowLongestRallyKept(glow.longestRally)}</Text>
+        </TouchableOpacity>
+        <GlowDetailSheet visible={showDetail} onDismiss={() => setShowDetail(false)} heldTodayMessage={null} />
+      </>
+    );
+  }
+
   if (!glow || glow.state === 'cold' || (glow.state === 'glowing' && glow.glow === 0)) {
     return null;
   }
@@ -101,13 +130,24 @@ export function GlowBadge({
         <Text style={[styles.label, isEmbers && styles.labelEmbers]}>
           {isEmbers ? STRINGS.glowEmbersLabel : STRINGS.glowGlowingLabel(glow.glow)}
         </Text>
-        {!isEmbers && glow.heldToday && <Text style={styles.heart}>🧡</Text>}
+        {/* The mark says WHAT held the day: a heart for a friend's cover,
+            a pebble for your own nest. An away pause keeps the heart it
+            shipped with — RS2 owns that state, not PA3. */}
+        {!isEmbers && glow.heldToday && (
+          <Text style={styles.heart}>{isPebbleHeld ? STRINGS.pebbleMark : '🧡'}</Text>
+        )}
       </TouchableOpacity>
       <GlowDetailSheet
         visible={showDetail}
         onDismiss={() => setShowDetail(false)}
         heldTodayMessage={
-          !isEmbers && glow.heldToday && coveredByName ? STRINGS.glowHeldTodayNote(coveredByName) : null
+          isEmbers || !glow.heldToday
+            ? null
+            : isPebbleHeld
+              ? STRINGS.glowHeldTodayPebbleNote
+              : isCoverHeld && coveredByName
+                ? STRINGS.glowHeldTodayNote(coveredByName)
+                : null
         }
       />
     </>

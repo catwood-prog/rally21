@@ -1034,9 +1034,58 @@ export const STRINGS = {
   glowEmbersLabel: 'your glow is down to embers — one small thing today rekindles it.',
   glowHeldTodayNote: (name: string) => `${name} kept your glow warm today 🧡`,
   glowDetailTitle: 'your glow',
+  // PROPOSED, PA3 — rewritten because the old body described a mechanic
+  // that no longer runs, and §9 forbids a string that misstates how a
+  // person's own number behaves. What it used to say ("miss a day
+  // uncovered and it dims to embers for 48 hours") is now false in the
+  // ordinary case: a missed day is held by a pebble and the flame stays
+  // lit. Embers survives only for an empty nest, so it is deliberately
+  // not promised here as the normal path.
   glowDetailBody:
-    "Your glow is the run of days you've shown up — anywhere, for anyone. A friend can cover you and it holds, up to a few times a month depending how far you've come. Miss a day uncovered and it dims to embers for 48 hours — one small thing brings it right back.",
+    "Your glow is the run of days you've shown up — anywhere, for anyone. Miss a day and a pebble from your nest holds your place, up to five days at a time. Your nest starts with three and fills up again on its own, and friends can send you one of theirs.",
   glowDetailCta: 'got it',
+
+  // ── PA3 · pebbles (memo §5.2, §5.3) ──────────────────────────────
+  // EVERY STRING IN THIS BLOCK IS **PROPOSED** — Cat owns the words. The
+  // law owns the case (LC2's precedent): these are badge labels and
+  // moment lines by function, so they are lowercase, and a lawful result
+  // that grates is evidence the WORD is wrong, not the law.
+  //
+  // THE HONESTY GUARDRAIL (§9) applies to every line here: a pebble
+  // protects the GLOW, which counts continuity, and it must never read as
+  // a count of practices done. Nothing below states a practice count —
+  // the nest is a stock, "held your place" is a statement about the run,
+  // and the rally number these must never impersonate lives in its own
+  // strings and is untouched by pebbles.
+  //
+  // THE MARKER is 🪨 — the pebble sitting where the practice would have
+  // been (memo §5.3). Deliberately NOT 🧡: the heart is a friend covering
+  // you, warmth between people, and a pebble from your own nest is your
+  // own reserve. Deliberately not a snowflake either — "freezing" is a
+  // cold word for a warm act and would drag cold blue into a warm palette
+  // (memo §5).
+  pebbleMark: '🪨',
+  pebbleNestLabel: (n: number) => `${n} pebble${n === 1 ? '' : 's'} in your nest`,
+  pebbleNestFull: 'your nest is full',
+  pebbleNestEmpty: 'your nest is empty',
+  /** The flame's held-today note, the pebble twin of glowHeldTodayNote. */
+  glowHeldTodayPebbleNote: 'a pebble from your nest held your place today 🪨',
+  /** Job 2's warm telling-afterwards, reusing TN1's own sentence — the
+   * memo names this line explicitly ("a pebble held your place, it's
+   * still here, which is the sentence TN1 is already writing"). */
+  todaySpotPebbleHeldLine: 'a pebble held your place 🪨',
+  todaySpotPebbleGiftLine: (senderName: string) => `${senderName} sent you a pebble 🪨`,
+  /** Job 3's give-a-pebble surface, alongside cover and wave. */
+  pebbleActionLabel: 'send a pebble',
+  pebbleCta: (name: string) => `send ${name} a pebble`,
+  pebbleNotePreview: (senderName: string) => `${senderName} sent you a pebble for your nest 🪨`,
+  pebbleEmptyNestError: "your nest is empty right now — it fills up again on its own",
+  pebbleAlreadySentError: (name: string) => `you already sent ${name} a pebble today`,
+  pebbleNotDeliveredError: "that didn't send — try again in a moment",
+  /** The run that ended keeps its record (memo §5.1). Never a scold: the
+   * loss is made structural rather than emotional, and the number that
+   * survives is the point of the sentence. */
+  glowLongestRallyKept: (n: number) => `your longest rally: ${n} day${n === 1 ? '' : 's'}, kept`,
 
   // The glow moment — G5, Duolingo-style post-check-in beat (7 July).
   // Only shown on the check-in that earns the day (never a milestone

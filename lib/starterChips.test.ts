@@ -20,7 +20,7 @@ import { buildStarterChips, derivePersonalChip, missedYesterday } from './starte
 
 /** Oldest-first week row ending today, matching getMyWeek's shape. */
 function week(...states: WeekDayState[]): WeekDay[] {
-  return states.map((state, i) => ({ date: `2026-07-${String(10 + i).padStart(2, '0')}`, state }));
+  return states.map((state, i) => ({ date: `2026-07-${String(10 + i).padStart(2, '0')}`, state, heldBy: null }));
 }
 
 function pattern(overrides: Partial<BlueprintPattern>): BlueprintPattern {
