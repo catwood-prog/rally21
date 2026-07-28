@@ -8,6 +8,7 @@ import { AppState, Platform } from 'react-native';
 import { getDeviceTimeZone } from './date';
 import { markSeenNow } from './notifications';
 import { clearPushToken } from './pushNotifications';
+import { captureError } from './sentry';
 import { supabase } from './supabase';
 
 // GN1 (13 July) — configured once at module load, not per sign-in attempt,
@@ -206,7 +207,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const signOut = async () => {
     // Must run before signOut() clears the session — the delete is
     // RLS-scoped to the caller's own row.
-    await clearPushToken().catch(() => {});
+    //
+    // FF1's highest-person-loss finding (FF2, 28 July): a swallowed failure
+    // here leaves a SIGNED-OUT device still holding a live token, so the
+    // account's pushes keep arriving on a phone nobody is signed in on. It
+    // still must not block the sign-out — but it is reported, never silent.
+    await clearPushToken().catch((e) => captureError(e, { op: 'clearPushToken' }));
     await supabase.auth.signOut();
   };
 

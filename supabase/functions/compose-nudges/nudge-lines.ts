@@ -60,6 +60,10 @@ export const RESTART_LINES = [
   'clean page, small pen, plenty of possibility.',
   'a fresh start begins with one small check-in.',
   'today welcomes you just as you are — one small check-in starts it.',
+  // FF2 job D1 (Cat's ruling, 28 July) — the 13th restart line. Hand-synced
+  // with NUDGE_RESTART_LINES in constants/strings.ts; nudge-lines.test.ts
+  // pins the two byte-identical.
+  'no need to hold it in your head, your nudge comes just before your usual time.',
 ];
 
 // No-repeat window (NQ1, job 2). Warm: no warm line twice within this many

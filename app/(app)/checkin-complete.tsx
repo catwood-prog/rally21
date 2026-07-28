@@ -31,6 +31,7 @@ import { frameSwapSchedule } from '@/lib/mascotFx';
 import { MASCOT_FX, MASCOT_GESTURE, WARM_EASE_IN_OUT, WARM_EASE_OUT } from '@/lib/motion';
 import { getMyProfile, markPushPromptSeen } from '@/lib/profile';
 import { getPushPermissionStatus, registerForPushNotificationsAsync } from '@/lib/pushNotifications';
+import { captureError } from '@/lib/sentry';
 import { getDayCloseState } from '@/lib/dayComplete';
 import { getShareCardForToday, shouldOfferShareCard } from '@/lib/shareCards';
 import { buildShareCardNavParams } from '@/lib/shareCardTemplates';
@@ -95,6 +96,29 @@ function makeConfettiSpecs(): { behind: ConfettiSpec[]; front: ConfettiSpec[] } 
     behind: [...makeLayerSpecs(CONFETTI_LAYERS.back), ...makeLayerSpecs(CONFETTI_LAYERS.mid)],
     front: makeLayerSpecs(CONFETTI_LAYERS.front),
   };
+}
+
+/**
+ * FF2 (28 July, from FF1's inventory) — the success headline, and the one
+ * rule it now obeys: NEVER compose a number that isn't known.
+ *
+ * It used to read `STRINGS.checkinSuccessTitle(rallyCount ?? 1)`, so any
+ * failure of the count fetch told a person on their fortieth day "day 1
+ * done" — the exact false-number shape PA4 shipped and had to repair. The
+ * guard is the one the share-card slot already used two hundred lines up
+ * (`rallyCount === null` → don't compose): when the number is unknown the
+ * title is ABSENT and the subtitle ("You showed up again.") carries the
+ * moment on its own. A missing line is a smaller loss than a wrong one.
+ *
+ * Exported for its test, the same way checkin.tsx exports QuestionInput.
+ */
+export function successTitleFor(input: {
+  glowMilestone: number | null;
+  rallyCount: number | null;
+}): string | null {
+  if (input.glowMilestone) return STRINGS.glowMilestoneTitle(input.glowMilestone);
+  if (input.rallyCount === null) return null;
+  return STRINGS.checkinSuccessTitle(input.rallyCount);
 }
 
 function ConfettiPiece({ spec, fallDistance }: { spec: ConfettiSpec; fallDistance: number }) {
@@ -277,7 +301,7 @@ export default function CheckInComplete() {
         setIsCeremonyDay(count >= GATE_DAY);
         setPracticeName(circle.practiceName);
       })
-      .catch(() => {});
+      .catch((e) => captureError(e, { screen: 'checkin-complete', op: 'rallyCount' }));
   }, [circleId, session?.user?.id]);
 
   // OD1 Job 9a — resolve whether the day is fully done, from the ONE
@@ -361,9 +385,13 @@ export default function CheckInComplete() {
   // screen's mount, right at check-in time; a monotonic server-side
   // tracker means this never refires for an already-celebrated milestone.
   useEffect(() => {
+    // FF2 — a failed check here CONSUMES nothing but shows nothing either,
+    // so the milestone is simply never celebrated and no one ever knows.
+    // The durable ack-based repair is a server section (FF1's ledgered
+    // sibling); what belongs here is that the failure stops being silent.
     checkGlowMilestone()
       .then(setGlowMilestone)
-      .catch(() => {})
+      .catch((e) => captureError(e, { screen: 'checkin-complete', op: 'checkGlowMilestone' }))
       .finally(() => setMilestoneChecked(true));
   }, []);
 
@@ -527,6 +555,8 @@ export default function CheckInComplete() {
     return STRINGS.dayDoneCta;
   })();
 
+  const successTitle = successTitleFor({ glowMilestone, rallyCount });
+
   const handleDismiss = () => {
     // G5 (Rally21-Glow-Spec.md §1): the glow moment only replaces this
     // screen's normal dismissal on the check-in that actually earned the
@@ -595,9 +625,15 @@ export default function CheckInComplete() {
         </View>
       </Animated.View>
 
-      <Animated.Text style={[styles.title, headingStyle]}>
-        {glowMilestone ? STRINGS.glowMilestoneTitle(glowMilestone) : STRINGS.checkinSuccessTitle(rallyCount ?? 1)}
-      </Animated.Text>
+      {/* FF2 — the title used to fall back to `rallyCount ?? 1`, telling a
+          person on their 40th day "day 1 done" whenever the count fetch
+          failed: the exact false-number shape PA4 shipped. The number is
+          composed only when it is KNOWN, on the same guard the share-card
+          slot already uses (rallyCount !== null); otherwise the title is
+          simply absent and the subtitle carries the moment. */}
+      {successTitle !== null && (
+        <Animated.Text style={[styles.title, headingStyle]}>{successTitle}</Animated.Text>
+      )}
       <Animated.Text style={[styles.subtitle, bodyStyle]}>
         {glowMilestone ? STRINGS.glowMilestoneBody : STRINGS.checkinSuccessBody}
       </Animated.Text>

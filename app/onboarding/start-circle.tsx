@@ -24,6 +24,7 @@ import { createCircleWithDose } from '@/lib/circle-setup';
 import { seedInstructionsDraft, takeInstructionsDraft } from '@/lib/practiceInstructionsDraft';
 import { groupingLine } from '@/lib/practiceTaxonomy';
 import { isHttpUrl } from '@/lib/resourceLink';
+import { captureError } from '@/lib/sentry';
 
 /**
  * CF2 screen 5 — CIRCLE SETUP: the practice is LOCKED (chosen one screen
@@ -116,12 +117,19 @@ export default function StartCircle() {
       });
 
       if (wantKey && session?.user) {
-        await activateWant({
+        // FF2 — the activation is what ties this circle to the want on the
+        // private map; losing it silently makes the map disagree with the
+        // circle the person just made. One retry, then report — it must
+        // still never block the navigation into a circle that now exists.
+        const activation = {
           userId: session.user.id,
           wantKey,
           wantStatement: wantStatement ?? '',
           circleId,
-        }).catch(() => {});
+        };
+        await activateWant(activation)
+          .catch(() => activateWant(activation))
+          .catch((e) => captureError(e, { screen: 'start-circle', op: 'activateWant' }));
       }
 
       if (isPublic) {

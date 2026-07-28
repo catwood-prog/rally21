@@ -21,6 +21,7 @@ import { STRINGS } from '@/constants/strings';
 import { colors, CONFETTI_GREENS } from '@/constants/theme';
 import { getCircleById, MyCircle } from '@/lib/circle';
 import { markCelebrationSeen, rallyNumber } from '@/lib/journey';
+import { captureError } from '@/lib/sentry';
 
 // Rally markers are quiet — the standard entrance, a small burst, no
 // sound, no question. Major stops (50/100/365) get a bigger version of
@@ -150,10 +151,16 @@ export default function Celebration() {
         const body = majorStop
           ? STRINGS.journeyMajorStopBody(c.name)
           : STRINGS.journeyRallyMarkerBody(c.name, dayNumber);
-        markCelebrationSeen(circleId, dayNumber, {
-          kind: majorStop ? 'major_stop' : 'rally_marker',
+        // FF2 — this write is what stops the same marker celebrating twice
+        // (and what puts it on the wall). It must never block the screen,
+        // which keeps its own exit either way, so: one retry, then report.
+        const seenPayload = {
+          kind: (majorStop ? 'major_stop' : 'rally_marker') as 'major_stop' | 'rally_marker',
           body: `${title} · ${body}`,
-        }).catch(() => {});
+        };
+        markCelebrationSeen(circleId, dayNumber, seenPayload)
+          .catch(() => markCelebrationSeen(circleId, dayNumber, seenPayload))
+          .catch((e) => captureError(e, { screen: 'celebration', op: 'markCelebrationSeen' }));
       })
       .finally(() => setIsLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps

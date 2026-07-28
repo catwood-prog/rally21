@@ -65,6 +65,7 @@ import { shouldRouteToJourneyGate } from '@/lib/journeyGateGuard';
 import { blockUser, getMyBlocks, reportContent, unblockUser } from '@/lib/moderation';
 import { getMyProfile, markCoverHintSeen } from '@/lib/profile';
 import { extractYouTubeId, isHttpUrl } from '@/lib/resourceLink';
+import { captureError } from '@/lib/sentry';
 import { computeSignal, PresenceRow } from '@/lib/signal';
 import {
   FriendGestureKind,
@@ -138,7 +139,10 @@ function YourCircle() {
   // the real membership count (NOT the fromTab flag, which is exactly what
   // failed here). Drives the detail view's "← your circles" affordance so a
   // multi-circle user who arrived from Today can still reach the others.
-  const [hasOtherCircles, setHasOtherCircles] = useState(false);
+  // FF2 — three states, not two: null is "we don't know yet / the read
+  // failed", and the back link renders a claim-free 'back' for it rather
+  // than asserting this is your only circle.
+  const [hasOtherCircles, setHasOtherCircles] = useState<boolean | null>(null);
   const [listData, setListData] = useState<Record<string, ListCircleData>>({});
   const [isConfirmingLeave, setIsConfirmingLeave] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -230,21 +234,32 @@ function YourCircle() {
             getMyProfile(session.user.id),
             getMyLastCelebratedDay(myCircle.id, session.user.id),
             getPairStreaks(myCircle.id).catch(() => []),
-            getMyBlocks().catch(() => []),
+            // FF2 — the blocks read FAILS CLOSED, deliberately not soft:
+            // an empty list on a failed read renders a blocked person as
+            // an ordinary member of the huddle, which is the one outcome
+            // a block exists to prevent. It throws into the outer catch
+            // below, so the screen shows ER1's line instead of a lie.
+            getMyBlocks(),
             // GS1: one batch call for the whole huddle, riding the same
             // load — never a per-member fetch. Ambient pride only, so a
             // failed fetch just means no flames this visit.
             getGlowForCircleMates(myCircle.id).catch(() => new Map<string, number>()),
             // OD1 Job 6: the real "is there more than one circle?" answer,
             // riding the same load — drives the way-back-to-the-others
-            // affordance instead of the fromTab flag.
-            listMyCircles(session.user.id).catch(() => [] as MyCircle[]),
+            // affordance instead of the fromTab flag. FF2: a failed read
+            // degrades to UNKNOWN (null), never to "you have only this
+            // one" — the old empty-array fallback hid the picker from
+            // multi-circle people, which is exactly the bug Job 6 fixed.
+            listMyCircles(session.user.id).catch((e) => {
+              captureError(e, { screen: 'circle', op: 'listMyCircles' });
+              return null;
+            }),
             // CV1: who can be covered for yesterday right now (server owns
             // the ember + timezone rule). A failed fetch just means no cover
             // pills this visit, never an error.
             getCoverableMembers(myCircle.id).catch(() => new Map<string, string>()),
           ]);
-        setHasOtherCircles(myCirclesList.length > 1);
+        setHasOtherCircles(myCirclesList === null ? null : myCirclesList.length > 1);
         setMembers(circleMembers);
         setPresence(circlePresence);
         setPresenceLoaded(true);
@@ -257,13 +272,26 @@ function YourCircle() {
         setBlockedIds(new Set(myBlocks.map((b) => b.blockedId)));
         // HW1: one small parallel round for the gesture pills' opt-out
         // check (the RPC is per-user; who's-here shows at most 8).
-        // Errors default to reachable, same as cover.tsx.
+        //
+        // FF2 — CAT'S RULING, 28 July: this default is CONSERVATIVE. A
+        // failed read reveals nothing; the pill appears only on a
+        // successful read that says yes. The old permissive default
+        // offered a gesture the recipient may have opted out of, which
+        // lies about consent between friends — warmth-law grounds. The
+        // cost of the safe direction is one missing pill until the next
+        // load; the cost of the other is a promise we cannot keep.
         const nudgeStates = await Promise.all(
           circleMembers
             .filter((m) => m.userId !== session.user.id)
             .map(
               async (m) =>
-                [m.userId, await isFriendNudgeEnabled(m.userId).catch(() => true)] as const
+                [
+                  m.userId,
+                  await isFriendNudgeEnabled(m.userId).catch((e) => {
+                    captureError(e, { screen: 'circle', op: 'isFriendNudgeEnabled' });
+                    return false;
+                  }),
+                ] as const
             )
         );
         setNudgeDisabledIds(
@@ -782,12 +810,23 @@ function YourCircle() {
       {/* OD1 Job 6b — the way back is the LOGICAL parent, decided by the
           real membership count, not the fromTab flag (the flag that failed
           here): a multi-circle user always gets back to "your circles"
-          however they arrived; a single-circle user goes to Today. */}
-      <BackLink
-        label={hasOtherCircles ? 'your circles' : 'today'}
-        onPress={() => (hasOtherCircles ? router.replace('/circle') : router.push('/today'))}
-        style={styles.back}
-      />
+          however they arrived; a single-circle user goes to Today.
+          FF2: when the membership read failed we do not know which of
+          those two this person is, so the link makes no claim — it says
+          'back' and goes back, the same idiom the onboarding screens use. */}
+      {hasOtherCircles === null ? (
+        <BackLink
+          label="back"
+          onPress={() => (router.canGoBack() ? router.back() : router.push('/today'))}
+          style={styles.back}
+        />
+      ) : (
+        <BackLink
+          label={hasOtherCircles ? 'your circles' : 'today'}
+          onPress={() => (hasOtherCircles ? router.replace('/circle') : router.push('/today'))}
+          style={styles.back}
+        />
+      )}
 
       {circle.completedAt && (
         <View style={styles.journeyCompletedBanner}>

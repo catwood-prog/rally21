@@ -230,9 +230,23 @@ export async function createCircleWithDose(params: {
     params.circleName,
     params.isPublic
   );
-  await setCircleDurationMinutes(created.circleId, params.durationMinutes).catch(() => {
-    // the circle exists and the legacy-copied dose is a sane fallback
-  });
+  // FF2 — the dose is a person-facing fact (it is what the circle screen
+  // and the timer show), so losing it silently made the app disagree with
+  // what the host just chose. One retry, then REPORT.
+  //
+  // DELIBERATELY NOT RETHROWN, and this is a departure from FF1's written
+  // smallest-fix ("surface via the calling screen's error path") — FLAGGED
+  // for Cat rather than done quietly. By this point the circle EXISTS.
+  // Both callers' catch blocks put the setup screen back with "something
+  // went wrong — try again" and re-enable the button, so throwing here
+  // would invite a second create and leave the person with two circles,
+  // which is worse than a dose that fell back to the practice default and
+  // is editable from edit-circle. If a visible signal is wanted, it needs
+  // a non-blocking one on the NEXT screen, not this screen's failure path.
+  const dose = () => setCircleDurationMinutes(created.circleId, params.durationMinutes);
+  await dose()
+    .catch(dose)
+    .catch((e) => captureError(e, { op: 'setCircleDurationMinutes' }));
   if (params.resourceUrl) {
     await setCircleResourceUrl(created.circleId, params.resourceUrl).catch(() => {
       // non-blocking — they can add the link later from the circle screen

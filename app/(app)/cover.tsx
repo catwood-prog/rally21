@@ -23,6 +23,7 @@ import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { coverMember } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
+import { captureError } from '@/lib/sentry';
 import { isFriendNudgeEnabled, sendFriendNudge } from '@/lib/wall';
 
 type Mode = 'cover' | 'wave';
@@ -52,7 +53,11 @@ export default function CoverAFriend() {
   const isWaveOnly = alreadyCheckedIn === 'true';
 
   const [mode, setMode] = useState<Mode>(isWaveOnly ? 'wave' : 'cover');
-  const [nudgeAllowed, setNudgeAllowed] = useState(true);
+  // FF2 — CAT'S RULING, 28 July: conservative. The wave option is revealed
+  // only by a successful read that says this person accepts nudges; it
+  // starts hidden and stays hidden if the read fails. Offering a gesture
+  // someone opted out of lies about consent between friends.
+  const [nudgeAllowed, setNudgeAllowed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,7 +65,10 @@ export default function CoverAFriend() {
     if (!memberId) return;
     isFriendNudgeEnabled(memberId)
       .then(setNudgeAllowed)
-      .catch(() => setNudgeAllowed(true));
+      .catch((e) => {
+        captureError(e, { screen: 'cover', op: 'isFriendNudgeEnabled' });
+        setNudgeAllowed(false);
+      });
   }, [memberId]);
 
   const goBackToCircle = () => router.replace({ pathname: '/circle', params: { circleId } });

@@ -1,6 +1,6 @@
 import { withErrorBoundary } from '@/components/ErrorBoundary';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { MASCOT } from '@/assets/mascot';
@@ -34,6 +34,7 @@ import { getCircleById, listMyCircles } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 import { getMyWeek } from '@/lib/glow';
 import { getMyProfile, setReflectionsOptOut } from '@/lib/profile';
+import { captureError } from '@/lib/sentry';
 import { LikedCard, getMyLikedCards, hasAttributionLine, unlikeCard } from '@/lib/shareCards';
 import { buildStarterChips, derivePersonalChip, missedYesterday, StarterChip } from '@/lib/starterChips';
 
@@ -89,6 +90,11 @@ function Blueprint() {
   const [patterns, setPatterns] = useState<BlueprintPattern[]>([]);
   const [responses, setResponses] = useState<BlueprintResponse[]>([]);
   const [activeKey, setActiveKey] = useState<string | null>(null);
+  // FF2 — what this session actually surfaced, held locally so a failed
+  // markBlueprintPatternSurfaced write cannot let a refocus rotate the
+  // person onto a different observation. A ref, not state: `load` reads it
+  // and nothing renders from it, so it must not re-run the load.
+  const surfacedThisSession = useRef<{ key: string; at: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // ER1 — load failures (whole-moment, gets the slip) are kept separate
@@ -172,15 +178,25 @@ function Blueprint() {
       if (unresponded.length === 0) {
         setActiveKey(null);
       } else {
-        const surfacedKey = profile?.blueprint_surfaced_pattern_key ?? null;
-        const surfacedAt = profile?.blueprint_surfaced_at ?? null;
+        // FF2 — the surfaced-key write below is fire-and-forget, so when it
+        // fails the profile still names the PREVIOUS pattern and the very
+        // next focus re-derives from stale inputs. Holding what this
+        // session actually surfaced keeps the observation steady for the
+        // visit instead of rotating under the person mid-read.
+        const surfacedKey =
+          surfacedThisSession.current?.key ?? profile?.blueprint_surfaced_pattern_key ?? null;
+        const surfacedAt =
+          surfacedThisSession.current?.at ?? profile?.blueprint_surfaced_at ?? null;
         const stillCandidate = surfacedKey && unresponded.some((p) => p.patternKey === surfacedKey);
         const withinCooldown = !!surfacedAt && Date.now() - new Date(surfacedAt).getTime() < SEVEN_DAYS_MS;
 
         const next = stillCandidate && withinCooldown ? surfacedKey! : unresponded[0].patternKey;
         setActiveKey(next);
         if (next !== surfacedKey) {
-          markBlueprintPatternSurfaced(next).catch(() => {});
+          surfacedThisSession.current = { key: next, at: new Date().toISOString() };
+          markBlueprintPatternSurfaced(next).catch((e) =>
+            captureError(e, { screen: 'private-map', op: 'markBlueprintPatternSurfaced' })
+          );
         }
       }
     } catch {

@@ -32,11 +32,14 @@ describe('pool identity (client ⇄ edge, hand-synced)', () => {
     expect(RESTART_LINES).toEqual([...NUDGE_RESTART_LINES]);
   });
 
-  it('has the approved final counts (31 warm / 12 restart)', () => {
+  // 12 restart lines were NQ1's approved final count; FF2 job D1 added the
+  // 13th on Cat's 28 July ruling (the line that names the nudge mechanic,
+  // so 'forget' stops borrowing a near-miss).
+  it('has the approved final counts (31 warm / 13 restart)', () => {
     expect(WARM_LINES).toHaveLength(31);
-    expect(RESTART_LINES).toHaveLength(12);
+    expect(RESTART_LINES).toHaveLength(13);
     expect(new Set(WARM_LINES).size).toBe(31); // no accidental dupes
-    expect(new Set(RESTART_LINES).size).toBe(12);
+    expect(new Set(RESTART_LINES).size).toBe(13);
   });
 });
 

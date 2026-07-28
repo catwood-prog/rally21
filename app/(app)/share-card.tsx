@@ -16,6 +16,7 @@ import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { SHARE_CARD_FX } from '@/lib/motion';
 import { WeekDay } from '@/lib/glow';
+import { captureError } from '@/lib/sentry';
 import { captureShareCard, saveCardImage, shareCardImage } from '@/lib/shareCardExport';
 import { isShareCardFlavor, recordCardEvent, ShareCardFlavor } from '@/lib/shareCards';
 import { dotStripLine } from '@/lib/shareCardTemplates';
@@ -149,7 +150,14 @@ export default function ShareCard() {
         withTiming(1, { duration: SHARE_CARD_FX.HEART_POP_DOWN_MS })
       );
     }
-    recordCardEvent(flavor, cardKey, 'liked').catch(() => {});
+    // FF2 — the heart fill is optimistic; if the write never lands, the
+    // like does not exist (it will not be in "quotes you love" and it
+    // never counted), so the fill is reverted rather than left standing
+    // for a like that isn't there.
+    recordCardEvent(flavor, cardKey, 'liked').catch((e) => {
+      captureError(e, { screen: 'share-card', op: 'recordCardEvent:liked' });
+      setLiked(false);
+    });
   };
 
   const handleShare = async () => {

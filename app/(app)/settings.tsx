@@ -32,6 +32,7 @@ import {
   PushPermissionStatus,
   registerForPushNotificationsAsync,
 } from '@/lib/pushNotifications';
+import { captureError } from '@/lib/sentry';
 import { getMyMutedCardFlavors, setCardFlavorMuted, ShareCardFlavor } from '@/lib/shareCards';
 
 const CARD_FLAVOR_LABELS: Record<ShareCardFlavor, string> = {
@@ -87,7 +88,9 @@ export default function Settings() {
   const [unblockingId, setUnblockingId] = useState<string | null>(null);
   const [mutedCardFlavors, setMutedCardFlavors] = useState<ShareCardFlavor[]>([]);
   const [reEnablingFlavor, setReEnablingFlavor] = useState<ShareCardFlavor | null>(null);
-  const [pushStatus, setPushStatus] = useState<PushPermissionStatus>('denied');
+  // FF2 — 'unknown' is a real state: before the read lands, and after one
+  // that failed. Nothing renders a permission claim from it.
+  const [pushStatus, setPushStatus] = useState<PushPermissionStatus | 'unknown'>('unknown');
   const [isRequestingPush, setIsRequestingPush] = useState(false);
   const [awaySince, setAwaySinceState] = useState<string | null>(null);
   const [isTogglingAway, setIsTogglingAway] = useState(false);
@@ -104,9 +107,19 @@ export default function Settings() {
       const [profile, notificationPrefs, myBlocks, myMutedCardFlavors, pushPermissionStatus] = await Promise.all([
         getMyProfile(session.user.id),
         getMyNotificationPrefs(session.user.id),
-        getMyBlocks().catch(() => []),
+        // FF2 — FAIL CLOSED. An empty list on a failed read renders "you
+        // haven't blocked anyone", which quietly tells someone their
+        // blocks are gone. It throws into the catch below instead.
+        getMyBlocks(),
         getMyMutedCardFlavors().catch(() => []),
-        getPushPermissionStatus().catch(() => 'denied' as PushPermissionStatus),
+        // FF2 — degrade to UNKNOWN, never to 'denied': claiming the OS
+        // refused push (and sending the person to iOS Settings for it) is
+        // a fabricated fact about their phone. The row simply doesn't
+        // render until a read succeeds.
+        getPushPermissionStatus().catch((e) => {
+          captureError(e, { screen: 'settings', op: 'getPushPermissionStatus' });
+          return 'unknown' as const;
+        }),
       ]);
       setName(profile?.name ?? '');
       setAvatarUrl(profile?.avatar_url ?? null);
@@ -135,7 +148,9 @@ export default function Settings() {
   // instead of silently failing. 'undetermined' is the only state where
   // requesting again actually shows the real system dialog.
   const handlePushRowPress = async () => {
-    if (!session?.user || pushStatus === 'granted') return;
+    // FF2 — 'unknown' never acts: the row is not rendered in that state,
+    // and a status we could not read is not one to branch on.
+    if (!session?.user || pushStatus === 'granted' || pushStatus === 'unknown') return;
     if (pushStatus === 'denied') {
       Linking.openSettings();
       return;
@@ -472,7 +487,7 @@ export default function Settings() {
         </TouchableOpacity>
       </View>
 
-      {Platform.OS !== 'web' && (
+      {Platform.OS !== 'web' && pushStatus !== 'unknown' && (
         <View style={[styles.prefRow, styles.sectionSpacing]}>
           <View style={styles.prefRowText}>
             <Text style={styles.prefRowLabel}>{STRINGS.pushToggleLabel}</Text>

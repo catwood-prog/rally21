@@ -585,14 +585,16 @@ export const STRINGS = {
   // (or unrecognised) obstacle falls back to todaySpotWelcomeHeadline.
   //
   // PROPOSED pairings — Cat's wording wins, as with the Day-0 sentence.
-  // Two are honest compromises, reported rather than hidden: 'forget'
-  // should lean into the reminders/NS1 emphasis and NO line in either
-  // pool names the nudge mechanic, so it takes the pool's closest
-  // "you haven't lost the thread" line; and 'alone' is answered only by
-  // the circle, which the restart half never mentions, so it borrows the
-  // warm half's circle line.
+  // RULED 28 July (Cat, on the docs recommendation): the four other
+  // pairings STAND as shipped, and 'alone' borrowing the warm half's
+  // circle line is BLESSED as correct by design — the obstacle is
+  // answered only by the circle, which the restart half never mentions.
+  // 'forget' was the one honest compromise (no line in either pool named
+  // the nudge mechanic, so it took the closest "you haven't lost the
+  // thread" line); FF2 job D1 gave the restart pool a line that names the
+  // mechanic, and the lean now points at it.
   todaySpotWelcomeLineByObstacle: {
-    forget: 'no run-up needed, step in whenever you like.',
+    forget: 'no need to hold it in your head, your nudge comes just before your usual time.',
     no_time: 'no catching up required — just a little something today.',
     lose_motivation: 'day one energy is good energy.',
     miss_once: "starting again is a skill — and you're already practicing it.",
@@ -747,6 +749,13 @@ export const STRINGS = {
   // never a raw error message or status code (AR1's warmth rule,
   // generalized app-wide; raw errors still go to Sentry, not the user).
   loadFailedLine: (what: string) => `${what} couldn't load just now — give it a moment and try again`,
+  // FF2 (28 July) — ER1's other half: a WRITE that didn't land. Today had
+  // no such line, so the two fixes that must say "your tap didn't save"
+  // (the reminders card, the Day-0 obstacle answer) would otherwise have
+  // had to borrow loadFailedLine and claim something failed to LOAD.
+  // Same register, same shape as reflectionsToggleFailed below.
+  // PROPOSED — Cat's wording wins, as with every other line here.
+  saveFailedLine: "that didn't save just now — give it a moment and try again",
   hostCloseToJoinsHelperClosed: "you're not taking new members right now",
 
   // EC1 (16 July) — hosts edit their circle from Host Controls or the ✎
@@ -1549,4 +1558,11 @@ export const NUDGE_RESTART_LINES = [
   'clean page, small pen, plenty of possibility.',
   'a fresh start begins with one small check-in.',
   'today welcomes you just as you are — one small check-in starts it.',
+  // FF2 job D1 (Cat's ruling, 28 July) — the 13th restart line, added so
+  // the 'forget' obstacle has a line that actually NAMES the mechanic
+  // that answers it, instead of borrowing the pool's closest
+  // "you haven't lost the thread" line. It claims only what NS1 already
+  // does (the nudge lands just before the circle's usual time); no timing
+  // maths was touched to add it. PROPOSED wording — Cat may reword.
+  'no need to hold it in your head, your nudge comes just before your usual time.',
 ] as const;

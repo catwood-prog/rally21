@@ -59,6 +59,7 @@ import { buildNotificationSpot, CoverMoment, shouldMoveSpotBelowCta } from '@/li
 import { getMyProfile, markPhotoAskSeen, markReentryAcknowledged, markRemindersAskSeen } from '@/lib/profile';
 import { isDesiredChange, isObstacle, OBSTACLE_KEYS, setKeepGoingObstacle } from '@/lib/onboardingIntake';
 import { hasUnrespondedDayObservation } from '@/lib/reflections';
+import { captureError } from '@/lib/sentry';
 import { computeSignal } from '@/lib/signal';
 import { hasPlayedTodayOneShot, markTodayOneShotPlayed } from '@/lib/todayOneShot';
 import {
@@ -560,7 +561,17 @@ function Today() {
   const answerObstacle = async (key: string) => {
     const userId = session?.user?.id;
     if (!isObstacle(key) || !userId) return;
-    await setKeepGoingObstacle(userId, key).catch(() => {});
+    try {
+      await setKeepGoingObstacle(userId, key);
+    } catch (e) {
+      // FF2 — a swallowed failure here refetched straight back into the
+      // same unanswered card, so a tap that never landed looked exactly
+      // like a tap that did. Say so once, in ER1's register, and leave the
+      // card where it is so the answer can be given again.
+      captureError(e, { screen: 'today', op: 'setKeepGoingObstacle' });
+      setError(STRINGS.saveFailedLine);
+      return;
+    }
     load();
   };
 
@@ -568,7 +579,8 @@ function Today() {
   // obstacle) as one warm card while unanswered; once answered it gives way
   // to the reflected sentence that names the mechanic. Gated to a brand-new
   // person (no completions yet) who CREATED this circle — a solo creator is
-  // still the creator, and an invited friend never is (JOB 4 is OWED), so
+  // still the creator, and an invited friend never is — asking joiners the
+  // same question was DECLINED (Cat, 26 July; executed as ON2 job A), so
   // the invite loop stays clean and nothing here ever asks before joining.
   const onboardingIntakeBlock = (circle: MyCircle) => {
     if (hasAnyOwnCompletion || circle.createdBy !== session?.user?.id) return null;
@@ -804,13 +816,27 @@ function Today() {
 
   // RM1 — the one-time dismissible reminders-ask card for existing users
   // (new sign-ups get the onboarding step instead, never both). Either
-  // action hides it immediately and stamps the flag for good; a failed
-  // stamp is low-stakes (the card just might show once more).
-  const handleTurnOnReminders = () => {
+  // action hides it and stamps the flag for good; a failed stamp is
+  // low-stakes (the card just might show once more).
+  //
+  // FF1's ASYMMETRY finding (FF2, 28 July): the seen-marker used to be
+  // stamped BEFORE the prefs write was known to have landed, so a failed
+  // write left reminders off forever with the only card that could turn
+  // them on already retired. Nothing is stamped unless the write landed.
+  const handleTurnOnReminders = async () => {
     if (!session?.user) return;
+    const userId = session.user.id;
+    try {
+      await updateNotificationPrefs(userId, { nudgeEnabled: true, digestEnabled: true });
+    } catch (e) {
+      captureError(e, { screen: 'today', op: 'updateNotificationPrefs' });
+      setError(STRINGS.saveFailedLine);
+      return;
+    }
     setHasSeenRemindersAsk(true);
-    updateNotificationPrefs(session.user.id, { nudgeEnabled: true, digestEnabled: true }).catch(() => {});
-    markRemindersAskSeen(session.user.id).catch(() => {});
+    markRemindersAskSeen(userId).catch((e) =>
+      captureError(e, { screen: 'today', op: 'markRemindersAskSeen' })
+    );
   };
   const handleMaybeLaterReminders = () => {
     if (!session?.user) return;

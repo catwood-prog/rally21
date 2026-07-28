@@ -25,6 +25,7 @@ import { seedInstructionsDraft, takeInstructionsDraft } from '@/lib/practiceInst
 import { getMyProfile } from '@/lib/profile';
 import { groupingLine } from '@/lib/practiceTaxonomy';
 import { isHttpUrl } from '@/lib/resourceLink';
+import { captureError } from '@/lib/sentry';
 
 /**
  * CF2 screen 4 — SOLO SETUP: "{practice}, solo · a circle of one". No
@@ -123,13 +124,18 @@ export default function SoloSetup() {
 
       if (wantKey && session?.user) {
         // The wants act flow — recording the activation never blocks the
-        // circle that now exists either way.
-        await activateWant({
+        // circle that now exists either way. FF2: one retry, then report,
+        // so a lost activation stops being invisible (the private map
+        // would otherwise disagree with the circle just created).
+        const activation = {
           userId: session.user.id,
           wantKey,
           wantStatement: wantStatement ?? '',
           circleId,
-        }).catch(() => {});
+        };
+        await activateWant(activation)
+          .catch(() => activateWant(activation))
+          .catch((e) => captureError(e, { screen: 'solo-setup', op: 'activateWant' }));
       }
 
       if (startFirstNow) {

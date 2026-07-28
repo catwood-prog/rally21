@@ -59,6 +59,15 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
 export async function clearPushToken(): Promise<void> {
   const token = await AsyncStorage.getItem(LAST_TOKEN_KEY);
   if (!token) return;
-  await supabase.from('device_tokens').delete().eq('token', token);
-  await AsyncStorage.removeItem(LAST_TOKEN_KEY);
+  try {
+    const { error } = await supabase.from('device_tokens').delete().eq('token', token);
+    if (error) throw error;
+  } finally {
+    // FF1/FF2 — the local marker clears whether or not the row went: this
+    // device is signing out either way, and a marker left pointing at a
+    // token the next account's registration then overwrites is how one
+    // failure cascades into a second. The delete failing is the caller's
+    // to report (auth-context), never something the marker hides.
+    await AsyncStorage.removeItem(LAST_TOKEN_KEY);
+  }
 }

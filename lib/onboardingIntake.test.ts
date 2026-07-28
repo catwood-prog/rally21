@@ -97,6 +97,25 @@ describe('ON2 the lean chooses EXISTING copy, never new copy', () => {
   it('the map holds nothing but the five obstacles (no stray keys to leak a line)', () => {
     expect(Object.keys(STRINGS.todaySpotWelcomeLineByObstacle).sort()).toEqual([...OBSTACLE_KEYS].sort());
   });
+
+  // FF2 job D1 (Cat's ruling, 28 July). 'forget' was the one pairing that
+  // could not point at a line answering its obstacle, because no line in
+  // either pool named the nudge mechanic; the restart pool gained one. The
+  // pin is that the line stays IN the restart half (restart-framed is the
+  // right voice after a miss) and stays the one that names the mechanic —
+  // reverting the pool line without repointing the lean fails here.
+  it('forget leans on the restart line that names the nudge mechanic', () => {
+    const line = STRINGS.todaySpotWelcomeLineByObstacle.forget;
+    expect([...NUDGE_RESTART_LINES]).toContain(line);
+    expect(line).toContain('nudge');
+  });
+
+  // The 'alone' borrow is BLESSED, not a compromise to be tidied away
+  // (Cat, 28 July): the obstacle is answered only by the circle, which the
+  // restart half never mentions, so the warm half is the right home.
+  it('alone deliberately borrows the warm half — the restart half has no circle line', () => {
+    expect([...NUDGE_WARM_LINES]).toContain(STRINGS.todaySpotWelcomeLineByObstacle.alone);
+  });
 });
 
 describe('ON1 Day-0 reflected sentence', () => {

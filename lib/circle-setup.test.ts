@@ -165,6 +165,32 @@ describe('createCircleWithDose (CF2)', () => {
       })
     ).resolves.toEqual({ circleId: 'c-3', inviteCode: 'ZZZ999' });
   });
+
+  // FF2 (28 July) — the dose is a person-facing fact (the circle screen and
+  // the timer both show it), so a lost write made the app disagree with
+  // what the host had just chosen. It gets ONE retry before giving up.
+  test('the dose write is retried once before it is given up on', async () => {
+    mockCreate('c-4');
+    const eq = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('transient'))
+      .mockResolvedValueOnce({ error: null });
+    const update = jest.fn().mockReturnValue({ eq });
+    from.mockReturnValue({ update });
+
+    await createCircleWithDose({
+      practiceKey: 'walk',
+      timeOfDay: '07:00:00',
+      circleName: 'Early walkers',
+      isPublic: false,
+      durationMinutes: 25,
+      resourceUrl: null,
+      instructions: null,
+    });
+
+    expect(eq).toHaveBeenCalledTimes(2);
+    expect(update).toHaveBeenLastCalledWith({ duration_minutes: 25 });
+  });
 });
 
 // CF2 — the "Learn · Read" grouping line every flow surface shares.
