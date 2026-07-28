@@ -61,11 +61,9 @@ export type MyCircle = {
    * listMyCircles (Today's wall-teaser gate needs it); optional so the
    * other fetch paths and existing test fixtures stay untouched. */
   wallSeenAt?: string | null;
-  /** ON1 (23 July) — the caller's own answer to "what makes it hard to keep
-   * going?" for this circle (null = skipped/unanswered/pre-ON1). Only
-   * populated by listMyCircles; optional so other fetch paths and existing
-   * fixtures stay untouched. */
-  keepGoingObstacle?: string | null;
+  // keepGoingObstacle retired with ON2 (28 July): the obstacle is one
+  // answer per PERSON, not per circle, so it lives on the profile
+  // (Profile.keep_going_obstacle) and a circle no longer carries it.
   /** PA2 (27 July) — the caller's OWN memberships.finished_at for this
    * circle: non-null once they have finished their rally here. Only
    * populated by listMyCircles (Today needs it to stop asking a finished
@@ -164,10 +162,10 @@ export function mapCircleRow(c: CircleRow, myJoinSource: MyCircle['myJoinSource'
 export async function listMyCircles(userId: string): Promise<MyCircle[]> {
   const { data, error } = await supabase
     .from('memberships')
-    .select(`join_source, wall_seen_at, keep_going_obstacle, finished_at, ${CIRCLE_SELECT}`)
+    .select(`join_source, wall_seen_at, finished_at, ${CIRCLE_SELECT}`)
     .eq('user_id', userId)
     .order('joined_at', { ascending: true })
-    .returns<{ join_source: string; wall_seen_at: string | null; keep_going_obstacle: string | null; finished_at: string | null; circles: CircleRow }[]>();
+    .returns<{ join_source: string; wall_seen_at: string | null; finished_at: string | null; circles: CircleRow }[]>();
 
   if (error) throw error;
 
@@ -176,7 +174,6 @@ export async function listMyCircles(userId: string): Promise<MyCircle[]> {
     .map((row) => ({
       ...mapCircleRow(row.circles, row.join_source as MyCircle['myJoinSource']),
       wallSeenAt: row.wall_seen_at,
-      keepGoingObstacle: row.keep_going_obstacle,
       myFinishedAt: row.finished_at,
     }))
     .sort((a, b) => {

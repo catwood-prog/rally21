@@ -29,6 +29,7 @@
 // read.
 import { STRINGS } from '@/constants/strings';
 
+import type { KeepGoingObstacle } from './onboardingIntake';
 import { FreshWarmth } from './warmth';
 
 /** A cover of the caller's own missed day, ready for the spot. `at` is
@@ -120,6 +121,32 @@ export function shouldMoveSpotBelowCta(input: {
   return ctaBottomWithSpotAbove - spotBlockHeight <= viewportHeight;
 }
 
+/**
+ * ON2 job C (28 July) — THE LEAN, and the whole of it.
+ *
+ * ON1 asked the person at Day 0 what usually makes it hard to keep going.
+ * The half of job 2 never built was the payoff: that answer should bias
+ * which existing welcome-back line they meet when they come back from a
+ * miss. Since TN1 the welcome-back interstitial is gone, so the line it
+ * biases is THIS spot's welcome line — the one the mockup calls "your
+ * place is still here" — and nothing else on the card.
+ *
+ * WHAT IT DOES NOT DO, deliberately: it writes no new copy (every
+ * candidate is an existing NQ1 line, pinned to its pool by test), it
+ * recomputes nothing, and it does not go near NS1's timing algorithm —
+ * the lean only ever CHOOSES copy. It is also strictly additive for
+ * everyone who has not answered Q2, which today is every existing
+ * account: a null obstacle returns the neutral line byte-for-byte.
+ *
+ * An unrecognised value falls back to neutral rather than throwing — the
+ * column is CHECK-constrained, but a stale client reading a value a newer
+ * migration added should show the shipped line, not a blank headline.
+ */
+export function welcomeLineForObstacle(obstacle: KeepGoingObstacle | null): string {
+  const leaned = obstacle ? STRINGS.todaySpotWelcomeLineByObstacle[obstacle] : undefined;
+  return leaned ?? STRINGS.todaySpotWelcomeHeadline;
+}
+
 /** "Russ" / "Russ and Catherine" / "Russ, Catherine and Bo" / "Russ,
  * Catherine and 2 others" — warm, never a headcount. */
 export function joinNames(names: string[]): string {
@@ -163,8 +190,12 @@ export function buildNotificationSpot(input: {
    * streak and a wrong one is exactly what job 14 corrected. */
   glowHeld: boolean | null;
   circleCount: number;
+  /** ON2 — the person's Day-0 obstacle (users.keep_going_obstacle), one
+   * answer per person since the column moved off the membership. Null
+   * when skipped or never asked, which is every pre-ON1 account. */
+  obstacle: KeepGoingObstacle | null;
 }): SpotContent | null {
-  const { isReentry, warmth, covers, glowHeld, circleCount } = input;
+  const { isReentry, warmth, covers, glowHeld, circleCount, obstacle } = input;
 
   const waves = warmth.filter((w) => w.kind === 'wave');
   const hearts = warmth.filter((w) => w.kind === 'heart');
@@ -235,7 +266,7 @@ export function buildNotificationSpot(input: {
 
   return {
     kicker: isReentry ? STRINGS.todaySpotKickerWelcomeBack : STRINGS.todaySpotKickerEveryday,
-    headline: isReentry ? STRINGS.todaySpotWelcomeHeadline : null,
+    headline: isReentry ? welcomeLineForObstacle(obstacle) : null,
     lines: shown.map((g) => g.line),
     overflowCount,
     footnote:

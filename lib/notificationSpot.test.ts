@@ -6,7 +6,9 @@ import {
   joinNames,
   shouldMoveSpotBelowCta,
   SPOT_MAX_LINES,
+  welcomeLineForObstacle,
 } from './notificationSpot';
+import { KeepGoingObstacle, OBSTACLE_KEYS } from './onboardingIntake';
 import { FreshWarmth } from './warmth';
 
 function wave(senderName: string, createdAt: string): FreshWarmth {
@@ -19,7 +21,7 @@ function cover(covererName: string, at: string): CoverMoment {
   return { covererName, at };
 }
 
-const QUIET = { isReentry: false, warmth: [], covers: [], glowHeld: true, circleCount: 1 };
+const QUIET = { isReentry: false, warmth: [], covers: [], glowHeld: true, circleCount: 1, obstacle: null };
 
 // The spot inherits WL2's whisper laws (empty in = absent surface, a cap
 // with a quiet overflow line, newest first) plus TN1's own: welcome-back
@@ -323,6 +325,64 @@ describe('the fold rule — the spot never pushes check-in off the screen', () =
     // There is exactly one cap, and no large-text variant of it exists
     // to be reinstated.
     expect(SPOT_MAX_LINES).toBe(3);
+  });
+});
+
+// ON2 job C — the lean. The Day-0 obstacle biases WHICH EXISTING
+// welcome-back line surfaces after a miss, and touches nothing else on
+// the card: not the kicker, not the moment lines, not job 14's glow
+// footnote, and not NS1's timing (which this module cannot reach at all).
+describe('ON2 the obstacle leans the welcome line', () => {
+  it('each obstacle surfaces its own line, and only the headline changes', () => {
+    const neutral = buildNotificationSpot({ ...QUIET, isReentry: true })!;
+    for (const key of OBSTACLE_KEYS) {
+      const spot = buildNotificationSpot({ ...QUIET, isReentry: true, obstacle: key })!;
+      expect(spot.headline).toBe(STRINGS.todaySpotWelcomeLineByObstacle[key]);
+      expect(spot.headline).not.toBe(STRINGS.todaySpotWelcomeHeadline);
+      // Everything else on the card is byte-identical to the neutral one.
+      expect(spot.kicker).toBe(neutral.kicker);
+      expect(spot.lines).toEqual(neutral.lines);
+      expect(spot.footnote).toBe(neutral.footnote);
+      expect(spot.overflowCount).toBe(neutral.overflowCount);
+      expect(spot.newestAt).toBe(neutral.newestAt);
+    }
+  });
+
+  it("'forget' leans on the reminders/NS1 flavour, 'miss once' on beginning again", () => {
+    expect(welcomeLineForObstacle('forget')).toBe(STRINGS.todaySpotWelcomeLineByObstacle.forget);
+    expect(welcomeLineForObstacle('miss_once')).toMatch(/starting again/);
+  });
+
+  it('an unanswered obstacle falls back to the neutral line — every pre-ON2 account, unchanged', () => {
+    expect(welcomeLineForObstacle(null)).toBe(STRINGS.todaySpotWelcomeHeadline);
+    const spot = buildNotificationSpot({ ...QUIET, isReentry: true, obstacle: null })!;
+    expect(spot.headline).toBe(STRINGS.todaySpotWelcomeHeadline);
+  });
+
+  it('an unrecognised stored value falls back to neutral rather than a blank headline', () => {
+    expect(welcomeLineForObstacle('bogus' as KeepGoingObstacle)).toBe(STRINGS.todaySpotWelcomeHeadline);
+  });
+
+  it('the lean never puts a welcome line on an ordinary day — only re-entry has a headline', () => {
+    for (const key of OBSTACLE_KEYS) {
+      const spot = buildNotificationSpot({
+        ...QUIET,
+        obstacle: key,
+        warmth: [heart('Russ', '2026-07-24T09:00:00Z')],
+      })!;
+      expect(spot.headline).toBeNull();
+    }
+  });
+
+  it('the lean chooses copy and nothing else — it cannot change what a moment says', () => {
+    const moments = {
+      warmth: [wave('Russ', '2026-07-24T10:00:00Z')],
+      covers: [cover('Catherine', '2026-07-24T09:00:00Z')],
+    };
+    const neutral = buildNotificationSpot({ ...QUIET, isReentry: true, ...moments })!;
+    const leaned = buildNotificationSpot({ ...QUIET, isReentry: true, obstacle: 'alone', ...moments })!;
+    expect(leaned.lines.map((l) => l.text)).toEqual(neutral.lines.map((l) => l.text));
+    expect(leaned.newestAt).toBe(neutral.newestAt);
   });
 });
 

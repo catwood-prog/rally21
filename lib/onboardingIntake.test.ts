@@ -1,4 +1,4 @@
-import { STRINGS } from '@/constants/strings';
+import { NUDGE_RESTART_LINES, NUDGE_WARM_LINES, STRINGS } from '@/constants/strings';
 
 import {
   DESIRED_CHANGE_KEYS,
@@ -71,6 +71,31 @@ describe('ON1 keep-going obstacle (Q2)', () => {
 
   it('the forget reassurance names the learned-timing nudge (NS1)', () => {
     expect(STRINGS.onboardingReassurance.forget).toMatch(/learns when you show up/);
+  });
+});
+
+// ON2 job C — the lean's copy contract. The BEHAVIOUR (which line a given
+// obstacle surfaces, and the neutral fallback) is pinned in
+// notificationSpot.test.ts, where the decision actually lives; what is
+// pinned here is that the lean never becomes a new copy surface.
+describe('ON2 the lean chooses EXISTING copy, never new copy', () => {
+  const NQ1_POOL: string[] = [...NUDGE_WARM_LINES, ...NUDGE_RESTART_LINES];
+
+  it('every obstacle has a welcome line, and every line is drawn verbatim from the NQ1 pool', () => {
+    for (const key of OBSTACLE_KEYS) {
+      const line = STRINGS.todaySpotWelcomeLineByObstacle[key];
+      expect(line).toBeTruthy();
+      expect(NQ1_POOL).toContain(line);
+    }
+  });
+
+  it('no two obstacles lean on the same line — a lean that does not differentiate is not a lean', () => {
+    const lines = OBSTACLE_KEYS.map((k) => STRINGS.todaySpotWelcomeLineByObstacle[k]);
+    expect(new Set(lines).size).toBe(OBSTACLE_KEYS.length);
+  });
+
+  it('the map holds nothing but the five obstacles (no stray keys to leak a line)', () => {
+    expect(Object.keys(STRINGS.todaySpotWelcomeLineByObstacle).sort()).toEqual([...OBSTACLE_KEYS].sort());
   });
 });
 

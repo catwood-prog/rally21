@@ -35,6 +35,13 @@ export type Profile = {
   // 'connection', or null (skipped / pre-ON1). Self-reported; never fed to
   // the blueprint's observed-pattern voice.
   onboarding_desired_change: string | null;
+  // ON2 (28 July) — the Day-0 intake's Q2, moved here from the
+  // membership: one obstacle per PERSON, since you only reflect once a
+  // day regardless of how many circles you're in. Null = skipped or
+  // pre-ON1. Self-reported; it biases which existing welcome-back line
+  // the notification spot shows, and is never read in the blueprint's
+  // "we noticed" voice.
+  keep_going_obstacle: string | null;
   // SK1 (24 July) — "just check-ins for me". USER-level (reflections span
   // circles), NOT NULL default false, so every pre-SK1 account reads
   // false = today's behaviour exactly. True means: the check-in screen is
@@ -54,7 +61,7 @@ export async function getMyProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('users')
     .select(
-      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, has_seen_timer_background_hint, reminders_ask_seen_at, photo_ask_seen_at, has_seen_push_prompt, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday, away_since, onboarding_desired_change, reflections_opt_out, warmth_seen_at'
+      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, has_seen_timer_background_hint, reminders_ask_seen_at, photo_ask_seen_at, has_seen_push_prompt, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday, away_since, onboarding_desired_change, keep_going_obstacle, reflections_opt_out, warmth_seen_at'
     )
     .eq('id', userId)
     .maybeSingle();

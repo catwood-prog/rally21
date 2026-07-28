@@ -216,7 +216,10 @@ function Today() {
   const [hasAnyOwnCompletion, setHasAnyOwnCompletion] = useState(false);
   // ON1 — Q1's stored answer (drives the Day-0 sentence's opening); and a
   // session-local flag so a skipped Q2 card doesn't reappear this visit.
+  // ON2 — Q2's answer now sits beside it on the profile rather than on
+  // each membership: one obstacle per person, so one piece of state.
   const [desiredChange, setDesiredChange] = useState<string | null>(null);
+  const [obstacle, setObstacle] = useState<string | null>(null);
   const [obstacleDismissed, setObstacleDismissed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -266,6 +269,7 @@ function Today() {
       ]);
       setMyName(profile?.name ?? null);
       setDesiredChange(profile?.onboarding_desired_change ?? null);
+      setObstacle(profile?.keep_going_obstacle ?? null);
       setMyBirthday({
         month: profile?.birth_month ?? null,
         day: profile?.birth_day ?? null,
@@ -410,8 +414,12 @@ function Today() {
         // re-entry sentence is omitted rather than guessed (OD1 job 14).
         glowHeld: glow ? glow.state === 'glowing' : null,
         circleCount: circles.length,
+        // ON2 job C — the lean. The stored value is CHECK-constrained, so
+        // this narrowing is belt-and-braces; anything unrecognised reaches
+        // the spot as null and gets the neutral welcome line.
+        obstacle: isObstacle(obstacle) ? obstacle : null,
       }),
-    [reentry, warmth, covers, glow, circles.length]
+    [reentry, warmth, covers, glow, circles.length, obstacle]
   );
 
   // WL2/TN1 — the spot fades once seen: the FIRST actual render of fresh
@@ -546,11 +554,13 @@ function Today() {
   const coveredDay = shiftDate(today, -1);
   const atCap = circles.length >= circleCap;
 
-  // ON1 — record Q2's obstacle on the membership, then refetch so the card
-  // gives way to the Day-0 reflected sentence.
-  const answerObstacle = async (circleId: string, key: string) => {
-    if (!isObstacle(key)) return;
-    await setKeepGoingObstacle(circleId, key).catch(() => {});
+  // ON1 — record Q2's obstacle, then refetch so the card gives way to the
+  // Day-0 reflected sentence. ON2: it records on the PERSON now, so it
+  // takes no circle — the same answer serves every circle they're in.
+  const answerObstacle = async (key: string) => {
+    const userId = session?.user?.id;
+    if (!isObstacle(key) || !userId) return;
+    await setKeepGoingObstacle(userId, key).catch(() => {});
     load();
   };
 
@@ -562,7 +572,6 @@ function Today() {
   // the invite loop stays clean and nothing here ever asks before joining.
   const onboardingIntakeBlock = (circle: MyCircle) => {
     if (hasAnyOwnCompletion || circle.createdBy !== session?.user?.id) return null;
-    const obstacle = circle.keepGoingObstacle ?? null;
 
     if (obstacle && isObstacle(obstacle)) {
       const reflected = STRINGS.onboardingObstacleReflected[obstacle];
@@ -586,7 +595,7 @@ function Today() {
         <Text style={styles.obstacleTitle}>{STRINGS.onboardingQ2Title}</Text>
         <Text style={styles.obstacleSubtitle}>{STRINGS.onboardingQ2Subtitle}</Text>
         {OBSTACLE_KEYS.map((k) => (
-          <TouchableOpacity key={k} style={styles.obstacleOption} onPress={() => answerObstacle(circle.id, k)}>
+          <TouchableOpacity key={k} style={styles.obstacleOption} onPress={() => answerObstacle(k)}>
             <Text style={styles.obstacleOptionText}>{STRINGS.onboardingObstacleLabels[k]}</Text>
           </TouchableOpacity>
         ))}

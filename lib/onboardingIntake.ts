@@ -1,12 +1,18 @@
 import { PracticeDomain } from './practiceTaxonomy';
 import { supabase } from './supabase';
 
-// ON1 (23 July) — the two-question Day-0 intake. Q1 (desired change) is
-// stored on the user and pre-filters the practice browse; Q2 (obstacle) is
-// stored on the membership and names the mechanic the Day-0 sentence
-// surfaces. Both self-reported ("you told us"), never the map's "we
-// noticed" voice. This module is the single source of the option sets and
-// the Q1→domain rule; the user-facing copy lives in constants/strings.ts.
+// ON1 (23 July) — the two-question Day-0 intake. Q1 (desired change)
+// pre-filters the practice browse; Q2 (obstacle) names the mechanic the
+// Day-0 sentence surfaces. Both self-reported ("you told us"), never the
+// map's "we noticed" voice. This module is the single source of the
+// option sets and the Q1→domain rule; the user-facing copy lives in
+// constants/strings.ts.
+//
+// ON2 (28 July, Cat's ruling) — BOTH answers now live on the USER. The
+// obstacle moved off the membership because you only reflect once a day
+// regardless of how many circles you are in: "I forget things" is a fact
+// about the person, not about one circle. See the migration for the drop
+// and its zero-row check.
 
 export type DesiredChange = 'move' | 'mind' | 'learn' | 'make' | 'care' | 'connection';
 export type KeepGoingObstacle = 'forget' | 'no_time' | 'lose_motivation' | 'miss_once' | 'alone';
@@ -46,12 +52,11 @@ export async function setOnboardingDesiredChange(userId: string, key: DesiredCha
   if (error) throw error;
 }
 
-/** Q2 write — the caller's own membership row, via the SECURITY DEFINER
- * RPC (memberships has no client UPDATE policy by design). */
-export async function setKeepGoingObstacle(circleId: string, obstacle: KeepGoingObstacle): Promise<void> {
-  const { error } = await supabase.rpc('set_keep_going_obstacle', {
-    p_circle_id: circleId,
-    p_obstacle: obstacle,
-  });
+/** Q2 write — the caller's own user row, via the existing own-row users
+ * UPDATE policy, exactly as Q1 does. Since ON2 this is one answer per
+ * person, so it takes no circle: the SECURITY DEFINER RPC the membership
+ * column needed is gone with the column. */
+export async function setKeepGoingObstacle(userId: string, obstacle: KeepGoingObstacle): Promise<void> {
+  const { error } = await supabase.from('users').update({ keep_going_obstacle: obstacle }).eq('id', userId);
   if (error) throw error;
 }

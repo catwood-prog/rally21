@@ -570,8 +570,34 @@ export const STRINGS = {
   todaySpotKickerWelcomeBack: 'welcome back',
   todaySpotKickerEveryday: 'from your circle',
   // Carries welcome-back's shipped title (welcomeBackTitleLead +
-  // Accent) as one plain line — the spot has no serif hero.
+  // Accent) as one plain line — the spot has no serif hero. This is the
+  // NEUTRAL welcome line: what everyone saw before ON2 and what everyone
+  // who never answered Q2 still sees.
   todaySpotWelcomeHeadline: 'your place is still here',
+  // ON2 job C (28 July) — the lean. The Day-0 obstacle biases WHICH
+  // EXISTING welcome-back line surfaces after a miss, and nothing else:
+  // no new copy, no recomputation, NS1's timing math untouched. Every
+  // line here is drawn verbatim from the NQ1 pools below
+  // (NUDGE_RESTART_LINES first — restart-framed is the right voice after
+  // a miss — and NUDGE_WARM_LINES where the restart half has no line for
+  // that obstacle); onboardingIntake.test.ts pins each one to its pool so
+  // this map can never quietly become a new copy surface. An unanswered
+  // (or unrecognised) obstacle falls back to todaySpotWelcomeHeadline.
+  //
+  // PROPOSED pairings — Cat's wording wins, as with the Day-0 sentence.
+  // Two are honest compromises, reported rather than hidden: 'forget'
+  // should lean into the reminders/NS1 emphasis and NO line in either
+  // pool names the nudge mechanic, so it takes the pool's closest
+  // "you haven't lost the thread" line; and 'alone' is answered only by
+  // the circle, which the restart half never mentions, so it borrows the
+  // warm half's circle line.
+  todaySpotWelcomeLineByObstacle: {
+    forget: 'no run-up needed, step in whenever you like.',
+    no_time: 'no catching up required — just a little something today.',
+    lose_motivation: 'day one energy is good energy.',
+    miss_once: "starting again is a skill — and you're already practicing it.",
+    alone: 'the circle keeps a light on for you.',
+  } as Record<string, string>,
   // Waves group into ONE line ("Russ and Catherine sent you a wave"):
   // after days away the point is "your people missed you", not a
   // roll-call. Hearts and covers stay their own moment.
