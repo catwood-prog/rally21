@@ -41,7 +41,3 @@ yarn-error.*
 
 app-example
 .vercel
-
-# Playwright MCP session artefacts (browser logs, traces, screenshots from
-# verification walks) — local evidence, never repo content
-.playwright-mcp/
