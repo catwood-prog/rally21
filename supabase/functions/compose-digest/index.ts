@@ -15,8 +15,17 @@ const DIGEST_SEND_TIME = "19:00";
 // markers (every 21 days) stay in-app only, never in the digest.
 const MAJOR_STOPS = [50, 100, 365];
 
-// Friend/pair streak milestones (Rally21-Glow-Spec.md §3).
-const PAIR_STREAK_MILESTONES = [7, 21, 50, 100, 200, 365];
+// Friend/pair milestones (Rally21-Glow-Spec.md §3, Personal-Arc memo
+// §5.1). PA4 — THESE MOVED LADDERS. They used to fire off the
+// CONSECUTIVE run at 7/21/50/100/200/365; the memo demotes that number
+// to a flourish that "may break without taking the friendship's worth
+// with it" and gives the milestones to the cumulative headline, which
+// "never falls, and carries the shared milestones at 25/50/100".
+// Announcing the fragile number as an achievement while the product is
+// busy demoting it would have been the same dishonesty §5.1 exists to
+// remove. Mirrors lib/pairStreaks.ts's PAIR_MILESTONES by hand — Deno
+// edge functions can't import the client's module graph.
+const PAIR_MILESTONES = [25, 50, 100];
 
 /** One calendar day before `dateStr` (YYYY-MM-DD), computed in UTC so
  * it's never skewed by DST — mirrors compose-nudges' own helper. */
@@ -232,32 +241,55 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Friend/pair streak milestones (Rally21-Glow-Spec.md §3) —
-      // compare today vs yesterday, not lastSeenAt: this composer already
-      // runs once daily, so "crossed since yesterday" is exactly "today".
-      // Never a line about a streak ending (spec §5).
-      const { data: circleMemberRows } = await admin
-        .from("memberships")
-        .select("user_id")
-        .in("circle_id", circleIds)
-        .neq("user_id", user.id);
+      // Friend/pair milestones (Rally21-Glow-Spec.md §3) — compare today
+      // vs yesterday, not lastSeenAt: this composer already runs once
+      // daily, so "crossed since yesterday" is exactly "today". Never a
+      // line about a streak ending (spec §5).
+      //
+      // PA4 — pair formation matches get_pair_streaks: memberships UNION
+      // completions, so a friendship still reaches the digest after one
+      // of the two has left the circle that formed it. leave_circle
+      // hard-deletes the membership row and never the completions, so
+      // memberships alone would have silently stopped congratulating
+      // exactly the pairs the memo went out of its way to protect.
+      const [{ data: circleMemberRows }, { data: circleCompleterRows }] = await Promise.all([
+        admin.from("memberships").select("user_id").in("circle_id", circleIds).neq("user_id", user.id),
+        admin.from("completions").select("user_id").in("circle_id", circleIds).neq("user_id", user.id),
+      ]);
 
-      const otherMemberIds = Array.from(new Set((circleMemberRows ?? []).map((m) => m.user_id as string)));
+      // TWO SETS, deliberately. `currentMemberIds` is who is in the
+      // circle NOW; `pairPartnerIds` is who the reader has ever shared
+      // one with. Only the friendship number is allowed to outlive a
+      // departure — a birthday line for someone who has left the circle
+      // would be a stranger's birthday arriving in your digest, which is
+      // a different feature nobody asked for.
+      const currentMemberIds = Array.from(
+        new Set((circleMemberRows ?? []).map((m) => m.user_id as string))
+      );
+      const pairPartnerIds = Array.from(
+        new Set([
+          ...currentMemberIds,
+          ...(circleCompleterRows ?? []).map((c) => c.user_id as string),
+        ])
+      );
       const pairLines: string[] = [];
       // BD1 — a quiet birthday line for circle-mates. Supplementary only: it
       // rides along an already-firing digest and is deliberately NOT counted
       // toward triggeringCount, so a birthday alone never sends a standalone
       // email (spec §4c). Resolved against each celebrant's OWN timezone.
       const birthdayLines: string[] = [];
-      if (otherMemberIds.length > 0) {
+      if (pairPartnerIds.length > 0) {
         const { data: otherUsers } = await admin
           .from("users")
           .select("id, name, birth_month, birth_day, celebrate_birthday, timezone")
-          .in("id", otherMemberIds);
+          .in("id", pairPartnerIds);
         const otherNameById = new Map<string, string>();
         for (const u of otherUsers ?? []) otherNameById.set(u.id, u.name ?? "someone in your circle");
 
+        const currentMemberIdSet = new Set(currentMemberIds);
         for (const u of otherUsers ?? []) {
+          // BD1's scope is unchanged: current circle-mates only.
+          if (!currentMemberIdSet.has(u.id)) continue;
           if (!u.celebrate_birthday || u.birth_month == null || u.birth_day == null) continue;
           const theirLocalDate = localDateString(now, (u.timezone as string | null) ?? timeZone);
           const [, m, d] = theirLocalDate.split("-").map(Number);
@@ -266,21 +298,34 @@ Deno.serve(async (req) => {
           }
         }
 
-        for (const otherId of otherMemberIds) {
-          const [{ data: todayStreak }, { data: yesterdayStreak }] = await Promise.all([
-            admin.rpc("get_pair_streak_between", { p_user1: user.id, p_user2: otherId, p_through: localDate }),
-            admin.rpc("get_pair_streak_between", {
+        for (const otherId of pairPartnerIds) {
+          // The CUMULATIVE number, not the run. Crossing is still
+          // today-vs-yesterday, which is why the RPC takes an explicit
+          // through-date rather than reading current_date itself.
+          const [{ data: todayTogether }, { data: yesterdayTogether }] = await Promise.all([
+            admin.rpc("get_pair_days_together_between", {
+              p_user1: user.id,
+              p_user2: otherId,
+              p_through: localDate,
+            }),
+            admin.rpc("get_pair_days_together_between", {
               p_user1: user.id,
               p_user2: otherId,
               p_through: dayBefore(localDate),
             }),
           ]);
-          const todayVal = (todayStreak as number | null) ?? 0;
-          const yesterdayVal = (yesterdayStreak as number | null) ?? 0;
-          for (const milestone of PAIR_STREAK_MILESTONES) {
-            if (todayVal >= milestone && yesterdayVal < milestone) {
-              pairLines.push(`you and ${otherNameById.get(otherId) ?? "someone in your circle"} hit ${milestone} days together 🔥`);
-            }
+          const todayVal = (todayTogether as number | null) ?? 0;
+          const yesterdayVal = (yesterdayTogether as number | null) ?? 0;
+          // Only ONE line per friendship per digest — the highest
+          // crossed. Mirrors crossedPairMilestone in lib/pairStreaks.ts.
+          let crossed: number | null = null;
+          for (const milestone of PAIR_MILESTONES) {
+            if (todayVal >= milestone && yesterdayVal < milestone) crossed = milestone;
+          }
+          if (crossed !== null) {
+            pairLines.push(
+              `you and ${otherNameById.get(otherId) ?? "someone in your circle"} have ${crossed} days together 🔥`
+            );
           }
         }
       }

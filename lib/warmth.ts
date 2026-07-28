@@ -25,7 +25,7 @@ export type FreshWarmth = {
 };
 
 export type WallTeaserItem = {
-  kind: 'post' | 'celebration';
+  kind: 'post' | 'celebration' | 'milestone';
   userId: string;
   body: string;
   createdAt: string;
@@ -56,9 +56,17 @@ export async function markWarmthSeen(userId: string, newestShownCreatedAt: strin
   if (error) throw error;
 }
 
-/** The latest wall line someone else left in this circle (post or
- * celebration — same visibility rule as the wall itself). Null when the
- * wall has nothing from anyone else. */
+/** The latest wall line someone else left in this circle (post,
+ * celebration or milestone — same visibility rule as the wall itself).
+ * Null when the wall has nothing from anyone else.
+ *
+ * PA4 (memo §6): a rally milestone teases here for the reason the memo
+ * gives for putting it on the wall in the first place — TN1's spot is
+ * shown once and then gone, so a 100-practice moment needs a home a
+ * person can come back to, and the teaser is the existing pointer from
+ * Today to that home. This is the newest-line teaser, not a milestone
+ * feed: a milestone teases only while it IS the latest line, and one
+ * line is showing at a time, never a list of everyone's counts. */
 export async function getWallTeaser(
   circleId: string,
   myUserId: string
@@ -67,7 +75,7 @@ export async function getWallTeaser(
     .from('wall_messages')
     .select('kind, user_id, body, created_at')
     .eq('circle_id', circleId)
-    .in('kind', ['post', 'celebration'])
+    .in('kind', ['post', 'celebration', 'milestone'])
     .neq('user_id', myUserId)
     .order('created_at', { ascending: false })
     .limit(1)

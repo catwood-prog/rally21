@@ -94,7 +94,7 @@ describe('warmth fetches and markers', () => {
     expect(builder.eq).toHaveBeenCalledWith('id', 'user-1');
   });
 
-  it("getWallTeaser reads the latest wall line someone ELSE left (posts + celebrations only — a teaser for your own post is noise)", async () => {
+  it("getWallTeaser reads the latest wall line someone ELSE left (circle-public kinds only — a teaser for your own post is noise)", async () => {
     const builder = chainableQuery({
       data: { kind: 'celebration', user_id: 'u2', body: 'Bo has been glowing 7 days 🔥', created_at: '2026-07-22T09:00:00Z' },
       error: null,
@@ -102,7 +102,7 @@ describe('warmth fetches and markers', () => {
     fromMock.mockReturnValue(builder);
     const item = await getWallTeaser('circle-1', 'me');
     expect(fromMock).toHaveBeenCalledWith('wall_messages');
-    expect(builder.in).toHaveBeenCalledWith('kind', ['post', 'celebration']);
+    expect(builder.in).toHaveBeenCalledWith('kind', ['post', 'celebration', 'milestone']);
     expect(builder.neq).toHaveBeenCalledWith('user_id', 'me');
     expect(builder.limit).toHaveBeenCalledWith(1);
     expect(item).toEqual({ kind: 'celebration', userId: 'u2', body: 'Bo has been glowing 7 days 🔥', createdAt: '2026-07-22T09:00:00Z' });

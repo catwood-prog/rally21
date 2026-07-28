@@ -87,7 +87,7 @@ describe('WL1 wall visibility', () => {
     fromMock.mockReset();
   });
 
-  it('getWallMessages requests only post + celebration kinds', async () => {
+  it('getWallMessages requests only the circle-public kinds (post + celebration + PA4 milestone)', async () => {
     const builder = chainableQuery({ data: [], error: null });
     fromMock.mockReturnValue(builder);
 
@@ -95,7 +95,7 @@ describe('WL1 wall visibility', () => {
 
     expect(fromMock).toHaveBeenCalledTimes(1);
     expect(fromMock).toHaveBeenCalledWith('wall_messages');
-    expect(builder.in).toHaveBeenCalledWith('kind', ['post', 'celebration']);
+    expect(builder.in).toHaveBeenCalledWith('kind', ['post', 'celebration', 'milestone']);
   });
 
   it('getWallPreview reads only wall_messages (never checkin_reactions), same kind filter', async () => {
@@ -112,7 +112,7 @@ describe('WL1 wall visibility', () => {
 
     expect(fromMock).toHaveBeenCalledTimes(1);
     expect(fromMock).toHaveBeenCalledWith('wall_messages');
-    expect(builder.in).toHaveBeenCalledWith('kind', ['post', 'celebration']);
+    expect(builder.in).toHaveBeenCalledWith('kind', ['post', 'celebration', 'milestone']);
     // oldest first, so the newest reads last (bottom of the preview card)
     expect(preview.map((p) => p.id)).toEqual(['m1', 'm2']);
   });

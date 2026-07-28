@@ -979,9 +979,36 @@ export const STRINGS = {
   glowBeatRekindledLine: 'the fire came back — that counts double',
   glowBeatContinueCta: 'keep it glowing',
 
-  // Friend streaks (Rally21-Glow-Spec.md §3) — shown near who's-here,
-  // only the single best active pair streak, N >= 3.
-  pairStreakLabel: (name: string, n: number) => `you and ${name}: ${n} days both in 🔥`,
+  // Friend streaks (Rally21-Glow-Spec.md §3, Personal-Arc memo §5.1) —
+  // shown near who's-here, only the single best friendship, N >= 3.
+  // Never a list: see lib/pairStreaks.ts for why that is a law.
+  //
+  // PA4 — the headline is the CUMULATIVE number and carries no flame:
+  // the 🔥 is the live run's mark, and putting it on a number that
+  // survives a broken run would claim a fire that may not be lit.
+  pairDaysTogetherLabel: (name: string, n: number) => `you and ${name}: ${n} days together`,
+  /** The small live flourish beside the headline, only when the run is
+   * genuinely running (>= 2). Never rendered as a zero. */
+  pairRunFlourish: (n: number) => `${n} in a row 🔥`,
+  /** Digest only — the shared milestone at 25/50/100, on the cumulative
+   * number. A digest line, never its own send (Glow-Spec §3). */
+  pairMilestoneDigestLine: (name: string, n: number) =>
+    `you and ${name} have ${n} days together 🔥`,
+
+  // PA4 JOB 3 (memo §6) — the rally milestone's wall line. REFERENCE
+  // COPY: the live sentence is composed SERVER-side inside
+  // mark_celebration_seen (S1 — a definer function never accepts
+  // client-composed content destined for another user's surface), and
+  // these two must be kept in step with that migration by hand, exactly
+  // as glowSocialWallLine is with GS1's.
+  wallRallyMilestoneLine: (name: string, n: number) =>
+    `${name} has rallied ${n} practices 🎉`,
+  /** JOB 4 — synchronised rallies. Named only when the co-starters have
+   * ALSO reached this milestone: naming someone who is behind would
+   * publish a comparison between two members' counts, which is the
+   * leaderboard §5 forbids arriving by the back door. */
+  wallRallyMilestoneTogetherLine: (names: string, n: number, startedOn: string) =>
+    `${names} have each rallied ${n} practices 🎉 — they started the same day, ${startedOn}`,
 
   // Blueprint v0 (Rally21-Blueprint-Notes.md) — deterministic pattern
   // cards, day-14 observation's visual grammar. Renamed "your blueprint"

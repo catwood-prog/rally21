@@ -34,8 +34,19 @@ export type WallPreviewItem = { id: string; userId: string; body: string; create
  * celebration lines only. Wave/heart rows still live in wall_messages
  * but are recipient-private — RLS already hides them from everyone but
  * the recipient; this kind filter keeps the recipient's own warmth off
- * the wall too (WL2's surfaces deliver it instead). */
-const WALL_VISIBLE_KINDS = ['post', 'celebration'];
+ * the wall too (WL2's surfaces deliver it instead).
+ *
+ * PA4 (memo §6): 'milestone' joins them — a member's rally milestone is
+ * an EVENT the circle gets to celebrate, and it lives on the wall
+ * because celebration needs somewhere to respond. It is public to the
+ * circle exactly like a celebration line, which is why it belongs in
+ * this list and not beside the recipient-private kinds.
+ *
+ * Note what this is NOT: milestones appear here as they happen, in the
+ * chronological wall, and nowhere else. There is no surface anywhere
+ * that lists every member's count side by side — that is the
+ * leaderboard Glow-Spec §5 forbids. */
+const WALL_VISIBLE_KINDS = ['post', 'celebration', 'milestone'];
 
 export async function getWallMessages(circleId: string): Promise<WallMessage[]> {
   const { data, error } = await supabase

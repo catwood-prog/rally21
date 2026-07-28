@@ -24,6 +24,7 @@ import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { LinkCard } from '@/components/LinkCard';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { MessageDialog } from '@/components/MessageDialog';
+import { PairStreakLine } from '@/components/PairStreakLine';
 import { SignalMeter } from '@/components/SignalMeter';
 import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { FONT_HEADER } from '@/constants/fonts';
@@ -1223,16 +1224,14 @@ function YourCircle() {
               );
             })()}
 
-          {(() => {
-            const best = pairStreaks
-              .filter((p) => p.streak >= 3)
-              .sort((a, b) => b.streak - a.streak)[0];
-            return best ? (
-              <Text style={styles.pairStreakText}>
-                {STRINGS.pairStreakLabel(best.otherName, best.streak)}
-              </Text>
-            ) : null;
-          })()}
+          {/* PA4 (memo §5.1) — the friendship's headline is the CUMULATIVE
+              number, with the live run beside it as a small flourish that
+              may break without taking the friendship's worth with it. The
+              whole render decision lives in components/PairStreakLine.tsx
+              and returns ONE pair by construction: a sort + slice written
+              here would be one edit away from the leaderboard Glow-Spec
+              §5 forbids, and would not look like a product decision. */}
+          <PairStreakLine pairs={pairStreaks} />
 
           {hasCoverableMember && !hasSeenCoverHint && (
             <TouchableOpacity onPress={dismissCoverHint} style={styles.coverHintCard}>
@@ -1896,13 +1895,6 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: colors.ink,
     minHeight: 44,
-  },
-  pairStreakText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.ink,
-    marginTop: -4,
-    marginBottom: 10,
   },
   coverHintCard: {
     backgroundColor: colors.goldSoft,

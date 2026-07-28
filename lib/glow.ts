@@ -29,16 +29,47 @@ export async function getMyGlow(): Promise<Glow> {
   };
 }
 
-// Friend streaks (Rally21-Glow-Spec.md §3) — app-level, not circle-level:
-// consecutive days both people's own days counted toward their own glow.
-// The shared circle is only how the pair forms.
+// Friend streaks (Rally21-Glow-Spec.md §3, Personal-Arc memo §5.1) —
+// app-level, not circle-level: days both people's own days counted
+// toward their own glow. The shared circle is only how the pair forms.
+//
+// PA4 — TWO NUMBERS, AND WHICH ONE IS THE HEADLINE.
+//
+// `daysTogether` is the headline: the CUMULATIVE count of days you both
+// qualified, ever. It never falls. A pair streak is jointly owned, so
+// one person's absence must never destroy a number that was also
+// someone else's (memo §5.1) — and the shipped consecutive-only number
+// did exactly that, reading 0 for all eleven live pairs on 27 July
+// because nobody's last shared day was yesterday.
+//
+// `streak` is the same consecutive run as before, unchanged in meaning
+// and demoted to a small live flourish beside the headline. It may
+// break without taking the friendship's worth with it.
+//
+// `sharedThisCircle` is the DISPLAY scope, deliberately separate from
+// the data scope. The RPC returns every pair you have ever formed in
+// any circle (that is what makes a friendship outlive the circle that
+// formed it), while Glow-Spec §3 puts the headline "near who's-here,
+// best among the members shown" — so the circle screen filters to pairs
+// formed through THIS circle, INCLUDING someone who has since left.
 export type PairStreak = {
   otherUserId: string;
   otherName: string;
+  /** The live consecutive run — the fragile number, the flourish. */
   streak: number;
+  /** The headline. Monotonic: it can only ever go up. */
+  daysTogether: number;
+  /** Whether this pair was formed through the circle being viewed. */
+  sharedThisCircle: boolean;
 };
 
-type PairStreakRow = { other_user_id: string; other_name: string | null; streak: number };
+type PairStreakRow = {
+  other_user_id: string;
+  other_name: string | null;
+  streak: number;
+  days_together: number;
+  shared_this_circle: boolean;
+};
 
 // Glow milestones (Rally21-Glow-Spec.md §4) — 7/21/50/100/365. Detected
 // server-side at check-in time (never on a plain get_my_glow() read,
@@ -72,6 +103,16 @@ export async function getGlowForCircleMates(circleId: string): Promise<Map<strin
   );
 }
 
+/** Every friendship the caller has formed, in any circle they have ever
+ * shared — the pair list outlives the circle (Glow-Spec §3), because
+ * `leave_circle` hard-deletes the membership row but never the
+ * completions, so the server derives pairs from both.
+ *
+ * The circle id is an AUTHORIZATION ANCHOR, not a scope: you must be a
+ * current member of the circle you name before the server tells you
+ * anything, and a non-member gets an exception exactly as before. The
+ * server derives the peer list from `auth.uid()` alone — there is no
+ * parameter naming a user, so no arbitrary-uuid read exists to make. */
 export async function getPairStreaks(circleId: string): Promise<PairStreak[]> {
   const { data, error } = await supabase.rpc('get_pair_streaks', { p_circle_id: circleId });
   if (error) throw error;
@@ -79,6 +120,8 @@ export async function getPairStreaks(circleId: string): Promise<PairStreak[]> {
     otherUserId: row.other_user_id,
     otherName: row.other_name ?? 'circle-mate',
     streak: row.streak,
+    daysTogether: row.days_together,
+    sharedThisCircle: row.shared_this_circle,
   }));
 }
 
