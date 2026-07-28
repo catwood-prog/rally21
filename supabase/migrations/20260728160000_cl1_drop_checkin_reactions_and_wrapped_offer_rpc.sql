@@ -1,0 +1,98 @@
+-- CL1 (28 July) — the cleanup sitting. DELETIONS ONLY.
+--
+-- Two dead things go, and ONE THING THE PROMPT NAMED DOES NOT — see the
+-- STOP note at the bottom, which is the important half of this file.
+--
+-- ── 1. checkin_reactions retires for good ────────────────────────────
+-- The curated emoji strip on check-in rows was retired by WL1 (21 July):
+-- check-in rows left the wall entirely and every WRITE policy on this
+-- table was dropped, so no new row can appear even from a stale client,
+-- and it left the realtime publication in the same change. WL1
+-- deliberately kept the table and its rows ("historical data — CH5 owns
+-- any eventual disposal"); the 27 July audit found it, and CL1 is that
+-- disposal.
+--
+-- Verified live before writing this, not assumed:
+--   * zero references in the client (`checkin_reactions` appears only in
+--     historical migrations and one stale comment in
+--     supabase/functions/delete-account/index.ts, corrected in this same
+--     change);
+--   * zero SQL functions reference it (pg_proc.prosrc scan);
+--   * zero inbound foreign keys, zero dependent views, zero triggers;
+--   * no longer in supabase_realtime (WL1 removed it);
+--   * one surviving SELECT policy, "circle members can read reactions",
+--     which dies with the table.
+-- Its own three outbound FKs (circles, completions, users) die with it
+-- too, so nothing else needs touching.
+--
+-- ROW COUNT AT DROP TIME: 16 rows, newest 2026-07-13 — nothing has been
+-- written since WL1 closed the writes. These are real reactions real
+-- people once tapped, and they are unreachable from every surface in the
+-- app; the drop is deliberate and irreversible, recorded here so the
+-- number is on the record rather than discovered later.
+
+drop table if exists public.checkin_reactions;
+
+-- ── 2. mark_wrapped_offered retires ──────────────────────────────────
+-- SC3's Wrapped-offer marker (20260718150000). WR1 (23 July) pulled the
+-- day-21 Wrapped out of the ceremony and deleted journey-gate's offer
+-- cards, which left both client helpers — getMyLastWrappedOfferDay and
+-- markWrappedOffered — with no caller at all; PA1 (20260727220000)
+-- already noted exactly this in its own comments while resetting the
+-- column. This migration removes the RPC those helpers were the only
+-- door to; the helpers go in the same commit (lib/journey.ts).
+--
+-- Verified live: no other SQL function calls it (pg_proc.prosrc scan),
+-- and the client greps clean.
+--
+-- WHAT IT HELD, reported rather than silently discarded — the function
+-- was SECURITY DEFINER with `search_path=public`, and EXECUTE was
+-- granted to `authenticated`, `service_role` and `postgres`, with
+-- `public` and `anon` explicitly revoked (S1-compliant). Dropping the
+-- function drops all of that with it; there is no policy to unwind,
+-- since it is a function and not a table.
+--
+-- DELIBERATELY NOT DROPPED: memberships.last_wrapped_offer_day. CL1's
+-- job 3 names the helpers and the RPC, not the column, and this session
+-- does not widen its own scope. The column now has NO WRITER — it is
+-- read-only-zero (live count of non-zero rows at this migration: 0, PA1
+-- having reset them all) — which is a harmless but real loose end, and
+-- it is reported for Cat rather than acted on.
+
+drop function if exists public.mark_wrapped_offered(uuid, int);
+
+-- ── 3. STOP: friend_hearts IS NOT DEAD, AND IS NOT DROPPED ───────────
+-- CL1's job 2 asked for BOTH friend_hearts and checkin_reactions to be
+-- dropped as tables with "zero live code references", and instructed the
+-- session to re-verify rather than trust the prompt. Re-verified, and
+-- the prompt is wrong about this one:
+--
+--   * public.send_friend_nudge — the live RPC behind every heart and
+--     wave in the app, called from app/(app)/(tabs)/circle.tsx via
+--     lib/wall.ts — reads friend_hearts TWICE (the per-recipient daily
+--     dedupe, and the shared 10/day per-sender cap) and INSERTS a row
+--     into it on every heart sent. Confirmed against the LIVE function
+--     body in pg_proc, not just the migration history.
+--   * The table holds 15 rows, the newest written 2026-07-28 01:34 —
+--     yesterday.
+--
+-- Dropping it would have broken hearts outright (the insert would fail
+-- and the RPC would raise), and would have destroyed the dedupe/cap
+-- ledger. It stays exactly as it is. Nothing about it needs fixing;
+-- only the belief that it was dead did.
+--
+-- THE CLASS LESSON, worth more than this one table: the 27 July audit
+-- reached "zero live code references" by GREPPING THE CLIENT for the
+-- table name, and the client never names it — it calls
+-- send_friend_nudge and the table lives inside that SECURITY DEFINER
+-- body. In an app whose whole architecture is "no screen makes a raw
+-- database call", a client-side grep is structurally incapable of
+-- proving a table dead. The two corroborating signals both pointed the
+-- same way and were read backwards: RLS-enabled-with-zero-policies is
+-- HW1's deliberate design (client roles must not read the ledger at
+-- all; CODE-AUDIT-JULY.md already recorded it as "by design"), and the
+-- row count GREW from the audit's 10 to 15 while it sat on the queue as
+-- dead. **Proving a table dead requires scanning pg_proc.prosrc for
+-- function bodies, plus pg_depend/pg_constraint for views, triggers and
+-- inbound FKs — not grep alone.** That is the check this migration ran
+-- on both tables, and it is why only one of them is dropped.

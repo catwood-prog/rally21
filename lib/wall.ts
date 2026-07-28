@@ -22,8 +22,10 @@ export type WallReaction = {
  * display the same as ones sent today; the curated pickers (wall.tsx's
  * QUICK_REACTIONS/OPEN_CIRCLE_REACTIONS) only ever offer '🧡' going
  * forward. (Since WL1 the only reaction surface is human posts —
- * wall_message_reactions; the retired checkin_reactions rows keep their
- * stored emoji but no longer render anywhere.) */
+ * wall_message_reactions. The check-in reaction strip WL1 retired had
+ * its own table; CL1 dropped it on 28 July, so this mapping now serves
+ * wall_message_reactions alone — which still holds pre-AC1 '💛' rows, so
+ * the mapping is still load-bearing.) */
 export function displayReactionEmoji(emoji: string): string {
   return emoji === '💛' ? '🧡' : emoji;
 }

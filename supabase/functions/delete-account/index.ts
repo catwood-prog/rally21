@@ -14,7 +14,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // the rest) — practices.created_by is deliberately ON DELETE NO ACTION so
 // any deletion path that skips prep fails loudly instead of mis-cascading
 // (F5, see ../../../Rally21-Security-Spec.md). Everything else (memberships,
-// completions, reflections, wall_messages, checkin_reactions,
+// completions, reflections, wall_messages,
 // wall_message_reactions, notification_prefs, notification_outbox,
 // blueprint_versions, device_tokens) cascades from public.users, which
 // itself cascades from auth.users. (blueprint_versions + device_tokens

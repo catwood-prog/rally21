@@ -261,17 +261,14 @@ export const STRINGS = {
 
   wallHeaderTitle: (circleName: string) => `the ${circleName} wall`,
 
-  reentryKeptLightOn: (circleName: string) => `${circleName} kept the light on for you`,
-
-  // OD1 job 14 (22 July) — welcome-back must not say "no streak lost" to
-  // everyone: RS1 truly holds a quiet member's circle place either way,
-  // so the title stays constant and true (the audit's own phrase). The
-  // SUBTITLE has to branch on the person's OWN glow (getMyGlow().state),
-  // not just a declared away pause — a gap fully covered by a friend is
-  // just as truly "nothing lost" as an away pause, and a genuinely
-  // uncovered gap is not, regardless of which produced it.
-  welcomeBackTitleLead: 'your place',
-  welcomeBackTitleAccent: 'is still here',
+  // OD1 job 14 (22 July) — the re-entry moment must not say "no streak
+  // lost" to everyone. This pair branches on the person's OWN glow
+  // (getMyGlow().state), not just a declared away pause — a gap fully
+  // covered by a friend is just as truly "nothing lost" as an away
+  // pause, and a genuinely uncovered gap is not, regardless of which
+  // produced it. Written for welcome-back, MIGRATED to Today's
+  // notification spot by TN1 and read there now (lib/notificationSpot.ts);
+  // CL1 retired the screen and its own strings, never this branch.
   welcomeBackSubtitleHeld: (circleCount: number) =>
     `no streak lost, no guilt — ${circleCount === 1 ? "your circle's" : 'your circles are'} still glowing.`,
   // Cat's wording, verbatim, 22 July.
@@ -569,8 +566,10 @@ export const STRINGS = {
   // never a count that accumulates guilt — warmth or absence.
   todaySpotKickerWelcomeBack: 'welcome back',
   todaySpotKickerEveryday: 'from your circle',
-  // Carries welcome-back's shipped title (welcomeBackTitleLead +
-  // Accent) as one plain line — the spot has no serif hero. This is the
+  // Carries the retired welcome-back screen's shipped title as one plain
+  // line — the spot has no serif hero. Since CL1 (28 July) this is the
+  // only surviving copy of that sentence; the screen's own two-part
+  // lead/accent strings were deleted with it. This is the
   // NEUTRAL welcome line: what everyone saw before ON2 and what everyone
   // who never answered Q2 still sees.
   todaySpotWelcomeHeadline: 'your place is still here',
@@ -1525,8 +1524,6 @@ export const STRINGS = {
   practiceArchiveCta: 'archive',
   practiceCreateCta: '+ create a new practice',
   weeklySeeJournalCta: 'see full journal',
-  welcomeBackDoPracticeCta: "do today's practice",
-  welcomeBackToTodayCta: 'back to today',
   notFoundHomeLink: 'go back home',
   linkCardOpenCta: 'open link →',
   circleCapBackToTodayCta: 'back to today',

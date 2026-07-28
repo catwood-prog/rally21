@@ -79,7 +79,9 @@ describe('sendFriendNudge gesture kinds', () => {
 // (wave/heart) rows are recipient-private at the database; these pins
 // keep the client from ever re-rendering them — including the
 // recipient's own — and keep the retired checkin_reactions table out of
-// every read path.
+// every read path. CL1 (28 July) DROPPED that table, so the two pins
+// naming it below are now regression guards against resurrecting a read
+// path to a table that no longer exists; they are kept, not deleted.
 describe('WL1 wall visibility', () => {
   const fromMock = supabase.from as jest.Mock;
 
