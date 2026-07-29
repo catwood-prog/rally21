@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   titleAccent: {
     fontFamily: FONT_SERIF_ITALIC,
     fontSize: 28,
-    color: colors.green,
+    color: colors.greenDisplay,
   },
   bulletList: {
     width: '100%',

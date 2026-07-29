@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
   },
   titleAccent: {
     fontFamily: FONT_SERIF_ITALIC,
-    color: colors.green,
+    color: colors.greenDisplay,
     fontSize: 25,
   },
   label: {

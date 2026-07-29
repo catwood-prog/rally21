@@ -53,6 +53,29 @@ export const colors = {
   // USE THIS FOR TEXT. colors.green stays exactly as it is for fills,
   // borders, bars, confetti and the glow — see 10e and CLAUDE.md.
   greenText: '#3D793D',
+  // CT3 (Cat's ruling, 29 July) — the DISPLAY-weight green, for the serif
+  // accents only. CT2's gate asked whether an existing token could take
+  // them: it could not. Against the accent green #5BA85B, greenText is
+  // dE2000 16.45 — visibly a different colour, which on brand display type
+  // is a brand change, not a contrast fix. #529B52 is dE2000 4.09: at
+  // display size it reads as the same green, so it was minted rather than
+  // forcing the accents onto a token that alters the brand.
+  //
+  // MEASURED, on the surfaces the accents actually sit on:
+  //   bg #F2F1EC   3.0099   card #FFFFFF  3.4040   cream #F7F5F0  3.1243
+  // All seven display accents sit on `bg`, so 3.0099 is the binding figure —
+  // it clears the 3:1 LARGE-TEXT bar and nothing more. The margin is
+  // 0.0099 and it is exact: both colours are solid hex, so unlike an
+  // alpha token there is no quantisation path that can move it.
+  //
+  // THE BAR THIS TOKEN IS ONLY EVER LEGAL ABOVE: 24px regular (= WCAG's
+  // 18pt) or 18.66px bold. It measures ~3:1, so it FAILS the 4.5:1 that
+  // governs anything smaller — at small sizes use greenText, which is why
+  // solo-setup's 15px accent and check-in's 14px AccentedText are on
+  // greenText and not on this. It also fails 3:1 on greenSoft (2.9999)
+  // and plumSoft (2.8987): display size alone is not enough, the surface
+  // has to be bg/card/cream too.
+  greenDisplay: '#529B52',
   // Gold at low opacity — "mine"/active chip fills, gold-tinted banners
   // and pills. Promoted from a repeated literal.
   goldSoft: 'rgba(244, 200, 75, 0.15)',

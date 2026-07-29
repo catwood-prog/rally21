@@ -61,6 +61,6 @@ const styles = StyleSheet.create({
   titleAccent: {
     fontFamily: FONT_SERIF_ITALIC,
     fontSize: 32,
-    color: colors.green,
+    color: colors.greenDisplay,
   },
 });

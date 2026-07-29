@@ -35,8 +35,18 @@ export function AccentedText({
 }
 
 const styles = {
+  // CT3 (29 July) — greenText, NOT greenDisplay, and this one is a trap
+  // worth naming. This component sets no fontSize: it inherits from the
+  // caller, and its ONLY caller is check-in's question prompt at 14px
+  // (checkin.tsx `questionPrompt`). So despite being a serif accent like
+  // the display ones, it renders as SMALL text and 4.5:1 governs —
+  // greenDisplay's ~3:1 would fail here. greenText is 4.64:1 on bg.
+  // If a future caller renders this at 24px+ on bg/card/cream, THAT call
+  // site can take greenDisplay via the `accentStyle` prop; the default
+  // stays on the safe token, because the default is what an unaudited
+  // new caller gets.
   accent: {
     fontFamily: FONT_SERIF_ITALIC,
-    color: colors.green,
+    color: colors.greenText,
   } as TextStyle,
 };

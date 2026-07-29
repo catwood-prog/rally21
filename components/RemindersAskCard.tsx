@@ -79,9 +79,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: scaledLineHeight(23),
   },
+  // CT3 (29 July) — greenText, and this is the one borderline call in the
+  // set, flagged to Cat rather than settled quietly. This accent sets no
+  // fontSize, so it inherits `title` at 22px (the full onboarding variant)
+  // or `titleCompact` at 18px (the Today card). WCAG's large-text bar is
+  // 24px regular / 18.66px bold, and this is regular weight — so BOTH
+  // variants are small text on web, where React Native Web renders
+  // fontSize as px. greenDisplay measures ~3:1 and would fail both.
+  // greenText clears 4.5:1 on either surface (4.64 on bg, 5.25 on card).
+  // If Cat rules this reads as display type rather than a sentence, it is
+  // a one-line move to greenDisplay — see the handoff.
   titleAccent: {
     fontFamily: FONT_SERIF_ITALIC,
-    color: colors.green,
+    color: colors.greenText,
   },
   body: {
     fontSize: 13,

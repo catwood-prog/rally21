@@ -301,10 +301,16 @@ const styles = StyleSheet.create({
     color: colors.ink,
     lineHeight: 28,
   },
+  // CT3 job 2 (Cat's ruling, 29 July) — greenText, NOT greenDisplay. This
+  // accent is 15px, so it is small text and 4.5:1 governs: greenDisplay
+  // measures ~3:1 and would fail here. greenText is 4.64:1 on bg. The
+  // visible colour shift is accepted deliberately — at 15px the accent is
+  // being read, not looked at, and legibility outranks the brand match
+  // that greenDisplay preserves at display size.
   titleAccent: {
     fontFamily: FONT_SERIF_ITALIC,
     fontSize: 15,
-    color: colors.green,
+    color: colors.greenText,
     marginBottom: 18,
   },
   summaryCard: {

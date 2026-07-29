@@ -1627,7 +1627,7 @@ const styles = StyleSheet.create({
   headlineAccent: {
     fontFamily: FONT_SERIF_ITALIC,
     fontSize: 28,
-    color: colors.green,
+    color: colors.greenDisplay,
   },
   subtitle: {
     fontSize: 13,

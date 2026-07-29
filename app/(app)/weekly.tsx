@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   titleAccent: {
     fontFamily: FONT_SERIF_ITALIC,
     fontSize: 24,
-    color: colors.green,
+    color: colors.greenDisplay,
   },
   card: {
     backgroundColor: colors.card,
