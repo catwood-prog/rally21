@@ -86,10 +86,33 @@ export const colors = {
   // together (hearts, icon wash, pill tint — heartSoft is its 0.15 rgba).
   heart: '#D97757',
   heartSoft: 'rgba(217, 119, 87, 0.15)',
-  // Quiet-but-readable ink for small print that must still pass AA on
-  // `bg` (muted at 0.5 lands ~4.2:1 at the blend, just under the 4.5:1
-  // floor) — the Ask Rally safety line (PM1B) is the first user.
-  mutedStrong: 'rgba(38, 38, 38, 0.68)',
+  // Quiet-but-readable ink: THE token for any small print a person has to
+  // read. Since CT1 (28 July) that is 200+ sites, not a handful.
+  //
+  // THE NUMBERS, MEASURED — this comment used to claim `muted` at 0.5
+  // "lands ~4.2:1", and that figure was wrong in a way that cost a whole
+  // section. 4.19/4.39 are ink at alpha 0.62 on bg/card: measurements of a
+  // PROPOSED value, written down as the current one. CT1 inherited the
+  // error and built its plan on it. The real figures:
+  //   colors.muted (0.50)  3.00:1 on bg, 3.09 on card, and 2.74–3.09
+  //                        across every surface in the app — so it clears
+  //                        4.5:1 NOWHERE, and on bg (2.9957) it misses even
+  //                        the 3:1 large-text bar. It is not a text colour.
+  //   mutedStrong (0.70)   5.32 bg · 5.65 card · 5.42 cream · 5.32 greenSoft
+  //                        · 5.23 plumSoft · 5.19 goldSoft · 4.86 on the
+  //                        placeholder grey · 4.50 on a SOLID gold fill.
+  //
+  // 0.70, not 0.68, since CT2 (28 July). Solid gold is the binding surface:
+  // 0.68 reached only 4.27 there, which is what left splash.tsx's two lines
+  // short. 0.69986 is the exact minimum that clears 4.5:1 on gold, so 0.70
+  // is that minimum rounded up — a 0.0016 margin on paper, but any path
+  // that quantises alpha to 8 bits rounds 0.70 UP (179/255) and measures
+  // 4.52, so the tight case is tight only in the arithmetic.
+  //
+  // Raising the alpha can only raise contrast, so every site already on
+  // this token passed a fortiori when 0.68 became 0.70 — nothing needed
+  // re-checking except the surfaces that were previously the minimums.
+  mutedStrong: 'rgba(38, 38, 38, 0.70)',
   // CH5 — the photo/avatar placeholder grey, promoted from '#ddd'
   // repeated in profile.tsx and Avatar.tsx.
   placeholderGrey: '#ddd',
