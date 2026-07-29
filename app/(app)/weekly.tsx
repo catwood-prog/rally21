@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   title: {
     fontFamily: FONT_HEADER,
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   },
   cardLabel: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 10,
   },
   circleRow: {
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   },
   circleRowCount: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   bars: {
     flexDirection: 'row',
@@ -258,12 +258,12 @@ const styles = StyleSheet.create({
   },
   barLabel: {
     fontSize: 9,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 4,
   },
   sectionLabel: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 8,
   },
   standoutCard: {
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   },
   standoutMeta: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 6,
   },
   button: {

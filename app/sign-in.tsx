@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     // iOS and Android: three answers, three different offsets.
     lineHeight: 16,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   title: {
     fontFamily: FONT_HEADER,
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 24,
     lineHeight: 20,
   },
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   },
   appleHint: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginTop: -2,
   },
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
   dividerText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   email: {
     fontWeight: '700',

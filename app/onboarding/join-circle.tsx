@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 22,
     lineHeight: 19,
   },
@@ -286,11 +286,11 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   disclosureText: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 16,
     marginBottom: 16,
     marginTop: -6,
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   },
   publicCardMeta: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
   },
   publicCardMoreLink: {
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   circleReportCancelText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   circleReportSubmitText: {
     fontSize: 12,

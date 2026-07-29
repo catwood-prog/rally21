@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 8,
   },
   chipRow: {
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     fontStyle: 'italic',
     marginTop: 8,
   },

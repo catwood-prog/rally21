@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 8,
     marginBottom: 22,
   },
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     // OD1 job 17c — same YD1 fix: wrapping card copy on a fixed lineHeight.
     lineHeight: scaledLineHeight(16),
     marginTop: 4,

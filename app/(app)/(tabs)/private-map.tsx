@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 18,
   },
   traitsSection: {
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.muted,
+    color: colors.mutedStrong,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
     marginBottom: 10,
@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
   },
   evolutionStatement: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     flex: 1,
   },
   evolutionTag: {
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   evolutionTagRetired: {
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   errorText: {
     fontSize: 13,
@@ -687,11 +687,11 @@ const styles = StyleSheet.create({
     fontFamily: FONT_SERIF_ITALIC,
     fontSize: 13,
     lineHeight: 18,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   quoteAuthor: {
     fontSize: 10.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
   },
   quoteRemove: {
@@ -702,7 +702,7 @@ const styles = StyleSheet.create({
   quoteRemoveText: {
     fontSize: 10.5,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   quotesSeeAll: {
     minHeight: 44,
@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
   },
   patternCard: {
@@ -772,7 +772,7 @@ const styles = StyleSheet.create({
   },
   patternMeta: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 10,
     lineHeight: 16,
   },
@@ -811,7 +811,7 @@ const styles = StyleSheet.create({
   },
   respondedText: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 16,
     fontWeight: '600',
   },
@@ -889,7 +889,7 @@ const styles = StyleSheet.create({
   noteSkipText: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   noteSaveButton: {
     backgroundColor: colors.gold,
@@ -904,7 +904,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     fontSize: 10.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     lineHeight: 16,
     marginTop: 8,

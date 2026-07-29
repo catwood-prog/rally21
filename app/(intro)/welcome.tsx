@@ -80,14 +80,14 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 19,
     textAlign: 'center',
     marginTop: 12,
   },
   soloLine: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 17,
     textAlign: 'center',
     marginTop: 8,
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
     paddingBottom: 20,
   },
 });

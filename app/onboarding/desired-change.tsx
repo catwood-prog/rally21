@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   brandmark: { marginBottom: 18 },
   back: { marginBottom: 18 },
   title: { fontFamily: FONT_HEADER, fontSize: 25, lineHeight: 30, color: colors.ink },
-  subtitle: { fontSize: 13, color: colors.muted, marginTop: 8, marginBottom: 22 },
+  subtitle: { fontSize: 13, color: colors.mutedStrong, marginTop: 8, marginBottom: 22 },
   card: {
     backgroundColor: colors.card,
     borderRadius: 16,
@@ -97,5 +97,5 @@ const styles = StyleSheet.create({
   },
   cardText: { fontSize: 15, color: colors.ink, fontWeight: '600' },
   skip: { marginTop: 6, alignItems: 'center', paddingVertical: 12, minHeight: 44, justifyContent: 'center' },
-  skipText: { fontSize: 13, color: colors.muted },
+  skipText: { fontSize: 13, color: colors.mutedStrong },
 });

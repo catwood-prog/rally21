@@ -354,12 +354,12 @@ const styles = StyleSheet.create({
     color: colors.errorRed,
   },
   rowTextNote: {
-    color: colors.muted,
+    color: colors.mutedStrong,
     fontWeight: '600',
   },
   rowChevron: {
     fontSize: 14,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   expandedPanel: {
     paddingVertical: 12,
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
   },
   footerNote: {
     fontSize: 10.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginTop: 14,
     lineHeight: scaledLineHeight(15),
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
   typeToConfirmLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 6,
   },
   typeToConfirmInput: {

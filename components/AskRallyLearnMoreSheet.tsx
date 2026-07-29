@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   },
   scope: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 18,
     marginBottom: 12,
     fontStyle: 'italic',

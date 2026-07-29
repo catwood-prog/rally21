@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   },
   body: {
     fontSize: 14,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     lineHeight: 21,
     marginBottom: 32,

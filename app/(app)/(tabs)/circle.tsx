@@ -1579,7 +1579,7 @@ const styles = StyleSheet.create({
   editPencil: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   nameEditAction: {
     fontWeight: '700',
@@ -1589,17 +1589,17 @@ const styles = StyleSheet.create({
   nameEditActionMuted: {
     fontWeight: '600',
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   subtitle: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 4,
     marginBottom: 18,
   },
   headerStatus: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 18,
@@ -1622,7 +1622,7 @@ const styles = StyleSheet.create({
   linkEditLink: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   linkEmptyPrompt: {
     alignItems: 'center',
@@ -1718,7 +1718,7 @@ const styles = StyleSheet.create({
   },
   wallEmptyText: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   wallPreviewLine: {
     fontSize: 12.5,
@@ -1804,7 +1804,7 @@ const styles = StyleSheet.create({
   // isn't a heading, and it must not out-shout the avatar it labels.
   whoHereName: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 4,
     maxWidth: 64,
     textAlign: 'center',
@@ -1814,7 +1814,7 @@ const styles = StyleSheet.create({
   // absent below 7 days.
   glowFlameLine: {
     fontSize: 9,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
   },
   coverPill: {
@@ -1878,7 +1878,7 @@ const styles = StyleSheet.create({
   memberMoreLink: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
   },
   memberActionsPanel: {
@@ -1913,7 +1913,7 @@ const styles = StyleSheet.create({
   memberActionCancelText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   memberActionConfirmText: {
     fontSize: 13,
@@ -1922,7 +1922,7 @@ const styles = StyleSheet.create({
   },
   memberActionConfirmBody: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 17,
   },
   memberReportInput: {
@@ -1978,7 +1978,7 @@ const styles = StyleSheet.create({
   },
   hostToggleHelper: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
   },
   toggleTrack: {
@@ -2024,7 +2024,7 @@ const styles = StyleSheet.create({
   hostMemberRemoveLink: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   hostMemberConfirmCard: {
     backgroundColor: colors.bg,
@@ -2040,7 +2040,7 @@ const styles = StyleSheet.create({
   },
   hostMemberConfirmBody: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 16,
     marginBottom: 10,
   },
@@ -2052,7 +2052,7 @@ const styles = StyleSheet.create({
   hostMemberCancelText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   hostDeleteConfirmText: {
     fontSize: 12,
@@ -2074,7 +2074,7 @@ const styles = StyleSheet.create({
   },
   coveredInfoBody: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 15,
   },
   avatarOverflow: {
@@ -2095,7 +2095,7 @@ const styles = StyleSheet.create({
   avatarOverflowText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   emptyGroupCard: {
     alignItems: 'center',
@@ -2119,7 +2119,7 @@ const styles = StyleSheet.create({
   },
   emptyGroupBody: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginBottom: 18,
   },
@@ -2142,7 +2142,7 @@ const styles = StyleSheet.create({
   leaveLinkText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   leaveConfirmCard: {
     backgroundColor: colors.card,
@@ -2201,7 +2201,7 @@ const styles = StyleSheet.create({
   },
   journeyGateCardBody: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 18,
     marginBottom: 12,
   },
@@ -2220,13 +2220,13 @@ const styles = StyleSheet.create({
   journeyGateCardLink: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
     textDecorationLine: 'underline',
     textAlign: 'center',
   },
   journeyGateCardWaiting: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     fontStyle: 'italic',
     textAlign: 'center',
   },
@@ -2272,7 +2272,7 @@ const styles = StyleSheet.create({
   },
   journeyCompletedBannerBody: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -2287,7 +2287,7 @@ const styles = StyleSheet.create({
   },
   journeyCompleteHostConfirmBody: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 17,
     marginBottom: 10,
   },

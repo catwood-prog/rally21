@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   brandmark: {
     position: 'absolute',
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   },
   body: {
     fontSize: 14,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginBottom: 32,
   },

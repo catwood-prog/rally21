@@ -214,7 +214,7 @@ export const circleFormStyles = StyleSheet.create({
   },
   helperText: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: -4,
     marginBottom: 8,
   },
@@ -273,7 +273,7 @@ export const circleFormStyles = StyleSheet.create({
   instructionsActionText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   instructionsActionTextSet: {
     fontWeight: '700',
@@ -281,13 +281,13 @@ export const circleFormStyles = StyleSheet.create({
   },
   instructionsActionHint: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
   },
   instructionsActionChevron: {
     fontSize: 22,
     fontWeight: '400',
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginLeft: 10,
   },
   // RF1 job 1 — the first-rally commitment frame.
@@ -300,7 +300,7 @@ export const circleFormStyles = StyleSheet.create({
   firstRallySupportingLine: {
     fontFamily: FONT_SERIF_ITALIC,
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
   },
   milestoneRow: {
@@ -315,7 +315,7 @@ export const circleFormStyles = StyleSheet.create({
   milestoneNumber: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   milestoneNumberActive: {
     fontWeight: '800',
@@ -348,7 +348,7 @@ export const circleFormStyles = StyleSheet.create({
   },
   milestoneDot: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginHorizontal: 6,
   },
 });

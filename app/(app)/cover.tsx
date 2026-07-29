@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 4,
     textAlign: 'center',
   },
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   },
   noteText: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 17,
   },
   optionList: {

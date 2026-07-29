@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
   helper: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 18,
   },
   sectionSpacing: {

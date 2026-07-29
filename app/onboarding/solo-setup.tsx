@@ -321,12 +321,12 @@ const styles = StyleSheet.create({
   summaryGrouping: {
     fontFamily: FONT_SERIF_ITALIC,
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
   },
   summaryDays: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 6,
   },
   sectionSpacing: {
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   },
   durationHelper: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: -4,
     marginBottom: 8,
   },

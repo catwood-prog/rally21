@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   pickerTitle: {
     fontFamily: FONT_HEADER,
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 10,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
   },
   unlockBanner: {
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   reactOnlyHint: {
     textAlign: 'center',
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: colors.line,
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   emptyState: {
     textAlign: 'center',
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 40,
   },
   messageRow: {
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
   },
   senderName: {
     fontSize: 9,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   bubble: {
     borderRadius: 14,
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
   hostDeleteLink: {
     fontSize: 10,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   hostDeleteConfirmText: {
     fontSize: 10,
@@ -622,7 +622,7 @@ const styles = StyleSheet.create({
   hostDeleteCancelText: {
     fontSize: 10,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   reportPanel: {
     marginTop: 6,

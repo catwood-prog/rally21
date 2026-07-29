@@ -92,6 +92,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.4,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
 });

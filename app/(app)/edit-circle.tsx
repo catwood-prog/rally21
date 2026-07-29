@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
   },
   quietNote: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginTop: 24,
   },

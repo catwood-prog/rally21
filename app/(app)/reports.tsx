@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     fontStyle: 'italic',
   },
   card: {
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   reasonText: {
     fontSize: 12,
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   dismissText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   destructiveText: {
     fontSize: 12,

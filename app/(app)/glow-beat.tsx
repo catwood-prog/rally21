@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
   slotWeekday: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   slotPill: {
     width: 30,
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
   },
   rekindledLine: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     fontStyle: 'italic',
     textAlign: 'center',
     marginTop: 24,

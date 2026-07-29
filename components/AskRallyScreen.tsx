@@ -759,7 +759,7 @@ const styles = StyleSheet.create({
   },
   contextDot: {
     fontSize: 13.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   reflectionsLink: {
     fontSize: 13.5,
@@ -903,7 +903,7 @@ const styles = StyleSheet.create({
   },
   limitText: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginTop: 8,
     fontStyle: 'italic',

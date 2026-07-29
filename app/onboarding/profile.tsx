@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   },
   appleRescueText: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 17,
   },
   photoWrap: {
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   photoInitial: {
     fontSize: 36,
     fontWeight: '800',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   photoBadge: {
     position: 'absolute',
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 22,
     textAlign: 'center',
   },
@@ -335,11 +335,11 @@ const styles = StyleSheet.create({
   birthdayOptional: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   birthdayWhy: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 17,
     marginTop: 4,
     marginBottom: 14,

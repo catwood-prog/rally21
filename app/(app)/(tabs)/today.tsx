@@ -1586,7 +1586,7 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 4,
   },
   // OD1 job 12a — the stale-refresh strip. Quiet on purpose: it marks
@@ -1615,7 +1615,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 12.5,
     lineHeight: 18,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   headline: {
     fontFamily: FONT_HEADER,
@@ -1631,7 +1631,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 8,
     marginBottom: 20,
   },
@@ -1658,7 +1658,7 @@ const styles = StyleSheet.create({
   },
   obstacleSubtitle: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 12,
     lineHeight: 17,
   },
@@ -1683,7 +1683,7 @@ const styles = StyleSheet.create({
   },
   obstacleSkipText: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   // Deliberately NOT plum: plum is the map's evidence-based "we noticed"
   // voice, and this is self-reported "you told us" (ON1 brand-integrity
@@ -1736,7 +1736,7 @@ const styles = StyleSheet.create({
   },
   completedCardBody: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 18,
   },
   // PA2 — the road back. greenText, not colors.green: green is a FILL
@@ -1754,7 +1754,7 @@ const styles = StyleSheet.create({
   cardLink: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   membersRow: {
     flexDirection: 'row',
@@ -1774,14 +1774,14 @@ const styles = StyleSheet.create({
   },
   memberName: {
     fontSize: 9,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 5,
   },
   // GS1 — the ambient flame under a glowing member's name. Quiet by
   // design; simply absent below 7 days.
   glowFlameLine: {
     fontSize: 9,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 1,
   },
   // TN1 — the whisper's styles retired with it; the notification spot
@@ -1790,7 +1790,7 @@ const styles = StyleSheet.create({
   // quiet-navigation register as "This week" (ink/muted, never green).
   wallTeaserLine: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
     marginBottom: 10,
   },

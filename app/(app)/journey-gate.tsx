@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   // CB1 job 1b — the not-found state's exit sits in the same 24px gutter
   // the ceremony's own content uses, so the button matches width for
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
   },
   body: {
     fontSize: 15,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginBottom: 28,
     paddingHorizontal: 8,
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontWeight: '600',
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textDecorationLine: 'underline',
   },
   notNowButton: {
@@ -571,17 +571,17 @@ const styles = StyleSheet.create({
   notNowText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   helperText: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginTop: 8,
   },
   helperTextMuted: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginTop: 18,
     fontStyle: 'italic',

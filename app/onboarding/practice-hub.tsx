@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   grouping: {
     fontFamily: FONT_SERIF_ITALIC,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
   },
   howQuestion: {
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   },
   peerBody: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 15,
     marginTop: 3,
   },
@@ -269,11 +269,11 @@ const styles = StyleSheet.create({
   },
   emptyLine: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   disclosure: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 12,
     lineHeight: 15,
   },
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   },
   circleCardMeta: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
   },
   joinChip: {

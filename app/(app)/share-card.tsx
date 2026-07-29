@@ -325,12 +325,12 @@ const styles = StyleSheet.create({
   },
   nameToggleText: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textDecorationLine: 'underline',
   },
   skipButtonText: {
     fontSize: 18,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   // SC1C: Like · Share shrink 30% from the SC1B size — text, icon and
   // padding all ×0.7 (text 18.75→13.125, heart 25.5→17.85, padding
@@ -353,14 +353,14 @@ const styles = StyleSheet.create({
   },
   heartIcon: {
     fontSize: 17.85,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   heartIconLiked: {
     color: colors.heart,
   },
   reactionText: {
     fontSize: 13.125,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   reactionTextLiked: {
     color: colors.ink,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   notForMeText: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   // OD1 Job 8a — the closing button's wrapper: marginTop:auto drops it to
   // the lower half of the (flexGrow:1) content; paddingTop guarantees real

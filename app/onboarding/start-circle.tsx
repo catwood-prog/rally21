@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   summaryGrouping: {
     fontFamily: FONT_SERIF_ITALIC,
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
   },
   sectionSpacing: {
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
   },
   durationHelper: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: -4,
     marginBottom: 8,
   },
@@ -346,12 +346,12 @@ const styles = StyleSheet.create({
   },
   visibilityBody: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 16,
   },
   visibilityDisclosure: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 15,
     marginTop: 6,
     fontStyle: 'italic',
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   confirmCancel: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginTop: 12,
   },

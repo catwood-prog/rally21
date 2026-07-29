@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 26,
     textAlign: 'center',
   },
@@ -372,6 +372,6 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontWeight: '600',
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
 });

@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   },
   body: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     // OD1 job 17c — the longest copy on the ask, so the worst clipper.
     lineHeight: scaledLineHeight(19),
     textAlign: 'center',
@@ -108,6 +108,6 @@ const styles = StyleSheet.create({
     marginTop: 14,
     fontSize: 12,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
 });

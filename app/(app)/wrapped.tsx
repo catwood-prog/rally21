@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   },
   pickerHint: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 3,
     marginBottom: 10,
   },
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   },
   pickerNoneText: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   pickerLineText: {
     fontSize: 13,
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   doneButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   captureClip: {
     position: 'absolute',

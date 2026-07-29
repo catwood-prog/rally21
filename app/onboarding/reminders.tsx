@@ -102,6 +102,6 @@ const styles = StyleSheet.create({
     // iOS and Android: three answers, three different offsets.
     lineHeight: 16,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
 });

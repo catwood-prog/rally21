@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
   },
   micDeniedHint: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: -8,
     marginBottom: 16,
   },
@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   questionPrompt: {
     fontSize: 14,

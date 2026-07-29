@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   },
   provenance: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     fontStyle: 'italic',
   },
   button: {

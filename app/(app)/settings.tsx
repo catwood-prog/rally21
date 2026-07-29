@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
   },
   photoHint: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
   },
   birthdayWhy: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: scaledLineHeight(17),
     marginTop: -4,
     marginBottom: 14,
@@ -823,7 +823,7 @@ const styles = StyleSheet.create({
   // away helper is the longest copy using this style).
   prefRowHelper: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: scaledLineHeight(16),
     marginTop: 2,
   },
@@ -839,7 +839,7 @@ const styles = StyleSheet.create({
   },
   prefPillText: {
     ...chipTextShape,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   prefPillTextOn: {
     color: '#fff',
@@ -862,7 +862,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     ...chipTextShape,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   chipTextSelected: {
     color: colors.greenText,

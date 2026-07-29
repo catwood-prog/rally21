@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   },
   connectionNote: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: -6,
     marginBottom: 14,
     lineHeight: 18,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   emptyShelfLine: {
     width: '100%',
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 17,
   },
   card: {
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   },
   cardGrouping: {
     fontSize: 10,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
     marginBottom: 2,
   },

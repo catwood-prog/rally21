@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   text: {
-    color: colors.muted,
+    color: colors.mutedStrong,
     fontSize: 13,
   },
 });

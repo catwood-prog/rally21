@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   emptyState: {
     alignItems: 'center',

@@ -146,11 +146,11 @@ const styles = StyleSheet.create({
   },
   soundRight: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   prompt: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 8,
   },
   chipRow: {
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     ...chipTextShape,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   chipTextSelected: {
     color: colors.greenText,

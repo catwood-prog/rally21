@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 14,
   },
   patternCard: {
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   },
   patternMeta: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 10,
     lineHeight: 16,
   },
@@ -277,13 +277,13 @@ const styles = StyleSheet.create({
   },
   respondedText: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 16,
     fontWeight: '600',
   },
   footer: {
     fontSize: 10.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     lineHeight: 16,
     marginTop: 8,

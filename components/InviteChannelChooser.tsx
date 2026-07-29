@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 19,
     marginBottom: 14,
   },
@@ -145,6 +145,6 @@ const styles = StyleSheet.create({
   dismissText: {
     fontWeight: '600',
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
 });

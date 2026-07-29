@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     // iOS and Android: three answers, three different offsets.
     lineHeight: 16,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   body: {
     flex: 1,
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   fullPolicyLink: {
     marginTop: 20,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textDecorationLine: 'underline',
   },
   button: {

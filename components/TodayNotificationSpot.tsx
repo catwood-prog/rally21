@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   },
   footnote: {
     fontSize: 11.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: scaledLineHeight(16),
     marginTop: 2,
   },

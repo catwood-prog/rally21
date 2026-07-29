@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.greenSoft,
   },
   pillOnlyYou: {
-    color: colors.muted,
+    color: colors.mutedStrong,
     backgroundColor: colors.line,
   },
 });

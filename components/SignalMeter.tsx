@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   },
   dayBadgeText: {
     ...chipTextShape,
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   // PA1 job 3 — deliberately NOT a chip. The circle's age is chrome (a
   // muted pill); your rally is yours, so it is plain ink text on its own
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   },
   caption: {
     fontSize: 10.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 14,
   },
 });

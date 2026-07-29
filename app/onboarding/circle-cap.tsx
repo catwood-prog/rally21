@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   },
   body: {
     fontSize: 13.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     // OD1 job 17c — the longest copy on the screen, so the worst clipper.
     lineHeight: scaledLineHeight(20),
@@ -124,6 +124,6 @@ const styles = StyleSheet.create({
   secondaryLinkText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
 });

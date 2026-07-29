@@ -740,7 +740,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginBottom: 32,
   },
@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
   },
   echoLine: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
   },
   pushAskWrap: {
@@ -777,7 +777,7 @@ const styles = StyleSheet.create({
   },
   pushAskLine: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     textAlign: 'center',
     marginBottom: 6,
   },

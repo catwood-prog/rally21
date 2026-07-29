@@ -349,13 +349,13 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 12.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 18,
     marginBottom: 20,
   },
   emptyText: {
     fontSize: 13,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 16,
   },
   card: {
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   cardMeta: {
     fontSize: 11,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginTop: 2,
   },
   cardActions: {
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   actionTextMuted: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.muted,
+    color: colors.mutedStrong,
   },
   createButton: {
     paddingVertical: 14,

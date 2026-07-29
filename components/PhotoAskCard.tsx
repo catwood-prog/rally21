@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   },
   dismiss: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     paddingVertical: 4,
   },
 });

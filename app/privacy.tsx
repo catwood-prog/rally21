@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   },
   effectiveDate: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.mutedStrong,
     marginBottom: 18,
   },
   intro: {

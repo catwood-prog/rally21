@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   },
   body: {
     fontSize: 13.5,
-    color: colors.muted,
+    color: colors.mutedStrong,
     lineHeight: 19,
     marginBottom: 18,
   },
