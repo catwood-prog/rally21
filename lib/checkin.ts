@@ -1,3 +1,4 @@
+import { cancelTodaysReminder } from './alarmReminder';
 import { getMyRallyCount } from './journey';
 import { captureError } from './sentry';
 import { supabase } from './supabase';
@@ -178,6 +179,30 @@ export async function saveCompletion(params: {
   );
 
   if (error) throw error;
+
+  // AL1 job 2 — the day's personal reminder is cancelled the moment they
+  // check in to ANY circle. A reminder that fires after you have already
+  // done the thing is the fastest way to get notifications turned off, and
+  // they are in the app right now, so this is cheap.
+  //
+  // ONE hook rather than three: every check-in path (save with a
+  // reflection, "skip for now", "just check-ins for me") and the
+  // second-circle auto-complete all land here, and cover-a-friend
+  // deliberately does not — that writes a completion for SOMEONE ELSE
+  // (lib/circle.ts), and the coverer has not practised.
+  //
+  // AFTER the throw, never before: the completion is the fact, the
+  // reminder is bookkeeping about it. Web is a no-op inside the callee.
+  try {
+    await cancelTodaysReminder();
+  } catch (e) {
+    // FF1 — reported, not swallowed. Silence is right for the CALLER (a
+    // check-in must never fail because a notification could not be
+    // cancelled) but not for us: the visible symptom would be a reminder
+    // arriving after a completed day, which reads as the app not
+    // listening, and nothing else would ever tell us it happened.
+    captureError(e, { op: 'cancelTodaysReminder' });
+  }
 }
 
 /** A direct, targeted read of whether THIS circle's completion for

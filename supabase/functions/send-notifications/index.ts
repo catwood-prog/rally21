@@ -320,7 +320,8 @@ Deno.serve(async (req) => {
     try {
       const { data: user } = await admin
         .from("users")
-        .select("timezone, last_seen_at, away_since")
+        // AL1 job 3 — the alarm pair rides along for the cap below.
+        .select("timezone, last_seen_at, away_since, alarm_enabled, alarm_time")
         .eq("id", row.user_id)
         .single();
       const { data: prefs } = await admin
@@ -421,8 +422,29 @@ Deno.serve(async (req) => {
         }
       }
 
+      // AL1 job 3 — THE LOCAL REMINDER COUNTS AS ONE OF THE TWO. It never
+      // touches this outbox (it is scheduled on the phone, offline, by
+      // lib/alarmReminder.ts), so nothing here could ever observe it —
+      // which is exactly why the slot has to be reserved rather than
+      // counted. For someone with a declared practice time the effective
+      // server cap is therefore ONE, and the day's total is reminder + at
+      // most one server notification: precisely Cat's "reminder plus one
+      // nudge", and it holds at any circle count, because nudge_daily is
+      // already dedupe-keyed once per user per local date rather than once
+      // per membership.
+      //
+      // Conservative on purpose (FF1's default direction): we cannot know
+      // whether the reminder actually appeared — a phone with
+      // notifications denied gets one fewer server notification than it
+      // strictly could. Under-notifying someone who asked for a quiet day
+      // is the failure worth having.
+      //
+      // The "never more than 2 a day" promise in settings is unchanged and
+      // still literally true.
+      const reservesASlotForTheirOwnReminder = user?.alarm_enabled === true && !!user?.alarm_time;
+      const effectiveCap = reservesASlotForTheirOwnReminder ? 1 : 2;
       const deliveredToday = await countDeliveredToday(admin, row.user_id, timeZone, now);
-      if (deliveredToday >= 2) {
+      if (deliveredToday >= effectiveCap) {
         await admin
           .from("notification_outbox")
           .update({ suppressed_reason: "cap_reached", sent_at: now.toISOString() })

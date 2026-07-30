@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   LayoutChangeEvent,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,7 +20,7 @@ import { CheckedInBadge } from '@/components/CheckedInBadge';
 import { GlowBadge } from '@/components/GlowBadge';
 import { MessageDialog } from '@/components/MessageDialog';
 import { PhotoAskCard } from '@/components/PhotoAskCard';
-import { RemindersAskCard } from '@/components/RemindersAskCard';
+import { RemindersAskAlarmChoice, RemindersAskCard } from '@/components/RemindersAskCard';
 import { SignalMeter } from '@/components/SignalMeter';
 import { TodayFooter } from '@/components/TodayFooter';
 import { TodayNotificationSpot } from '@/components/TodayNotificationSpot';
@@ -27,6 +28,7 @@ import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { isVerbPhrasePractice, STRINGS } from '@/constants/strings';
 import { cardShadow, chipTextShape, colors } from '@/constants/theme';
 import { useTabBarClearance } from '@/hooks/use-tab-bar-clearance';
+import { resolvePrefillAlarmTime, syncDailyReminder } from '@/lib/alarmReminder';
 import { useAuth } from '@/lib/auth-context';
 import { getMyCircleCap, MAX_CIRCLES } from '@/lib/caps';
 import {
@@ -69,7 +71,7 @@ import {
   PebbleGiftMoment,
   shouldMoveSpotBelowCta,
 } from '@/lib/notificationSpot';
-import { getMyProfile, markPhotoAskSeen, markReentryAcknowledged, markRemindersAskSeen } from '@/lib/profile';
+import { getMyProfile, markPhotoAskSeen, markReentryAcknowledged, markRemindersAskSeen, setAlarmReminder } from '@/lib/profile';
 import { isDesiredChange, isObstacle, OBSTACLE_KEYS, setKeepGoingObstacle } from '@/lib/onboardingIntake';
 import { hasUnrespondedDayObservation } from '@/lib/reflections';
 import { captureError } from '@/lib/sentry';
@@ -220,6 +222,11 @@ function Today() {
   // yet" — a still-mid-onboarding account sees the onboarding step
   // instead (hooks/use-onboarding-status.ts's 'needs-reminders-ask').
   const [hasSeenRemindersAsk, setHasSeenRemindersAsk] = useState(true);
+  // AL1 job 4 — the prefill rule's answer for THIS account, resolved once
+  // the ask is actually going to show. Null until it lands, at which point
+  // the card falls back to its own 08:00 no-guess default, which is the
+  // same answer the rule gives when circles disagree.
+  const [alarmPrefill, setAlarmPrefill] = useState<{ time: string; prefilled: boolean } | null>(null);
   // AV1 — the one-shot photo ask. Both flags default to the "never
   // show" side so the card can't flash before the real values load;
   // hasAnyOwnCompletion is the chosen gate ("first check-in
@@ -872,7 +879,22 @@ function Today() {
   // stamped BEFORE the prefs write was known to have landed, so a failed
   // write left reminders off forever with the only card that could turn
   // them on already retired. Nothing is stamped unless the write landed.
-  const handleTurnOnReminders = async () => {
+  // AL1 job 4 — resolved only once the ask is actually going to show, so
+  // the overwhelming majority of Today loads (every account that has
+  // already answered) pay nothing for it. Web never asks at all.
+  useEffect(() => {
+    if (Platform.OS === 'web' || hasSeenRemindersAsk || !session?.user) return;
+    resolvePrefillAlarmTime(session.user.id)
+      .then(setAlarmPrefill)
+      .catch((e) => {
+        // FF1 — a failed read lands on the rule's own no-guess branch (the
+        // card's 08:00 default), so there is nothing to tell the person
+        // and nothing fabricated. Reported, never surfaced.
+        captureError(e, { screen: 'today', op: 'resolvePrefillAlarmTime' });
+      });
+  }, [hasSeenRemindersAsk, session?.user?.id]);
+
+  const handleTurnOnReminders = async (alarm: RemindersAskAlarmChoice) => {
     if (!session?.user) return;
     const userId = session.user.id;
     try {
@@ -881,6 +903,20 @@ function Today() {
       captureError(e, { screen: 'today', op: 'updateNotificationPrefs' });
       setError(STRINGS.saveFailedLine);
       return;
+    }
+    // AL1 job 4 — the personal practice time rides the same ask. Same
+    // asymmetry rule as above: the seen-marker below is only stamped once
+    // the writes that matter have landed, so a failure here leaves the
+    // card in place rather than retiring the only surface that offers it.
+    if (alarm.enabled) {
+      try {
+        await setAlarmReminder(userId, alarm);
+        await syncDailyReminder({ enabled: true, alarmTime: alarm.time, requestPermission: true });
+      } catch (e) {
+        captureError(e, { screen: 'today', op: 'setAlarmReminder' });
+        setError(STRINGS.saveFailedLine);
+        return;
+      }
     }
     setHasSeenRemindersAsk(true);
     markRemindersAskSeen(userId).catch((e) =>
@@ -893,7 +929,13 @@ function Today() {
     markRemindersAskSeen(session.user.id).catch(() => {});
   };
   const remindersAskCard = !hasSeenRemindersAsk ? (
-    <RemindersAskCard variant="compact" onTurnOn={handleTurnOnReminders} onMaybeLater={handleMaybeLaterReminders} />
+    <RemindersAskCard
+      variant="compact"
+      onTurnOn={handleTurnOnReminders}
+      onMaybeLater={handleMaybeLaterReminders}
+      alarmPrefillTime={alarmPrefill?.time}
+      alarmPrefilled={alarmPrefill?.prefilled}
+    />
   ) : null;
 
   // AV1 — the one-shot photo ask: photo-less account, never seen it,

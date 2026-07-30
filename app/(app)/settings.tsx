@@ -18,15 +18,22 @@ import { AppHeader } from '@/components/AppHeader';
 import { BirthdayPicker, BirthdayValue } from '@/components/BirthdayPicker';
 import { ReflectionsToggleRow } from '@/components/ReflectionsToggleRow';
 import { MessageDialog } from '@/components/MessageDialog';
+import { TimeOfDayPicker } from '@/components/TimeOfDayPicker';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipShape, chipTextShape, colors, scaledLineHeight } from '@/constants/theme';
+import {
+  formatTimeForDisplay,
+  PREFILL_FALLBACK_TIME,
+  resolvePrefillAlarmTime,
+  syncDailyReminder,
+} from '@/lib/alarmReminder';
 import { useAuth } from '@/lib/auth-context';
 import { returnFromAway, setAway } from '@/lib/away';
 import { isValidBirthday } from '@/lib/birthday';
 import { BlockedPerson, getMyBlocks, unblockUser } from '@/lib/moderation';
 import { getMyNotificationPrefs, NotificationPrefs, updateNotificationPrefs } from '@/lib/notifications';
-import { getMyProfile, saveBirthday, saveProfile, setCelebrateBirthday, setReflectionsOptOut, setSoundsEnabled } from '@/lib/profile';
+import { getMyProfile, saveBirthday, saveProfile, setAlarmReminder, setCelebrateBirthday, setReflectionsOptOut, setSoundsEnabled } from '@/lib/profile';
 import {
   getPushPermissionStatus,
   PushPermissionStatus,
@@ -99,6 +106,16 @@ export default function Settings() {
   // actually walks into.
   const [reflectionsOff, setReflectionsOff] = useState(false);
   const [isTogglingReflections, setIsTogglingReflections] = useState(false);
+  // AL1 job 4 — the personal practice reminder. Settings is where it is
+  // EDITED; the one-time ask lives on RM1's reminders card (onboarding, or
+  // Today's compact copy for an existing account), so nobody is asked
+  // twice. Native only — see the Platform.OS gate on the section itself.
+  const [alarmEnabled, setAlarmEnabled] = useState(false);
+  const [alarmTime, setAlarmTime] = useState<string | null>(null);
+  const [isSavingAlarm, setIsSavingAlarm] = useState(false);
+  // The preference saved, but the phone will not deliver it. A real state,
+  // not an error: the row says so rather than pretending the reminder is live.
+  const [alarmPermissionDenied, setAlarmPermissionDenied] = useState(false);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -136,6 +153,8 @@ export default function Settings() {
       setPushStatus(pushPermissionStatus);
       setAwaySinceState(profile?.away_since ?? null);
       setReflectionsOff(profile?.reflections_opt_out ?? false);
+      setAlarmEnabled(profile?.alarm_enabled ?? false);
+      setAlarmTime(profile?.alarm_time ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not load your profile');
     } finally {
@@ -308,6 +327,63 @@ export default function Settings() {
     }
   };
 
+  /** AL1 job 4 — one writer for both the toggle and the time, because the
+   * DB pair is written together and the device schedule must follow the
+   * saved value, never the other way round: save first, then bring the
+   * phone in line with what is now true. `requestPermission` is only ever
+   * true on the turn-it-ON tap, which is the earned moment (PN1's law) —
+   * changing the time on an already-on reminder never re-prompts. */
+  const saveAlarm = async (next: { enabled: boolean; time: string | null }) => {
+    if (!session?.user) return;
+    const previous = { enabled: alarmEnabled, time: alarmTime };
+    const turningOn = next.enabled && !previous.enabled;
+    setIsSavingAlarm(true);
+    setAlarmEnabled(next.enabled);
+    setAlarmTime(next.enabled ? next.time : null);
+    try {
+      await setAlarmReminder(session.user.id, next);
+      const result = await syncDailyReminder({
+        enabled: next.enabled,
+        alarmTime: next.time,
+        requestPermission: turningOn,
+      });
+      setAlarmPermissionDenied(result === 'permission-denied');
+    } catch (e) {
+      setAlarmEnabled(previous.enabled);
+      setAlarmTime(previous.time);
+      setError(e instanceof Error ? e.message : 'could not save that — try again');
+    } finally {
+      setIsSavingAlarm(false);
+    }
+  };
+
+  const handleToggleAlarm = async () => {
+    if (!session?.user || isSavingAlarm) return;
+    if (alarmEnabled) {
+      setAlarmPermissionDenied(false);
+      await saveAlarm({ enabled: false, time: null });
+      return;
+    }
+    // THE PREFILL RULE (AL1 job 1): if every circle they are currently in
+    // agrees on a time, start there. If they disagree, or there are none,
+    // do NOT guess — open at 08:00 and let them choose.
+    let startingTime = alarmTime;
+    if (!startingTime) {
+      try {
+        startingTime = (await resolvePrefillAlarmTime(session.user.id)).time;
+      } catch (e) {
+        // FF1 — the prefill is a courtesy, not a fact about the person:
+        // a failed read means we open the picker where we would have
+        // opened it anyway if their circles disagreed, which is the
+        // no-guess branch. Reported so a persistently failing read is
+        // visible, never surfaced as an error over a working toggle.
+        captureError(e, { screen: 'settings', op: 'resolvePrefillAlarmTime' });
+        startingTime = PREFILL_FALLBACK_TIME;
+      }
+    }
+    await saveAlarm({ enabled: true, time: startingTime });
+  };
+
   const savePrefs = async (patch: Partial<NotificationPrefs>) => {
     if (!session?.user) return;
     const previous = prefs;
@@ -471,6 +547,57 @@ export default function Settings() {
           </>
         )}
       </View>
+
+      {/* AL1 job 4 — WEB HIDES THIS ENTIRELY: it is not disabled and it is
+          not explained, because local scheduled notifications are
+          native-only and a feature that exists-but-cannot-work is worse
+          than one that simply isn't there. The gate is Platform.OS, and
+          lib/alarmReminder's own web branch is the belt to this braces. */}
+      {Platform.OS !== 'web' && (
+        <View style={[styles.prefCard, styles.sectionSpacing]}>
+          <View style={styles.prefToggleRow}>
+            <View style={styles.prefRowText}>
+              <Text style={styles.prefRowLabel}>{STRINGS.alarmToggleLabel}</Text>
+              <Text style={styles.prefRowHelper}>
+                {alarmEnabled && formatTimeForDisplay(alarmTime)
+                  ? STRINGS.alarmToggleHelperOn(formatTimeForDisplay(alarmTime) as string)
+                  : STRINGS.alarmToggleHelperOff}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.prefPill, alarmEnabled && styles.prefPillOn]}
+              onPress={handleToggleAlarm}
+              disabled={isSavingAlarm}
+            >
+              {isSavingAlarm ? (
+                <ActivityIndicator size="small" color={colors.ink} />
+              ) : (
+                <Text style={[styles.prefPillText, alarmEnabled && styles.prefPillTextOn]}>
+                  {alarmEnabled ? 'on' : 'off'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {alarmEnabled && (
+            <>
+              {alarmPermissionDenied && (
+                <TouchableOpacity onPress={() => Linking.openSettings()}>
+                  <Text style={[styles.prefRowHelper, styles.alarmDeniedLine]}>
+                    {STRINGS.alarmPermissionDenied}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <View style={styles.alarmPickerSpacing}>
+                <TimeOfDayPicker
+                  value={alarmTime ?? PREFILL_FALLBACK_TIME}
+                  onChange={(next) => saveAlarm({ enabled: true, time: next })}
+                />
+              </View>
+            </>
+          )}
+        </View>
+      )}
 
       <View style={[styles.prefRow, styles.sectionSpacing]}>
         <View style={styles.prefRowText}>
@@ -792,6 +919,15 @@ const styles = StyleSheet.create({
   // inside a prefCard (remind me, from, until).
   prefCardInlineLabel: {
     marginTop: 14,
+  },
+  // AL1 — the picker sits under the toggle row with the same rhythm the
+  // nudge card's chips already use.
+  alarmPickerSpacing: {
+    marginTop: 14,
+  },
+  alarmDeniedLine: {
+    marginTop: 10,
+    color: colors.errorRed,
   },
   prefRowText: {
     flex: 1,

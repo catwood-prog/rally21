@@ -1,13 +1,16 @@
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { RemindersAskCard } from '@/components/RemindersAskCard';
+import { RemindersAskAlarmChoice, RemindersAskCard } from '@/components/RemindersAskCard';
 import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
+import { resolvePrefillAlarmTime, syncDailyReminder } from '@/lib/alarmReminder';
 import { useAuth } from '@/lib/auth-context';
 import { updateNotificationPrefs } from '@/lib/notifications';
-import { markRemindersAskSeen } from '@/lib/profile';
+import { markRemindersAskSeen, setAlarmReminder } from '@/lib/profile';
+import { captureError } from '@/lib/sentry';
 
 /** RM1 — onboarding step between profile and circle-setup, shown once,
  * ever, per account (gated by hooks/use-onboarding-status.ts's
@@ -16,23 +19,55 @@ import { markRemindersAskSeen } from '@/lib/profile';
  * see notifications_foundations_schema.sql); "Maybe later" changes
  * nothing but the seen flag. Either way always continues to circle-setup,
  * since this step only ever exists in the gap between profile and
- * circle-setup. */
+ * circle-setup.
+ *
+ * AL1 job 4 — the card now also carries the optional personal practice
+ * time, so notifications are asked about ONCE. Worth knowing when reading
+ * the prefill below: this step runs BEFORE circle-setup, so a brand-new
+ * account is in no circles yet and the prefill rule's agree-branch can
+ * never fire here — it correctly declines to guess and opens the picker
+ * at 08:00. The rule is still called rather than hard-coded, because the
+ * same card renders on Today for existing accounts, where circles exist. */
 export default function RemindersAsk() {
   const router = useRouter();
   const { session } = useAuth();
   // NAV1 job 0 — the safe-area inset still applies without an AppHeader.
   const insets = useSafeAreaInsets();
+  const [alarmPrefill, setAlarmPrefill] = useState<{ time: string; prefilled: boolean } | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS === 'web' || !session?.user) return;
+    const userId = session.user.id;
+    resolvePrefillAlarmTime(userId)
+      .then(setAlarmPrefill)
+      .catch((e) => {
+        // FF1 — the prefill is a courtesy, and its failure branch is the
+        // rule's own no-guess branch: the card falls back to its 08:00
+        // default. Reported so a persistently failing read is visible;
+        // never surfaced, because nothing about this ask is broken.
+        captureError(e, { screen: 'onboarding/reminders', op: 'resolvePrefillAlarmTime' });
+      });
+  }, [session?.user?.id]);
 
   const finish = () => {
     router.replace('/onboarding/circle-setup');
   };
 
-  const handleTurnOn = async () => {
+  const handleTurnOn = async (alarm: RemindersAskAlarmChoice) => {
     if (!session?.user) return finish();
+    const userId = session.user.id;
     await Promise.all([
-      updateNotificationPrefs(session.user.id, { nudgeEnabled: true, digestEnabled: true }),
-      markRemindersAskSeen(session.user.id),
+      updateNotificationPrefs(userId, { nudgeEnabled: true, digestEnabled: true }),
+      markRemindersAskSeen(userId),
+      // Only written when they actually turned the row on — the personal
+      // reminder is opt-in inside an opt-in, never a rider on the CTA.
+      alarm.enabled ? setAlarmReminder(userId, alarm) : Promise.resolve(),
     ]);
+    if (alarm.enabled) {
+      // The turn-it-on tap IS the earned moment, so this is the one place
+      // in the reminder's life that may ask the OS for permission.
+      await syncDailyReminder({ enabled: true, alarmTime: alarm.time, requestPermission: true });
+    }
     finish();
   };
 
@@ -66,7 +101,13 @@ export default function RemindersAsk() {
           { paddingTop: insets.top, paddingBottom: insets.bottom },
         ]}
       >
-        <RemindersAskCard variant="full" onTurnOn={handleTurnOn} onMaybeLater={handleMaybeLater} />
+        <RemindersAskCard
+          variant="full"
+          onTurnOn={handleTurnOn}
+          onMaybeLater={handleMaybeLater}
+          alarmPrefillTime={alarmPrefill?.time}
+          alarmPrefilled={alarmPrefill?.prefilled}
+        />
       </ScrollView>
     </View>
   );

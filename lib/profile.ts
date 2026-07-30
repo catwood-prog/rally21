@@ -48,6 +48,14 @@ export type Profile = {
   // skipped entirely (one-tap), and no surface mentions reflections
   // unprompted (the no-nag law).
   reflections_opt_out: boolean;
+  // AL1 (30 July) — the optional personal practice reminder. USER-level
+  // (a time is a fact about your day, not about one circle), NOT NULL
+  // default false, so every pre-AL1 account reads exactly today's
+  // behaviour. alarm_time is required by check constraint whenever
+  // alarm_enabled is true, so the pair is never half-set. Never called an
+  // alarm in copy — it cannot ring through a silenced phone.
+  alarm_enabled: boolean;
+  alarm_time: string | null;
   // WL2's seen-marker (NOT NULL, defaults to now() at signup). Read by
   // TN1's notification spot to gate the COVER moment client-side —
   // waves and hearts are gated server-side inside get_my_fresh_warmth,
@@ -61,7 +69,7 @@ export async function getMyProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('users')
     .select(
-      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, has_seen_timer_background_hint, reminders_ask_seen_at, photo_ask_seen_at, has_seen_push_prompt, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday, away_since, onboarding_desired_change, keep_going_obstacle, reflections_opt_out, warmth_seen_at'
+      'id, name, avatar_url, has_seen_checkin_consent, last_reentry_ack_date, sounds_enabled, has_seen_voice_hint, has_seen_cover_hint, has_seen_timer_background_hint, reminders_ask_seen_at, photo_ask_seen_at, has_seen_push_prompt, blueprint_surfaced_pattern_key, blueprint_surfaced_at, birth_month, birth_day, birth_year, celebrate_birthday, away_since, onboarding_desired_change, keep_going_obstacle, reflections_opt_out, alarm_enabled, alarm_time, warmth_seen_at'
     )
     .eq('id', userId)
     .maybeSingle();
@@ -113,6 +121,26 @@ export async function setReflectionsOptOut(userId: string, optOut: boolean): Pro
   const { error } = await supabase
     .from('users')
     .update({ reflections_opt_out: optOut })
+    .eq('id', userId);
+
+  if (error) throw error;
+}
+
+/** AL1 — the personal practice reminder's preference, written as a PAIR
+ * so the DB's "enabled implies a time" constraint can never be tripped by
+ * a half-write. Turning it off clears the time too: a stored time nobody
+ * is being reminded at is a fact with no owner, and the prefill rule
+ * re-derives a sensible starting point next time anyway. */
+export async function setAlarmReminder(
+  userId: string,
+  params: { enabled: boolean; time: string | null }
+): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({
+      alarm_enabled: params.enabled,
+      alarm_time: params.enabled ? params.time : null,
+    })
     .eq('id', userId);
 
   if (error) throw error;

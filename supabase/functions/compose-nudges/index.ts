@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { computeSmartSendTime, hhmmToMinutes } from "./timing.ts";
+import { computeSmartSendTime, hhmmToMinutes, resolveAlarmHeldSendTime } from "./timing.ts";
 import {
   LOVED_LINE_MIN_LIKES,
   composeLovedNudge,
@@ -112,11 +112,17 @@ Deno.serve(async (req) => {
     notYetDue: 0,
     rejoinEnqueued: 0,
     skippedAway: 0,
+    // AL1 job 3 — the hold's two outcomes, counted so a live invocation
+    // says out loud how often a declared time changed what happened.
+    alarmDropped: 0,
+    alarmHeldPastMidnight: 0,
   };
 
   const { data: candidates, error: candidatesError } = await admin
     .from("users")
-    .select("id, timezone, away_since, notification_prefs!inner(nudge_enabled, nudge_time, quiet_start, quiet_end)")
+    // AL1 job 3 — alarm_enabled/alarm_time ride along so the hold below
+    // costs no extra query per user.
+    .select("id, timezone, away_since, alarm_enabled, alarm_time, notification_prefs!inner(nudge_enabled, nudge_time, quiet_start, quiet_end)")
     .eq("notification_prefs.nudge_enabled", true)
     .not("timezone", "is", null);
 
@@ -232,6 +238,70 @@ Deno.serve(async (req) => {
         localDate,
       });
 
+      // AL1 job 3 (Cat's ruling, 27 July) — THE HOLD. For someone who has
+      // declared a practice time, the local reminder goes first and this
+      // nudge becomes the second chance: held until ALARM_NUDGE_HOLD_MINUTES
+      // after the declared time, and dropped if a check-in lands in between.
+      //
+      // WHERE THE HOLD LIVES, said plainly because AL1 asks for it: BOTH,
+      // and each half does a different job. Client-side (lib/alarmReminder
+      // .ts) is where the reminder itself is scheduled and cancelled, which
+      // must work offline. Server-side is HERE, in the composer, because
+      // the nudge is a server decision and gating it at compose time means
+      // no row is written until the hold has expired — nothing sits in the
+      // outbox waiting to be suppressed, and the existing
+      // dedupe_key/notYetDue machinery carries the delay for free. The two
+      // halves never talk to each other; both read users.alarm_time.
+      //
+      // THE DROP, expressed here rather than left to send-notifications'
+      // own already-checked-in guard: for an alarm-enabled person a
+      // completion today means the reminder did its job, so the day's nudge
+      // is recorded as suppressed and this user stops being re-evaluated on
+      // every later 15-min tick — the same auditable-suppression pattern the
+      // friend-nudge branch above uses. send-notifications still re-checks
+      // at send time for everyone; this is compose-time, and additional.
+      const alarmEnabled = user.alarm_enabled === true;
+      const alarmTime = user.alarm_time as string | null;
+      let dueTime = smartSendTime;
+
+      if (alarmEnabled && alarmTime) {
+        const { count: completionsToday } = await admin
+          .from("completions")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("local_date", localDate);
+
+        if ((completionsToday ?? 0) > 0) {
+          const { error: dropInsertError } = await admin.from("notification_outbox").upsert(
+            {
+              user_id: user.id,
+              kind: "nudge_daily",
+              payload: { local_date: localDate },
+              scheduled_for: now.toISOString(),
+              sent_at: now.toISOString(),
+              suppressed_reason: "suppressed_alarm_reminder_worked",
+              dedupe_key: dedupeKey,
+            },
+            { onConflict: "dedupe_key", ignoreDuplicates: true }
+          );
+          if (dropInsertError) {
+            console.error(`Could not record alarm-reminder drop for user ${user.id}:`, dropInsertError.message);
+          }
+          summary.alarmDropped++;
+          continue;
+        }
+
+        const held = resolveAlarmHeldSendTime({ smartSendTime, alarmEnabled, alarmTime });
+        if (held === "held_past_midnight") {
+          // A declared time late enough that its second chance would land
+          // tomorrow gets no nudge today. Nothing is written: tomorrow's
+          // tick composes tomorrow's nudge from scratch.
+          summary.alarmHeldPastMidnight++;
+          continue;
+        }
+        dueTime = held;
+      }
+
       // Ember nudge (Rally21-Glow-Spec.md §2, §6) — ships LAST,
       // deliberately, as the one warm notification for the mechanic.
       // Rides this same composer/pref (nudge_enabled) and IS the daily
@@ -243,7 +313,12 @@ Deno.serve(async (req) => {
       const glow = Array.isArray(glowRow) ? glowRow[0] : glowRow;
       if (glow?.state === "embers" && glow.missed_local_date) {
         const emberDedupeKey = `ember-${user.id}-${glow.missed_local_date}`;
-        const emberResolved = resolveSendTime(smartSendTime, prefs.quiet_start, prefs.quiet_end);
+        // dueTime, not smartSendTime: the ember nudge IS the daily nudge on
+        // an ember day (it rides the same pref and never sends alongside
+        // one), so AL1's hold has to govern it too — otherwise a declared
+        // time would be honoured on ordinary days and quietly ignored on
+        // exactly the days that matter most.
+        const emberResolved = resolveSendTime(dueTime, prefs.quiet_start, prefs.quiet_end);
         if (emberResolved !== "skip") {
           const emberLocalTime = localTimeString(now, timeZone);
           if (emberLocalTime >= emberResolved) {
@@ -282,7 +357,7 @@ Deno.serve(async (req) => {
         continue; // never also enqueue nudge_daily for an ember day
       }
 
-      const resolved = resolveSendTime(smartSendTime, prefs.quiet_start, prefs.quiet_end);
+      const resolved = resolveSendTime(dueTime, prefs.quiet_start, prefs.quiet_end);
       if (resolved === "skip") {
         summary.skippedQuietHours++;
         continue;

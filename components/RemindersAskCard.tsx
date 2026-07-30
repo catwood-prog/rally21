@@ -1,24 +1,54 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { TimeOfDayPicker } from '@/components/TimeOfDayPicker';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
-import { cardShadow, colors, scaledLineHeight } from '@/constants/theme';
+import { cardShadow, chipShape, chipTextShape, colors, scaledLineHeight } from '@/constants/theme';
+import { formatTimeForDisplay, PREFILL_FALLBACK_TIME } from '@/lib/alarmReminder';
+
+export type RemindersAskAlarmChoice = { enabled: boolean; time: string | null };
 
 /** RM1 (13 July) — the reminders ask (mockup screen 6, rev-7): "full" is
  * the onboarding step shown once between profile and circle-setup;
  * "compact" is the one-time dismissible Today card for existing users.
  * Both render the identical headline/body/CTA copy so the moment reads
- * the same regardless of which surface a given account sees it on. */
+ * the same regardless of which surface a given account sees it on.
+ *
+ * AL1 job 4 (30 July) — the personal practice time rides THIS ask rather
+ * than getting an onboarding step of its own, because notifications
+ * should be one conversation, not two, and circle setup would re-ask on
+ * the second circle a question already answered. Cat's earlier "set at
+ * circle setup, edit in settings" answer was given while the time was
+ * still per-circle; the user-level ruling supersedes it.
+ *
+ * The row is NATIVE-ONLY and starts OFF, so "turn on reminders" saves the
+ * personal reminder only if the person actually asked for it — the app's
+ * own reminders (nudge + digest) still turn on exactly as they did
+ * before, on both platforms. Both variants carry it, because they are one
+ * component precisely so they can never drift apart. */
 export function RemindersAskCard({
   variant,
   onTurnOn,
   onMaybeLater,
+  alarmPrefillTime,
+  alarmPrefilled = false,
 }: {
   variant: 'full' | 'compact';
-  onTurnOn: () => void;
+  onTurnOn: (alarm: RemindersAskAlarmChoice) => void;
   onMaybeLater: () => void;
+  /** Where the time picker opens — the prefill rule's answer, resolved by
+   * the parent (which knows the account) rather than here. */
+  alarmPrefillTime?: string;
+  /** True when that time came from every circle AGREEING, rather than
+   * from the 08:00 no-guess fallback. Only then is there anything honest
+   * to say about why we started them there. */
+  alarmPrefilled?: boolean;
 }) {
   const compact = variant === 'compact';
+  const [alarmOn, setAlarmOn] = useState(false);
+  const [alarmTime, setAlarmTime] = useState(alarmPrefillTime ?? PREFILL_FALLBACK_TIME);
+  const prefillNoteTime = alarmPrefilled ? formatTimeForDisplay(alarmTime) : null;
 
   return (
     <View style={compact ? styles.compactWrap : styles.fullWrap}>
@@ -29,7 +59,37 @@ export function RemindersAskCard({
         {STRINGS.remindersAskTitleTrail}
       </Text>
       <Text style={styles.body}>{STRINGS.remindersAskBody}</Text>
-      <TouchableOpacity style={styles.cta} onPress={onTurnOn}>
+
+      {/* WEB HIDES THIS ENTIRELY (AL1 job 4): local scheduled
+          notifications are native-only, so on web the feature does not
+          exist rather than existing-but-broken. Web keeps exactly the
+          card it had before this section. */}
+      {Platform.OS !== 'web' && (
+        <View style={styles.alarmBlock}>
+          <TouchableOpacity style={styles.alarmRow} onPress={() => setAlarmOn((on) => !on)}>
+            <Text style={styles.alarmRowLabel}>{STRINGS.remindersAskAlarmRowLabel}</Text>
+            <View style={[styles.alarmPill, alarmOn && styles.alarmPillOn]}>
+              <Text style={[styles.alarmPillText, alarmOn && styles.alarmPillTextOn]}>
+                {alarmOn ? 'on' : 'off'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {alarmOn && (
+            <View style={styles.alarmPicker}>
+              {prefillNoteTime && (
+                <Text style={styles.alarmPrefillNote}>{STRINGS.alarmPrefillNote(prefillNoteTime)}</Text>
+              )}
+              <TimeOfDayPicker value={alarmTime} onChange={setAlarmTime} />
+            </View>
+          )}
+        </View>
+      )}
+
+      <TouchableOpacity
+        style={styles.cta}
+        onPress={() => onTurnOn({ enabled: alarmOn, time: alarmOn ? alarmTime : null })}
+      >
         <Text style={styles.ctaText}>{STRINGS.remindersAskCta}</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={onMaybeLater}>
@@ -101,6 +161,54 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
     marginBottom: 20,
+  },
+  // AL1 — stretched, because both wraps centre their children and the
+  // picker's chip rows need the full content width to read as rows rather
+  // than as a centred cluster.
+  alarmBlock: {
+    alignSelf: 'stretch',
+    marginBottom: 20,
+  },
+  alarmRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  alarmRowLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.ink,
+    lineHeight: scaledLineHeight(19),
+  },
+  // The settings prefPill shape, kept local rather than exported: this
+  // card ships one pill and settings ships eight, and a shared pill
+  // component is a bigger change than AL1 owns.
+  alarmPill: {
+    ...chipShape,
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+  },
+  alarmPillOn: {
+    backgroundColor: colors.green,
+    borderColor: colors.green,
+  },
+  alarmPillText: {
+    ...chipTextShape,
+    color: colors.mutedStrong,
+  },
+  alarmPillTextOn: {
+    color: '#fff',
+  },
+  alarmPicker: {
+    marginTop: 14,
+  },
+  alarmPrefillNote: {
+    fontSize: 12.5,
+    color: colors.mutedStrong,
+    lineHeight: scaledLineHeight(18),
+    marginBottom: 12,
   },
   cta: {
     backgroundColor: colors.green,

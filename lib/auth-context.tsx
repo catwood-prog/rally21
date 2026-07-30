@@ -5,8 +5,10 @@ import * as Linking from 'expo-linking';
 import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 
+import { syncDailyReminder } from './alarmReminder';
 import { getDeviceTimeZone } from './date';
 import { markSeenNow } from './notifications';
+import { getMyProfile } from './profile';
 import { clearPushToken } from './pushNotifications';
 import { captureError } from './sentry';
 import { supabase } from './supabase';
@@ -72,6 +74,34 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (error) console.warn('Could not save timezone:', error.message);
       });
     markSeenNow(session.user.id);
+  }, [session?.user?.id]);
+
+  // AL1 job 2 — reschedule the personal practice reminder at app start, so
+  // a reinstall, an OS notification clear-out, or simply drifting past the
+  // rolling window's far edge all recover on the next open. Idempotent by
+  // construction (syncDailyReminder cancels and re-arms from scratch), and
+  // a no-op on web and for the default-off account.
+  //
+  // NEVER PROMPTS: requestPermission is left false here, so this can only
+  // ever schedule against a permission the person already granted at an
+  // earned moment (PN1's law). A denied phone quietly schedules nothing.
+  useEffect(() => {
+    if (Platform.OS === 'web' || !session?.user) return;
+    const userId = session.user.id;
+    (async () => {
+      const profile = await getMyProfile(userId);
+      await syncDailyReminder({
+        enabled: profile?.alarm_enabled ?? false,
+        alarmTime: profile?.alarm_time ?? null,
+      });
+    })().catch((e) => {
+      // FF1 — reported, not swallowed: the whole feature is invisible when
+      // this fails (the person believes they have a reminder and never
+      // gets one), and there is no other surface that would notice.
+      // Silence for the USER is right — nothing here is worth a startup
+      // error — but silence for us is not.
+      captureError(e, { op: 'syncDailyReminder', at: 'app-start' });
+    });
   }, [session?.user?.id]);
 
   // The social digest's suppression check depends on last_seen_at staying

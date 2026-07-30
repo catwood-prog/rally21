@@ -85,3 +85,69 @@ export function computeSmartSendTime(params: {
   const jitter = jitterMinutes(`${params.userId}||${params.localDate}`, band);
   return minutesToHHMM(target + jitter);
 }
+
+// ---------------------------------------------------------------------------
+// AL1 job 3 (30 July) — the reminder goes FIRST, the nudge is the second
+// chance.
+//
+// CAT'S RULING, 27 July, and it REPLACES AL1's own first draft, which
+// suppressed the NS1 nudge outright for anyone with a declared time. The
+// declared time does NOT silence the learned one: for an alarm-enabled
+// person the day's nudge is HELD until a stated interval after the time
+// they chose, and DROPPED if a check-in lands in between.
+//
+// NS1'S TIMING MATH IS UNTOUCHED. computeSmartSendTime above still decides
+// the nudge's natural moment from the person's own rhythm; this function
+// only ever moves that moment LATER, and only for someone who declared a
+// time. Everyone else gets the identical string they got before AL1.
+
+/**
+ * How long after the declared time the nudge waits.
+ *
+ * THREE HOURS, and the reasoning rather than the number is the point.
+ * It has to be long enough that the reminder had a fair chance — the
+ * person set a time they intend to practise at, and a nudge arriving
+ * twenty minutes later is not a second chance, it is the same poke twice
+ * and the fastest way to get notifications turned off. Three hours covers
+ * the ordinary "I'll do it after this meeting" slip without pretending
+ * the day is over.
+ *
+ * And short enough to still land the same day: a 07:00 reminder nudges at
+ * 10:00, a 12:00 one at 15:00, an 18:00 one at 21:00. Past roughly 20:00
+ * the held time runs into the default 22:00 quiet window, and past 21:00
+ * it crosses midnight — at which point resolveAlarmHeldSendTime says so
+ * and the day simply gets no nudge. That is the right answer, not a gap:
+ * a reminder at 21:00 whose "second chance" arrives at midnight would be
+ * worse than silence.
+ */
+export const ALARM_NUDGE_HOLD_MINUTES = 180;
+
+/** The nudge's effective due time once AL1's hold is applied.
+ *
+ * Returns "HH:MM" for the moment the nudge becomes due, or
+ * "held_past_midnight" when the declared time plus the hold runs off the
+ * end of the local day — the caller drops the day's nudge entirely rather
+ * than wrapping it into tomorrow, where it would describe a day that has
+ * already passed. An alarm-disabled person (or a corrupt time) gets the
+ * smart send time back untouched.
+ *
+ * NEVER EARLIER, only later: the max() is what makes this a hold rather
+ * than a reschedule. Someone whose learned rhythm already puts the nudge
+ * after the held moment keeps their learned time exactly. */
+export function resolveAlarmHeldSendTime(params: {
+  smartSendTime: string;
+  alarmEnabled: boolean;
+  alarmTime: string | null | undefined;
+  holdMinutes?: number;
+}): string | "held_past_midnight" {
+  const smart = params.smartSendTime.slice(0, 5);
+  if (!params.alarmEnabled || !params.alarmTime) return smart;
+  if (!/^\d{2}:\d{2}/.test(params.alarmTime)) return smart;
+
+  const hold = params.holdMinutes ?? ALARM_NUDGE_HOLD_MINUTES;
+  const heldMinutes = hhmmToMinutes(params.alarmTime) + hold;
+  if (heldMinutes >= 1440) return "held_past_midnight";
+
+  const held = minutesToHHMM(heldMinutes);
+  return held > smart ? held : smart;
+}

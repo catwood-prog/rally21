@@ -681,6 +681,34 @@ export const STRINGS = {
   quietHoursFromLabel: 'from',
   quietHoursUntilLabel: 'until',
 
+  // AL1 (30 July, Cat's ruling 27 July) — a reminder at a time YOU choose,
+  // rather than a time the app infers. NEVER the word "alarm" anywhere a
+  // person can read it: an app cannot ring through a silenced iPhone (only
+  // Apple's Clock app can), so calling it one would be a promise the
+  // feature cannot keep. Native only — see alarmReminderWebHidden's
+  // absence: there is deliberately no "not available on web" line, because
+  // on web the control does not render at all.
+  alarmToggleLabel: 'remind me at my own time',
+  alarmToggleHelperOff:
+    'pick a time that fits your day, and get one quiet reminder then. off unless you turn it on.',
+  alarmToggleHelperOn: (time: string) => `one quiet reminder at ${time}, and none once you've checked in.`,
+  // Shown when iOS has notifications switched off for Rally21: the
+  // preference saved fine, the phone is what is silent. Same deep-link
+  // instruction as PN1's push row, which is the pattern people already met.
+  alarmPermissionDenied: 'notifications are off for Rally21 in iOS Settings, so this cannot reach you yet.',
+  alarmTimeMinuteLabel: 'minute',
+  alarmTimeMorningLabel: 'morning',
+  alarmTimeAfternoonLabel: 'afternoon and evening',
+  // The prefill rule's one visible consequence: when every circle a person
+  // is in agrees on a time, that time is offered rather than guessed at.
+  alarmPrefillNote: (time: string) => `your circles all meet at ${time}, so we started you there.`,
+  // The scheduled notification itself. Generic by design, not by omission:
+  // one personal reminder covers every circle, so it cannot name a
+  // practice (AL1's stated trade). Commas, not em dashes.
+  alarmReminderTitle: 'Your practice time',
+  alarmReminderBody: "you chose this moment, and it's here whenever you're ready.",
+  alarmReminderChannelName: 'Practice reminders',
+
   // RS2 (13 July, Rally21-Glow-Spec.md §9) — the away pause. Self-serve,
   // never advertised with absence math: circle-mates just see a calm
   // sleeping penguin at the huddle's edge, never "away for N days".
@@ -831,6 +859,11 @@ export const STRINGS = {
     "A gentle nudge when it's time to check in, and when your circle could use you. No noise, no spam — never more than 2 a day.",
   remindersAskCta: 'turn on reminders',
   remindersAskMaybeLater: 'maybe later',
+  // AL1 job 4 — the personal practice time rides RM1's ask rather than
+  // getting a second onboarding step, so notifications stay ONE
+  // conversation. Native only, and genuinely optional: the row starts off,
+  // and "turn on reminders" saves it only if the person turned it on.
+  remindersAskAlarmRowLabel: '⏰ and remind me at my own time',
 
   // Today's reflection teaser (D4 design review) — an invitation, never a
   // reminder of something missed. Only shows before today's reflection is

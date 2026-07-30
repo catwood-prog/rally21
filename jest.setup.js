@@ -69,6 +69,26 @@ jest.mock('expo-file-system', () => ({
 // Transport tests inject their own fetch via streamAskRally's deps.
 jest.mock('expo/fetch', () => ({ fetch: jest.fn() }));
 
+// AL1 (30 July): importing expo-notifications runs its Expo-Go push-token
+// auto-registration side effect at module load, which prints a long "remote
+// notifications were removed from Expo Go" warning into every suite that
+// transitively reaches it — and lib/checkin.ts now does, via
+// lib/alarmReminder.ts, so that is most of them. Same class of stub as
+// expo-audio above, and the same reason: a native module Jest has no
+// registration for. lib/alarmReminder's own three test files declare their
+// own richer mocks, which take precedence over this one.
+jest.mock('expo-notifications', () => ({
+  getAllScheduledNotificationsAsync: jest.fn().mockResolvedValue([]),
+  scheduleNotificationAsync: jest.fn().mockResolvedValue('stub-id'),
+  cancelScheduledNotificationAsync: jest.fn().mockResolvedValue(undefined),
+  getPermissionsAsync: jest.fn().mockResolvedValue({ status: 'undetermined' }),
+  requestPermissionsAsync: jest.fn().mockResolvedValue({ status: 'undetermined' }),
+  getExpoPushTokenAsync: jest.fn().mockResolvedValue({ data: 'stub-token' }),
+  setNotificationChannelAsync: jest.fn().mockResolvedValue(undefined),
+  SchedulableTriggerInputTypes: { DATE: 'date' },
+  AndroidImportance: { HIGH: 4 },
+}));
+
 // GN1 (13 July): both native sign-in libraries wrap a native TurboModule
 // that isn't registered under Jest's module registry (same class of issue
 // as expo-audio above) — any test that transitively imports

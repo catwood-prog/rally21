@@ -1,4 +1,5 @@
 import {
+  ALARM_NUDGE_HOLD_MINUTES,
   JITTER_BAND_MINUTES,
   LEAD_MINUTES_BEFORE_USUAL_TIME,
   MIN_SAMPLE_SIZE,
@@ -7,6 +8,7 @@ import {
   jitterMinutes,
   medianMinutes,
   minutesToHHMM,
+  resolveAlarmHeldSendTime,
 } from './timing';
 
 describe('hhmmToMinutes / minutesToHHMM', () => {
@@ -108,5 +110,93 @@ describe('computeSmartSendTime', () => {
       computeSmartSendTime({ timeOfDaySamplesMinutes: samples, fallbackTime: '08:00', userId, localDate: d })
     );
     expect(new Set(times).size).toBeGreaterThan(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AL1 job 3 — the reminder first, the nudge only if it was missed.
+
+describe('resolveAlarmHeldSendTime — AL1 job 3', () => {
+  it('leaves everyone without a declared time completely untouched', () => {
+    expect(
+      resolveAlarmHeldSendTime({ smartSendTime: '07:40', alarmEnabled: false, alarmTime: null })
+    ).toBe('07:40');
+    // Off with a stale time still stored is the same answer: the toggle is
+    // what decides, never the leftover value.
+    expect(
+      resolveAlarmHeldSendTime({ smartSendTime: '07:40', alarmEnabled: false, alarmTime: '08:00:00' })
+    ).toBe('07:40');
+    expect(
+      resolveAlarmHeldSendTime({ smartSendTime: '07:40', alarmEnabled: true, alarmTime: null })
+    ).toBe('07:40');
+  });
+
+  it('HOLDS the nudge until the interval after the declared time', () => {
+    // The whole shape of Cat's ruling in one line: NS1 would have nudged at
+    // 07:40, the person declared 08:00, so the reminder goes first and the
+    // nudge becomes the 11:00 second chance.
+    expect(
+      resolveAlarmHeldSendTime({ smartSendTime: '07:40', alarmEnabled: true, alarmTime: '08:00:00' })
+    ).toBe('11:00');
+    expect(
+      resolveAlarmHeldSendTime({ smartSendTime: '06:00', alarmEnabled: true, alarmTime: '12:00:00' })
+    ).toBe('15:00');
+  });
+
+  it('is a HOLD, not a reschedule — it never moves a nudge EARLIER', () => {
+    // A learned rhythm that already lands after the held moment keeps its
+    // own time exactly: NS1's timing math is untouched by this section.
+    expect(
+      resolveAlarmHeldSendTime({ smartSendTime: '19:30', alarmEnabled: true, alarmTime: '08:00:00' })
+    ).toBe('19:30');
+  });
+
+  it('drops the day rather than nudging past midnight', () => {
+    // A 21:00 reminder's second chance would be midnight, which would
+    // describe a day that has already ended. Silence is the better answer.
+    expect(
+      resolveAlarmHeldSendTime({ smartSendTime: '20:00', alarmEnabled: true, alarmTime: '21:00:00' })
+    ).toBe('held_past_midnight');
+    expect(
+      resolveAlarmHeldSendTime({ smartSendTime: '20:00', alarmEnabled: true, alarmTime: '23:30:00' })
+    ).toBe('held_past_midnight');
+  });
+
+  it('still lands inside the same day for every ordinary practice time', () => {
+    // The interval's justification, made checkable: from the first minute
+    // of the day through to 20:59, the held nudge is still today's.
+    for (let hour = 0; hour <= 20; hour++) {
+      const alarmTime = `${String(hour).padStart(2, '0')}:59:00`;
+      const held = resolveAlarmHeldSendTime({
+        smartSendTime: '00:00',
+        alarmEnabled: true,
+        alarmTime,
+      });
+      expect(held).not.toBe('held_past_midnight');
+    }
+  });
+
+  it('the interval is three hours', () => {
+    expect(ALARM_NUDGE_HOLD_MINUTES).toBe(180);
+    expect(
+      hhmmToMinutes(
+        resolveAlarmHeldSendTime({ smartSendTime: '00:00', alarmEnabled: true, alarmTime: '09:00:00' }) as string
+      ) - hhmmToMinutes('09:00')
+    ).toBe(ALARM_NUDGE_HOLD_MINUTES);
+  });
+
+  it('ignores a corrupt stored time rather than nudging at some arbitrary hour', () => {
+    expect(
+      resolveAlarmHeldSendTime({ smartSendTime: '07:40', alarmEnabled: true, alarmTime: 'breakfast' })
+    ).toBe('07:40');
+  });
+
+  it('accepts both the HH:MM and the Postgres HH:MM:SS shapes', () => {
+    expect(
+      resolveAlarmHeldSendTime({ smartSendTime: '00:00', alarmEnabled: true, alarmTime: '08:00' })
+    ).toBe('11:00');
+    expect(
+      resolveAlarmHeldSendTime({ smartSendTime: '00:00', alarmEnabled: true, alarmTime: '08:00:00' })
+    ).toBe('11:00');
   });
 });
