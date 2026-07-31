@@ -30,8 +30,14 @@ if (!DB_URL) {
 
 /** Cat's ruling, 31 July: "CS1's five, exactly." Asserted against the
  * column rather than assumed, so changing the set in the bank without
- * meaning to fails here. */
-const TRACKED = ['CON-10', 'ENR-09', 'MOOD-09', 'SELF-12', 'STR-03'];
+ * meaning to fails here.
+ *
+ * AMENDED by MN3 the same night (HAB-15 joined the set, as the declared
+ * side of the one contrast mapping) and caught by FA1 on 1 August: this
+ * constant still said five while the live bank held six, so this suite
+ * would have failed the moment anyone set SUPABASE_DB_URL. It had been
+ * skipping, which is exactly how a red test stays quiet. */
+const TRACKED = ['CON-10', 'ENR-09', 'HAB-15', 'MOOD-09', 'SELF-12', 'STR-03'];
 
 /** Cat's second ruling, same session: "~30 days". */
 const CYCLE_DAYS = 30;
@@ -322,8 +328,18 @@ describeIfConfigured('RA1 — the re-ask cycle', () => {
   });
 
   describe('JOB 4 — the MN3 unlock, stated as a date', () => {
-    test('every tracked family reaches 3 answers, and the last one lands by day 73', async () => {
-      const { id } = await livePerfectTester(75);
+    test('every tracked family reaches 3 answers, and the last one lands by day 105', async () => {
+      // FA1 moved this ceiling, and the reason is the point. RA1's five are
+      // all pool = 'any', so their third ask lands a shade after two cycles
+      // (measured 31 July: MOOD-09 64, ENR-09 66, SELF-12 69, STR-03 71,
+      // CON-10 73). HAB-15 is weekend-only, so every one of its asks has to
+      // wait for a Saturday or Sunday: a 30-day cycle from a Saturday comes
+      // due on a Monday and is served the following Saturday, which makes
+      // its real period 34-35 days, not 30. Measured under FA1 on this base
+      // date: days 20, 55, 90. The binding constraint on Cat's tone review
+      // is therefore HAB-15, and it is about three weeks later than the
+      // rest of the set.
+      const { id } = await livePerfectTester(105);
       const days = await trackedAskDays(id);
 
       for (const code of TRACKED) {
@@ -332,11 +348,11 @@ describeIfConfigured('RA1 — the re-ask cycle', () => {
       }
 
       const thirds = TRACKED.map((code) => (days.get(code) ?? [])[2]);
-      // Measured on the live function, 31 July: MOOD-09 day 64, ENR-09 66,
-      // SELF-12 69, STR-03 71, CON-10 73. The assertion is the ceiling
-      // rather than the exact five, so ordinary cap jitter doesn't fail the
-      // suite — but a change that pushes the unlock into month four does.
-      expect(Math.max(...thirds)).toBeLessThanOrEqual(73);
+      // A ceiling with headroom, not the measured five — a different tester
+      // draws different md5 tie-breaks, and a seed that loses a weekend to
+      // the L2 cap slips a whole week rather than a day. What this catches
+      // is a change that pushes the unlock out by a month.
+      expect(Math.max(...thirds)).toBeLessThanOrEqual(105);
       expect(Math.min(...thirds)).toBeGreaterThanOrEqual(CYCLE_DAYS * 2);
     });
 
@@ -349,8 +365,11 @@ describeIfConfigured('RA1 — the re-ask cycle', () => {
         }
       }
       const totalReasks = [...days.values()].reduce((sum, a) => sum + a.length, 0);
-      // Five families, at most three asks each per 90 days — job 2's budget.
-      expect(totalReasks).toBeLessThanOrEqual(15);
+      // SIX families since MN3, at most three asks each per 90 days — job
+      // 2's budget, restated. Measured under FA1: exactly 18, i.e. one day
+      // in five carries a tracked question and the other four are the
+      // ordinary engine, untouched.
+      expect(totalReasks).toBeLessThanOrEqual(18);
     });
   });
 });
