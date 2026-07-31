@@ -1258,6 +1258,24 @@ export const STRINGS = {
   // wording, from her own workbook column header.
   whyWeAskLabel: 'why we ask this',
 
+  // MN3 — the contrast card. Cat approved VARIANT A in session, 31 July,
+  // and rejected variant C firmly: its framing line ("you said one thing,
+  // and we saw another") was "the one sentence that makes a claim rather
+  // than showing two facts, exactly what the tone review exists to keep
+  // out." So the card has NO framing line — a label, two labelled blocks,
+  // and the evidence behind an expander. The person draws the conclusion,
+  // or doesn't.
+  //
+  // The two lane labels are NOT redeclared here: they are MN2's
+  // manualLaneDeclared / manualLaneObserved, reused verbatim, because the
+  // memo's §3 lanes must read identically wherever they appear.
+  contrastCardLabel: 'WORTH A LOOK',
+  contrastEvidenceExpander: 'what this is built from',
+  contrastEvidenceCollapse: 'hide',
+  // The provenance line under the evidence, same promise the private map's
+  // footer already makes: this came from your own check-ins and nothing else.
+  contrastEvidenceSource: 'from your own check-ins, nothing else.',
+
   blueprintPatternLabel: 'A GENTLE PATTERN',
   blueprintSoundsRight: 'sounds right',
   blueprintNotQuite: 'not quite',

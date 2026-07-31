@@ -43,17 +43,55 @@ export interface BlueprintGeneratedFrom {
   is_backfill: boolean;
 }
 
+/** MN3's lane. It lives in its own array and never in `patterns`: a
+ * contrast is a DECLARATION set beside an OBSERVATION, and the memo's §3
+ * law is that those two are never merged. Its logic lives in contrast.ts;
+ * the shape lives here because this file owns the document schema.
+ *
+ * Optional on BlueprintContent because every row written before 31 July
+ * lacks the key entirely — readers use `content.contrasts ?? []` rather
+ * than a migration that rewrites everyone's history. */
+export interface ContrastEntry {
+  key: string;
+  question_code: string;
+  metric_key: string;
+  declared_value: string;
+  declared_quote: string;
+  declared_date: string;
+  declared_of_last: number;
+  observed_line: string;
+  window_start: string;
+  window_end: string;
+  weekend_days: number;
+  weekend_checkins: number;
+  weekday_days: number;
+  weekday_checkins: number;
+  status: PatternStatus;
+  source: "contrast";
+  first_surfaced_at: string;
+  last_updated_at: string;
+}
+
 export interface BlueprintContent {
   traits: BlueprintTrait[];
   patterns: BlueprintPatternEntry[];
   wants: BlueprintWant[];
+  contrasts?: ContrastEntry[];
   coverage: Record<string, number>;
   rejected_statements: string[];
   generated_from: BlueprintGeneratedFrom;
 }
 
 export function emptyBlueprintContent(generatedFrom: BlueprintGeneratedFrom): BlueprintContent {
-  return { traits: [], patterns: [], wants: [], coverage: {}, rejected_statements: [], generated_from: generatedFrom };
+  return {
+    traits: [],
+    patterns: [],
+    wants: [],
+    contrasts: [],
+    coverage: {},
+    rejected_statements: [],
+    generated_from: generatedFrom,
+  };
 }
 
 // ---------------------------------------------------------------------
@@ -297,7 +335,22 @@ export function reconcileResponses(
     return w;
   });
 
-  return { ...previous, patterns, wants, rejected_statements: rejectedStatements };
+  // MN3: a not_quite on a contrast retires the PAIR (the key is the pair)
+  // and banks its sentence, so the same claim cannot come back reworded
+  // through either door — key or statement.
+  const contrasts = (previous.contrasts ?? []).map((c) => {
+    const resp = latestResponseByKey.get(c.key);
+    if (resp === "not_quite" && c.status !== "rejected") {
+      banStatement(c.observed_line);
+      return { ...c, status: "rejected" as PatternStatus };
+    }
+    if (resp === "confirmed" && c.status === "surfaced") {
+      return { ...c, status: "confirmed" as PatternStatus };
+    }
+    return c;
+  });
+
+  return { ...previous, patterns, wants, contrasts, rejected_statements: rejectedStatements };
 }
 
 export interface MergeResult {
@@ -407,6 +460,10 @@ export function mergeSynthesisProposal(params: {
     traits,
     patterns,
     wants,
+    // Carried, never touched here: the contrast lane is merged separately
+    // by contrast.ts, after this proposal has had its shot at the one new
+    // pattern the week allows.
+    contrasts: previous.contrasts ?? [],
     coverage: Object.keys(proposal.coverage).length > 0 ? proposal.coverage : previous.coverage,
     rejected_statements: previous.rejected_statements,
     generated_from: generatedFrom,

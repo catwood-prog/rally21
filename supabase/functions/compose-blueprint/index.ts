@@ -10,6 +10,15 @@ import {
   synthesizeNextContent,
 } from "./synthesis.ts";
 import { ChipAnswer, findDominantChipCandidates, mergeChipTraitCandidates } from "./chip-traits.ts";
+import {
+  buildContrastPrompt,
+  contrastGate,
+  ContrastFactSheet,
+  isVulnerableDay,
+  mergeContrastCard,
+  parseContrastProposal,
+  validateContrastProposal,
+} from "./contrast.ts";
 
 // Blueprint v2, part 1 — the weekly LLM synthesis batch
 // (Rally21-Blueprint-Notes.md, Adaptive-Intelligence-Spec §3-5). Same
@@ -26,6 +35,25 @@ import { ChipAnswer, findDominantChipCandidates, mergeChipTraitCandidates } from
 
 const MODEL = "claude-haiku-4-5-20251001";
 const MAX_PROPOSAL_TOKENS = 800;
+// MN3's second call writes one sentence. It gets a small ceiling on purpose:
+// a model that needs 300 tokens for one sentence is not writing the sentence.
+const MAX_CONTRAST_TOKENS = 200;
+
+/** Same shape compose-nudges uses (en-CA gives YYYY-MM-DD directly). */
+function localDateString(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(date);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function addDays(localDate: string, days: number): string {
+  const [y, m, d] = localDate.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
 
 Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -64,11 +92,31 @@ Deno.serve(async (req) => {
     newPatternsApplied: 0,
     wantsApplied: 0,
     chipTraitsApplied: 0,
+    // MN3. `contrastsDropped` is the number that matters most on this
+    // function: it counts cards the validator refused, and a run where it
+    // climbs is a run to look at before anyone sees anything.
+    contrastCandidates: 0,
+    contrastsApplied: 0,
+    contrastsDropped: 0,
+    contrastsHeld: 0,
     totalInputTokens: 0,
     totalOutputTokens: 0,
   };
 
-  let usersQuery = admin.from("users").select("id");
+  // MN3's kill switch, read ONCE per run. Off means no card is generated or
+  // stored for anyone; get_my_blueprint independently refuses to serve any
+  // that already exist, so one row hides the whole feature with no deploy.
+  const { data: flagRow } = await admin
+    .from("app_flags")
+    .select("enabled")
+    .eq("key", "contrast_cards_enabled")
+    .maybeSingle();
+  // Absent flag row = off. A feature that makes claims about people fails
+  // closed, always.
+  const contrastsEnabled = flagRow?.enabled === true;
+  if (!contrastsEnabled) console.log("compose-blueprint: contrast cards are OFF (app_flags)");
+
+  let usersQuery = admin.from("users").select("id, timezone");
   if (body.user_id) usersQuery = usersQuery.eq("id", body.user_id);
   const { data: users, error: usersError } = await usersQuery;
 
@@ -248,6 +296,123 @@ Deno.serve(async (req) => {
         console.log(
           `compose-blueprint user=${user.id} dropped pre-RA1 chip traits: ${chipMerge.legacyKeysDropped.join(", ")}`
         );
+      }
+
+      // ---------------------------------------------------------------
+      // MN3 — the contrast lane. Everything here is gated four times over,
+      // and the gates are checked in cheapest-first order so a normal week
+      // costs one boolean.
+      //
+      // SCARCITY: contrast cards SHARE the one-new-pattern-per-week budget
+      // and never add to it, so a week that already surfaced a pattern
+      // makes no contrast at all. A person meets at most one new
+      // observation about themselves in a week, whichever lane it came
+      // from. (Chip traits keep their own separate counter, as they always
+      // have — a different candidate lane by existing design.)
+      if (contrastsEnabled && !result.appliedNewPattern) {
+        try {
+          const timeZone = (user.timezone as string) ?? "UTC";
+          const asOf = localDateString(now, timeZone);
+
+          // Vulnerable-day gating, inherited from the question engine's own
+          // definition (get_daily_question's v_missed_yesterday and
+          // v_mood_le2_either), not reinvented here.
+          const [{ data: yesterdayCompletions }, { data: lowMoodRows }] = await Promise.all([
+            admin.from("completions").select("id")
+              .eq("user_id", user.id).eq("local_date", addDays(asOf, -1)).limit(1),
+            admin.from("reflections").select("id")
+              .eq("user_id", user.id).lte("mood", 2)
+              .in("local_date", [addDays(asOf, -1), addDays(asOf, -2)]).limit(1),
+          ]);
+
+          const gate = contrastGate({
+            enabled: contrastsEnabled,
+            appliedNewPattern: result.appliedNewPattern,
+            vulnerable: isVulnerableDay({
+              missedYesterday: (yesterdayCompletions ?? []).length === 0,
+              lowMoodRecently: (lowMoodRows ?? []).length > 0,
+            }),
+          });
+
+          if (gate !== "ok") {
+            summary.contrastsHeld++;
+            console.log(`contrast held for user ${user.id}: ${gate}`);
+          } else {
+            const { data: candidateRows, error: detectError } = await admin
+              .rpc("detect_contrast_candidates", { p_user: user.id, p_as_of: asOf });
+
+            if (detectError) {
+              // A detector that cannot run makes no claim, which is the
+              // right failure. Reported, never swallowed (FF1's rule).
+              console.error(`detect_contrast_candidates failed for user ${user.id}:`, detectError.message);
+            } else {
+              const candidates = (candidateRows ?? []) as ContrastFactSheet[];
+              summary.contrastCandidates += candidates.length;
+
+              if (candidates.length > 0) {
+                const contrastPrompt = buildContrastPrompt(candidates);
+                const contrastRes = await fetch("https://api.anthropic.com/v1/messages", {
+                  method: "POST",
+                  headers: {
+                    "x-api-key": anthropicApiKey,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    model: MODEL,
+                    max_tokens: MAX_CONTRAST_TOKENS,
+                    system: contrastPrompt.system,
+                    messages: [{ role: "user", content: contrastPrompt.user }],
+                  }),
+                });
+
+                if (!contrastRes.ok) {
+                  const text = await contrastRes.text().catch(() => "");
+                  console.error(`Anthropic contrast error ${contrastRes.status} for user ${user.id}: ${text}`);
+                } else {
+                  const contrastJson = await contrastRes.json();
+                  summary.totalInputTokens += contrastJson?.usage?.input_tokens ?? 0;
+                  summary.totalOutputTokens += contrastJson?.usage?.output_tokens ?? 0;
+
+                  // Named apart from the synthesis proposal above on
+                  // purpose: two different models' output in one scope is
+                  // exactly how the wrong one gets validated.
+                  const contrastProposal = parseContrastProposal(contrastJson?.content?.[0]?.text ?? "");
+                  if (!contrastProposal) {
+                    summary.contrastsDropped++;
+                    console.error(`contrast card DROPPED for user ${user.id}: malformed`);
+                  } else {
+                    // THE GATE. A card that fails any clause is dropped and
+                    // logged, never repaired and never regenerated toward
+                    // compliance. A silent week is a fine outcome.
+                    const verdict = validateContrastProposal(contrastProposal, candidates);
+                    if (!verdict.ok) {
+                      summary.contrastsDropped++;
+                      console.error(`contrast card DROPPED for user ${user.id}: ${verdict.reason}`);
+                    } else {
+                      const contrastMerge = mergeContrastCard({
+                        previous: result.content,
+                        sheet: verdict.sheet,
+                        proposal: contrastProposal,
+                        nowIso,
+                      });
+                      result.content.contrasts = contrastMerge.contrasts;
+                      if (contrastMerge.applied) {
+                        summary.contrastsApplied++;
+                      } else {
+                        console.log(`contrast card not applied for user ${user.id}: ${contrastMerge.skipped}`);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // The contrast lane is additive: a failure here must never cost
+          // someone their synthesis run.
+          console.error(`contrast lane failed for user ${user.id}:`, e instanceof Error ? e.message : e);
+        }
       }
 
       const { error: insertError } = await admin.from("blueprint_versions").insert({

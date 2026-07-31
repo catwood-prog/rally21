@@ -11,6 +11,7 @@ const pattern = (over: Partial<BlueprintPattern>): BlueprintPattern => ({
   totalCount: 10,
   evidenceRate: 0.8,
   statement: null,
+  contrast: null,
   ...over,
 });
 

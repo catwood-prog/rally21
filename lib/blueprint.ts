@@ -16,9 +16,28 @@ export function formatCutoffHourLabel(hour: number): string {
   return hour === 0 ? '12am' : hour < 12 ? `${hour}am` : hour === 12 ? '12pm' : `${hour - 12}pm`;
 }
 
+/** MN3 — the contrast card's structured half. Every field here was computed
+ * in SQL and validated before storage; the client's job is to lay it out,
+ * never to recompute or reinterpret it. `observedLine` is the one
+ * model-written string on the card and it arrives already validated against
+ * these same numbers. */
+export type ContrastCard = {
+  questionCode: string;
+  metricKey: string;
+  declaredQuote: string;
+  declaredDate: string;
+  observedLine: string;
+  windowStart: string;
+  windowEnd: string;
+  weekendDays: number;
+  weekendCheckins: number;
+  weekdayDays: number;
+  weekdayCheckins: number;
+};
+
 export type BlueprintPattern = {
   patternKey: string;
-  patternType: 'weekday_mood' | 'time_of_day_mood' | 'consistency' | 'synthesis_pattern' | 'synthesis_want';
+  patternType: 'weekday_mood' | 'time_of_day_mood' | 'consistency' | 'synthesis_pattern' | 'synthesis_want' | 'contrast';
   weekday: number | null;
   direction: 'low' | 'high' | 'before_noon_higher' | 'after_noon_higher' | null;
   cutoffHour: number | null;
@@ -26,6 +45,21 @@ export type BlueprintPattern = {
   totalCount: number;
   evidenceRate: number;
   statement: string | null;
+  contrast: ContrastCard | null;
+};
+
+type RawContrast = {
+  question_code?: string;
+  metric_key?: string;
+  declared_quote?: string;
+  declared_date?: string;
+  observed_line?: string;
+  window_start?: string;
+  window_end?: string;
+  weekend_days?: number;
+  weekend_checkins?: number;
+  weekday_days?: number;
+  weekday_checkins?: number;
 };
 
 type BlueprintPatternRow = {
@@ -38,7 +72,40 @@ type BlueprintPatternRow = {
   total_count: number;
   evidence_rate: number;
   statement: string | null;
+  contrast: RawContrast | null;
 };
+
+/** A contrast row missing any field it needs to render honestly is treated
+ * as absent, not as a half-card: a card that has lost its quote or its
+ * numbers has lost the thing that made it trustworthy. */
+export function parseContrastCard(raw: RawContrast | null | undefined): ContrastCard | null {
+  if (!raw) return null;
+  const {
+    question_code, metric_key, declared_quote, declared_date, observed_line,
+    window_start, window_end, weekend_days, weekend_checkins, weekday_days, weekday_checkins,
+  } = raw;
+  if (
+    !question_code || !metric_key || !declared_quote || !declared_date || !observed_line ||
+    !window_start || !window_end ||
+    typeof weekend_days !== 'number' || typeof weekend_checkins !== 'number' ||
+    typeof weekday_days !== 'number' || typeof weekday_checkins !== 'number'
+  ) {
+    return null;
+  }
+  return {
+    questionCode: question_code,
+    metricKey: metric_key,
+    declaredQuote: declared_quote,
+    declaredDate: declared_date,
+    observedLine: observed_line,
+    windowStart: window_start,
+    windowEnd: window_end,
+    weekendDays: weekend_days,
+    weekendCheckins: weekend_checkins,
+    weekdayDays: weekday_days,
+    weekdayCheckins: weekday_checkins,
+  };
+}
 
 export async function getMyBlueprint(): Promise<BlueprintPattern[]> {
   const { data, error } = await supabase.rpc('get_my_blueprint');
@@ -53,7 +120,21 @@ export async function getMyBlueprint(): Promise<BlueprintPattern[]> {
     totalCount: row.total_count,
     evidenceRate: row.evidence_rate,
     statement: row.statement,
+    contrast: parseContrastCard(row.contrast),
   }));
+}
+
+/** MN3 — the evidence expander's line, composed HERE from the stored
+ * numbers and never from model text (hallucination law clause 4: "the
+ * client renders evidence from the DB via refs, never from model text").
+ * Counts, not a list of missed days: the existing pattern-card convention
+ * is "4 of your last 6", and reading someone their own missed weekends back
+ * would be the shame the warmth laws forbid. */
+export function describeContrastEvidence(
+  card: ContrastCard,
+  formatDate: (localDate: string) => string
+): string {
+  return `you checked in on ${card.weekendCheckins} of ${card.weekendDays} weekend days, and ${card.weekdayCheckins} of ${card.weekdayDays} weekdays, since ${formatDate(card.windowStart)}.`;
 }
 
 /** Bold statement + plain evidence sentence. Synthesis-sourced patterns
@@ -63,6 +144,13 @@ export async function getMyBlueprint(): Promise<BlueprintPattern[]> {
 export function describeBlueprintPattern(p: BlueprintPattern): { headline: string; accent: string; evidence: string } {
   if (p.patternType === 'synthesis_pattern' || p.patternType === 'synthesis_want') {
     return { headline: p.statement ?? '', accent: '', evidence: '' };
+  }
+  // MN3: a contrast card has its own two-lane layout on the screen and does
+  // not come through here to be rendered. It answers anyway, with the
+  // observed half only, so anything generic that describes a pattern (the
+  // Ask Rally context line) gets a true sentence rather than an empty one.
+  if (p.patternType === 'contrast') {
+    return { headline: p.contrast?.observedLine ?? p.statement ?? '', accent: '', evidence: '' };
   }
   if (p.patternType === 'weekday_mood' && p.weekday !== null) {
     const isLow = p.direction === 'low';

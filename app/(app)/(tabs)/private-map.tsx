@@ -19,9 +19,11 @@ import {
   BlueprintDocument,
   BlueprintPattern,
   BlueprintResponse,
+  ContrastCard,
   deriveWantPracticeName,
   describeBlueprintPattern,
   describeConfidence,
+  describeContrastEvidence,
   getMyBlueprint,
   getMyBlueprintDocument,
   getMyBlueprintResponses,
@@ -51,6 +53,58 @@ const EMPTY_DOCUMENT: BlueprintDocument = { traits: [], evolution: [], want: nul
  * the user still chooses what to actually ask). */
 function patternContextText(copy: { headline: string; accent: string }): string {
   return copy.accent ? `${copy.headline} ${copy.accent}` : copy.headline;
+}
+
+/** MN3 — dates read as words, the same long form the manual and journal
+ * use, so a date means the same thing on every inner-life surface. */
+function formatContrastDate(localDate: string): string {
+  const [y, m, d] = localDate.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+}
+
+/** MN3's card body: two labelled blocks and an expander, and deliberately
+ * nothing else. There is no framing line above the blocks and no sentence
+ * anywhere that tells the person what the two halves add up to — Cat's
+ * ruling, 31 July: a line like "you said one thing, and we saw another"
+ * makes a claim where the card is only supposed to show two facts.
+ *
+ * The lane labels are MN2's own strings. The quote is byte-copied from what
+ * the person answered. The evidence line is composed on this device from
+ * stored numbers, never from model text (hallucination law clause 4). The
+ * ONE model-written string on this card is `observedLine`, and it was
+ * validated against those same numbers before it was ever stored. */
+function ContrastCardBody({ card }: { card: ContrastCard }) {
+  const [showEvidence, setShowEvidence] = useState(false);
+
+  return (
+    <>
+      <Text style={styles.patternLabel}>{STRINGS.contrastCardLabel}</Text>
+
+      <Text style={styles.contrastLaneLabel}>{STRINGS.manualLaneDeclared}</Text>
+      <Text style={styles.contrastQuote}>“{card.declaredQuote}”</Text>
+      <Text style={styles.contrastDate}>{formatContrastDate(card.declaredDate)}</Text>
+
+      <Text style={[styles.contrastLaneLabel, styles.contrastLaneLabelSecond]}>
+        {STRINGS.manualLaneObserved}
+      </Text>
+      <Text style={styles.contrastObserved}>{card.observedLine}</Text>
+
+      <TouchableOpacity
+        style={styles.contrastEvidenceToggle}
+        onPress={() => setShowEvidence((v) => !v)}
+      >
+        <Text style={styles.contrastEvidenceToggleText}>
+          {showEvidence ? STRINGS.contrastEvidenceCollapse : STRINGS.contrastEvidenceExpander}
+        </Text>
+      </TouchableOpacity>
+      {showEvidence && (
+        <View style={styles.contrastEvidence}>
+          <Text style={styles.patternMeta}>{describeContrastEvidence(card, formatContrastDate)}</Text>
+          <Text style={styles.patternMeta}>{STRINGS.contrastEvidenceSource}</Text>
+        </View>
+      )}
+    </>
+  );
 }
 
 /** PM1: the map's invitation into Ask Rally — a warm lead plus starter
@@ -357,17 +411,29 @@ function Blueprint() {
         (() => {
           const copy = describeBlueprintPattern(activePattern);
           const isSynthesis = activePattern.patternType === 'synthesis_pattern' || activePattern.patternType === 'synthesis_want';
+          // MN3 — a contrast card replaces the headline block with its two
+          // labelled lanes. The confirm / not-quite row below is shared and
+          // unchanged, which is the whole reason a contrast is a pattern as
+          // far as the rest of the system is concerned: a not-quite pins the
+          // pair through the machinery that already existed.
+          const contrastCard = activePattern.patternType === 'contrast' ? activePattern.contrast : null;
           return (
             <View style={styles.patternCard}>
-              <Text style={styles.patternLabel}>{STRINGS.blueprintPatternLabel}</Text>
-              {isSynthesis ? (
-                <Text style={styles.patternHeadline}>{copy.headline}</Text>
+              {contrastCard ? (
+                <ContrastCardBody card={contrastCard} />
               ) : (
-                <Text style={styles.patternHeadline}>
-                  {copy.headline} <Text style={styles.patternAccent}>{copy.accent}</Text>.
-                </Text>
+                <>
+                  <Text style={styles.patternLabel}>{STRINGS.blueprintPatternLabel}</Text>
+                  {isSynthesis ? (
+                    <Text style={styles.patternHeadline}>{copy.headline}</Text>
+                  ) : (
+                    <Text style={styles.patternHeadline}>
+                      {copy.headline} <Text style={styles.patternAccent}>{copy.accent}</Text>.
+                    </Text>
+                  )}
+                  {!!copy.evidence && <Text style={styles.patternMeta}>{copy.evidence}</Text>}
+                </>
               )}
-              {!!copy.evidence && <Text style={styles.patternMeta}>{copy.evidence}</Text>}
 
               {isWritingNote ? (
                 <View style={styles.noteWrap}>
@@ -441,17 +507,24 @@ function Blueprint() {
       {confirmedPatterns.map((p) => {
         const copy = describeBlueprintPattern(p);
         const isSynthesis = p.patternType === 'synthesis_pattern' || p.patternType === 'synthesis_want';
+        const contrastCard = p.patternType === 'contrast' ? p.contrast : null;
         return (
           <View key={p.patternKey} style={[styles.patternCard, styles.patternCardConfirmed]}>
-            <Text style={styles.patternLabel}>{STRINGS.blueprintPatternLabel}</Text>
-            {isSynthesis ? (
-              <Text style={styles.patternHeadline}>{copy.headline}</Text>
+            {contrastCard ? (
+              <ContrastCardBody card={contrastCard} />
             ) : (
-              <Text style={styles.patternHeadline}>
-                {copy.headline} <Text style={styles.patternAccent}>{copy.accent}</Text>.
-              </Text>
+              <>
+                <Text style={styles.patternLabel}>{STRINGS.blueprintPatternLabel}</Text>
+                {isSynthesis ? (
+                  <Text style={styles.patternHeadline}>{copy.headline}</Text>
+                ) : (
+                  <Text style={styles.patternHeadline}>
+                    {copy.headline} <Text style={styles.patternAccent}>{copy.accent}</Text>.
+                  </Text>
+                )}
+                {!!copy.evidence && <Text style={styles.patternMeta}>{copy.evidence}</Text>}
+              </>
             )}
-            {!!copy.evidence && <Text style={styles.patternMeta}>{copy.evidence}</Text>}
             <Text style={styles.respondedText}>{STRINGS.blueprintConfirmedText}</Text>
             <TouchableOpacity
               onPress={() => router.push({ pathname: '/ask-rally', params: { context: patternContextText(copy) } })}
@@ -800,6 +873,53 @@ const styles = StyleSheet.create({
     color: colors.mutedStrong,
     marginTop: 10,
     lineHeight: 16,
+  },
+  // MN3 — the contrast card's two lanes. Deliberately quiet: the same
+  // small-caps lane label the manual uses, muted rather than plum, so
+  // neither half is styled as the important one. The card's plum border
+  // (patternCard, shared) is what marks it as inner-life content.
+  contrastLaneLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.mutedStrong,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 8,
+  },
+  contrastLaneLabelSecond: {
+    marginTop: 18,
+  },
+  // The person's own words get the serif, the same treatment the map gives
+  // a quote elsewhere: it is the one thing on this card nobody wrote but them.
+  contrastQuote: {
+    fontFamily: FONT_SERIF_ITALIC,
+    fontSize: 18,
+    lineHeight: scaledLineHeight(24),
+    color: colors.ink,
+  },
+  contrastDate: {
+    fontSize: 10.5,
+    color: colors.mutedStrong,
+    marginTop: 3,
+  },
+  contrastObserved: {
+    fontSize: 14.5,
+    lineHeight: scaledLineHeight(20),
+    color: colors.ink,
+  },
+  contrastEvidenceToggle: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  contrastEvidenceToggleText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: colors.plum,
+  },
+  contrastEvidence: {
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    paddingTop: 4,
   },
   responseRow: {
     flexDirection: 'row',

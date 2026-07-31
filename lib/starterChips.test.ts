@@ -34,6 +34,7 @@ function pattern(overrides: Partial<BlueprintPattern>): BlueprintPattern {
     totalCount: 8,
     evidenceRate: 0.75,
     statement: null,
+    contrast: null,
     ...overrides,
   };
 }
