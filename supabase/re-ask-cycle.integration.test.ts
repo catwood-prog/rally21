@@ -224,7 +224,16 @@ describeIfConfigured('RA1 — the re-ask cycle', () => {
       }
     });
 
-    test('no UNTRACKED question ever accumulates three asks in 90 days', async () => {
+    test("inside MN3's 90-day window, only a tracked question reaches three asks", async () => {
+      // Scoped to 90 days on purpose, and the scope is the claim. MN3's
+      // floor is "3 answers per family per 90 DAYS", and inside that window
+      // chance cannot produce three asks of one question — the 30-day
+      // exclusion plus a ~120-question pool makes even two unlikely. Run
+      // the same replay to day 120 and chance does start to manage three
+      // (measured 31 July: CON-01, CON-06, CON-09, MOT-06, VAL-09). So the
+      // honest claim is not "only tracked questions ever repeat" — it is
+      // that only tracked questions repeat ON A SCHEDULE, inside the window
+      // MN3 actually asks about, on a date that can be named in advance.
       const { id } = await livePerfectTester(90);
       const { rows } = await client.query(
         `select q.code, count(*)::int as n
