@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -17,6 +17,7 @@ import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { glowBeatClosingBeat } from '@/lib/closingBeat';
 import { getDayCloseState } from '@/lib/dayComplete';
 import { getLocalDateString } from '@/lib/date';
 import { playGlowBeatBowl } from '@/lib/chime';
@@ -123,7 +124,13 @@ function WeekSlot({
  * suppresses its own chime whenever it knows it's routing here, so this
  * is the only sound this check-in makes. Milestone glow beats never
  * happen at all (shouldShowGlowBeat is false whenever hasMilestone is
- * true), so there's no sound to compose with the G3 milestone here. */
+ * true), so there's no sound to compose with the G3 milestone here.
+ *
+ * SC4 (Cat's ruling, 26 July): this beat is no longer necessarily the
+ * LAST screen of a check-in. Twice a week the share card follows it,
+ * handed through as route params by checkin-complete — see `pendingCard`
+ * below. Nothing about the choreography or the sound changes; what
+ * changes is where the goodbye lives on those days. */
 export default function GlowBeat() {
   const router = useRouter();
   // NAV1 job 0 — celebration screens are AppHeader-exempt, never safe-area-exempt.
@@ -137,6 +144,24 @@ export default function GlowBeat() {
   // answers the same question every other label answers. Null until the
   // read lands: never guess at a farewell.
   const [isDayComplete, setIsDayComplete] = useState<boolean | null>(null);
+  // SC4 — the share card FOLLOWS this beat now instead of losing to it.
+  // checkin-complete resolves the whole card (cadence call, flavor pick,
+  // slot fill) and applies the day-done gate, then hands the finished
+  // /share-card route params straight through here. This screen never
+  // fetches or re-decides a card: it just plays its beat and passes the
+  // gift along, so there is exactly one place that can decide a card is
+  // due and exactly one 'shown' event, recorded by the card screen itself.
+  const routeParams = useLocalSearchParams();
+  const pendingCard = useMemo<Record<string, string> | null>(() => {
+    const bag = Object.fromEntries(
+      Object.entries(routeParams).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+    );
+    // Both keys are set by buildShareCardNavParams for every flavor, so
+    // their presence IS the handoff — an ordinary glow beat arrives with
+    // no params at all and reads as null here.
+    return bag.flavor && bag.cardKey ? bag : null;
+  }, [routeParams]);
+  const closingBeat = glowBeatClosingBeat({ isDayComplete, cardFollows: !!pendingCard });
   const reduceMotion = useReducedMotion();
   // Anchors the whole choreography's timing regardless of how fast/slow
   // getMyGlow/getMyWeek resolve — see WeekSlot's own elapsed-aware delay.
@@ -355,12 +380,18 @@ export default function GlowBeat() {
         )}
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={() => router.replace('/today')}>
-        <Text style={styles.buttonText}>
-          {/* done -> this screen closes the day; still open -> the
-              imperative is a true prompt, which is the state it fits. */}
-          {isDayComplete ? STRINGS.dayDoneCta : STRINGS.glowBeatContinueCta}
-        </Text>
+      {/* OD1 job 9d's principle, re-derived for SC4's new order in
+          lib/closingBeat: destination and label come back together, so
+          this button can never lead somewhere its own words don't. */}
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() =>
+          closingBeat.next === 'share-card' && pendingCard
+            ? router.replace({ pathname: '/share-card', params: pendingCard })
+            : router.replace('/today')
+        }
+      >
+        <Text style={styles.buttonText}>{closingBeat.cta}</Text>
       </TouchableOpacity>
     </View>
   );

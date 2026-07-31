@@ -127,6 +127,14 @@ export const STRINGS = {
   //   (b) day done      -> dayDoneCta farewell
   //   (c) card day      -> checkinCardComingCta     gift, defers to the
   //                        share card's own "see you tomorrow" (job 8)
+  //
+  // SC4 (31 July) — (c) is now shared by TWO screens, because the card
+  // follows the glow beat instead of losing to it: whichever screen
+  // immediately precedes the card says this line, so on a glow-beat card
+  // day it is glow-beat.tsx, and on any other card day it is still
+  // checkin-complete.tsx. The key keeps its original name; what it means
+  // is "a card comes next", not "this particular screen". Only ever one
+  // screen per sequence says it, so the copy never repeats.
   // Same shape, same length, all lowercase — three registers doing three
   // jobs, which is what makes them one rhythm rather than three
   // decisions. Lowercase is correct under LC2: button labels are

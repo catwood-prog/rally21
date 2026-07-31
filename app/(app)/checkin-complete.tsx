@@ -25,6 +25,7 @@ import { countMyCircleCompletions } from '@/lib/checkin';
 import { GATE_DAY, getMyRallyCount } from '@/lib/journey';
 import { playCheckinPop } from '@/lib/chime';
 import { getCircleById } from '@/lib/circle';
+import { checkinClosingBeat } from '@/lib/closingBeat';
 import { daysBetween, getLocalDateString } from '@/lib/date';
 import { checkGlowMilestone, didRekindleToday, getMyWeek, shouldShowGlowBeat } from '@/lib/glow';
 import { frameSwapSchedule } from '@/lib/mascotFx';
@@ -333,17 +334,19 @@ export default function CheckInComplete() {
   // is safe to call speculatively (only recordCardEvent('shown') on the
   // card screen consumes the cadence slot), so preparing a card that a
   // mid-day multi-circle check-in then declines to show costs nothing.
+  //
+  // SC4 — `earnedToday` has left this effect entirely, and that IS the
+  // section: the gate used to fold in shouldShowGlowBeat, so on the first
+  // check-in of the day a card was never even fetched. It now runs on
+  // glow-beat days too, and the card is handed forward to be shown AFTER
+  // the beat. Same speculative-fetch safety as above — the slot is still
+  // only consumed by the card screen's own 'shown' event.
   useEffect(() => {
     if (!session?.user || !milestoneChecked || rallyCount === null || circleDay === null) return;
     const userId = session.user.id;
     const count = rallyCount;
     const age = circleDay;
-    const earned = earnedToday === 'true';
-    if (!shouldOfferShareCard({
-      isCeremonyDay,
-      hasMilestone: !!glowMilestone,
-      showsGlowBeat: shouldShowGlowBeat({ earnedToday: earned, hasMilestone: !!glowMilestone }),
-    })) {
+    if (!shouldOfferShareCard({ isCeremonyDay, hasMilestone: !!glowMilestone })) {
       return;
     }
     // SC2: the week (rekindle + covered + the dot strip's own content)
@@ -379,7 +382,7 @@ export default function CheckInComplete() {
       })
       .then((navParams) => setCardNavParams(navParams))
       .catch(() => setCardNavParams(null));
-  }, [session?.user, milestoneChecked, rallyCount, circleDay, isCeremonyDay, glowMilestone, earnedToday, circleId, practiceName]);
+  }, [session?.user, milestoneChecked, rallyCount, circleDay, isCeremonyDay, glowMilestone, circleId, practiceName]);
 
   // Glow milestones (Rally21-Glow-Spec.md §4) — detected once per this
   // screen's mount, right at check-in time; a monotonic server-side
@@ -514,46 +517,23 @@ export default function CheckInComplete() {
     transform: [{ translateY: buttonY.value }],
   }));
 
-  // OD1 job 9d (Cat's ruling, 26 July) — the daily closing beat. This
-  // screen fires on EVERY check-in, so the button cannot simply say
-  // goodbye: someone with another practice open today must not be told to
-  // come back tomorrow.
+  // OD1 job 9d (Cat's ruling, 26 July), as re-derived by SC4 — the daily
+  // closing beat. This screen fires on EVERY check-in, so the button
+  // cannot simply say goodbye: someone with another practice open today
+  // must not be told to come back tomorrow.
   //
-  // THE PRINCIPLE, which is what makes this three states and not two: the
-  // goodbye belongs to the LAST screen in the sequence, never to two. So
-  // whenever another screen follows this one, this one defers.
-  //
-  // Ordered exactly as handleDismiss below decides where to go, so the
-  // label can never promise a destination the dismissal does not take.
-  const closingBeatCta = (() => {
-    // Not known yet — never guess at a farewell. Keeps the shipped label
-    // for the moment before the day-close read lands.
-    if (isDayComplete === null) return STRINGS.checkinSuccessCta;
-    // (a) work remaining, counted: "one more today" is only TRUE when
-    // exactly one practice is left, and with a default cap of 3 two or
-    // three open is ordinary.
-    if (!isDayComplete) return STRINGS.checkinMoreTodayCta(awaitingCount);
-    // The glow beat comes next, so the goodbye is not this screen's to
-    // say. It has no closing label of its own ("keep it glowing" leads
-    // on to Today), so a glow-beat day currently ends without a farewell
-    // at all — REPORTED to Cat rather than fixed with invented copy.
-    // The glow beat comes next, so this screen is not last and must lead
-    // forward. Cat's ruling, 26 July: "keep it glowing" moves HERE, to the
-    // day-done case, where being imperative fits — there is nothing left
-    // to do today, so it reads as carrying the glow onward rather than
-    // asking for more work. It cannot collide with glow-beat's own use of
-    // the same line: that one only shows when the day is NOT done, and
-    // these two states are mutually exclusive, so the phrase appears on
-    // exactly one screen per day and never twice in a sequence.
-    if (shouldShowGlowBeat({ earnedToday: earnedToday === 'true', hasMilestone: !!glowMilestone })) {
-      return STRINGS.glowBeatContinueCta;
-    }
-    // (c) the card comes next and closes the day itself (job 8's "see you
-    // tomorrow"), so this leads INTO it rather than closing anything.
-    if (cardNavParams) return STRINGS.checkinCardComingCta;
-    // (b) nothing follows — this screen owns the goodbye.
-    return STRINGS.dayDoneCta;
-  })();
+  // Destination and label come back TOGETHER from lib/closingBeat, so the
+  // label can never promise a destination the dismissal does not take —
+  // that used to be two hand-ordered branch-lists and a comment asking the
+  // next reader to keep them in step. The principle and the full matrix
+  // are documented there.
+  const closingBeat = checkinClosingBeat({
+    isDayComplete,
+    awaitingCount,
+    showsGlowBeat: shouldShowGlowBeat({ earnedToday: earnedToday === 'true', hasMilestone: !!glowMilestone }),
+    cardResolved: !!cardNavParams,
+  });
+  const pendingCard = closingBeat.cardFollows ? cardNavParams : null;
 
   const successTitle = successTitleFor({ glowMilestone, rallyCount });
 
@@ -561,17 +541,21 @@ export default function CheckInComplete() {
     // G5 (Rally21-Glow-Spec.md §1): the glow moment only replaces this
     // screen's normal dismissal on the check-in that actually earned the
     // day, and never alongside a milestone (they compose, never both).
-    if (shouldShowGlowBeat({ earnedToday: earnedToday === 'true', hasMilestone: !!glowMilestone })) {
-      router.replace('/glow-beat');
+    //
+    // SC4 — and when a card is also due, it rides along as route params
+    // rather than being dropped: the beat plays, then the card follows.
+    // Handing the RESOLVED params through (instead of letting glow-beat
+    // fetch its own) keeps one decision in one place — the day-done gate,
+    // the cadence call and the flavor pick all still happen exactly once,
+    // here, on the same schedule as before.
+    if (closingBeat.next === 'glow-beat') {
+      router.replace(pendingCard ? { pathname: '/glow-beat', params: pendingCard } : '/glow-beat');
       return;
     }
-    // SC1 — the card slot: only the least important rung of the
-    // composition ladder, so it only ever replaces the plain dismissal
-    // below, never anything above it. OD1 Job 9a — and only when the day
-    // is genuinely done; a mid-day multi-circle check-in gets no card, the
-    // deliberate trade in Job 9b.
-    if (cardNavParams && isDayComplete) {
-      router.replace({ pathname: '/share-card', params: cardNavParams });
+    // No glow beat (a check-in that didn't earn the day, or an edit) —
+    // the card is this screen's own next stop, exactly as before.
+    if (closingBeat.next === 'share-card' && pendingCard) {
+      router.replace({ pathname: '/share-card', params: pendingCard });
       return;
     }
     if (router.canGoBack()) {
@@ -640,7 +624,7 @@ export default function CheckInComplete() {
 
       <Animated.View style={[styles.buttonWrap, buttonStyle]}>
         <TouchableOpacity style={styles.button} onPress={handleDismiss}>
-          <Text style={styles.buttonText}>{closingBeatCta}</Text>
+          <Text style={styles.buttonText}>{closingBeat.cta}</Text>
         </TouchableOpacity>
       </Animated.View>
 

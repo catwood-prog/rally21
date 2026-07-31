@@ -27,17 +27,36 @@ export type ShareCard = {
 
 export type CardEvent = 'shown' | 'opened' | 'shared' | 'saved' | 'dismissed' | 'muted' | 'liked' | 'passed';
 
-/** The composition rule (spec §3): ceremony > milestone (G3) > glow beat
- * (G5) > card > plain "Nice." A card only ever appears when nothing above
- * it fired — mirrors shouldShowGlowBeat's own precedence pattern exactly. */
+/** The composition rule (spec §3), as amended by SC4 (Cat's ruling, 26
+ * July): ceremony > milestone (G3) > card, and the glow beat (G5) is no
+ * longer part of the ladder at all — the card FOLLOWS it instead of
+ * losing to it.
+ *
+ * WHY THE OLD SHAPE HAD TO GO. The ladder picked one winner, and
+ * `showsGlowBeat` is `earnedToday` — simply the first check-in of the
+ * day. For a single-circle person that is EVERY check-in, so the card
+ * was suppressed forever and SC1's "2/week, never two days running"
+ * cadence rule was never once consulted for them. Six `shown` events
+ * across the whole cohort in a month was the measurement. The ladder was
+ * written on the assumption that the glow beat is occasional; it isn't.
+ *
+ * WHAT STILL SUPPRESSES, and why those two are different in kind: a
+ * ceremony day and a milestone day are ALREADY the big moment, and the
+ * warmth rule the ladder exists to protect is that one check-in never
+ * carries two celebrations. The glow beat is not a celebration of that
+ * size — it is the daily beat — so a card after it is a second small
+ * thing, not a second big one. (`shouldShowGlowBeat` is false whenever
+ * `hasMilestone`, so the milestone gate already covers the overlap.)
+ *
+ * The sequencing lives in checkin-complete's handleDismiss, which hands
+ * a resolved card THROUGH glow-beat.tsx rather than choosing between
+ * them; this function now only answers whether a card is eligible. */
 export function shouldOfferShareCard(params: {
   isCeremonyDay: boolean;
   hasMilestone: boolean;
-  showsGlowBeat: boolean;
 }): boolean {
   if (params.isCeremonyDay) return false;
   if (params.hasMilestone) return false;
-  if (params.showsGlowBeat) return false;
   return true;
 }
 
