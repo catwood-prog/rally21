@@ -2,6 +2,7 @@ import { StyleProp, Text, TextStyle } from 'react-native';
 
 import { FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { colors } from '@/constants/theme';
+import { ACCENT_SPAN } from '@/lib/accentMarkup';
 
 /**
  * Renders text where *word or phrase* segments (matching the adaptive
@@ -17,7 +18,7 @@ export function AccentedText({
   style?: StyleProp<TextStyle>;
   accentStyle?: StyleProp<TextStyle>;
 }) {
-  const parts = text.split(/\*(.+?)\*/g);
+  const parts = text.split(ACCENT_SPAN);
 
   return (
     <Text style={style}>

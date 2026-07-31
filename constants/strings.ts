@@ -1,3 +1,5 @@
+import { stripAccentMarkers } from '@/lib/accentMarkup';
+
 // Seeded practices follow the verb-phrase convention (see CLAUDE.md), but
 // a custom practice can be any free-form name — nothing validates that at
 // save time (see CLAUDE.md's "resilient headline" rule). Any sentence
@@ -869,7 +871,13 @@ export const STRINGS = {
   // reminder of something missed. Only shows before today's reflection is
   // written; disappears the moment it is (see CLAUDE.md's color-roles
   // convention — this earns plum as inner-life content).
-  reflectionTeaser: (questionPrompt: string) => `tonight: "${questionPrompt}"`,
+  // MN2 ride-along (Cat's ruling, 30 July) — the teaser prints the question
+  // as ordinary text, so the `*accent*` markers are stripped HERE rather
+  // than at the two call sites. Deliberate: today.tsx is outside MN2's
+  // scope, and the composition of this sentence is this function's job
+  // anyway, so the fix belongs to the string, not the screen.
+  reflectionTeaser: (questionPrompt: string) =>
+    `tonight: "${stripAccentMarkers(questionPrompt)}"`,
 
   // ── SK1 (24 July): reflections are optional ──────────────────────────
   // Cat's ruling (23 July, from the live check-in screen): the reflection
@@ -1200,6 +1208,56 @@ export const STRINGS = {
   // OD1 job 19c — same N1 leftover as checkin-intro's title: "picture"
   // meaning the private map, on the day-14 observation card's grow state.
   blueprintGrowsText: 'This grows as you go. In a month, your map gets a lot richer.',
+  // ── MN2 (30 July): "how you work", the self-manual ───────────────────
+  // Name chosen by Cat in session over "your manual" and "your field
+  // notes" — it takes the memo's operating-systems framing (§5.3) without
+  // sounding mechanical. The two LANE LABELS are fixed by the memo (§3)
+  // and MN3 is specced to match them, so they are not free copy: "in your
+  // words" is what the person declared, "what we've seen" is observed
+  // behaviour, and the memo's law is that they are never merged.
+  //
+  // Register note, deliberate: SK2 left a standing instruction that the
+  // private map says "we" nowhere else and must not be "improved" back
+  // into a we-sentence. That instruction is scoped to
+  // blueprintReflectionsOffLine. "what we've seen" is a LANE LABEL fixed
+  // by the memo and named again in MN3, so it stays — but every other
+  // line on this screen keeps the map's second-person voice.
+  manualTitle: 'how you work',
+  manualSubline: "built from what you've told us, and what we've seen",
+  // The way in, on the private map.
+  manualLinkLabel: 'how you work',
+  manualSectionLabels: {
+    'energy-recovery': 'energy and recovery',
+    connection: 'how you connect',
+    'overwhelm-restore': 'when things get heavy',
+    misread: 'what people misread',
+  } as Record<string, string>,
+  manualLaneDeclared: 'in your words',
+  manualLaneObserved: "what we've seen",
+  manualEarlierExpander: (count: number) =>
+    count === 1 ? 'one earlier answer' : `${count} earlier answers`,
+  manualEarlierCollapse: 'hide earlier answers',
+  // JOB 2 — the honest empty state, and for the beta's first month this is
+  // the REAL screen, not an edge case: of the 13 cold-start-arc days only
+  // day 10 asks a declaration question, so a tester reaches day 14 with one
+  // entry at most. Two lines, and neither promises an insight — they
+  // describe the mechanism and stop, which is the private map's law.
+  manualEmptyTitle: 'nothing here yet',
+  manualEmptyText:
+    'This page builds itself from your daily question, one answer at a time.',
+  // SK1's no-nag law: state the fact, offer the door, never pitch. The
+  // toggle row below it is the way back, same as the journal and the map.
+  manualReflectionsOffLine:
+    'This page fills in from your daily question, which is off right now.',
+  // JOB 3 — the one exit. No share surface exists on this screen by
+  // ruling 2; a download is the only way anything leaves.
+  manualExportCta: 'download a copy',
+  manualExportFooter: '— exported from Rally21',
+  manualExportCopiedNotice: 'copied — paste it wherever you like',
+  // JOB 4 — the quiet affordance on the check-in question card. Cat's
+  // wording, from her own workbook column header.
+  whyWeAskLabel: 'why we ask this',
+
   blueprintPatternLabel: 'A GENTLE PATTERN',
   blueprintSoundsRight: 'sounds right',
   blueprintNotQuite: 'not quite',

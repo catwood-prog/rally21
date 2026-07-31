@@ -528,6 +528,18 @@ function Blueprint() {
         </View>
       )}
 
+      {/* MN2 — the way into "how you work". Always present, including on
+          the empty map: the manual explains itself when empty, and hiding
+          the door until there is content would mean nobody finds it in the
+          weeks it is quietly filling up. Quiet ink link, the same family as
+          the map's other navigation. */}
+      <TouchableOpacity
+        style={styles.manualLink}
+        onPress={() => router.push('/how-you-work')}
+      >
+        <Text style={styles.manualLinkText}>{STRINGS.manualLinkLabel} →</Text>
+      </TouchableOpacity>
+
       {patterns.length > 0 && <AskRallyInviteCard lead={STRINGS.blueprintAskLead} chips={askChips} />}
 
       {patterns.length > 0 && <Text style={styles.footer}>{STRINGS.blueprintFooter}</Text>}
@@ -710,6 +722,19 @@ const styles = StyleSheet.create({
   },
   quotesSeeAllText: {
     fontSize: 11.5,
+    fontWeight: '700',
+    color: colors.plum,
+  },
+  // MN2 — the door into the manual. Plum, because it leads to inner-life
+  // content, and quiet enough not to compete with the map's one decision
+  // moment (the Sounds right / Not quite row).
+  manualLink: {
+    minHeight: 44,
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  manualLinkText: {
+    fontSize: 12.5,
     fontWeight: '700',
     color: colors.plum,
   },

@@ -25,6 +25,7 @@ import {
   DailyQuestion,
   getDailyQuestion,
   getQuestionById,
+  getQuestionWhy,
   getTodayReflection,
   hasAnyCompletionToday,
   hasCompletedToday,
@@ -59,6 +60,11 @@ export default function CheckIn() {
   const [question, setQuestion] = useState<DailyQuestion | null>(null);
   const [questionAnswer, setQuestionAnswer] = useState('');
   const [questionSkipped, setQuestionSkipped] = useState(false);
+  // MN2 job 4 — the question's "why we ask this" line, and whether the
+  // person has opened it. Collapsed on every arrival by design: the card's
+  // job is the question, and the why is there only for the curious.
+  const [questionWhy, setQuestionWhy] = useState<string | null>(null);
+  const [showWhy, setShowWhy] = useState(false);
   const [accent, setAccent] = useState('practice');
   const [micDenied, setMicDenied] = useState(false);
   const [showVoiceHint, setShowVoiceHint] = useState(false);
@@ -121,6 +127,23 @@ export default function CheckIn() {
       }
     })();
   }, [circleId, today, session?.user?.id, router]);
+
+  // MN2 job 4 — fetch the why line once the day's question is known. Kept
+  // out of the load above so a slow or failed read here can never hold up
+  // the question itself; a null simply means no affordance renders.
+  useEffect(() => {
+    const questionId = question?.id;
+    setShowWhy(false);
+    setQuestionWhy(null);
+    if (!questionId) return;
+    let cancelled = false;
+    getQuestionWhy(questionId).then((why) => {
+      if (!cancelled) setQuestionWhy(why);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [question?.id]);
 
   // GQ1: the second slot's question for today — deterministic from the
   // account-creation date (already on the auth session) and today's
@@ -334,6 +357,23 @@ export default function CheckIn() {
             </TouchableOpacity>
           </View>
           <AccentedText text={question.prompt} style={styles.questionPrompt} />
+
+          {/* MN2 job 4 — quiet, collapsed, and absent entirely when the
+              question has no line. One small tap target in the card's own
+              register (the practice-instructions link is the family), and
+              it expands inline rather than navigating anywhere. */}
+          {!!questionWhy && (
+            <>
+              <TouchableOpacity
+                style={styles.whyToggle}
+                onPress={() => setShowWhy((v) => !v)}
+                hitSlop={6}
+              >
+                <Text style={styles.whyToggleText}>{STRINGS.whyWeAskLabel}</Text>
+              </TouchableOpacity>
+              {showWhy && <Text style={styles.whyLine}>{questionWhy}</Text>}
+            </>
+          )}
 
           {!questionSkipped && (
             <QuestionInput
@@ -655,6 +695,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.ink,
     lineHeight: 19,
+    marginBottom: 12,
+  },
+  // MN2 job 4 — the why affordance. Deliberately quieter than the card's
+  // own copy: muted, small, no underline, and it sits under the question
+  // rather than beside the skip control so it never reads as an action on
+  // the answer. 44pt target via minHeight, the app's standard.
+  whyToggle: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  whyToggleText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: colors.mutedStrong,
+  },
+  whyLine: {
+    fontSize: 12,
+    lineHeight: scaledLineHeight(17),
+    color: colors.mutedStrong,
     marginBottom: 12,
   },
   questionInput: {

@@ -12,6 +12,30 @@ export type DailyQuestion = {
   options: string[] | null;
 };
 
+/** MN2 JOB 4 — the "why we ask this" line for one question.
+ *
+ * Fetched separately rather than added to get_daily_question's RETURNS
+ * TABLE on purpose: MN2 is fenced out of engine changes AND migrations,
+ * and questions already carries a plain SELECT policy for any signed-in
+ * member, so a direct read needs neither. Returns null for a question with
+ * no line, which is the same thing the card does with it — the affordance
+ * simply doesn't render.
+ *
+ * Failure is silence, deliberately: a missing why line must never block or
+ * delay the question itself, and an absent quiet affordance claims nothing
+ * (FF1's rule — the comment IS the decision).
+ */
+export async function getQuestionWhy(questionId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('questions')
+    .select('why_we_ask')
+    .eq('id', questionId)
+    .maybeSingle<{ why_we_ask: string | null }>();
+
+  if (error) return null;
+  return data?.why_we_ask ?? null;
+}
+
 export type TodayReflection = {
   mood: number | null;
   line1: string | null;

@@ -1,3 +1,4 @@
+import { stripAccentMarkers } from './accentMarkup';
 import { isReflectionSubstantive } from './checkin';
 import { MyCircle } from './circle';
 import { daysBetween } from './date';
@@ -28,9 +29,22 @@ type ReflectionRow = {
   line2: string | null;
   line2_prompt_key: string | null;
   question_answer: string | null;
+  question_prompt_snapshot: string | null;
   created_at: string;
   questions: { prompt: string } | null;
 };
+
+/** The question a past day was actually asked, ready for a plain-text
+ * surface: the stored snapshot wins over the bank's current wording, and
+ * the `*accent*` markers come off either way. Exported for its unit test —
+ * the two rules are easy to regress and both are honesty rules. */
+export function resolveQuestionPrompt(row: {
+  question_prompt_snapshot: string | null;
+  questions: { prompt: string } | null;
+}): string | null {
+  const text = row.question_prompt_snapshot ?? row.questions?.prompt ?? null;
+  return text === null ? null : stripAccentMarkers(text);
+}
 
 /** PM1B — the Ask Rally header's "using {N} reflections" count. Same
  * substantive-reflection rule as the your-data summary (lib/yourData.ts,
@@ -48,7 +62,17 @@ export async function getMySubstantiveReflectionCount(userId: string): Promise<n
 export async function getMyReflections(userId: string): Promise<Reflection[]> {
   const { data, error } = await supabase
     .from('reflections')
-    .select('id, local_date, mood, line1, line2, line2_prompt_key, question_answer, created_at, questions(prompt)')
+    // MN2 ride-along (Cat's ruling, 30 July) — `question_prompt_snapshot`
+    // is the text this person was ACTUALLY shown that day, written at
+    // check-in time. Joining questions(prompt) alone made the journal
+    // retell history in the bank's current wording, which MN1's rewrite
+    // turned from a theoretical problem into a live one (57 stored
+    // snapshots now differ from the live text). get_daily_question has
+    // always preferred the snapshot; the journal simply never asked for
+    // it. The join stays as the fallback for pre-snapshot rows.
+    .select(
+      'id, local_date, mood, line1, line2, line2_prompt_key, question_answer, question_prompt_snapshot, created_at, questions(prompt)'
+    )
     .eq('user_id', userId)
     .order('local_date', { ascending: false })
     .returns<ReflectionRow[]>();
@@ -67,7 +91,10 @@ export async function getMyReflections(userId: string): Promise<Reflection[]> {
       line1: r.line1,
       line2: r.line2,
       line2PromptKey: r.line2_prompt_key,
-      questionPrompt: r.questions?.prompt ?? null,
+      // Snapshot first, live text only where no snapshot was stored; the
+      // journal renders this as plain text, so the accent markers come
+      // off here rather than being printed at the reader (ride-along b).
+      questionPrompt: resolveQuestionPrompt(r),
       questionAnswer: r.question_answer,
       createdAt: r.created_at,
     }));
