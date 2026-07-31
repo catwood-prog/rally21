@@ -215,17 +215,20 @@ Deno.serve(async (req) => {
       // needs the user's FULL chip-answer history regardless of the
       // incremental `sinceIso` cursor above, since "3 of last 4 asks"
       // can span further back than whatever changed since the last run.
+      // RA1 job 3: `code` comes back too, because the family is now the
+      // QUESTION rather than the dimension.
       const { data: chipRows } = await admin
         .from("reflections")
-        .select("local_date, question_answer, questions(dimension, format)")
+        .select("local_date, question_answer, questions(code, dimension, format)")
         .eq("user_id", user.id)
         .not("question_answer", "is", null)
         .order("local_date", { ascending: true });
 
       const chipAnswers: ChipAnswer[] = (chipRows ?? [])
-        .filter((r: any) => r.questions?.format === "chips")
+        .filter((r: any) => r.questions?.format === "chips" && r.questions?.code)
         .map((r: any) => ({
           local_date: r.local_date,
+          question_code: r.questions.code,
           dimension: r.questions.dimension,
           chip_value: r.question_answer,
         }));
@@ -237,6 +240,15 @@ Deno.serve(async (req) => {
         nowIso,
       });
       result.content.traits = chipMerge.traits;
+      // RA1 job 3: pre-RA1 chip keys were grouped by dimension and cannot
+      // be attributed to a question, so they are dropped and re-derived
+      // from raw answers. Never silently — a run that discards a claim
+      // about a person says which one (FF1's rule).
+      if (chipMerge.legacyKeysDropped.length > 0) {
+        console.log(
+          `compose-blueprint user=${user.id} dropped pre-RA1 chip traits: ${chipMerge.legacyKeysDropped.join(", ")}`
+        );
+      }
 
       const { error: insertError } = await admin.from("blueprint_versions").insert({
         user_id: user.id,
