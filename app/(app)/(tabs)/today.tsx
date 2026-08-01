@@ -597,6 +597,34 @@ function Today() {
     }
   }, [circles, circleData, isLoading, router, session?.user?.id]);
 
+  // AL1 job 4 — the personal practice time's prefill, resolved only once
+  // the ask is actually going to show, so the overwhelming majority of
+  // Today loads (every account that has already answered) pay nothing for
+  // it. Web never asks at all.
+  //
+  // BG1 (1 Aug) — THIS HOOK LIVES HERE, ABOVE THE LOADING EARLY RETURN,
+  // AND SO MUST EVERY HOOK ADDED TO THIS SCREEN. It shipped below it, next
+  // to the reminders card it feeds, which read as the tidy place to put it
+  // — but Today's first render always takes the `if (isLoading)` return
+  // below, so a hook underneath it is called on the loaded render and NOT
+  // on the loading one. React counts hooks per render: 53 then 54, and it
+  // throws "Rendered more hooks than during the previous render." Today's
+  // own error boundary caught it (the tab bar survived, which is why it
+  // read as a data bug), and it fired for EVERY account on BOTH platforms
+  // from the moment AL1 went live. The card, its handlers and its copy stay
+  // where they are; only the hook had to move.
+  useEffect(() => {
+    if (Platform.OS === 'web' || hasSeenRemindersAsk || !session?.user) return;
+    resolvePrefillAlarmTime(session.user.id)
+      .then(setAlarmPrefill)
+      .catch((e) => {
+        // FF1 — a failed read lands on the rule's own no-guess branch (the
+        // card's 08:00 default), so there is nothing to tell the person
+        // and nothing fabricated. Reported, never surfaced.
+        captureError(e, { screen: 'today', op: 'resolvePrefillAlarmTime' });
+      });
+  }, [hasSeenRemindersAsk, session?.user?.id]);
+
   if (isLoading) {
     return (
       <View style={styles.loading}>
@@ -879,21 +907,10 @@ function Today() {
   // stamped BEFORE the prefs write was known to have landed, so a failed
   // write left reminders off forever with the only card that could turn
   // them on already retired. Nothing is stamped unless the write landed.
-  // AL1 job 4 — resolved only once the ask is actually going to show, so
-  // the overwhelming majority of Today loads (every account that has
-  // already answered) pay nothing for it. Web never asks at all.
-  useEffect(() => {
-    if (Platform.OS === 'web' || hasSeenRemindersAsk || !session?.user) return;
-    resolvePrefillAlarmTime(session.user.id)
-      .then(setAlarmPrefill)
-      .catch((e) => {
-        // FF1 — a failed read lands on the rule's own no-guess branch (the
-        // card's 08:00 default), so there is nothing to tell the person
-        // and nothing fabricated. Reported, never surfaced.
-        captureError(e, { screen: 'today', op: 'resolvePrefillAlarmTime' });
-      });
-  }, [hasSeenRemindersAsk, session?.user?.id]);
-
+  //
+  // AL1 job 4's prefill effect used to sit HERE, beside the card it feeds.
+  // It is a hook, and this is below the loading early return — see BG1's
+  // note at its new home above that return.
   const handleTurnOnReminders = async (alarm: RemindersAskAlarmChoice) => {
     if (!session?.user) return;
     const userId = session.user.id;
