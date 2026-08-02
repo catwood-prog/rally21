@@ -22,6 +22,17 @@
  * return again fails all three, and the failure message carries the real
  * error the boundary swallowed.
  *
+ * WHY THIS FILE IS NOT CO-LOCATED, and it is not a style preference.
+ * `app/` IS the router. Anything inside a Tabs group becomes a TAB: this
+ * test first shipped as app/(app)/(tabs)/today.test.tsx and put a sixth
+ * button labelled "/today.test" on the live floating tab bar, next to
+ * Rally — caught by counting [role="tab"] on rally21.com, not by reading
+ * the diff. (app/(app)/checkin.test.tsx and journey-gate.test.tsx sit in
+ * the STACK group, so they only ever added invisible routes — which is
+ * why the pattern looked safe.) Every one of them is still compiled into
+ * the production web bundle, jest.mock calls and all, and that is worth
+ * fixing separately; a screen test belongs outside app/ regardless.
+ *
  * THE DATA IS RUSS'S OWN, from the account that reported it (8174d14d,
  * 1 Aug): one circle of four, a user-created practice, a pebble-held
  * 21-day glow, a re-entry gap of three days, and FA1's first ask (CON-10)
@@ -337,7 +348,7 @@ describe('Today — the loaded render (BG1)', () => {
   // The screen is required here, not imported at module scope, so the
   // fixtures above are initialised before the mock factories run.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Today = require('./today').default as React.ComponentType;
+  const Today = require('@/app/(app)/(tabs)/today').default as React.ComponentType;
 
   let tree: ReactTestRenderer;
 
