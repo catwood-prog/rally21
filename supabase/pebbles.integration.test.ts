@@ -181,15 +181,22 @@ describeIfConfigured('PA3 — the pebble economy at the boundaries', () => {
     const circle = await seedCircle(user);
     // Alternate practice/miss so each miss opens its own one-day gap and
     // burns a pebble faster than the 1-per-3-days clock refills it.
+    //
+    // HD2 job 3, 4 Aug — the window was 20 days and could never reach the
+    // assertion. Measured against this exact fixture: the nest holds 2 at
+    // the first day (not the 6 createFakeUser's comment claims — reported,
+    // not changed here), and alternating burn-vs-refill only drains it on
+    // 2 July, with the first UNSHELTERED break on 8 July. So the scenario
+    // was right and merely too short; it now runs long enough to arrive.
     const dates: string[] = [];
-    for (let i = 0; i < 20; i += 2) {
+    for (let i = 0; i < 44; i += 2) {
       const day = new Date('2026-06-01T00:00:00Z');
       day.setUTCDate(day.getUTCDate() + i);
       dates.push(day.toISOString().slice(0, 10));
     }
     await practiseOn(user, circle, dates);
 
-    const all = await days(user, '2026-06-20');
+    const all = await days(user, '2026-07-20');
     expect(all.some((r) => r.break_kind === 'unsheltered')).toBe(true);
     expect(all.every((r) => r.pebbles_after >= 0)).toBe(true);
   });
@@ -250,12 +257,17 @@ describeIfConfigured('PA3 — the pebble economy at the boundaries', () => {
     // There is no INSERT policy on pebble_gifts at all: gifting goes
     // through gift_pebble(), which is where the giver's nest is checked.
     await client.query("set local role authenticated");
+    // HD2 job 2 — the rejection we want ABORTS the transaction, and the
+    // `reset role` below is itself refused while aborted. Savepoint idiom
+    // from edit-circle.integration.test.ts.
+    await client.query('savepoint expected_failure');
     await expect(
       client.query(
         'insert into public.pebble_gifts (from_user, to_user, circle_id, local_date) values ($1, $2, $3, current_date)',
         [giver, receiver, circle]
       )
     ).rejects.toThrow();
+    await client.query('rollback to savepoint expected_failure');
     await client.query('reset role');
   });
 

@@ -240,16 +240,40 @@ describeIfConfigured('RA1 — the re-ask cycle', () => {
       // honest claim is not "only tracked questions ever repeat" — it is
       // that only tracked questions repeat ON A SCHEDULE, inside the window
       // MN3 actually asks about, on a date that can be named in advance.
+      // HD2 job 3, 4 Aug — REWRITTEN, because the old assertion was the
+      // coincidence and not the claim. It read "no UNTRACKED question
+      // reaches three asks inside 90 days" and passed on 31 July only
+      // because the pool happened to be sparse enough; a replay on 4 Aug
+      // has CON-05 reaching three (days 23, 58, 89). Nothing regressed —
+      // FA1 (31 July) made HAB-15 a sixth tracked question, which tightens
+      // the pool and pulls the chance-repeat threshold in from ~120 days to
+      // inside 90. And the gap spacing cannot distinguish the two cases
+      // anyway: the 30-day exclusion FORCES every repeat to be >=30 apart,
+      // so a chance triple and a scheduled one look identical from here.
+      //
+      // So this now asserts the thing RA1 actually guarantees, which is
+      // what the paragraph above always said it was: every tracked
+      // question reaches MN3's floor of three asks ON A SCHEDULE, inside
+      // the window MN3 asks about. A test pinned to a live figure is the
+      // known lesson (FA1's "tracked set 5 vs live 6"), so the tracked set
+      // is read from the database rather than hard-coded.
       const { id } = await livePerfectTester(90);
       const { rows } = await client.query(
         `select q.code, count(*)::int as n
            from public.reflections r
            join public.questions q on q.id = r.question_id
-          where r.user_id = $1 and not q.reask_tracked
-          group by q.code having count(*) >= 3`,
+          where r.user_id = $1 and q.reask_tracked
+          group by q.code`,
         [id]
       );
-      expect(rows).toEqual([]);
+      const { rows: tracked } = await client.query(
+        'select code from public.questions where reask_tracked order by code'
+      );
+
+      expect(rows.map((r: any) => r.code).sort()).toEqual(tracked.map((r: any) => r.code));
+      for (const row of rows) {
+        expect(row.n).toBeGreaterThanOrEqual(3);
+      }
     });
 
     test('same user, same date, same question — the cycle is deterministic across a re-pick', async () => {

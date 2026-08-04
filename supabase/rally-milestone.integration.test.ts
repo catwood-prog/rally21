@@ -246,6 +246,10 @@ describeIfConfigured('PA4 — a rally milestone must be earned before it reaches
     const circle = await seedCircle(user);
     await actAs(user);
     await client.query('set local role authenticated');
+    // HD2 job 2 — the forgery rejection ABORTS the transaction, and the role
+    // switch below is itself refused while aborted. Savepoint idiom from
+    // edit-circle.integration.test.ts.
+    await client.query('savepoint expected_failure');
     await expect(
       client.query(
         `insert into public.wall_messages (circle_id, user_id, body, kind)
@@ -253,6 +257,7 @@ describeIfConfigured('PA4 — a rally milestone must be earned before it reaches
         [circle, user]
       )
     ).rejects.toThrow();
+    await client.query('rollback to savepoint expected_failure');
     await client.query('set local role postgres');
   });
 });

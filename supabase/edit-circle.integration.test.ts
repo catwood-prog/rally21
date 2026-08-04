@@ -198,14 +198,24 @@ describeIfConfigured('edit_circle at the RPC boundary', () => {
     expect(seeded.rows[0].duration_minutes).toBe(10);
 
     const { rows: circleRows } = await client.query(
-      `select p.id, p.name, p.duration_minutes, p.created_by, p.is_shared
+      `select p.id, p.name, p.duration_minutes, p.created_by, p.is_shared,
+              c.duration_minutes as circle_duration
        from public.circles c join public.practices p on p.id = c.practice_id
        where c.id = $1`,
       [circleId]
     );
     expect(circleRows[0].id).not.toBe(seededPracticeId);
     expect(circleRows[0].name).toBe('Meditate 25 minutes');
-    expect(circleRows[0].duration_minutes).toBe(25);
+    // HD2 job 3, 4 Aug — this asserted the CLONE carried the new duration.
+    // PB1 (21 July) moved the dose to the circle: "the dose lives on the
+    // circle from now on; practices.duration_minutes becomes legacy (still
+    // the copy source at creation)". edit_circle therefore writes 25 to the
+    // circle and copies the source practice's legacy 10 onto the clone,
+    // which is correct. This test was written 12 July and never re-run, so
+    // it kept asserting the pre-PB1 shape. Ruled TEST-WRONG; now pins BOTH
+    // halves, which is what stops the dose silently moving back.
+    expect(circleRows[0].circle_duration).toBe(25);
+    expect(circleRows[0].duration_minutes).toBe(10);
     expect(circleRows[0].created_by).toBe(host);
     // private circle -> the clone stays private (practice-privacy rule)
     expect(circleRows[0].is_shared).toBe(false);
@@ -229,14 +239,19 @@ describeIfConfigured('edit_circle at the RPC boundary', () => {
     await editCircleSql(circleId, { practiceName: 'Read 10 pages before bed', practiceDurationMinutes: 15 });
 
     const { rows } = await client.query(
-      `select c.practice_id, p.name, p.duration_minutes
+      `select c.practice_id, p.name, p.duration_minutes,
+              c.duration_minutes as circle_duration
        from public.circles c join public.practices p on p.id = c.practice_id
        where c.id = $1`,
       [circleId]
     );
     expect(rows[0].practice_id).toBe(customPracticeId);
     expect(rows[0].name).toBe('Read 10 pages before bed');
-    expect(rows[0].duration_minutes).toBe(15);
+    // Same PB1 correction as above: the in-place path renames the practice
+    // and writes the dose to the circle. The practice's legacy column is
+    // left as it was (null here — this fixture never set one).
+    expect(rows[0].circle_duration).toBe(15);
+    expect(rows[0].duration_minutes).toBeNull();
   });
 
   test("a public circle's practice clone is shared, not private", async () => {

@@ -65,11 +65,18 @@ describeIfConfigured('open circles — wall permissions and host controls', () =
     return { id: circleId, inviteCode };
   }
 
-  async function addMember(circleId: string, userId: string) {
+  async function addMember(
+    circleId: string,
+    userId: string,
+    joinSource: 'invite' | 'browse' = 'invite'
+  ) {
     await elevated();
+    // join_source defaults to 'invite', and since OC1 that is the difference
+    // between being gated and not — so any test about the earned-voice gate
+    // has to say which kind of member it means. See HD2 job 1(a).
     await client.query(
-      "insert into public.memberships (circle_id, user_id, role) values ($1, $2, 'member')",
-      [circleId, userId]
+      "insert into public.memberships (circle_id, user_id, role, join_source) values ($1, $2, 'member', $3)",
+      [circleId, userId, joinSource]
     );
   }
 
@@ -83,6 +90,21 @@ describeIfConfigured('open circles — wall permissions and host controls', () =
         [circleId, userId, localDate]
       );
     }
+  }
+
+  /**
+   * HD2 job 2 — an expected rejection ABORTS the transaction, so every
+   * statement after it in the same test dies with "current transaction is
+   * aborted" unless something rolls back to a savepoint first. This is
+   * edit-circle.integration.test.ts's idiom, factored out because this file
+   * has several sites. The per-test savepoint in scripts/jest-pg-isolation.js
+   * cannot cover these: it only runs BETWEEN tests, and the damage here
+   * happens mid-test.
+   */
+  async function expectRejection(sql: string, params: unknown[]) {
+    await client.query('savepoint expected_failure');
+    await expect(client.query(sql, params)).rejects.toThrow();
+    await client.query('rollback to savepoint expected_failure');
   }
 
   async function postWallMessage(userId: string, circleId: string, body: string) {
@@ -111,14 +133,42 @@ describeIfConfigured('open circles — wall permissions and host controls', () =
     await client.end();
   });
 
-  test('a member with <7 completions in a public circle cannot post free text (RLS, not just UI)', async () => {
+  // HD2 job 1(a), 4 Aug — this test was written 6 July asserting the gate
+  // applied to every non-creator member of a public circle. OC1 (674f847,
+  // 13 July) NARROWED it on Cat's decision: "the gate now applies ONLY to
+  // browse joiners; invited friends and creators post free text from day
+  // one, in public and private circles alike." The test was never updated,
+  // because it had never once been executed — so for three weeks it asserted
+  // a rule the product had deliberately stopped having. Ruled TEST-WRONG:
+  // the RLS policy is correct, the fixture was modelling the wrong member.
+  test('a BROWSE joiner with <7 completions in a public circle cannot post free text (RLS, not just UI)', async () => {
     const creator = await createFakeUser();
     const circle = await seedCircle(creator, { isPublic: true });
     const member = await createFakeUser();
-    await addMember(circle.id, member);
+    await addMember(circle.id, member, 'browse');
     await giveCompletions(circle.id, member, 3);
 
     await expect(postWallMessage(member, circle.id, 'hi everyone')).rejects.toThrow();
+  });
+
+  test('a browse joiner who reaches 7 completions earns free text', async () => {
+    const creator = await createFakeUser();
+    const circle = await seedCircle(creator, { isPublic: true });
+    const member = await createFakeUser();
+    await addMember(circle.id, member, 'browse');
+    await giveCompletions(circle.id, member, 7);
+
+    await expect(postWallMessage(member, circle.id, 'hi everyone')).resolves.toBeDefined();
+  });
+
+  // The other half of OC1's decision, and the half nothing was covering.
+  test('an INVITED friend posts free text from day one, gate or no gate', async () => {
+    const creator = await createFakeUser();
+    const circle = await seedCircle(creator, { isPublic: true });
+    const member = await createFakeUser();
+    await addMember(circle.id, member, 'invite');
+
+    await expect(postWallMessage(member, circle.id, 'hi everyone')).resolves.toBeDefined();
   });
 
   test('the creator can always post free text in their own public circle', async () => {
@@ -202,9 +252,7 @@ describeIfConfigured('open circles — wall permissions and host controls', () =
     await addMember(circle.id, bystander);
 
     await actAs(bystander);
-    await expect(
-      client.query('select remove_member_from_circle($1, $2)', [circle.id, member])
-    ).rejects.toThrow();
+    await expectRejection('select remove_member_from_circle($1, $2)', [circle.id, member]);
 
     await actAs(creator);
     await expect(
@@ -235,8 +283,8 @@ describeIfConfigured('open circles — wall permissions and host controls', () =
     const newcomer = await createFakeUser();
 
     await actAs(newcomer);
-    await expect(client.query('select join_circle_by_code($1)', [circle.inviteCode])).rejects.toThrow();
-    await expect(client.query('select join_public_circle($1)', [circle.id])).rejects.toThrow();
+    await expectRejection('select join_circle_by_code($1)', [circle.inviteCode]);
+    await expectRejection('select join_public_circle($1)', [circle.id]);
 
     const { rows } = await client.query(
       'select circle_id from public.list_public_circles() where circle_id = $1',

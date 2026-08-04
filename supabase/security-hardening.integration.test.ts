@@ -45,6 +45,20 @@ describeIfConfigured('security hardening (S1)', () => {
     await client.query("select set_config('request.jwt.claim.sub', '', true)");
   }
 
+  /**
+   * HD2 job 2 — an expected rejection ABORTS the transaction, so the next
+   * statement in the same test (usually elevated()'s `reset role`, which is
+   * itself refused while aborted) fails with "current transaction is
+   * aborted". edit-circle.integration.test.ts's idiom, factored out. The
+   * per-test savepoint in scripts/jest-pg-isolation.js runs only BETWEEN
+   * tests and so cannot cover damage done mid-test.
+   */
+  async function expectRejection(sql: string, params: unknown[], match: RegExp) {
+    await client.query('savepoint expected_failure');
+    await expect(client.query(sql, params)).rejects.toThrow(match);
+    await client.query('rollback to savepoint expected_failure');
+  }
+
   async function createFakeUser(name: string | null = null): Promise<string> {
     await elevated();
     const id = crypto.randomUUID();
@@ -365,9 +379,7 @@ describeIfConfigured('security hardening (S1)', () => {
       const circleId = await seedCircle(sender, { memberIds: [recipient] });
 
       await actAs(sender);
-      await expect(
-        client.query('select send_friend_nudge($1, $2, $3)', [circleId, sender, '2026-07-08'])
-      ).rejects.toThrow(/cannot nudge yourself/);
+      await expectRejection('select send_friend_nudge($1, $2, $3)', [circleId, sender, '2026-07-08'], /cannot nudge yourself/);
 
       // W1 (7 July, spec §3.5): a wave must never fail for social
       // reasons — waving at someone who already checked in is a valid,
@@ -391,9 +403,7 @@ describeIfConfigured('security hardening (S1)', () => {
         recipient,
       ]);
       await actAs(sender);
-      await expect(
-        client.query('select send_friend_nudge($1, $2, $3)', [circleId, recipient, '2026-07-10'])
-      ).rejects.toThrow(/nudges disabled/);
+      await expectRejection('select send_friend_nudge($1, $2, $3)', [circleId, recipient, '2026-07-10'], /nudges disabled/);
     });
 
     test('WL3: a different sender waving the same day lands; the SAME sender repeating is already_nudged (idempotent, no duplicate)', async () => {
@@ -480,9 +490,19 @@ describeIfConfigured('security hardening (S1)', () => {
 
       await elevated();
       const { rows: wallRows } = await client.query(
-        'select body from public.wall_messages where circle_id = $1 order by created_at',
+        'select body from public.wall_messages where circle_id = $1 order by body',
         [circleId]
       );
+      // HD2 job 2 — this was the 30-vs-31-of-34 flake, and the cause is that
+      // the suite runs inside ONE transaction. wall_messages.created_at
+      // defaults to now(), which in Postgres is TRANSACTION START time, so
+      // every row written here carries a byte-identical timestamp and
+      // `order by created_at` is a tie the planner is free to break either
+      // way — it did, run to run. Ordering by body is deterministic and
+      // still pins what this test is actually about: both hearts land, with
+      // the right names, and neither writes an outbox row. (In production
+      // each send_friend_nudge is its own transaction, so created_at
+      // ordering is meaningful there; it just cannot be in here.)
       expect(wallRows.map((r: any) => r.body)).toEqual([
         'Heart Sender sent Quiet Friend a heart 🧡',
         'Heart Sender sent Showed Up a heart 🧡',
@@ -606,17 +626,11 @@ describeIfConfigured('security hardening (S1)', () => {
       const circleId = await seedCircle(sender, { memberIds: [recipient] });
 
       await actAs(sender);
-      await expect(
-        client.query("select send_friend_nudge($1, $2, $3, 'heart')", [circleId, sender, '2026-07-15'])
-      ).rejects.toThrow(/cannot nudge yourself/);
-      await expect(
-        client.query("select send_friend_nudge($1, $2, $3, 'confetti')", [circleId, recipient, '2026-07-15'])
-      ).rejects.toThrow(/unknown gesture kind/);
+      await expectRejection("select send_friend_nudge($1, $2, $3, 'heart')", [circleId, sender, '2026-07-15'], /cannot nudge yourself/);
+      await expectRejection("select send_friend_nudge($1, $2, $3, 'confetti')", [circleId, recipient, '2026-07-15'], /unknown gesture kind/);
 
       await actAs(stranger);
-      await expect(
-        client.query("select send_friend_nudge($1, $2, $3, 'heart')", [circleId, recipient, '2026-07-15'])
-      ).rejects.toThrow(/not a member of this circle/);
+      await expectRejection("select send_friend_nudge($1, $2, $3, 'heart')", [circleId, recipient, '2026-07-15'], /not a member of this circle/);
     });
   });
 
