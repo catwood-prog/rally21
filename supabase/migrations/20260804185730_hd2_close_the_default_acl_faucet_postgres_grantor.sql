@@ -1,0 +1,56 @@
+-- HD2 job 4, 4 Aug — THIS MIGRATION DOES NOT DO WHAT ITS NAME HOPES.
+-- Read this header before citing it as protection.
+--
+-- INTENT: close the "default-ACL faucet" recorded in CLAUDE.md's security
+-- conventions (the G5 finding) — the project default that hands anon
+-- EXECUTE on every newly created function in schema public, which is why
+-- every function's migration has to carry an explicit
+-- `revoke all on function ... from anon`.
+--
+-- WHAT IT ACTUALLY ACHIEVED: it removed the explicit `anon=X` entry from
+-- pg_default_acl for grantor `postgres`. Verified immediately after
+-- applying — the row went from
+--     postgres=X/postgres anon=X/postgres authenticated=X/postgres service_role=X/postgres
+-- to
+--     postgres=X/postgres authenticated=X/postgres service_role=X/postgres
+-- so, unlike S1's 7 July attempt, the statement itself registered.
+--
+-- AND IT CHANGED NOTHING THAT MATTERS. A function created afterwards with
+-- no grants of its own still comes out as
+--     =X/postgres  postgres=X/postgres  authenticated=X/postgres  service_role=X/postgres
+-- The leading `=X/postgres` is a grant to PUBLIC, and anon is a member of
+-- PUBLIC, so `has_function_privilege('anon', fn, 'EXECUTE')` is still TRUE.
+-- Proven three times on 4 Aug, each inside a rolled-back transaction:
+-- after the anon revoke; after adding an explicit
+-- `revoke execute on functions from public`; and after
+-- `revoke all on functions from public`. All three left the PUBLIC grant
+-- standing, and none of them changed the stored default-ACL row, because
+-- the built-in EXECUTE-to-PUBLIC default for functions is not represented
+-- in that row and cannot be revoked out of it from here.
+--
+-- WHY IT CANNOT BE FIXED FROM A MIGRATION. The migration connection is
+-- `postgres`, which on this project is NOT a superuser and NOT a member of
+-- `supabase_admin`. The second default-ACL row (grantor supabase_admin,
+-- still carrying anon=X) needs `ALTER DEFAULT PRIVILEGES FOR ROLE
+-- supabase_admin`, which requires membership in that role. Ruled out
+-- before applying anything. The event triggers were checked too and are
+-- not the cause: grant_pg_cron_access / grant_pg_net_access /
+-- grant_pg_graphql_access are all gated on their own extension being the
+-- DDL target, and pgrst_ddl_watch only NOTIFYs.
+--
+-- SO WHAT ACTUALLY PROTECTS US, and it is not this file: S1's per-function
+-- convention — every function's own migration says `revoke all on function
+-- ... from public` AND `from anon` explicitly, immediately before its real
+-- grant — enforced by the generated pg_proc sweep HD1 added to
+-- supabase/security-hardening.integration.test.ts. That sweep reads the
+-- live catalog on every DB-bound run and fails on any public function anon
+-- can execute. It is currently green at 64/64. The convention is the
+-- control; this statement is at best one redundant grant fewer.
+--
+-- KEPT rather than reverted because it is a strict no-op in effect and
+-- removing a redundant explicit grant is mildly tidier — but it is
+-- recorded here as INSUFFICIENT so nobody reads a clean pg_default_acl row
+-- as a closed faucet. Reverting is a one-liner if that is preferred.
+
+alter default privileges for role postgres in schema public
+  revoke execute on functions from anon, public;
