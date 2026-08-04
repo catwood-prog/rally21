@@ -16,8 +16,14 @@
   "jest": {
     "preset": "jest-expo",
     "setupFiles": [
-      "./jest.setup.js"
-    ]
+      "./jest.setup.js",
+      "./scripts/jest-pg-guards.js"
+    ],
+    "setupFilesAfterEnv": [
+      "./scripts/jest-pg-isolation.js"
+    ],
+    "globalSetup": "./scripts/jest-global-setup.js",
+    "globalTeardown": "./scripts/jest-global-teardown.js"
   },
   "dependencies": {
     "@expo-google-fonts/bricolage-grotesque": "^0.4.1",

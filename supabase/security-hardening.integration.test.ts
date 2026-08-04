@@ -103,6 +103,83 @@ describeIfConfigured('security hardening (S1)', () => {
   });
 
   describe('function grants', () => {
+    /**
+     * HD1 job 4 (3 Aug) — the anon sweep GENERATES ITSELF.
+     *
+     * The six behavioural cases below prove enforcement is real (anon
+     * actually gets refused at call time, not just on paper), but they were
+     * six of sixty-four: every function written after they were listed went
+     * unchecked, and the whole point of the convention is that it holds for
+     * the NEXT function too. So this test asks pg_proc for the current list
+     * instead of carrying a stale one.
+     *
+     * Why it can regress, concretely: the project's default ACL still hands
+     * EXECUTE to anon on every newly created function. Measured 3 Aug —
+     * `pg_default_acl` for schema public carries `anon=X/supabase_admin`
+     * and `anon=X/postgres`, exactly the G5 finding recorded in CLAUDE.md's
+     * security conventions. A migration that adds a SECURITY DEFINER
+     * function and grants only `authenticated` is therefore ALSO exposing
+     * it to signed-out callers unless it says `revoke all on function ...
+     * from anon` explicitly. Nothing in Postgres will mention this. This
+     * test is the thing that mentions it.
+     *
+     * To grant anon EXECUTE deliberately (a genuine pre-auth surface —
+     * there are none today), add the function's name here with a comment
+     * saying which signed-out screen calls it. An empty list is the
+     * correct default posture, not an oversight.
+     */
+    const ANON_EXECUTE_ALLOWED: string[] = [];
+
+    test('no public function grants EXECUTE to anon (generated from pg_proc)', async () => {
+      await elevated();
+      const { rows } = await client.query<{ func: string }>(
+        `select p.oid::regprocedure::text as func
+           from pg_proc p
+           join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public'
+            and has_function_privilege('anon', p.oid, 'EXECUTE')
+          order by 1`
+      );
+      // regprocedure renders as name(argtypes); compare on the bare name so
+      // the allowlist doesn't have to spell out argument type signatures.
+      const offenders = rows
+        .map((r) => r.func)
+        .filter((f) => !ANON_EXECUTE_ALLOWED.includes(f.replace(/\(.*$/, '')));
+
+      expect(offenders).toEqual([]);
+    });
+
+    test('the sweep is actually looking at something (guards against an empty query)', async () => {
+      await elevated();
+      const { rows } = await client.query<{ n: string }>(
+        `select count(*)::text as n
+           from pg_proc p
+           join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public'`
+      );
+      // If a schema rename or a search_path change ever made the sweep above
+      // scan an empty set, it would pass vacuously and prove nothing. 40 is
+      // well under the 64 present on 3 Aug and well over any plausible
+      // accident.
+      expect(Number(rows[0].n)).toBeGreaterThan(40);
+    });
+
+    test('every public function pins search_path (generated from pg_proc)', async () => {
+      await elevated();
+      const { rows } = await client.query<{ func: string }>(
+        `select p.oid::regprocedure::text as func
+           from pg_proc p
+           join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public'
+            and (p.proconfig is null
+                 or not ('search_path=public' = any(p.proconfig)))
+          order by 1`
+      );
+      // The other half of the same convention: an unpinned SECURITY DEFINER
+      // function is a search_path hijack waiting for a writable schema.
+      expect(rows.map((r) => r.func)).toEqual([]);
+    });
+
     const cases: [string, string, unknown[]][] = [
       ['create_circle', 'select * from create_circle($1, $2, $3, $4)', [null, '08:00:00', 'x', false]],
       ['join_public_circle', 'select join_public_circle($1)', [null]],
@@ -113,8 +190,15 @@ describeIfConfigured('security hardening (S1)', () => {
     ];
 
     test.each(cases)('%s fails for anon', async (_name, sql, params) => {
+      // The refusal we are asserting ABORTS the transaction, and `reset
+      // role` is itself rejected in an aborted transaction — so without a
+      // savepoint to come back to, elevated() below throws and the test
+      // fails despite the refusal being exactly what we wanted. Same idiom
+      // edit-circle.integration.test.ts already uses for expected failures.
+      await client.query('savepoint anon_probe');
       await actAsAnon();
       await expect(client.query(sql, params)).rejects.toThrow();
+      await client.query('rollback to savepoint anon_probe');
       await elevated();
     });
 
