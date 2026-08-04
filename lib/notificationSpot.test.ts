@@ -3,7 +3,8 @@ import { STRINGS } from '@/constants/strings';
 import {
   buildNotificationSpot,
   CoverMoment,
-  joinNames,
+  joinGifts,
+  PebbleGiftMoment,
   shouldMoveSpotBelowCta,
   SPOT_MAX_LINES,
   welcomeLineForObstacle,
@@ -11,14 +12,20 @@ import {
 import { KeepGoingObstacle, OBSTACLE_KEYS } from './onboardingIntake';
 import { FreshWarmth } from './warmth';
 
-function wave(senderName: string, createdAt: string): FreshWarmth {
-  return { kind: 'wave', senderName, createdAt };
+// AU1 job 3b/3c — every moment now carries WHO sent it. The helpers
+// derive a stable id from the name so ordinary tests read as before,
+// while the same-name and missing-id cases can be written explicitly.
+function wave(senderName: string, createdAt: string, senderId = `u-${senderName}`): FreshWarmth {
+  return { kind: 'wave', senderId, senderName, senderAvatarUrl: null, createdAt };
 }
-function heart(senderName: string, createdAt: string): FreshWarmth {
-  return { kind: 'heart', senderName, createdAt };
+function heart(senderName: string, createdAt: string, senderId = `u-${senderName}`): FreshWarmth {
+  return { kind: 'heart', senderId, senderName, senderAvatarUrl: null, createdAt };
 }
-function cover(covererName: string, at: string): CoverMoment {
-  return { covererName, at };
+function cover(covererName: string, at: string, covererId = `u-${covererName}`): CoverMoment {
+  return { covererId, covererName, covererAvatarUrl: null, at };
+}
+function pebble(senderName: string, at: string, senderId = `u-${senderName}`): PebbleGiftMoment {
+  return { senderId, senderName, senderAvatarUrl: null, at };
 }
 
 const QUIET = {
@@ -46,14 +53,14 @@ describe('the spot is warmth or it is absent (mockup frame B)', () => {
     expect(spot).not.toBeNull();
     expect(spot?.kicker).toBe(STRINGS.todaySpotKickerWelcomeBack);
     expect(spot?.headline).toBe(STRINGS.todaySpotWelcomeHeadline);
-    expect(spot?.lines).toEqual([]);
+    expect(spot?.cards).toEqual([]);
     // Nothing to consume, so the seen-marker must not move.
     expect(spot?.newestAt).toBeNull();
   });
 });
 
 describe('everyday moments (mockup frame C)', () => {
-  it('a heart and a cover read as their own lines under the everyday kicker', () => {
+  it('a heart and a cover read as their own cards under the everyday kicker', () => {
     const spot = buildNotificationSpot({
       ...QUIET,
       warmth: [heart('Russ', '2026-07-24T09:00:00.222222+00:00')],
@@ -62,7 +69,7 @@ describe('everyday moments (mockup frame C)', () => {
     expect(spot?.kicker).toBe(STRINGS.todaySpotKickerEveryday);
     expect(spot?.headline).toBeNull();
     expect(spot?.footnote).toBeNull();
-    expect(spot?.lines.map((l) => l.text)).toEqual([
+    expect(spot?.cards.map((c) => c.text)).toEqual([
       STRINGS.todaySpotHeartLine('Russ'),
       STRINGS.todaySpotCoverLine('Catherine'),
     ]);
@@ -74,41 +81,187 @@ describe('everyday moments (mockup frame C)', () => {
       warmth: [heart('Russ', '2026-07-24T08:00:00Z')],
       covers: [cover('Catherine', '2026-07-24T09:00:00Z')],
     });
-    expect(spot?.lines.map((l) => l.text)).toEqual([
+    expect(spot?.cards.map((c) => c.text)).toEqual([
       STRINGS.todaySpotCoverLine('Catherine'),
       STRINGS.todaySpotHeartLine('Russ'),
     ]);
   });
 
-  it('the same friend covering you in two circles is ONE moment, not two identical lines', () => {
+  it('the same friend covering you in two circles is ONE moment, not two identical cards', () => {
     const spot = buildNotificationSpot({
       ...QUIET,
       covers: [cover('Catherine', '2026-07-24T08:00:00Z'), cover('Catherine', '2026-07-24T09:00:00Z')],
     });
-    expect(spot?.lines).toHaveLength(1);
+    expect(spot?.cards).toHaveLength(1);
     // The marker still clears the newer of the two rows.
     expect(spot?.newestAt).toBe('2026-07-24T09:00:00Z');
   });
 
-  it('keys are stable and unique so React never collapses two moments', () => {
+  it('keys are stable and unique so React never collapses two people', () => {
     const spot = buildNotificationSpot({
       ...QUIET,
       warmth: [heart('Russ', '2026-07-24T09:00:00Z'), heart('Bo', '2026-07-24T08:00:00Z')],
     });
-    const keys = spot!.lines.map((l) => l.key);
+    const keys = spot!.cards.map((c) => c.key);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('each card carries the identity its avatar needs — never initials (AV1)', () => {
+    const spot = buildNotificationSpot({
+      ...QUIET,
+      warmth: [
+        {
+          kind: 'heart',
+          senderId: 'u-russ',
+          senderName: 'Russ',
+          senderAvatarUrl: 'https://example.test/russ.jpg',
+          createdAt: '2026-07-24T09:00:00Z',
+        },
+      ],
+    });
+    expect(spot?.cards[0].person).toEqual({
+      id: 'u-russ',
+      name: 'Russ',
+      avatarUrl: 'https://example.test/russ.jpg',
+    });
+  });
+});
+
+// AU1 job 3c (Cat's ruling, 3 Aug) — ONE CARD PER PERSON.
+describe('per-sender merging — a person can never appear twice', () => {
+  it('the reported bug: the same friend waving in two circles is ONE card, named once', () => {
+    // Waves were the one moment list never deduped by sender, so this
+    // rendered "Cathy S and Cathy S sent you a wave 👋".
+    const spot = buildNotificationSpot({
+      ...QUIET,
+      warmth: [
+        wave('Cathy S', '2026-07-24T09:00:00Z'),
+        wave('Cathy S', '2026-07-24T08:00:00Z'),
+      ],
+    });
+    expect(spot?.cards).toHaveLength(1);
+    expect(spot?.cards[0].text).toBe(STRINGS.todaySpotWaveLine('Cathy S'));
+    expect(spot?.cards[0].text).not.toMatch(/Cathy S.*Cathy S/);
+  });
+
+  it("the live cohort case: Catherine S's five unseen moments are all one person", () => {
+    // Queried from production on 3 Aug, not invented: Catherine S has
+    // five rows waiting and every one is from Cathy S — two waves and
+    // three hearts across two circles. Before AU1 this rendered as
+    // "Cathy S and Cathy S sent you a wave 👋" plus three separate
+    // "Cathy S sent you a heart 🧡" lines, filling the whole card with
+    // one person named five times.
+    const spot = buildNotificationSpot({
+      ...QUIET,
+      warmth: [
+        heart('Cathy S', '2026-08-02T14:53:21.882065Z', 'u-cathy'),
+        wave('Cathy S', '2026-07-29T13:54:26.726009Z', 'u-cathy'),
+        heart('Cathy S', '2026-07-29T13:54:25.274429Z', 'u-cathy'),
+        wave('Cathy S', '2026-07-28T01:34:19.046507Z', 'u-cathy'),
+        heart('Cathy S', '2026-07-28T01:34:18.247138Z', 'u-cathy'),
+      ],
+    });
+    expect(spot?.cards).toHaveLength(1);
+    expect(spot?.cards[0].text).toBe('Cathy S sent you a wave 👋 and a heart 🧡');
+    expect(spot?.overflowCount).toBe(0);
+    // The marker still clears the newest of all five.
+    expect(spot?.newestAt).toBe('2026-08-02T14:53:21.882065Z');
+  });
+
+  it('everything one person sent merges into their one sentence', () => {
+    const spot = buildNotificationSpot({
+      ...QUIET,
+      warmth: [
+        wave('Russ', '2026-07-24T09:00:00Z'),
+        heart('Russ', '2026-07-24T10:00:00Z'),
+      ],
+      pebbleGifts: [pebble('Russ', '2026-07-24T11:00:00Z')],
+    });
+    expect(spot?.cards).toHaveLength(1);
+    expect(spot?.cards[0].text).toBe('Russ sent you a wave 👋, a heart 🧡 and a pebble 🪨');
+    // The card is ordered by their NEWEST moment.
+    expect(spot?.cards[0].at).toBe('2026-07-24T11:00:00Z');
+  });
+
+  it('a cover keeps its own clause rather than being flattened into the gift list', () => {
+    const spot = buildNotificationSpot({
+      ...QUIET,
+      warmth: [heart('Alex', '2026-07-24T09:00:00Z')],
+      covers: [cover('Alex', '2026-07-24T08:00:00Z')],
+    });
+    expect(spot?.cards).toHaveLength(1);
+    expect(spot?.cards[0].text).toBe('Alex covered you yesterday and sent you a heart 🧡');
+  });
+
+  it('a single gesture reads EXACTLY as it shipped — merging only changes busier cards', () => {
+    const one = (input: Partial<Parameters<typeof buildNotificationSpot>[0]>) =>
+      buildNotificationSpot({ ...QUIET, ...input })!.cards[0].text;
+    expect(one({ warmth: [wave('Russ', '2026-07-24T09:00:00Z')] })).toBe(
+      STRINGS.todaySpotWaveLine('Russ')
+    );
+    expect(one({ warmth: [heart('Russ', '2026-07-24T09:00:00Z')] })).toBe(
+      STRINGS.todaySpotHeartLine('Russ')
+    );
+    expect(one({ pebbleGifts: [pebble('Russ', '2026-07-24T09:00:00Z')] })).toBe(
+      STRINGS.todaySpotPebbleGiftLine('Russ')
+    );
+    expect(one({ covers: [cover('Russ', '2026-07-24T09:00:00Z')] })).toBe(
+      STRINGS.todaySpotCoverLine('Russ')
+    );
+  });
+
+  it('repeats of the SAME gesture never become a count', () => {
+    const spot = buildNotificationSpot({
+      ...QUIET,
+      warmth: [
+        heart('Russ', '2026-07-24T09:00:00Z'),
+        heart('Russ', '2026-07-24T10:00:00Z'),
+        heart('Russ', '2026-07-24T11:00:00Z'),
+      ],
+    });
+    expect(spot?.cards[0].text).toBe(STRINGS.todaySpotHeartLine('Russ'));
+    expect(spot?.cards[0].text).not.toMatch(/\d/);
+  });
+
+  it('two circle-mates who share a display name stay two people', () => {
+    // The whole reason merging keys on the user id: a name-keyed merge
+    // would attribute one person's wave to the other.
+    const spot = buildNotificationSpot({
+      ...QUIET,
+      warmth: [
+        wave('Catherine', '2026-07-24T09:00:00Z', 'u-1'),
+        heart('Catherine', '2026-07-24T08:00:00Z', 'u-2'),
+      ],
+    });
+    expect(spot?.cards).toHaveLength(2);
+    expect(spot?.cards.map((c) => c.text)).toEqual([
+      STRINGS.todaySpotWaveLine('Catherine'),
+      STRINGS.todaySpotHeartLine('Catherine'),
+    ]);
+  });
+
+  it('an unresolved sender still merges, falling back to the name (WL2 keeps their warmth readable)', () => {
+    const spot = buildNotificationSpot({
+      ...QUIET,
+      warmth: [
+        wave('a circle-mate', '2026-07-24T09:00:00Z', null as unknown as string),
+        heart('a circle-mate', '2026-07-24T08:00:00Z', null as unknown as string),
+      ],
+    });
+    expect(spot?.cards).toHaveLength(1);
+    expect(spot?.cards[0].person.id).toBeNull();
   });
 });
 
 describe('the cap and its quiet overflow line (WL2 whisper law, retargeted)', () => {
-  it(`renders ${SPOT_MAX_LINES} moments individually, no overflow marker below the cap`, () => {
+  it(`renders ${SPOT_MAX_LINES} people individually, no overflow marker below the cap`, () => {
     const spot = buildNotificationSpot({
       ...QUIET,
       warmth: Array.from({ length: SPOT_MAX_LINES }, (_, i) =>
         heart(`friend-${i}`, `2026-07-2${i + 1}T10:00:00Z`)
       ),
     });
-    expect(spot?.lines).toHaveLength(SPOT_MAX_LINES);
+    expect(spot?.cards).toHaveLength(SPOT_MAX_LINES);
     expect(spot?.overflowCount).toBe(0);
   });
 
@@ -119,7 +272,7 @@ describe('the cap and its quiet overflow line (WL2 whisper law, retargeted)', ()
         heart(`friend-${i}`, `2026-07-1${i}T10:00:00Z`)
       ),
     });
-    expect(spot?.lines).toHaveLength(SPOT_MAX_LINES);
+    expect(spot?.cards).toHaveLength(SPOT_MAX_LINES);
     expect(spot?.overflowCount).toBe(3);
   });
 
@@ -134,37 +287,41 @@ describe('the cap and its quiet overflow line (WL2 whisper law, retargeted)', ()
     expect(spot?.newestAt).toBe('2026-07-19T10:00:00Z');
   });
 
-  it('a dropped GROUPED line contributes its whole group to the count', () => {
+  it('the overflow counts PEOPLE, and a busy sender costs one slot, not four', () => {
+    // Pre-AU1 this person would have occupied every slot on the card by
+    // themselves and pushed three other friends into the count.
     const spot = buildNotificationSpot({
       ...QUIET,
-      // Three hearts are newer than any wave, so the (older) grouped
-      // wave line is the one that falls off the cap.
       warmth: [
-        heart('a', '2026-07-24T12:00:00Z'),
+        wave('Busy', '2026-07-24T12:00:00Z'),
+        heart('Busy', '2026-07-24T11:30:00Z'),
         heart('b', '2026-07-24T11:00:00Z'),
         heart('c', '2026-07-24T10:00:00Z'),
-        wave('d', '2026-07-24T09:00:00Z'),
-        wave('e', '2026-07-24T08:00:00Z'),
+        heart('d', '2026-07-24T09:00:00Z'),
       ],
+      pebbleGifts: [pebble('Busy', '2026-07-24T11:45:00Z')],
     });
-    expect(spot?.lines).toHaveLength(SPOT_MAX_LINES);
-    expect(spot?.overflowCount).toBe(2);
+    expect(spot?.cards).toHaveLength(SPOT_MAX_LINES);
+    expect(spot?.cards[0].text).toBe('Busy sent you a wave 👋, a heart 🧡 and a pebble 🪨');
+    // Four people, three shown: exactly one folded.
+    expect(spot?.overflowCount).toBe(1);
   });
 });
 
 describe('the welcome-back mode (mockup frame A)', () => {
-  it('waves group into ONE line: after days away the point is "your people missed you"', () => {
+  it('two friends waving are two cards, each with their own face', () => {
     const spot = buildNotificationSpot({
       ...QUIET,
       isReentry: true,
       warmth: [wave('Russ', '2026-07-24T09:00:00Z'), wave('Catherine', '2026-07-24T08:00:00Z')],
     });
-    expect(spot?.lines.map((l) => l.text)).toEqual([
-      STRINGS.todaySpotWaveLine('Russ and Catherine'),
+    expect(spot?.cards.map((c) => c.text)).toEqual([
+      STRINGS.todaySpotWaveLine('Russ'),
+      STRINGS.todaySpotWaveLine('Catherine'),
     ]);
   });
 
-  it('the wave line is PINNED on re-entry — a flurry of newer hearts can never bury it', () => {
+  it('a waver is PINNED on re-entry — a flurry of newer hearts can never bury them', () => {
     const spot = buildNotificationSpot({
       ...QUIET,
       isReentry: true,
@@ -176,20 +333,24 @@ describe('the welcome-back mode (mockup frame A)', () => {
         wave('Catherine', '2026-07-24T08:00:00Z'),
       ],
     });
-    expect(spot?.lines[0].text).toBe(STRINGS.todaySpotWaveLine('Russ and Catherine'));
-    expect(spot?.lines).toHaveLength(SPOT_MAX_LINES);
-    // The pin costs a heart, not the wave: one heart folds instead.
-    expect(spot?.overflowCount).toBe(1);
+    // "Your people missed you" is part of the welcome-back message, so
+    // both wavers outrank every newer heart.
+    expect(spot?.cards.map((c) => c.text)).toEqual([
+      STRINGS.todaySpotWaveLine('Russ'),
+      STRINGS.todaySpotWaveLine('Catherine'),
+      STRINGS.todaySpotHeartLine('a'),
+    ]);
+    expect(spot?.overflowCount).toBe(2);
     // …and the marker still clears the genuinely newest moment.
     expect(spot?.newestAt).toBe('2026-07-24T12:00:00Z');
   });
 
-  it('on an ORDINARY day the wave line is just another moment, newest-first', () => {
+  it('on an ORDINARY day a waver is just another person, newest-first', () => {
     const spot = buildNotificationSpot({
       ...QUIET,
       warmth: [heart('a', '2026-07-24T12:00:00Z'), wave('Russ', '2026-07-24T09:00:00Z')],
     });
-    expect(spot?.lines[0].text).toBe(STRINGS.todaySpotHeartLine('a'));
+    expect(spot?.cards[0].text).toBe(STRINGS.todaySpotHeartLine('a'));
   });
 
   it('a glowing person is told the truth: no streak lost', () => {
@@ -197,10 +358,28 @@ describe('the welcome-back mode (mockup frame A)', () => {
     expect(spot?.footnote).toBe(STRINGS.welcomeBackSubtitleHeld(2));
   });
 
-  it('a genuinely reset glow is told the OTHER truth, guilt-free (OD1 job 14)', () => {
+  it('a run that ENDED is told the pebble-era truth, guilt-free (OD1 job 14, AU1 job 3d)', () => {
     const spot = buildNotificationSpot({ ...QUIET, isReentry: true, glowHeld: false });
     expect(spot?.footnote).toBe(STRINGS.welcomeBackSubtitleReset);
     expect(spot?.footnote).not.toMatch(/missed nothing/i);
+    // The pre-PA3 word: a run ends and the longest rally is KEPT, so
+    // nothing here may describe a counter going back to zero.
+    expect(spot?.footnote).not.toMatch(/reset/i);
+    expect(spot?.footnote).toMatch(/longest rally is kept/);
+  });
+
+  it('no footnote on this card carries an em dash any more (AU1 job 3d)', () => {
+    const held = buildNotificationSpot({ ...QUIET, isReentry: true, glowHeld: true })!;
+    const ended = buildNotificationSpot({ ...QUIET, isReentry: true, glowHeld: false })!;
+    const pebbleHeld = buildNotificationSpot({
+      ...QUIET,
+      isReentry: true,
+      glowHeld: true,
+      pebbleHeldPlace: true,
+    })!;
+    for (const spot of [held, ended, pebbleHeld]) {
+      expect(spot.footnote).not.toContain('—');
+    }
   });
 
   it('an UNKNOWN glow says nothing rather than guessing — both branches are factual claims', () => {
@@ -209,14 +388,14 @@ describe('the welcome-back mode (mockup frame A)', () => {
     expect(spot?.headline).toBe(STRINGS.todaySpotWelcomeHeadline);
   });
 
-  it('no line anywhere is a badge, a count or an alarm — warmth only', () => {
+  it('nothing anywhere is a badge, a count or an alarm — warmth only', () => {
     const spot = buildNotificationSpot({
       ...QUIET,
       isReentry: true,
       warmth: [wave('Russ', '2026-07-24T09:00:00Z')],
       covers: [cover('Catherine', '2026-07-24T08:00:00Z')],
     });
-    const all = [spot?.kicker, spot?.headline, spot?.footnote, ...spot!.lines.map((l) => l.text)].join(' ');
+    const all = [spot?.kicker, spot?.headline, spot?.footnote, ...spot!.cards.map((c) => c.text)].join(' ');
     expect(all).not.toMatch(/\d+ (new|unread)|\bunread\b|\(\d+\)/i);
   });
 });
@@ -226,6 +405,11 @@ describe('the welcome-back mode (mockup frame A)', () => {
 // shedding warmth. These pin the rule so it stays "pinned by tests, not
 // eyeballed on a device" — the same standard the shed version was held
 // to, applied to what replaced it.
+//
+// RE-AFFIRMED by Cat, 3 Aug (AU1 job 3a): the spot's home is the top of
+// Today and it only ever steps below the button on the specific screens
+// where staying there would hide the button. Nothing in this section
+// changes the rule.
 //
 // The measurements behind the numbers, taken at 390x844 with a MAXIMAL
 // seven-row spot: Today alone never crosses (625 at 1.5x, 731 at 1.64x),
@@ -315,8 +499,8 @@ describe('the fold rule — the spot never pushes check-in off the screen', () =
 
   it('the spot itself is NEVER shortened — no moment and no footnote is traded for space', () => {
     // Job 14's glow sentence is truth-telling copy, not padding, and
-    // the moment cap is Cat's one default. Reordering is what yields.
-    const fourMoments = {
+    // the cap is Cat's one default. Reordering is what yields.
+    const fourPeople = {
       ...QUIET,
       isReentry: true,
       glowHeld: false,
@@ -327,8 +511,8 @@ describe('the fold rule — the spot never pushes check-in off the screen', () =
         heart('Ada', '2026-07-24T09:00:00Z'),
       ],
     };
-    const spot = buildNotificationSpot(fourMoments)!;
-    expect(spot.lines).toHaveLength(SPOT_MAX_LINES);
+    const spot = buildNotificationSpot(fourPeople)!;
+    expect(spot.cards).toHaveLength(SPOT_MAX_LINES);
     expect(spot.overflowCount).toBe(1);
     expect(spot.footnote).toBe(STRINGS.welcomeBackSubtitleReset);
     // There is exactly one cap, and no large-text variant of it exists
@@ -339,7 +523,7 @@ describe('the fold rule — the spot never pushes check-in off the screen', () =
 
 // ON2 job C — the lean. The Day-0 obstacle biases WHICH EXISTING
 // welcome-back line surfaces after a miss, and touches nothing else on
-// the card: not the kicker, not the moment lines, not job 14's glow
+// the card: not the kicker, not the sender cards, not job 14's glow
 // footnote, and not NS1's timing (which this module cannot reach at all).
 describe('ON2 the obstacle leans the welcome line', () => {
   it('each obstacle surfaces its own line, and only the headline changes', () => {
@@ -350,7 +534,7 @@ describe('ON2 the obstacle leans the welcome line', () => {
       expect(spot.headline).not.toBe(STRINGS.todaySpotWelcomeHeadline);
       // Everything else on the card is byte-identical to the neutral one.
       expect(spot.kicker).toBe(neutral.kicker);
-      expect(spot.lines).toEqual(neutral.lines);
+      expect(spot.cards).toEqual(neutral.cards);
       expect(spot.footnote).toBe(neutral.footnote);
       expect(spot.overflowCount).toBe(neutral.overflowCount);
       expect(spot.newestAt).toBe(neutral.newestAt);
@@ -390,17 +574,18 @@ describe('ON2 the obstacle leans the welcome line', () => {
     };
     const neutral = buildNotificationSpot({ ...QUIET, isReentry: true, ...moments })!;
     const leaned = buildNotificationSpot({ ...QUIET, isReentry: true, obstacle: 'alone', ...moments })!;
-    expect(leaned.lines.map((l) => l.text)).toEqual(neutral.lines.map((l) => l.text));
+    expect(leaned.cards.map((c) => c.text)).toEqual(neutral.cards.map((c) => c.text));
     expect(leaned.newestAt).toBe(neutral.newestAt);
   });
 });
 
-describe('joinNames', () => {
-  it('warms up to three names, then stops counting people at you', () => {
-    expect(joinNames([])).toBe('');
-    expect(joinNames(['Russ'])).toBe('Russ');
-    expect(joinNames(['Russ', 'Catherine'])).toBe('Russ and Catherine');
-    expect(joinNames(['Russ', 'Catherine', 'Bo'])).toBe('Russ, Catherine and Bo');
-    expect(joinNames(['Russ', 'Catherine', 'Bo', 'Ada'])).toBe('Russ, Catherine and 2 others');
+describe('joinGifts', () => {
+  it('reads as a sentence at one, two and three gifts — and never as a count', () => {
+    expect(joinGifts([])).toBe('');
+    expect(joinGifts(['a wave 👋'])).toBe('a wave 👋');
+    expect(joinGifts(['a wave 👋', 'a heart 🧡'])).toBe('a wave 👋 and a heart 🧡');
+    expect(joinGifts(['a wave 👋', 'a heart 🧡', 'a pebble 🪨'])).toBe(
+      'a wave 👋, a heart 🧡 and a pebble 🪨'
+    );
   });
 });

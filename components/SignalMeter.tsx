@@ -40,7 +40,15 @@ export function SignalMeter({
   dailyRates: number[];
   /** PA1 — THE CIRCLE'S AGE. Counts up forever from the start date: a
    * circle is a place, not an arc (memo §3), so it is never capped at a
-   * duration and never carries an "of 21". */
+   * duration and never carries an "of 21".
+   *
+   * AU1 job 4 (Cat, 3 Aug) — OMITTED ON TODAY, deliberately, and nothing
+   * replaces it there. Today's card was showing three numbers of three
+   * different kinds (the circle's age, your rally, circle-mates' glows)
+   * with nothing saying they were different kinds; the age is the one
+   * that reads most like a personal number while being the least
+   * personal, so it goes back to the circle screen and takes a label
+   * with it. The prop stays optional — that is the seam. */
   dayNumber?: number;
   /** PA1 — THE MEMBER'S OWN RALLY, counted in practices they actually
    * did in THIS circle (`countRallyDays`). Rendered on its own line
@@ -76,7 +84,10 @@ export function SignalMeter({
         {!!dayNumber && (
           <View style={styles.dayBadge}>
             <Text style={styles.dayBadgeText}>
-              {isSolo ? STRINGS.signalCircleAgeSolo(dayNumber) : STRINGS.signalCircleAge(dayNumber)}
+              {/* AU1 job 4 (Cat, 3 Aug) — one label solo and group. A
+                  solo circle is one nobody has joined YET; the chip must
+                  not rename itself the moment someone does. */}
+              {STRINGS.signalCircleAge(dayNumber)}
             </Text>
           </View>
         )}

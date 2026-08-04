@@ -74,11 +74,24 @@ export async function giftPebble(circleId: string, recipientId: string): Promise
 /** Pebbles given to the caller that they have not been told about yet,
  * gated server-side against the SAME users.warmth_seen_at marker TN1
  * already uses for waves, hearts and covers. */
-export async function getMyFreshPebbleGifts(): Promise<{ senderName: string; at: string }[]> {
+export async function getMyFreshPebbleGifts(): Promise<
+  { senderId: string | null; senderName: string; senderAvatarUrl: string | null; at: string }[]
+> {
   const { data, error } = await supabase.rpc('get_my_fresh_pebble_gifts');
   if (error) throw error;
-  return ((data ?? []) as { sender_name: string | null; created_at: string }[]).map((r) => ({
+  return (
+    (data ?? []) as {
+      sender_id: string | null;
+      sender_name: string | null;
+      sender_avatar_url: string | null;
+      created_at: string;
+    }[]
+  ).map((r) => ({
+    // AU1 job 3b/3c — the spot draws this person's real avatar and
+    // merges their moments on the id, never on the name.
+    senderId: r.sender_id ?? null,
     senderName: r.sender_name ?? 'someone in your circle',
+    senderAvatarUrl: r.sender_avatar_url ?? null,
     at: r.created_at,
   }));
 }

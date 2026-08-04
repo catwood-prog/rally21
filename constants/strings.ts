@@ -250,10 +250,27 @@ export const STRINGS = {
   // HC1 job 1 kept SignalMeter's pill and this header status in step
   // ("day 1 of 21 · 1 of 2 checked in … Day 1 of 21" was two counters);
   // they still agree on the NUMBER, and the pill carries the "together".
-  groupHeaderStatus: (n: number, x: number, y: number) => `day ${n} · ${x} of ${y} checked in`,
-  signalCircleAge: (n: number) => `day ${n} together`,
-  // A solo circle has an age too, but nobody to have it "together" with.
-  signalCircleAgeSolo: (n: number) => `day ${n}`,
+  //
+  // RETIRED by AU1 (3 Aug, Cat's job-4 ruling). Keeping them "in step"
+  // was always a way of managing a duplicate rather than removing it:
+  // the circle screen printed its age twice, once here and once in the
+  // pill. The age now has one labelled home (signalCircleAge, "circle
+  // day 30") and the circle header renders the shared headcount line
+  // instead — see lib/headcount.ts.
+  // AU1 job 4 (Cat's ruling, 3 Aug) — the circle's age is OFF Today
+  // entirely, nothing replacing it there, and lives only on the circle
+  // screen, RELABELLED from a clock to a birthday. "day 30" sitting
+  // unlabelled beside "your rally: 7 of 21" and a 🔥 13 glow gave Today
+  // three numbers of three different kinds with nothing saying so; naming
+  // whose day it is costs one word and settles it. Same label solo and
+  // group (Cat, 3 Aug): a solo circle is one nobody has joined YET, and
+  // the chip must not rename itself the moment someone does — which is
+  // also why signalCircleAgeSolo is gone rather than duplicated.
+  //
+  // "Together" leaves this string for good: that vocabulary is now
+  // reserved for the pair metric (pairDaysTogetherLabel), the one number
+  // in the app that is actually about two people.
+  signalCircleAge: (n: number) => `circle day ${n}`,
   // PA1 job 3 — the member's OWN clock, counted in practices. Labels and
   // short fragments are lowercase under LC2 rule 2, and both of these
   // are fragments, not sentences of prose.
@@ -266,8 +283,25 @@ export const STRINGS = {
   signalStateResting: 'resting',
   signalCaptionCircle: "kept warm together — it can't break, only glow brighter",
   signalCaptionSolo: "kept warm — it can't break, only glow brighter",
+  // AU1 job 2 (3 Aug) — the headcount family. The render decision that
+  // picks between them is lib/headcount.ts, shared by all three call
+  // sites; see there for the mis-assembly this replaced.
   cardLinkStatus: (x: number, y: number) => `${x} of ${y} in today`,
-  groupAllInCelebration: (count: number, circleName: string) => `that's all ${count} of ${circleName} in today 🔥`,
+  // The circle NAME is gone from this line: it was the mis-assembly.
+  // "you" is the group-of-people noun the count was always reaching for,
+  // and the name is already on screen directly above every call site
+  // (the stack card's title, the circle header) — it was redundant even
+  // when it read correctly.
+  groupAllInCelebration: (count: number) => `that's all ${count} of you in today 🔥`,
+  // An active roster of exactly one: "all 1 of you" is not a sentence at
+  // any phrasing, so the count drops out rather than being bent around.
+  // Still a celebration — the day IS done, and the members who have gone
+  // quiet are never the subject (warmth law: shame costs nothing).
+  groupAllInCelebrationLone: "that's everyone in today 🔥",
+  // An empty active roster. Before AU1 this hit the all-in branch too
+  // ("that's all 0 of {circle} in today 🔥" — a celebration of nobody);
+  // "yet" is what keeps it an open door instead of a verdict.
+  cardLinkNobodyIn: 'nobody in yet today',
 
   wallHeaderTitle: (circleName: string) => `the ${circleName} wall`,
 
@@ -279,10 +313,26 @@ export const STRINGS = {
   // produced it. Written for welcome-back, MIGRATED to Today's
   // notification spot by TN1 and read there now (lib/notificationSpot.ts);
   // CL1 retired the screen and its own strings, never this branch.
+  // AU1 job 3d (3 Aug) — the em dash goes from both halves of the pair.
   welcomeBackSubtitleHeld: (circleCount: number) =>
-    `no streak lost, no guilt — ${circleCount === 1 ? "your circle's" : 'your circles are'} still glowing.`,
-  // Cat's wording, verbatim, 22 July.
-  welcomeBackSubtitleReset: 'no guilt — your own glow reset while you were away. one check-in starts it fresh.',
+    `no streak lost, no guilt. ${circleCount === 1 ? "your circle's" : 'your circles are'} still glowing.`,
+  // Cat's wording, verbatim, 22 July — SUPERSEDED by her 3 Aug ruling.
+  //
+  // The old line ("no guilt — your own glow reset while you were away.
+  // one check-in starts it fresh.") predates PA3. "Reset" describes a
+  // counter going back to zero, which is what the glow used to do and no
+  // longer is: since the pebbles memo (§5.1) a run ENDS, and the longest
+  // rally is kept permanently as a record — "you return to a live number
+  // of 1 and a permanent record of 40". Telling someone their glow reset
+  // while the app is holding their longest rally for them describes a
+  // loss that did not happen.
+  //
+  // "that run ended" names the end honestly (warmth law: misses cost
+  // something) and the same sentence hands back what survives it (shame
+  // costs nothing). Nothing here scolds, and nothing here references how
+  // long they were away.
+  welcomeBackSubtitleReset:
+    'no guilt. that run ended, and your longest rally is kept. one check-in starts the next one.',
 
   inviteShareMessage: (circleName: string | null, inviteCode: string) =>
     circleName
@@ -496,9 +546,23 @@ export const STRINGS = {
   // GS1 — the glow goes social. The wall line itself is composed
   // SERVER-SIDE in check_glow_milestone (S1's rule: a definer function
   // never accepts client copy); this reference copy documents it and
-  // must stay verbatim-identical to the migration. The flame label is
-  // the Who's Here ride-along's own a11y text.
-  glowSocialWallLine: (name: string, days: number) => `${name} has been glowing ${days} days 🔥`,
+  // must stay verbatim-identical to the migration — lib/glowWallLine.test.ts
+  // reads the migration and fails if they drift.
+  //
+  // AU1 job 1 (3 Aug) — PAST TENSE, and the tense is the whole fix. This
+  // is a wall row: written once, frozen, read for months. "has been
+  // glowing 7 days" asserts a state that holds NOW, so it began lying
+  // the day after it was written and by day 13 was contradicting the
+  // flame on the same screen. "hit 7 days glowing" records a moment,
+  // which is what a wall row is, and matches the journal fact the same
+  // function writes in the same transaction ("hit 7 days glowing on
+  // July 29, 2026"). A moment cannot drift.
+  glowSocialWallLine: (name: string, days: number) => `${name} hit ${days} days glowing 🔥`,
+  // NOT changed, and deliberately so: this label is spoken over the LIVE
+  // flame, which re-reads get_glow_for_user on every load. A present-tense
+  // claim is correct for a number that is recomputed every time it is
+  // shown — the drift above came from freezing one, not from the tense
+  // itself.
   glowFlameA11yLabel: (name: string, days: number) => `${name} has been glowing ${days} days`,
   publicShareDisclosure: 'Public circles share their practice to the library, so others can start their own',
   myPracticesSubtitle: 'your practice library — reuse them in new circles. shared ones can be picked by others.',
@@ -609,12 +673,35 @@ export const STRINGS = {
     miss_once: "starting again is a skill — and you're already practicing it.",
     alone: 'the circle keeps a light on for you.',
   } as Record<string, string>,
-  // Waves group into ONE line ("Russ and Catherine sent you a wave"):
-  // after days away the point is "your people missed you", not a
-  // roll-call. Hearts and covers stay their own moment.
-  todaySpotWaveLine: (names: string) => `${names} sent you a wave 👋`,
-  todaySpotHeartLine: (senderName: string) => `${senderName} sent you a heart 🧡`,
+  // AU1 job 3c (Cat's ruling, 3 Aug) — ONE CARD PER PERSON, everything
+  // they sent merged into its sentence.
+  //
+  // WHAT THIS REPLACES: waves grouped ACROSS people into one line
+  // ("Russ and Catherine sent you a wave") while hearts, covers and
+  // pebbles each took a line of their own. Two consequences, both live:
+  // the same person waving in two of your circles rendered "Cathy S and
+  // Cathy S sent you a wave 👋" (the wave list was the one moment list
+  // never deduped by sender), and someone who waved AND hearted you
+  // occupied two of the three slots on their own.
+  //
+  // Per-person is also what the ruled Option B look requires: each
+  // sender's white inner card carries THEIR avatar, and a line grouped
+  // across senders would leave that slot ownerless.
+  //
+  // The gift fragments compose; the single-kind sentences below stay
+  // byte-identical to the shipped ones, which notificationSpot.test.ts
+  // pins.
+  todaySpotGiftWave: 'a wave 👋',
+  todaySpotGiftHeart: 'a heart 🧡',
+  todaySpotGiftPebble: 'a pebble 🪨',
+  todaySpotSentLine: (senderName: string, gifts: string) => `${senderName} sent you ${gifts}`,
   todaySpotCoverLine: (covererName: string) => `${covererName} covered you yesterday`,
+  // A cover is not a thing that was "sent", so it takes its own clause
+  // rather than being flattened into the gift list.
+  todaySpotCoverAndSentLine: (covererName: string, gifts: string) =>
+    `${covererName} covered you yesterday and sent you ${gifts}`,
+  // Now counts PEOPLE folded away rather than moments, because a card is
+  // a person. Still never a badge and never a total that accumulates.
   todaySpotOverflow: (count: number) => `and ${count} more from your circle`,
   // The check-in echo — one warm line in the completion screen's quiet
   // zone (below the CTA, above the push ask), once, never stale.
@@ -1122,7 +1209,17 @@ export const STRINGS = {
    * memo names this line explicitly ("a pebble held your place, it's
    * still here, which is the sentence TN1 is already writing"). */
   todaySpotPebbleHeldLine: 'a pebble held your place 🪨',
+  // RETIRED by AU1 job 3c (3 Aug) — the spot composes per PERSON now, so
+  // a pebble is a gift FRAGMENT (todaySpotGiftPebble) that joins whatever
+  // else that friend sent. The sentence it used to produce survives
+  // byte-for-byte for a friend who sent only a pebble:
+  // todaySpotSentLine(name, todaySpotGiftPebble) === this string.
+  // Kept here as the reference the notificationSpot test asserts against.
   todaySpotPebbleGiftLine: (senderName: string) => `${senderName} sent you a pebble 🪨`,
+  // Same, for the two warmth kinds. All three exist ONLY as the
+  // no-drift reference for that test now — nothing renders them.
+  todaySpotWaveLine: (senderName: string) => `${senderName} sent you a wave 👋`,
+  todaySpotHeartLine: (senderName: string) => `${senderName} sent you a heart 🧡`,
   /** Job 3's give-a-pebble surface, alongside cover and wave. */
   pebbleActionLabel: 'send a pebble',
   pebbleCta: (name: string) => `send ${name} a pebble`,

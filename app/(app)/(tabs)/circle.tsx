@@ -54,6 +54,7 @@ import {
 import { isBirthdayToday } from '@/lib/birthday';
 import { daysBetween, getLocalDateString, localDateStringInTimeZone, shiftDate } from '@/lib/date';
 import { getGlowForCircleMates, getPairStreaks, PairStreak } from '@/lib/glow';
+import { headcountLine } from '@/lib/headcount';
 import {
   completeCircle,
   GATE_DAY,
@@ -575,9 +576,14 @@ function YourCircle() {
   // roster (memo §8), joining resting and away members in being real
   // members who are not part of today's "N of M checked in". They stay
   // fully VISIBLE in the huddle below — only the headcount changes.
-  const activeMemberCount = orderedMembers.filter(
+  const activeMembers = orderedMembers.filter(
     (m) => !m.isResting && !m.awaySince && !m.finishedAt
-  ).length;
+  );
+  const activeMemberCount = activeMembers.length;
+  // AU1 job 2 — the numerator takes the same roster rule as M (see
+  // lib/headcount.ts): counting every completion row for today let an
+  // away or finished member's check-in push this past M.
+  const activeInTodayCount = activeMembers.filter((m) => inTodayUserIds.has(m.userId)).length;
   const shownMembers = orderedMembers.slice(0, MAX_AVATARS_SHOWN);
   // HW1: in a fuller huddle the gesture pills shrink to their glyphs so
   // the row never crowds at 390px — a gesture is never dropped, the
@@ -862,10 +868,16 @@ function YourCircle() {
           </TouchableOpacity>
         )}
       </View>
+      {/* AU1 jobs 2 + 4 — this line used to lead with the circle's age
+          ("day 30 · 1 of 2 checked in") while the SignalMeter pill below
+          carried the SAME age a second time. Cat's 3 Aug ruling gives the
+          age exactly ONE labelled home on this screen, and the pill is
+          the one nearer the huddle, so the day leaves here and the line
+          becomes what it always mostly was: the headcount. That also
+          retires the third private copy of the headcount decision —
+          lib/headcount.ts is now the only place it is made. */}
       <Text style={styles.headerStatus}>
-        {inTodayUserIds.size === activeMemberCount && activeMemberCount > 1
-          ? STRINGS.groupAllInCelebration(activeMemberCount, circle.name)
-          : STRINGS.groupHeaderStatus(signal.dayNumber, inTodayUserIds.size, activeMemberCount)}
+        {headcountLine(activeInTodayCount, activeMemberCount)}
       </Text>
 
       {isEditingLink ? (

@@ -35,22 +35,53 @@ import { FreshWarmth } from './warmth';
 /** A cover of the caller's own missed day, ready for the spot. `at` is
  * the completions row's raw server created_at, passed through verbatim
  * so the seen-marker never loses microseconds (WL2's rule). */
-export type CoverMoment = { covererName: string; at: string };
+export type CoverMoment = {
+  covererId: string | null;
+  covererName: string;
+  covererAvatarUrl: string | null;
+  at: string;
+};
 
 /** PA3 job 3 — a pebble a friend put in your nest. Same shape and same
  * freshness rule as a cover: the server gates it against
  * users.warmth_seen_at, so the spot keeps ONE freshness rule rather than
  * one per event type. */
-export type PebbleGiftMoment = { senderName: string; at: string };
+export type PebbleGiftMoment = {
+  senderId: string | null;
+  senderName: string;
+  senderAvatarUrl: string | null;
+  at: string;
+};
 
-export type SpotLine = { key: string; text: string; at: string };
+/** AU1 job 3b — the person a card belongs to. Carries what
+ * components/Avatar.tsx needs (AV1: the penguin variant is deterministic
+ * on the user id, and a photo replaces it everywhere at once), never
+ * initials. */
+export type SpotPerson = {
+  /** Null only when the sender row could not be resolved — WL2's left
+   * join deliberately keeps a departed member's warmth readable. */
+  id: string | null;
+  name: string;
+  avatarUrl: string | null;
+};
+
+/** AU1 job 3c — ONE CARD PER PERSON. `text` is everything that person
+ * sent, merged into a single sentence. */
+export type SpotCard = {
+  key: string;
+  person: SpotPerson;
+  text: string;
+  /** That person's NEWEST moment, which is what orders the cards. */
+  at: string;
+};
 
 export type SpotContent = {
   kicker: string;
   /** Only the re-entry moment has a headline; everyday moments don't. */
   headline: string | null;
-  lines: SpotLine[];
-  /** Moments folded into the quiet overflow line, never a badge count. */
+  cards: SpotCard[];
+  /** PEOPLE folded into the quiet overflow line (a card is a person now),
+   * never a badge count. */
   overflowCount: number;
   /** The re-entry moment's ONE guilt-free glow sentence (OD1 job 14's
    * truth-telling copy family); null on an ordinary day. */
@@ -62,9 +93,15 @@ export type SpotContent = {
   newestAt: string | null;
 };
 
-/** Cat's default (overrulable): three moments render individually, the
+/** Cat's default (overrulable): three PEOPLE render individually, the
  * rest fold into one quiet line. Never a scrolling feed. This is the ONE
- * cap; there is deliberately no large-text variant — see below. */
+ * cap; there is deliberately no large-text variant — see below.
+ *
+ * AU1 job 3c — the unit changed from moments to people (one card per
+ * sender), so three is now a harder cap than it was: a person who sent
+ * four things costs one slot, not four. Cat, 3 Aug: "if someday ten
+ * senders overflow the box, compression is a future design
+ * conversation, not this section's." */
 export const SPOT_MAX_LINES = 3;
 
 /**
@@ -153,32 +190,72 @@ export function welcomeLineForObstacle(obstacle: KeepGoingObstacle | null): stri
   return leaned ?? STRINGS.todaySpotWelcomeHeadline;
 }
 
-/** "Russ" / "Russ and Catherine" / "Russ, Catherine and Bo" / "Russ,
- * Catherine and 2 others" — warm, never a headcount. */
-export function joinNames(names: string[]): string {
-  if (names.length <= 1) return names[0] ?? '';
-  if (names.length === 2) return `${names[0]} and ${names[1]}`;
-  if (names.length === 3) return `${names[0]}, ${names[1]} and ${names[2]}`;
-  return `${names[0]}, ${names[1]} and ${names.length - 2} others`;
+/** "a wave 👋" / "a wave 👋 and a heart 🧡" / "a wave 👋, a heart 🧡 and
+ * a pebble 🪨" — the gift half of one person's merged sentence. Never a
+ * count ("2 hearts"): the spot says who and what, never how many. */
+export function joinGifts(gifts: string[]): string {
+  if (gifts.length <= 1) return gifts[0] ?? '';
+  if (gifts.length === 2) return `${gifts[0]} and ${gifts[1]}`;
+  return `${gifts.slice(0, -1).join(', ')} and ${gifts[gifts.length - 1]}`;
 }
 
-/** Covers can arrive from more than one circle on the same day; the same
- * friend covering you in two circles is ONE moment, not two identical
- * lines. Keeps the newest timestamp so the seen-marker still advances
- * past every row. */
-function dedupeCovers(covers: CoverMoment[]): CoverMoment[] {
-  const byName = new Map<string, CoverMoment>();
-  for (const c of covers) {
-    const seen = byName.get(c.covererName);
-    if (!seen || ms(c.at) > ms(seen.at)) byName.set(c.covererName, c);
-  }
-  return [...byName.values()];
+/** AU1 job 3c — the identity a person's moments merge on.
+ *
+ * The user id when the server resolved one, which is every ordinary
+ * case; the NAME only as a fallback, for WL2's deliberately-preserved
+ * warmth from a member who has since left (its left join can yield a
+ * row the users table no longer resolves). Falling back to the name is
+ * the same merge the whole spot used to do, so the fallback path is no
+ * worse than what shipped — and the id path is what makes two
+ * circle-mates who share a display name two cards instead of one. */
+function personKey(id: string | null, name: string): string {
+  return id ? `id:${id}` : `name:${name}`;
 }
 
 /** Ordering only — the marker itself always carries the raw server
  * string through verbatim (WL2's microsecond rule), never a Date. */
 function ms(at: string): number {
   return new Date(at).getTime();
+}
+
+/** One person's moments, accumulating as the four sources are walked. */
+type PersonBucket = {
+  person: SpotPerson;
+  /** Insertion-ordered and deduped: a friend who sent two hearts sent a
+   * heart, and the same friend covering you in two circles covered you.
+   * This is where dedupeCovers's job went — it is now the general rule
+   * rather than the one type that happened to have it. */
+  gifts: string[];
+  covered: boolean;
+  /** Their newest moment, which orders the cards. */
+  at: string;
+  /** On re-entry a wave is not one moment among many, it is PART of the
+   * welcome-back message ("your people missed you"), so a person who
+   * waved is never pushed into the overflow by newer hearts. */
+  waved: boolean;
+};
+
+/**
+ * AU1 job 3c — one person's merged sentence.
+ *
+ * THE PROPERTY THAT MATTERS: for a person who sent exactly one thing,
+ * every sentence here is byte-identical to the shipped, Cat-approved
+ * wording ("Russ sent you a wave 👋", "Russ sent you a heart 🧡", "Russ
+ * sent you a pebble 🪨", "Russ covered you yesterday"). Merging only
+ * ever changes what a BUSIER card says — the ordinary one-gesture card,
+ * which is almost every card, reads exactly as it did before.
+ *
+ * A cover keeps its own clause rather than joining the gift list,
+ * because covering someone is not sending them a thing.
+ */
+function sentenceFor(bucket: PersonBucket): string {
+  const { person, gifts, covered } = bucket;
+  const joined = joinGifts(gifts);
+  if (covered && gifts.length > 0) {
+    return STRINGS.todaySpotCoverAndSentLine(person.name, joined);
+  }
+  if (covered) return STRINGS.todaySpotCoverLine(person.name);
+  return STRINGS.todaySpotSentLine(person.name, joined);
 }
 
 export function buildNotificationSpot(input: {
@@ -218,88 +295,113 @@ export function buildNotificationSpot(input: {
   const { isReentry, warmth, covers, pebbleGifts, pebbleHeldPlace, glowHeld, circleCount, obstacle } =
     input;
 
-  const waves = warmth.filter((w) => w.kind === 'wave');
-  const hearts = warmth.filter((w) => w.kind === 'heart');
-  const uniqueCovers = dedupeCovers(covers);
+  // AU1 job 3c — every moment from every source lands in its SENDER's
+  // bucket. This is the whole of "Cathy S and Cathy S can never render":
+  // a name cannot appear twice in one sentence because a person cannot
+  // appear twice in one bucket, and cannot appear on two cards because a
+  // bucket is a card.
+  const byPerson = new Map<string, PersonBucket>();
 
-  // Every line carries how many MOMENTS it stands for, so a dropped
-  // grouped line contributes its whole group to the overflow count.
-  // `pinned` outranks the newest-first ordering: on re-entry the wave
-  // line is not one moment among many, it is PART of the welcome-back
-  // message ("your people missed you"), so a flurry of newer hearts must
-  // never push it into the overflow.
-  const grouped: { line: SpotLine; moments: number; pinned: boolean }[] = [];
+  function bucketFor(person: SpotPerson, at: string): PersonBucket {
+    const key = personKey(person.id, person.name);
+    const existing = byPerson.get(key);
+    if (existing) {
+      // Keep the newest moment as the card's timestamp, and prefer a
+      // resolved avatar if any one of their moments carried one.
+      if (ms(at) > ms(existing.at)) existing.at = at;
+      if (!existing.person.avatarUrl && person.avatarUrl) {
+        existing.person.avatarUrl = person.avatarUrl;
+      }
+      return existing;
+    }
+    const fresh: PersonBucket = {
+      person: { ...person },
+      gifts: [],
+      covered: false,
+      at,
+      waved: false,
+    };
+    byPerson.set(key, fresh);
+    return fresh;
+  }
 
-  if (waves.length > 0) {
-    grouped.push({
-      line: {
-        key: `wave-${waves[0].createdAt}`,
-        text: STRINGS.todaySpotWaveLine(joinNames(waves.map((w) => w.senderName))),
-        at: waves[0].createdAt,
-      },
-      moments: waves.length,
-      pinned: isReentry,
-    });
+  function addGift(bucket: PersonBucket, gift: string) {
+    if (!bucket.gifts.includes(gift)) bucket.gifts.push(gift);
   }
-  for (const h of hearts) {
-    grouped.push({
-      line: {
-        key: `heart-${h.createdAt}-${h.senderName}`,
-        text: STRINGS.todaySpotHeartLine(h.senderName),
-        at: h.createdAt,
-      },
-      moments: 1,
-      pinned: false,
-    });
+
+  // Order of the walks decides the order gifts read inside one sentence
+  // (wave, then heart, then pebble) — a stable reading order rather than
+  // a timestamp shuffle inside a single person's line.
+  for (const w of warmth) {
+    if (w.kind !== 'wave') continue;
+    const bucket = bucketFor(
+      { id: w.senderId, name: w.senderName, avatarUrl: w.senderAvatarUrl },
+      w.createdAt
+    );
+    addGift(bucket, STRINGS.todaySpotGiftWave);
+    bucket.waved = true;
   }
-  for (const c of uniqueCovers) {
-    grouped.push({
-      line: {
-        key: `cover-${c.at}-${c.covererName}`,
-        text: STRINGS.todaySpotCoverLine(c.covererName),
-        at: c.at,
-      },
-      moments: 1,
-      pinned: false,
-    });
+  for (const h of warmth) {
+    if (h.kind !== 'heart') continue;
+    const bucket = bucketFor(
+      { id: h.senderId, name: h.senderName, avatarUrl: h.senderAvatarUrl },
+      h.createdAt
+    );
+    addGift(bucket, STRINGS.todaySpotGiftHeart);
   }
   for (const p of pebbleGifts) {
-    grouped.push({
-      line: {
-        key: `pebble-${p.at}-${p.senderName}`,
-        text: STRINGS.todaySpotPebbleGiftLine(p.senderName),
-        at: p.at,
-      },
-      moments: 1,
-      pinned: false,
-    });
+    const bucket = bucketFor(
+      { id: p.senderId, name: p.senderName, avatarUrl: p.senderAvatarUrl },
+      p.at
+    );
+    addGift(bucket, STRINGS.todaySpotGiftPebble);
   }
+  for (const c of covers) {
+    // Covers can arrive from more than one circle on the same day; the
+    // same friend covering you twice is ONE moment. `covered` being a
+    // boolean is what makes that true now.
+    const bucket = bucketFor(
+      { id: c.covererId, name: c.covererName, avatarUrl: c.covererAvatarUrl },
+      c.at
+    );
+    bucket.covered = true;
+  }
+
+  const buckets = [...byPerson.values()];
 
   // Nothing to say and no re-entry to mark → the spot is absent
   // entirely, never an empty frame (mockup frame B).
-  if (grouped.length === 0 && !isReentry) return null;
+  if (buckets.length === 0 && !isReentry) return null;
 
-  // The marker advances past everything FETCHED, including the moments
+  // The marker advances past everything FETCHED, including the people
   // folded into the overflow line — the quiet "and N more" is the
   // acknowledgement, exactly as WL2's whisper overflow behaved. Taken
   // BEFORE the pin reorders anything, so it stays a pure "newest of all".
-  const newestAt = grouped.reduce<string | null>(
-    (newest, g) => (newest === null || ms(g.line.at) > ms(newest) ? g.line.at : newest),
+  const newestAt = buckets.reduce<string | null>(
+    (newest, b) => (newest === null || ms(b.at) > ms(newest) ? b.at : newest),
     null
   );
 
-  grouped.sort((a, b) =>
-    a.pinned !== b.pinned ? (a.pinned ? -1 : 1) : ms(b.line.at) - ms(a.line.at)
-  );
-  const shown = grouped.slice(0, SPOT_MAX_LINES);
-  const overflowCount = grouped
-    .slice(SPOT_MAX_LINES)
-    .reduce((sum, g) => sum + g.moments, 0);
+  buckets.sort((a, b) => {
+    const aPinned = isReentry && a.waved;
+    const bPinned = isReentry && b.waved;
+    if (aPinned !== bPinned) return aPinned ? -1 : 1;
+    return ms(b.at) - ms(a.at);
+  });
+  const shown = buckets.slice(0, SPOT_MAX_LINES);
+  // People, not moments — a card is a person, so "and 2 more from your
+  // circle" means two more people.
+  const overflowCount = buckets.length - shown.length;
 
   return {
     kicker: isReentry ? STRINGS.todaySpotKickerWelcomeBack : STRINGS.todaySpotKickerEveryday,
     headline: isReentry ? welcomeLineForObstacle(obstacle) : null,
-    lines: shown.map((g) => g.line),
+    cards: shown.map((b) => ({
+      key: personKey(b.person.id, b.person.name),
+      person: b.person,
+      text: sentenceFor(b),
+      at: b.at,
+    })),
     overflowCount,
     // PA3 job 2 — the telling-afterwards. When a pebble from their own
     // nest is what held the place, SAY SO: "no streak lost" is true but

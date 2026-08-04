@@ -17,7 +17,15 @@ export type WarmthKind = 'wave' | 'heart';
 
 export type FreshWarmth = {
   kind: WarmthKind;
+  /** AU1 job 3b/3c — WHO sent it. The spot renders the shared Avatar
+   * (penguin variant is deterministic on this id, per AV1) and merges
+   * a person's moments on it, so two circle-mates sharing a display
+   * name can never collapse into one card. Nullable only in theory:
+   * wall_messages.user_id is not null, but the left join that keeps a
+   * departed sender's warmth readable is what types it that way. */
+  senderId: string | null;
   senderName: string;
+  senderAvatarUrl: string | null;
   /** Raw server timestamp string, passed back verbatim to
    * markWarmthSeen so no client-side Date round-trip ever truncates
    * the microseconds the seen-gate compares against. */
@@ -38,9 +46,19 @@ export type WallTeaserItem = {
 export async function getFreshWarmth(): Promise<FreshWarmth[]> {
   const { data, error } = await supabase.rpc('get_my_fresh_warmth');
   if (error) throw error;
-  return ((data ?? []) as { kind: string; sender_name: string; created_at: string }[]).map((r) => ({
+  return (
+    (data ?? []) as {
+      kind: string;
+      sender_id: string | null;
+      sender_name: string;
+      sender_avatar_url: string | null;
+      created_at: string;
+    }[]
+  ).map((r) => ({
     kind: r.kind as WarmthKind,
+    senderId: r.sender_id ?? null,
     senderName: r.sender_name,
+    senderAvatarUrl: r.sender_avatar_url ?? null,
     createdAt: r.created_at,
   }));
 }

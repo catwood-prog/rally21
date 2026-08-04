@@ -62,6 +62,7 @@ import {
   recordMyRallyCliff,
   WeekDay,
 } from '@/lib/glow';
+import { headcountLine } from '@/lib/headcount';
 import { countRallyDays, getMyLastCelebratedDay, getNextMilestone, resumeMyRally } from '@/lib/journey';
 import { shouldRouteToJourneyGate } from '@/lib/journeyGateGuard';
 import { updateNotificationPrefs } from '@/lib/notifications';
@@ -376,7 +377,14 @@ function Today() {
                     new Date(p.createdAt).getTime() > new Date(warmthSeenAt).getTime()
                 )
                 .map((p) => ({
+                  // AU1 job 3b — the coverer's own identity rides along
+                  // so the spot can draw their avatar like every other
+                  // sender's. Both come from the members list already
+                  // fetched for this circle; no extra read.
+                  covererId: p.coveredBy,
                   covererName: memberFullName(data.members, p.coveredBy),
+                  covererAvatarUrl:
+                    data.members.find((m) => m.userId === p.coveredBy)?.avatarUrl ?? null,
                   at: p.createdAt,
                 }))
             )
@@ -1017,7 +1025,6 @@ function Today() {
     const iWasCoveredToday = presence.find(
       (p) => p.localDate === coveredDay && p.userId === session?.user?.id && p.kind === 'covered'
     );
-    const inCount = inTodayUserIds.size;
     // RS1/RS2 — every "N of M" headcount line counts only non-resting,
     // non-away members in M (they're still real members, just quietly
     // at the edge for now); the circle screen owns the actual visual
@@ -1025,9 +1032,19 @@ function Today() {
     // per RS1's scope.
     // PA2 — finished members leave the active roster, same as resting
     // and away members (memo §8). They remain members and remain visible.
-    const activeMemberCount = attachRestingStatus(members, presence, today).filter(
+    const activeMembers = attachRestingStatus(members, presence, today).filter(
       (m) => !m.isResting && !m.awaySince && !m.finishedAt
-    ).length;
+    );
+    const activeMemberCount = activeMembers.length;
+    // AU1 job 2 — the NUMERATOR gets the same roster rule the
+    // denominator has had since RS1. `inTodayUserIds.size` counted every
+    // completion row for today, an away or finished member's included,
+    // so the pair could read "3 of 2" and the all-in equality could be
+    // satisfied by a different set of people than the active roster.
+    // The avatar strip below still reads inTodayUserIds directly — an
+    // away member who checked in absolutely keeps their badge; it is
+    // only the sentence that counts the roster.
+    const inCount = activeMembers.filter((m) => inTodayUserIds.has(m.userId)).length;
     const isSolo = isSoloCircle(members.length);
     const signal = computeSignal({
       presence,
@@ -1187,21 +1204,19 @@ function Today() {
           style={styles.card}
           onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
         >
+          {/* AU1 job 4 (Cat, 3 Aug) — no dayNumber: the circle's age is
+              off Today entirely and nothing replaces it here. It lives
+              on the circle screen, relabelled "circle day N". */}
           <SignalMeter
             state={signal.state}
             dailyRates={signal.dailyRates}
-            dayNumber={signal.dayNumber}
             rallyCount={countRallyDays(presence, session?.user?.id ?? '')}
             isSolo={isSolo}
           />
           <Text style={styles.cardLink}>
             {isSolo
               ? 'view your practice →'
-              : `${
-                  inCount === activeMemberCount
-                    ? STRINGS.groupAllInCelebration(activeMemberCount, circle.name)
-                    : STRINGS.cardLinkStatus(inCount, activeMemberCount)
-                } · view circle →`}
+              : `${headcountLine(inCount, activeMemberCount)} · view circle →`}
           </Text>
         </TouchableOpacity>
 
@@ -1404,13 +1419,16 @@ function Today() {
         // note; the stack's GlowBadge reads coveredTodayName (computed
         // once above, across every circle) and the cover MOMENT reads in
         // the notification spot.
-        const inCount = inTodayUserIds.size;
         // RS1/RS2 — see the single-circle branch above for the full note.
         // PA2 — see the single-circle branch above: finished members
         // leave the active roster but never the huddle.
-        const activeMemberCount = attachRestingStatus(members, presence, today).filter(
+        // AU1 job 2 — numerator restricted to the active roster, same as
+        // the single-circle branch above.
+        const activeMembers = attachRestingStatus(members, presence, today).filter(
           (m) => !m.isResting && !m.awaySince && !m.finishedAt
-        ).length;
+        );
+        const activeMemberCount = activeMembers.length;
+        const inCount = activeMembers.filter((m) => inTodayUserIds.has(m.userId)).length;
         const isSolo = isSoloCircle(members.length);
         const signal = computeSignal({
           presence,
@@ -1462,21 +1480,18 @@ function Today() {
               onPress={() => router.push({ pathname: '/circle', params: { circleId: circle.id } })}
             >
               <Text style={styles.stackCardName}>{circle.name}</Text>
+              {/* AU1 job 4 — no dayNumber here either; see the
+                  single-circle branch above. */}
               <SignalMeter
                 state={signal.state}
                 dailyRates={signal.dailyRates}
-                dayNumber={signal.dayNumber}
                 rallyCount={countRallyDays(presence, session?.user?.id ?? '')}
                 isSolo={isSolo}
               />
               <Text style={styles.cardLink}>
                 {isSolo
-              ? 'view your practice →'
-              : `${
-                  inCount === activeMemberCount
-                    ? STRINGS.groupAllInCelebration(activeMemberCount, circle.name)
-                    : STRINGS.cardLinkStatus(inCount, activeMemberCount)
-                } · view circle →`}
+                  ? 'view your practice →'
+                  : `${headcountLine(inCount, activeMemberCount)} · view circle →`}
               </Text>
             </TouchableOpacity>
 

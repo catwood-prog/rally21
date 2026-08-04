@@ -10,7 +10,16 @@ import {
 import { supabase } from './supabase';
 
 function warmthRow(overrides: Partial<FreshWarmth> = {}): FreshWarmth {
-  return { kind: 'heart', senderName: 'Louise', createdAt: '2026-07-22T10:00:00.123456+00:00', ...overrides };
+  return {
+    kind: 'heart',
+    // AU1 job 3b — the read carries WHO sent it, so the spot can draw
+    // their real avatar (AV1: never initials) and merge on the id.
+    senderId: 'u-louise',
+    senderName: 'Louise',
+    senderAvatarUrl: null,
+    createdAt: '2026-07-22T10:00:00.123456+00:00',
+    ...overrides,
+  };
 }
 
 function chainableQuery(result: unknown) {
@@ -77,12 +86,40 @@ describe('warmth fetches and markers', () => {
 
   it('getFreshWarmth reads the recipient-scoped RPC and maps rows', async () => {
     rpcMock.mockResolvedValue({
-      data: [{ kind: 'heart', sender_name: 'Louise', created_at: '2026-07-22T10:00:00.123456+00:00' }],
+      data: [
+        {
+          kind: 'heart',
+          sender_id: 'u-louise',
+          sender_name: 'Louise',
+          sender_avatar_url: null,
+          created_at: '2026-07-22T10:00:00.123456+00:00',
+        },
+      ],
       error: null,
     });
     const rows = await getFreshWarmth();
     expect(rpcMock).toHaveBeenCalledWith('get_my_fresh_warmth');
     expect(rows).toEqual([warmthRow()]);
+  });
+
+  it('AU1 — a row from a sender the server could not resolve still maps, id null', async () => {
+    // WL2's left join deliberately keeps a departed member's warmth
+    // readable. The spot falls back to merging on the name for these.
+    rpcMock.mockResolvedValue({
+      data: [
+        {
+          kind: 'wave',
+          sender_id: null,
+          sender_name: 'a circle-mate',
+          sender_avatar_url: null,
+          created_at: '2026-07-22T10:00:00.123456+00:00',
+        },
+      ],
+      error: null,
+    });
+    const rows = await getFreshWarmth();
+    expect(rows[0].senderId).toBeNull();
+    expect(rows[0].senderName).toBe('a circle-mate');
   });
 
   it('markWarmthSeen passes the newest SHOWN timestamp through verbatim — no Date round-trip may truncate the microseconds the server gate compares', async () => {
