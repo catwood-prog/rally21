@@ -5,6 +5,7 @@ import {
   assembleAskRallySystemPrompt,
   buildBlueprintBlock,
   buildCircleBlock,
+  buildObstacleLine,
   buildReflectionsBlock,
   buildStatesBlock,
   buildWantsNote,
@@ -171,11 +172,15 @@ Deno.serve(async (req) => {
   // resolved the same way compose-nudges resolves local dates: compare
   // each message's own local-date string rather than computing a UTC
   // day-boundary instant (Deno has no IANA conversion library).
+  // AR5 job 2a — keep_going_obstacle rides this existing read (the row
+  // is already fetched for the timezone), so the context gains the
+  // person's Day-0 answer at zero extra round-trips. Own-row read
+  // through the caller's JWT like everything else here.
   const { data: userRow } = await client
     .from("users")
-    .select("timezone")
+    .select("timezone, keep_going_obstacle")
     .eq("id", userId)
-    .maybeSingle<{ timezone: string | null }>();
+    .maybeSingle<{ timezone: string | null; keep_going_obstacle: string | null }>();
   const timeZone = userRow?.timezone ?? "UTC";
 
   const { data: recentUserMessages } = await client
@@ -216,7 +221,10 @@ Deno.serve(async (req) => {
     await Promise.all([
       client.from("blueprint_versions").select("content").order("version", { ascending: false }).limit(1).maybeSingle<{ content: any }>(),
       client.rpc("get_my_blueprint"),
-      client.from("reflections").select("local_date, mood, line1, line2").order("local_date", { ascending: false }).limit(7),
+      // AR5 job 2b — line2_prompt_key comes along so the second line is
+      // labelled by the question that was actually asked (GQ1's cycle),
+      // instead of every line reading "learned:".
+      client.from("reflections").select("local_date, mood, line1, line2, line2_prompt_key").order("local_date", { ascending: false }).limit(7),
       client.rpc("get_my_glow"),
       client
         .from("memberships")
@@ -260,8 +268,15 @@ Deno.serve(async (req) => {
   const statesBlock = buildStatesBlock({ last7Moods: moodsChronological, glow });
 
   const reflectionsBlock = buildReflectionsBlock(
-    reflectionRows.map((r: any) => ({ localDate: r.local_date, line1: r.line1, line2: r.line2 }))
+    reflectionRows.map((r: any) => ({
+      localDate: r.local_date,
+      line1: r.line1,
+      line2: r.line2,
+      line2PromptKey: r.line2_prompt_key ?? null,
+    }))
   );
+
+  const obstacleLine = buildObstacleLine(userRow?.keep_going_obstacle ?? null);
 
   const activeCircles = (membershipsResult.data ?? [])
     .map((row: any) => ({
@@ -308,6 +323,7 @@ Deno.serve(async (req) => {
     template: SYSTEM_PROMPT_TEMPLATE,
     crisisResources,
     blueprintBlock,
+    obstacleLine,
     statesBlock,
     reflectionsBlock,
     circleBlock,

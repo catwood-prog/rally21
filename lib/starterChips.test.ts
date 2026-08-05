@@ -11,12 +11,26 @@
  * floor), per-day determinism, and displacement order with and without
  * the recovery chip. Its forbidden failure mode: a false or creepy
  * inference — when in doubt, nothing personal.
+ *
+ * AR5 (5 Aug): the same gate now decides the WHOLE set, so both sides of
+ * the floor are pinned — below it the two retrieval chips must be absent
+ * (they are the ones that earn an honest shrug off an empty file, at the
+ * cost of one of the day's five messages), and at it they must return.
+ * The obstacle chip is pinned both ways too: present in its stored
+ * template, absent with no stored obstacle and absent for a key the
+ * table doesn't know.
  */
 import { STRINGS } from '@/constants/strings';
 
 import { BlueprintPattern } from './blueprint';
 import { WeekDay, WeekDayState } from './glow';
-import { buildStarterChips, derivePersonalChip, missedYesterday } from './starterChips';
+import {
+  buildStarterChips,
+  derivePersonalChip,
+  hasBlueprintEvidence,
+  missedYesterday,
+  obstacleChipFor,
+} from './starterChips';
 
 /** Oldest-first week row ending today, matching getMyWeek's shape. */
 function week(...states: WeekDayState[]): WeekDay[] {
@@ -187,7 +201,7 @@ describe('buildStarterChips — Cat-approved order, all four states', () => {
   const PERSONAL = 'why do mondays run me down?';
 
   it('a standard day renders the four ruled chips verbatim, in order', () => {
-    const chips = buildStarterChips({ hasMissedYesterday: false });
+    const chips = buildStarterChips({ hasMissedYesterday: false, hasEvidence: true });
     expect(texts(chips)).toEqual([
       'what are you noticing about me?',
       "what's getting in my way lately?",
@@ -198,7 +212,7 @@ describe('buildStarterChips — Cat-approved order, all four states', () => {
   });
 
   it('missed yesterday swaps the recovery chip into slot 2 — four chips, never five', () => {
-    expect(texts(buildStarterChips({ hasMissedYesterday: true }))).toEqual([
+    expect(texts(buildStarterChips({ hasMissedYesterday: true, hasEvidence: true }))).toEqual([
       'what are you noticing about me?',
       'how do I get back on track?',
       'am I expecting too much of myself?',
@@ -207,7 +221,7 @@ describe('buildStarterChips — Cat-approved order, all four states', () => {
   });
 
   it('the personal chip takes slot 1 and displaces "expecting too much" — the comp order', () => {
-    const chips = buildStarterChips({ hasMissedYesterday: false, personalQuestion: PERSONAL });
+    const chips = buildStarterChips({ hasMissedYesterday: false, hasEvidence: true, personalQuestion: PERSONAL });
     expect(texts(chips)).toEqual([
       PERSONAL,
       'what are you noticing about me?',
@@ -218,7 +232,7 @@ describe('buildStarterChips — Cat-approved order, all four states', () => {
   });
 
   it('personal + recovery together: recovery keeps its own rule, still four chips', () => {
-    const chips = buildStarterChips({ hasMissedYesterday: true, personalQuestion: PERSONAL });
+    const chips = buildStarterChips({ hasMissedYesterday: true, hasEvidence: true, personalQuestion: PERSONAL });
     expect(texts(chips)).toEqual([
       PERSONAL,
       'what are you noticing about me?',
@@ -229,14 +243,135 @@ describe('buildStarterChips — Cat-approved order, all four states', () => {
   });
 
   it('the recovery chip never appears on a standard day', () => {
-    expect(texts(buildStarterChips({ hasMissedYesterday: false }))).not.toContain(
+    expect(texts(buildStarterChips({ hasMissedYesterday: false, hasEvidence: true }))).not.toContain(
       STRINGS.askRallyRecoveryChip
     );
   });
 
   it('never mutates the source chip set', () => {
-    buildStarterChips({ hasMissedYesterday: true, personalQuestion: PERSONAL });
+    buildStarterChips({ hasMissedYesterday: true, hasEvidence: true, personalQuestion: PERSONAL });
     expect(STRINGS.blueprintAskChips[1]).toBe("what's getting in my way lately?");
     expect(STRINGS.blueprintAskChips[2]).toBe('am I expecting too much of myself?');
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * AR5 (5 Aug) — the cold start.
+ * ------------------------------------------------------------------ */
+
+describe('hasBlueprintEvidence — the one floor, extended to the whole set', () => {
+  it('true at exactly the thresholds — the same pair the personal chip uses', () => {
+    expect(hasBlueprintEvidence([pattern({ agreementCount: 5, totalCount: 8, evidenceRate: 0.6 })])).toBe(true);
+  });
+
+  it('false below the rate floor, and false below the agreement floor', () => {
+    expect(hasBlueprintEvidence([pattern({ agreementCount: 5, totalCount: 9, evidenceRate: 0.556 })])).toBe(false);
+    expect(hasBlueprintEvidence([pattern({ agreementCount: 4, totalCount: 5, evidenceRate: 0.8 })])).toBe(false);
+  });
+
+  it('false for an empty map — the day-one case this section exists for', () => {
+    expect(hasBlueprintEvidence([])).toBe(false);
+  });
+
+  it('true on ANY qualifying row, even one with no chip template', () => {
+    // The two uses answer different questions off one floor: this row
+    // can ground "what are you noticing about me?" while producing no
+    // personal chip, and that asymmetry is deliberate.
+    const noTemplate = pattern({ patternKey: 'weekday_null', weekday: null, agreementCount: 9, evidenceRate: 0.9 });
+    expect(hasBlueprintEvidence([noTemplate])).toBe(true);
+    expect(derivePersonalChip([noTemplate], UID, DAY)).toBeNull();
+  });
+
+  it('THE INVARIANT: below the floor, no personal chip can exist', () => {
+    const thin = [
+      pattern({ agreementCount: 4, totalCount: 5, evidenceRate: 0.8 }),
+      pattern({ patternKey: 'c', patternType: 'consistency', weekday: null, direction: null, cutoffHour: 9, agreementCount: 2, totalCount: 9, evidenceRate: 0.22 }),
+    ];
+    expect(hasBlueprintEvidence(thin)).toBe(false);
+    expect(derivePersonalChip(thin, UID, DAY)).toBeNull();
+  });
+});
+
+describe('obstacleChipFor — the fixed table, never a composition', () => {
+  it('every stored ON2 key has a template, first-person, under one tail', () => {
+    for (const key of ['forget', 'no_time', 'lose_motivation', 'miss_once', 'alone']) {
+      const chip = obstacleChipFor(key);
+      expect(chip).toBe(STRINGS.askRallyObstacleChips[key]);
+      expect(chip!.endsWith("— let's talk about it")).toBe(true);
+      // LC1 casing: lowercase, except the pronoun "I", which keeps its capital
+      expect(chip === chip!.toLowerCase() || chip!.startsWith('I ')).toBe(true);
+    }
+    expect(obstacleChipFor('forget')).toBe("I forget — let's talk about it");
+  });
+
+  it('null for no obstacle — skipped at Day 0, or a pre-ON1 account', () => {
+    expect(obstacleChipFor(null)).toBeNull();
+    expect(obstacleChipFor(undefined)).toBeNull();
+    expect(obstacleChipFor('')).toBeNull();
+  });
+
+  it('null for a key the table does not know — never a guess', () => {
+    expect(obstacleChipFor('some_future_key')).toBeNull();
+  });
+});
+
+describe('buildStarterChips below the floor — the chips stop promising', () => {
+  const texts = (chips: ReturnType<typeof buildStarterChips>) => chips.map((c) => c.text);
+  const RETRIEVAL = ['what are you noticing about me?', "what's getting in my way lately?"];
+
+  it('the cold set, with a stored obstacle: four chips in order', () => {
+    const chips = buildStarterChips({ hasMissedYesterday: false, hasEvidence: false, obstacle: 'forget' });
+    expect(texts(chips)).toEqual([
+      "here's what today was like",
+      "I forget — let's talk about it",
+      'am I expecting too much of myself?',
+      "I want to talk about how I'm feeling",
+    ]);
+    expect(chips.every((c) => !c.personal)).toBe(true);
+  });
+
+  it('NEITHER retrieval chip is visible below the floor — the whole point', () => {
+    for (const obstacle of [null, 'forget', 'alone']) {
+      for (const hasMissedYesterday of [false, true]) {
+        const visible = texts(buildStarterChips({ hasMissedYesterday, hasEvidence: false, obstacle }));
+        for (const promise of RETRIEVAL) expect(visible).not.toContain(promise);
+      }
+    }
+  });
+
+  it('no stored obstacle: three chips, never padded back to four', () => {
+    expect(texts(buildStarterChips({ hasMissedYesterday: false, hasEvidence: false }))).toEqual([
+      "here's what today was like",
+      'am I expecting too much of myself?',
+      "I want to talk about how I'm feeling",
+    ]);
+  });
+
+  it('a genuine lapse below the floor still gets the recovery chip, in the same slot', () => {
+    expect(texts(buildStarterChips({ hasMissedYesterday: true, hasEvidence: false, obstacle: 'alone' }))).toEqual([
+      "here's what today was like",
+      'how do I get back on track?',
+      'am I expecting too much of myself?',
+      "I want to talk about how I'm feeling",
+    ]);
+    // it displaces the obstacle chip rather than joining it — never five
+    expect(buildStarterChips({ hasMissedYesterday: true, hasEvidence: false, obstacle: 'alone' })).toHaveLength(4);
+  });
+
+  it('the obstacle chip is never marked personal — that label says "from your check-ins"', () => {
+    const chips = buildStarterChips({ hasMissedYesterday: false, hasEvidence: false, obstacle: 'no_time' });
+    expect(chips.every((c) => !c.personal)).toBe(true);
+  });
+
+  it('AT the floor the retrieval chips RETURN — the graduation is the design', () => {
+    const cold = texts(buildStarterChips({ hasMissedYesterday: false, hasEvidence: false, obstacle: 'forget' }));
+    const warm = texts(buildStarterChips({ hasMissedYesterday: false, hasEvidence: true, obstacle: 'forget' }));
+    for (const promise of RETRIEVAL) {
+      expect(cold).not.toContain(promise);
+      expect(warm).toContain(promise);
+    }
+    // and the cold-start chips step back out of the way when they do
+    expect(warm).not.toContain("here's what today was like");
+    expect(warm).not.toContain("I forget — let's talk about it");
   });
 });

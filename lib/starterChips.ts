@@ -15,6 +15,17 @@ import { WeekDay } from './glow';
 // expecting too much of myself?" — four chips always. Its own forbidden
 // failure mode is a false or creepy inference; when in doubt, nothing
 // personal renders.
+//
+// AR5 (5 Aug) — the whole set becomes state-aware on PM1C's ONE gate.
+// Two of the four base chips ("what are you noticing about me?",
+// "what's getting in my way lately?") are RETRIEVAL questions: they ask
+// Rally to read a file that, below the floors, is honestly empty. The
+// shrug that came back was the honesty law working correctly — the
+// defect was the chip promising what the file can't pay, and every shrug
+// spent one of the day's five messages. So below the floors those two
+// hide and the cold-start chips show; AT the floors they return. The
+// graduation is the design, not a fallback: the retrieval chips come
+// back exactly when Rally can answer them.
 
 /** Whether the user genuinely missed yesterday, read from the same week
  * row the restart logic uses (get_my_week via getMyWeek — see
@@ -43,6 +54,37 @@ export function missedYesterday(week: WeekDay[]): boolean {
  * structurally as well as having no template. */
 const PERSONAL_CHIP_MIN_EVIDENCE_RATE = 0.6;
 const PERSONAL_CHIP_MIN_AGREEMENT = 5;
+
+/** THE FLOOR, one predicate, one place. AR5 extends this gate from the
+ * personal chip to the whole starter set rather than inventing a second
+ * mechanism, and the two uses answer the same question: a pattern solid
+ * enough to build a personal chip on is exactly a pattern Rally can
+ * answer "what are you noticing about me?" from. Synthesis rows fail it
+ * structurally (B2 inserts them with NULL agreement/total) — deliberate,
+ * and the conservative direction: a chip that under-promises costs
+ * nothing, a chip that over-promises costs a message. */
+function meetsEvidenceFloor(p: BlueprintPattern): boolean {
+  return (
+    p.agreementCount >= PERSONAL_CHIP_MIN_AGREEMENT &&
+    p.evidenceRate >= PERSONAL_CHIP_MIN_EVIDENCE_RATE
+  );
+}
+
+/** Whether the private map holds enough for the RETRIEVAL chips to be
+ * answerable — the same floor derivePersonalChip filters on, which is
+ * why `!hasBlueprintEvidence(p)` structurally implies
+ * `derivePersonalChip(p, …) === null` and the two can never disagree. */
+export function hasBlueprintEvidence(patterns: BlueprintPattern[]): boolean {
+  return patterns.some(meetsEvidenceFloor);
+}
+
+/** The obstacle chip's text, or null. Fixed table lookup on the stored
+ * ON2 key and nothing else: no obstacle, or a key the table doesn't
+ * know, renders NO chip rather than a composed one. */
+export function obstacleChipFor(obstacle: string | null | undefined): string | null {
+  if (!obstacle) return null;
+  return STRINGS.askRallyObstacleChips[obstacle] ?? null;
+}
 
 /** The fixed template per deterministic pattern type — copy lives in
  * constants/strings.ts; this only routes structured fields into it.
@@ -95,11 +137,7 @@ export function derivePersonalChip(
 ): string | null {
   if (!userId) return null;
   const qualifying = patterns
-    .filter(
-      (p) =>
-        p.agreementCount >= PERSONAL_CHIP_MIN_AGREEMENT &&
-        p.evidenceRate >= PERSONAL_CHIP_MIN_EVIDENCE_RATE
-    )
+    .filter(meetsEvidenceFloor)
     .map((p) => ({ key: p.patternKey, question: personalQuestionFor(p) }))
     .filter((q): q is { key: string; question: string } => q.question !== null)
     .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
@@ -110,15 +148,61 @@ export function derivePersonalChip(
 
 export type StarterChip = { text: string; personal: boolean };
 
+/** AR5 — the set below the floors. Slot 1 keeps PM1B's own meaning
+ * (the in-my-way slot): the recovery chip takes it on a genuinely
+ * missed-yesterday day, otherwise the obstacle chip does when one
+ * exists, and it is simply absent when neither applies — THREE chips,
+ * not four padded with a retrieval question. The two chips that already
+ * work cold keep their slots verbatim.
+ *
+ * The recovery chip is deliberately still reachable here: missedYesterday
+ * needs real practice earlier in the visible week, so a lapse below the
+ * floors is a genuine lapse, and dropping the chip on evidence grounds
+ * would remove the warmest thing on the screen from exactly the person
+ * who needs it. It displaces the obstacle chip rather than joining it —
+ * same territory, and "never five" holds by construction. */
+function buildColdStartChips(opts: {
+  hasMissedYesterday: boolean;
+  obstacle?: string | null;
+}): string[] {
+  const inMyWaySlot = opts.hasMissedYesterday
+    ? STRINGS.askRallyRecoveryChip
+    : obstacleChipFor(opts.obstacle);
+  return [
+    STRINGS.askRallyTodayChip,
+    ...(inMyWaySlot ? [inMyWaySlot] : []),
+    STRINGS.blueprintAskChips[2],
+    STRINGS.blueprintAskChips[3],
+  ];
+}
+
 /** The four chips to render, in Cat's ruled order (the approved comp's
  * own ordering). The recovery chip keeps its PM1B rule — it replaces
  * "what's getting in my way lately?" on a missed-yesterday day. The
  * personal chip removes "am I expecting too much of myself?" and takes
- * the FIRST slot, featured. Always four chips, never five. */
+ * the FIRST slot, featured. Always four chips, never five.
+ *
+ * `hasEvidence` is REQUIRED rather than defaulted (AR5): a gate that
+ * silently defaults to "yes, the file can pay" is the same promise-
+ * without-a-mechanism defect this section exists to remove, so every
+ * call site states what it measured. Below it, the cold-start set —
+ * and `personalQuestion` cannot contend there, since it is derived
+ * through the same floor and is structurally null whenever this is
+ * false.
+ *
+ * The obstacle chip is NOT marked `personal`: that flag prints "from
+ * your check-ins", and the obstacle came from the Day-0 intake, not a
+ * check-in. Reusing it would make a false provenance claim, and a
+ * second label is outside this section's scope — flagged for Cat. */
 export function buildStarterChips(opts: {
   hasMissedYesterday: boolean;
+  hasEvidence: boolean;
   personalQuestion?: string | null;
+  obstacle?: string | null;
 }): StarterChip[] {
+  if (!opts.hasEvidence) {
+    return buildColdStartChips(opts).map((text) => ({ text, personal: false }));
+  }
   const base: string[] = [...STRINGS.blueprintAskChips];
   if (opts.hasMissedYesterday) base[1] = STRINGS.askRallyRecoveryChip;
   if (opts.personalQuestion) {

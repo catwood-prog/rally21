@@ -2,6 +2,7 @@ import {
   assembleAskRallySystemPrompt,
   buildBlueprintBlock,
   buildCircleBlock,
+  buildObstacleLine,
   buildReflectionsBlock,
   buildStatesBlock,
   buildWantsNote,
@@ -11,6 +12,7 @@ import {
   describeGlowState,
   describeMoodTrend,
   describePattern,
+  line2Label,
 } from './context';
 import { SYSTEM_PROMPT_TEMPLATE } from './system-prompt';
 
@@ -122,7 +124,9 @@ describe('describeGlowState', () => {
 
 describe('buildReflectionsBlock / buildCircleBlock', () => {
   it('renders reflection lines verbatim, dated', () => {
-    const block = buildReflectionsBlock([{ localDate: '2026-07-05', line1: 'my mom', line2: 'patience' }]);
+    const block = buildReflectionsBlock([
+      { localDate: '2026-07-05', line1: 'my mom', line2: 'patience', line2PromptKey: 'learnt' },
+    ]);
     expect(block).toContain('2026-07-05');
     expect(block).toContain('"my mom"');
     expect(block).toContain('"patience"');
@@ -177,12 +181,65 @@ describe('countMessagesOnLocalDate — the daily rate limit', () => {
   });
 });
 
+/* ------------------------------------------------------------------ *
+ * AR5 (5 Aug) — what the context knows, and what the persona does with
+ * a thin one.
+ * ------------------------------------------------------------------ */
+
+describe('line2Label — GQ1s cycle reaches Rally correctly named (AR5 job 2b)', () => {
+  it('labels each cycle key as itself — the key IS the label, per the spec', () => {
+    for (const key of ['goal', 'step', 'space', 'attention', 'meaning to', 'win', 'learnt', 'progress', 'imagine', 'honest']) {
+      expect(line2Label(key)).toBe(key);
+    }
+  });
+
+  it('falls back to "learned" for a pre-GQ1 row and for an unknown key — never a raw leak', () => {
+    expect(line2Label(null)).toBe('learned');
+    expect(line2Label('some_future_key')).toBe('learned');
+  });
+
+  it('THE BUG: a goal no longer reaches Rally labelled as something they learned', () => {
+    const block = buildReflectionsBlock([
+      { localDate: '2026-08-01', line1: null, line2: 'run a half marathon', line2PromptKey: 'goal' },
+    ]);
+    expect(block).toContain('goal: "run a half marathon"');
+    expect(block).not.toContain('learned:');
+  });
+
+  it('an old null-key row still reads "learned", exactly as it did before', () => {
+    const block = buildReflectionsBlock([
+      { localDate: '2026-07-05', line1: 'my mom', line2: 'patience', line2PromptKey: null },
+    ]);
+    expect(block).toBe('- 2026-07-05 — grateful for: "my mom". learned: "patience".');
+  });
+});
+
+describe('buildObstacleLine — the Day-0 answer finally reaches Rally (AR5 job 2a)', () => {
+  it('renders one line per stored ON2 key, grammatical, third-person', () => {
+    expect(buildObstacleLine('forget')).toBe(
+      'When they started, they said the thing that usually makes it hard to keep going is that they forget.'
+    );
+    for (const key of ['forget', 'no_time', 'lose_motivation', 'miss_once', 'alone']) {
+      const line = buildObstacleLine(key);
+      expect(line.startsWith('When they started,')).toBe(true);
+      expect(line.endsWith('.')).toBe(true);
+    }
+  });
+
+  it('empty when they skipped it, predate ON1, or stored a key we do not know', () => {
+    expect(buildObstacleLine(null)).toBe('');
+    expect(buildObstacleLine('')).toBe('');
+    expect(buildObstacleLine('some_future_key')).toBe('');
+  });
+});
+
 describe('assembleAskRallySystemPrompt', () => {
   it('fills in every template block, none left unreplaced, and appends the wants note', () => {
     const prompt = assembleAskRallySystemPrompt({
       template: SYSTEM_PROMPT_TEMPLATE,
       crisisResources: 'UK — 116 123. US — 988.',
       blueprintBlock: 'No blueprint patterns yet.',
+      obstacleLine: buildObstacleLine('no_time'),
       statesBlock: 'No recent check-in history yet.',
       reflectionsBlock: 'No reflections yet.',
       circleBlock: 'Not currently in any active circle.',
@@ -192,6 +249,7 @@ describe('assembleAskRallySystemPrompt', () => {
     expect(prompt).toContain('WHO YOU ARE');
     expect(prompt).toContain('988');
     expect(prompt).toContain('WANTS');
+    expect(prompt).toContain("there's never time");
   });
 
   it('appends nothing when there is no want to mention', () => {
@@ -199,11 +257,48 @@ describe('assembleAskRallySystemPrompt', () => {
       template: SYSTEM_PROMPT_TEMPLATE,
       crisisResources: 'UK — 116 123. US — 988.',
       blueprintBlock: 'x',
+      obstacleLine: '',
       statesBlock: 'x',
       reflectionsBlock: 'x',
       circleBlock: 'x',
       wantsNote: '',
     });
     expect(prompt).not.toContain('WANTS');
+  });
+
+  it('an absent obstacle leaves NO trace — not even a blank line (AR5 job 2a)', () => {
+    const prompt = assembleAskRallySystemPrompt({
+      template: SYSTEM_PROMPT_TEMPLATE,
+      crisisResources: 'x',
+      blueprintBlock: 'BLUEPRINT',
+      obstacleLine: '',
+      statesBlock: 'STATES',
+      reflectionsBlock: 'x',
+      circleBlock: 'x',
+      wantsNote: '',
+    });
+    expect(prompt).not.toContain('{{');
+    expect(prompt).toContain('BLUEPRINT\nSTATES');
+  });
+});
+
+describe('the cold-start persona section (AR5 job 3)', () => {
+  it('is present, and states all three beats as law', () => {
+    expect(SYSTEM_PROMPT_TEMPLATE).toContain('WHEN THE FILE IS THIN');
+    // never a bare shrug
+    expect(SYSTEM_PROMPT_TEMPLATE).toContain('"I don\'t know"');
+    // one TRUE observation, never invented
+    expect(SYSTEM_PROMPT_TEMPLATE).toContain('Never\ninvent one');
+    // exactly one concrete, today-anchored question
+    expect(SYSTEM_PROMPT_TEMPLATE).toContain('ask exactly ONE concrete question anchored in today');
+  });
+
+  it('sits inside the persona, above WHAT YOU KNOW ABOUT THEM', () => {
+    expect(SYSTEM_PROMPT_TEMPLATE.indexOf('WHEN THE FILE IS THIN')).toBeGreaterThan(
+      SYSTEM_PROMPT_TEMPLATE.indexOf('THE CORE MOVE')
+    );
+    expect(SYSTEM_PROMPT_TEMPLATE.indexOf('WHEN THE FILE IS THIN')).toBeLessThan(
+      SYSTEM_PROMPT_TEMPLATE.indexOf('WHAT YOU KNOW ABOUT THEM')
+    );
   });
 });

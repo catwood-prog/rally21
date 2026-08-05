@@ -1560,6 +1560,35 @@ export const STRINGS = {
   personalChipAfterNoon: 'why am I brighter later in the day?',
   personalChipConsistency: (hourLabel: string) => `why does checking in before ${hourLabel} work for me?`,
 
+  // AR5 (5 Aug) — the cold-start set, shown BELOW PM1C's evidence floors
+  // where the two retrieval chips ("what are you noticing about me?",
+  // "what's getting in my way lately?") ask a question of a file the
+  // honesty law correctly reports empty. The shrug that came back was
+  // the law working; the defect was the promise, and each shrug cost one
+  // of the day's five messages. This chip is episode-anchored rather
+  // than state-anchored (the Day Reconstruction Method's move: a
+  // concrete today beats a general how-are-you), and it works on day
+  // one because the person, not the file, holds the answer. Cat's nod,
+  // 5 Aug.
+  askRallyTodayChip: "here's what today was like",
+  // The obstacle chip's template table, keyed by the STORED
+  // users.keep_going_obstacle value — ON2's five fixed options, restated
+  // first-person under one uniform tail. Template-only, exactly as the
+  // personal chip above: the key IS the answer this person tapped at
+  // Day 0, so nothing here is paraphrased, inferred, or free-composed,
+  // and an absent or unrecognised key renders NO chip rather than a
+  // guess (PM1C's creepy-inference law, same failure mode). Second
+  // person elsewhere (onboardingObstacleReflected) because there Rally
+  // speaks; here the CHIP is the person's own question, so it is first
+  // person — the two tables are deliberately not shared.
+  askRallyObstacleChips: {
+    forget: "I forget — let's talk about it",
+    no_time: "there's never time — let's talk about it",
+    lose_motivation: "my motivation fades — let's talk about it",
+    miss_once: "one miss usually ends it — let's talk about it",
+    alone: "doing it alone is hard — let's talk about it",
+  } as Record<string, string>,
+
   // PM1B — the Ask Rally screen itself (REV 4, Cat's final layout).
   // Title: lowercase per the casing law, but Rally is a NAME and keeps
   // its capital (Cat's ruling, 21 July — LC1 carries the same exception

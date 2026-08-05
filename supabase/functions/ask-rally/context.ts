@@ -172,6 +172,37 @@ export interface ReflectionLine {
   localDate: string;
   line1: string | null;
   line2: string | null;
+  line2PromptKey: string | null;
+}
+
+/** GQ1's ten-question cycle keys, a hand-synced duplicate of
+ * lib/goalsSet.ts's GOALS_SET_CYCLE (see this file's header: a Deno edge
+ * function can't import the app's lib/). Kept as the key list alone —
+ * the question text isn't needed here, only the label. */
+const GOALS_SET_KEYS = [
+  "goal",
+  "step",
+  "space",
+  "attention",
+  "meaning to",
+  "win",
+  "learnt",
+  "progress",
+  "imagine",
+  "honest",
+];
+
+/** AR5 job 2b — the label for a reflection's second line. Mirrors
+ * lib/goalsSet.ts's goalsSetLabelForKey exactly: the key IS the label
+ * (Rally21-Goals-Set-Spec.md), and old rows (null key, from the
+ * "learned (optional)" era) plus any unknown key fall back to "learned"
+ * rather than leaking a raw key. Until now this was hard-coded
+ * "learned:" on EVERY line, so since GQ1 shipped, an answer to "what's a
+ * goal that matters to you right now?" reached Rally labelled as
+ * something the person had learned — the one place the context block
+ * told the model something untrue about its own contents. */
+export function line2Label(line2PromptKey: string | null): string {
+  return GOALS_SET_KEYS.find((k) => k === line2PromptKey) ?? "learned";
 }
 
 export function buildReflectionsBlock(reflections: ReflectionLine[]): string {
@@ -180,10 +211,35 @@ export function buildReflectionsBlock(reflections: ReflectionLine[]): string {
     .map((r) => {
       const parts: string[] = [];
       if (r.line1) parts.push(`grateful for: "${r.line1}"`);
-      if (r.line2) parts.push(`learned: "${r.line2}"`);
+      if (r.line2) parts.push(`${line2Label(r.line2PromptKey)}: "${r.line2}"`);
       return `- ${r.localDate} — ${parts.join(". ")}.`;
     })
     .join("\n");
+}
+
+/** AR5 job 2a — ON2's Day-0 obstacle, the one thing this person has
+ * already told us about what makes keeping going hard, which until now
+ * never reached Rally at all. A hand-synced duplicate of
+ * constants/strings.ts's onboardingObstacleReflected, third-person for
+ * the context block (which speaks ABOUT them to Rally). Template-only
+ * off the five stored ON2 keys: no free text exists in this column, so
+ * there is nothing to paraphrase, and an unknown key yields NO line
+ * rather than a guess. */
+const OBSTACLE_CLAUSES: Record<string, string> = {
+  forget: "they forget",
+  no_time: "there's never time",
+  lose_motivation: "their motivation fades",
+  miss_once: "one miss usually ends it",
+  alone: "doing it alone is hard",
+};
+
+/** One line, or "" when they skipped the question, predate ON1, or
+ * stored a key this table doesn't know — absent cleanly, never hedged. */
+export function buildObstacleLine(obstacle: string | null): string {
+  if (!obstacle) return "";
+  const clause = OBSTACLE_CLAUSES[obstacle];
+  if (!clause) return "";
+  return `When they started, they said the thing that usually makes it hard to keep going is that ${clause}.`;
 }
 
 export interface CircleSummary {
@@ -216,6 +272,7 @@ export function assembleAskRallySystemPrompt(params: {
   template: string;
   crisisResources: string;
   blueprintBlock: string;
+  obstacleLine: string;
   statesBlock: string;
   reflectionsBlock: string;
   circleBlock: string;
@@ -225,6 +282,10 @@ export function assembleAskRallySystemPrompt(params: {
     params.template
       .replace("{{crisis_resources}}", params.crisisResources)
       .replace("{{blueprint_block}}", params.blueprintBlock)
+      // The obstacle line takes its own newline with it when it's empty,
+      // so a person who skipped ON2's question leaves NO trace in the
+      // block — not a blank line the model has to interpret.
+      .replace("{{obstacle_line}}\n", params.obstacleLine ? `${params.obstacleLine}\n` : "")
       .replace("{{states_block}}", params.statesBlock)
       .replace("{{reflections_block}}", params.reflectionsBlock)
       .replace("{{circle_block}}", params.circleBlock) + params.wantsNote

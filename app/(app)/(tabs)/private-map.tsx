@@ -39,7 +39,13 @@ import { getMyWeek } from '@/lib/glow';
 import { getMyProfile, setReflectionsOptOut } from '@/lib/profile';
 import { captureError } from '@/lib/sentry';
 import { LikedCard, getMyLikedCards, hasAttributionLine, unlikeCard } from '@/lib/shareCards';
-import { buildStarterChips, derivePersonalChip, missedYesterday, StarterChip } from '@/lib/starterChips';
+import {
+  buildStarterChips,
+  derivePersonalChip,
+  hasBlueprintEvidence,
+  missedYesterday,
+  StarterChip,
+} from '@/lib/starterChips';
 
 /** PM2: the "quotes you love" list shows this many rows before the
  * "see all N" expander takes over. */
@@ -167,8 +173,11 @@ function Blueprint() {
   const [isActingOnWant, setIsActingOnWant] = useState(false);
   const [likedCards, setLikedCards] = useState<LikedCard[]>([]);
   const [showAllQuotes, setShowAllQuotes] = useState(false);
+  // AR5 — cold set until the evidence is measured (see the Ask Rally
+  // screen's note): the map's card is most often seen by exactly the
+  // people below the floors.
   const [askChips, setAskChips] = useState<StarterChip[]>(() =>
-    buildStarterChips({ hasMissedYesterday: false })
+    buildStarterChips({ hasMissedYesterday: false, hasEvidence: false })
   );
   // SK1 job 4 — the dormant state and its way back in.
   const [reflectionsOff, setReflectionsOff] = useState(false);
@@ -203,9 +212,12 @@ function Blueprint() {
       setAskChips(
         buildStarterChips({
           hasMissedYesterday: missedYesterday(myWeek),
+          // AR5 — the one gate, from the same already-loaded rows.
+          hasEvidence: hasBlueprintEvidence(myPatterns),
           // PM1C — same deterministic derivation as the Ask Rally screen,
           // from the same already-loaded pattern rows.
           personalQuestion: derivePersonalChip(myPatterns, session.user.id, getLocalDateString()),
+          obstacle: profile?.keep_going_obstacle ?? null,
         })
       );
 

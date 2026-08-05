@@ -45,7 +45,13 @@ import { LISTENER_STEAM_PATCH } from '@/lib/mascotFx';
 import { MASCOT_FX } from '@/lib/motion';
 import { getMyProfile, setReflectionsOptOut } from '@/lib/profile';
 import { getMySubstantiveReflectionCount } from '@/lib/reflections';
-import { buildStarterChips, derivePersonalChip, missedYesterday, StarterChip } from '@/lib/starterChips';
+import {
+  buildStarterChips,
+  derivePersonalChip,
+  hasBlueprintEvidence,
+  missedYesterday,
+  StarterChip,
+} from '@/lib/starterChips';
 
 /** M2 (d) — the listener with its one-shot mug steam: standard entrance,
  * then the steam patch (the frames differ only in a ~70×60px region
@@ -134,8 +140,12 @@ export function AskRallyScreen({
   const [error, setError] = useState<string | null>(null);
   const [limitMessage, setLimitMessage] = useState<string | null>(null);
   const [micDenied, setMicDenied] = useState(false);
+  // AR5 — the pre-load default is the COLD set, not the retrieval one:
+  // a flash of "what are you noticing about me?" on a day-one account is
+  // exactly the promise this section removes, and the load below
+  // upgrades it the moment the evidence is measured.
   const [chips, setChips] = useState<StarterChip[]>(() =>
-    buildStarterChips({ hasMissedYesterday: false })
+    buildStarterChips({ hasMissedYesterday: false, hasEvidence: false })
   );
   const [reflectionCount, setReflectionCount] = useState(0);
   // SK1 job 4 — Rally says the honest thing about what it can and can't
@@ -186,7 +196,14 @@ export function AskRallyScreen({
       setChips(
         buildStarterChips({
           hasMissedYesterday: missedYesterday(week),
+          // AR5 — the one gate, measured from the same already-loaded
+          // pattern rows the personal chip is derived from. A failed
+          // blueprint read fails soft to [] and therefore to the cold
+          // set, which is the honest direction: no evidence read, no
+          // evidence promised.
+          hasEvidence: hasBlueprintEvidence(patterns),
           personalQuestion: derivePersonalChip(patterns, userId ?? '', getLocalDateString()),
+          obstacle: profile?.keep_going_obstacle ?? null,
         })
       );
       setReflectionCount(count);
