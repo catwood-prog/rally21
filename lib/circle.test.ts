@@ -1,4 +1,4 @@
-import { attachRestingStatus, CircleMember, isSoloCircle, mapCircleRow, MyCircle, resolveCircleSelection, selectFromMyCircles } from './circle';
+import { attachRestingStatus, CircleMember, CirclePresenceRow, isSoloCircle, mapCircleRow, myStateInCircle, MyCircle, resolveCircleSelection, selectFromMyCircles } from './circle';
 
 function fakeMember(overrides: Partial<CircleMember> = {}): CircleMember {
   return {
@@ -279,5 +279,94 @@ describe('attachRestingStatus (RS1)', () => {
     const result = attachRestingStatus([freshJoiner], [], '2026-07-13');
 
     expect(result[0].isResting).toBe(false);
+  });
+});
+
+describe('myStateInCircle (HY1 job 8 — the picker row\u2019s mark for YOU)', () => {
+  const TODAY = '2026-08-05';
+  const ME = 'me';
+
+  const row = (o: Partial<CirclePresenceRow> = {}): CirclePresenceRow => ({
+    userId: ME,
+    localDate: TODAY,
+    kind: 'self',
+    coveredBy: null,
+    createdAt: `${TODAY}T09:00:00Z`,
+    ...o,
+  });
+
+  const members = [{ userId: ME }, { userId: 'them' }];
+
+  test('a self check-in today reads done', () => {
+    expect(myStateInCircle({ userId: ME, members, presence: [row()], today: TODAY })).toBe('done');
+  });
+
+  test('no row for today reads not-yet', () => {
+    expect(
+      myStateInCircle({ userId: ME, members, presence: [row({ localDate: '2026-08-04' })], today: TODAY })
+    ).toBe('pending');
+  });
+
+  test('NOT LOADED reads as nothing at all — never as "not yet"', () => {
+    // THE WRONG CLAIM THIS PREVENTS. The picker fills its per-circle data
+    // one circle at a time, so a row renders before its members and
+    // presence arrive. A bare `inTodayIds.has(me)` is false then and
+    // would tell someone they had not shown up today when the app had
+    // simply not looked yet.
+    expect(myStateInCircle({ userId: ME, members: [], presence: [], today: TODAY })).toBeNull();
+  });
+
+  test('no session reads as nothing — the mark is about YOU or it is absent', () => {
+    expect(myStateInCircle({ userId: undefined, members, presence: [row()], today: TODAY })).toBeNull();
+  });
+
+  test('a COVERED day is its own state, never a quiet tick', () => {
+    // CLAUDE.md's cover-a-friend rule: a cover is a celebrated gift, not
+    // a substitute for done. A covered row sits in today's presence
+    // exactly like a self check-in, so `has(me)` alone would flatten it.
+    expect(
+      myStateInCircle({
+        userId: ME,
+        members,
+        presence: [row({ kind: 'covered', coveredBy: 'them' })],
+        today: TODAY,
+      })
+    ).toBe('covered');
+  });
+
+  test('covered WINS over a same-day self row — the gift is the thing that happened', () => {
+    expect(
+      myStateInCircle({
+        userId: ME,
+        members,
+        presence: [row(), row({ kind: 'covered', coveredBy: 'them' })],
+        today: TODAY,
+      })
+    ).toBe('covered');
+  });
+
+  test('somebody ELSE\u2019s day is never mistaken for yours', () => {
+    expect(
+      myStateInCircle({ userId: ME, members, presence: [row({ userId: 'them' })], today: TODAY })
+    ).toBe('pending');
+  });
+
+  test('an RS2 away row reads done — pinned as OBSERVED, and deliberately', () => {
+    // completions.kind gained a third value, 'away', with RS2: one
+    // protective row per held day, backfilled by return_from_away(). It
+    // is presence without showing up, so "you're in" is arguably
+    // generous — but the avatar strip three lines below this mark's call
+    // site counts every kind the same way, and a row whose badge and
+    // whose mark disagreed about the same day would be worse than a
+    // generous one. If that ever gets tightened, tighten BOTH, and this
+    // test is where the decision is written down.
+    //
+    // The cast is not laziness: lib/circle.ts's PresenceKind is
+    // `'self' | 'covered'` and has never been widened to RS2's third
+    // value, while getCirclePresence casts `row.kind as PresenceKind` —
+    // so an away row DOES arrive on the client wearing a type that says
+    // it cannot exist. Reported, not fixed here.
+    const away = { ...row(), kind: 'away' } as unknown as CirclePresenceRow;
+    expect(myStateInCircle({ userId: ME, members, presence: [away], today: TODAY })).toBe('done');
   });
 });

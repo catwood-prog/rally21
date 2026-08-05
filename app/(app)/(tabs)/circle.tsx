@@ -47,6 +47,7 @@ import {
   listMyCircles,
   MyCircle,
   removeMemberFromCircle,
+  myStateInCircle,
   resolveCircleSelection,
   setCircleClosedToJoins,
   setCircleResourceUrl,
@@ -503,26 +504,18 @@ function YourCircle() {
           const inTodayIds = new Set(
             data.presence.filter((p) => p.localDate === today).map((p) => p.userId)
           );
-          // HY1 job 8 — YOUR own state in this circle, from the same
-          // `inTodayIds` the avatar strip below already builds and the
-          // same `data.presence` rows, so it can never disagree with the
-          // badge on your own avatar. Null until this circle's members
-          // have actually arrived: `listData` fills in per circle, and a
-          // missing entry means NOT LOADED, which must not render as
-          // "not yet" — the one wrong claim this mark could make.
-          // Covered is its own state, never a quiet ✓ (CLAUDE.md's
-          // cover-a-friend rule).
-          const me = session?.user?.id;
-          const myStateHere: 'done' | 'covered' | 'pending' | null =
-            !me || data.members.length === 0
-              ? null
-              : data.presence.some(
-                    (p) => p.localDate === today && p.userId === me && p.kind === 'covered'
-                  )
-                ? 'covered'
-                : inTodayIds.has(me)
-                  ? 'done'
-                  : 'pending';
+          // HY1 job 8 — YOUR own state in this circle. The three rules it
+          // has to get right (not-loaded is not "not yet"; covered is its
+          // own state; it must agree with your avatar's badge) live in
+          // lib/circle.ts with their test, because each one is a claim
+          // about a person and WB1's "one line" sizing did not survive
+          // re-verification.
+          const myStateHere = myStateInCircle({
+            userId: session?.user?.id,
+            members: data.members,
+            presence: data.presence,
+            today,
+          });
 
           return (
             <TouchableOpacity

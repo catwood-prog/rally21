@@ -482,6 +482,46 @@ export type CirclePresenceRow = {
   createdAt: string;
 };
 
+/** HY1 job 8 (Cat RULED YES, 4 Aug) — WHERE YOU STAND in one circle
+ * today, for the circle picker's per-row mark.
+ *
+ * RE-VERIFIED, and WB1's "one line (inTodayIds.has(me))" sizing does not
+ * survive it. Three things the one-liner gets wrong, all of them claims
+ * about a person:
+ *
+ *   NOT LOADED IS NOT "NOT YET". The picker fills its per-circle data
+ *   one circle at a time, so a row can render before its members and
+ *   presence have arrived. `has(me)` is false then, and a mark drawn
+ *   from it would tell someone they had not shown up today when the app
+ *   had simply not looked. `null` means "say nothing yet".
+ *
+ *   COVERED IS ITS OWN STATE. A day a friend covered is in
+ *   `inTodayIds` exactly like a self check-in, so `has(me)` would render
+ *   it as an ordinary tick — and CLAUDE.md's cover-a-friend rule is
+ *   explicit that a cover is a celebrated gift, never a quiet
+ *   substitute for done.
+ *
+ *   IT MUST AGREE WITH THE AVATAR. It reads the same `presence` rows the
+ *   strip below already reads, in the same order of checks, so your row
+ *   mark and the badge on your own avatar cannot disagree.
+ *
+ * The mark exists at all because your avatar may not be visible: `shown`
+ * is capped at MAX_AVATARS_SHOWN and RS1 sorts the huddle's edge in
+ * first, so on a full circle the one member you are looking for is the
+ * one the row can lose to "+N". */
+export function myStateInCircle(params: {
+  userId: string | undefined;
+  members: { userId: string }[];
+  presence: CirclePresenceRow[];
+  today: string;
+}): 'done' | 'covered' | 'pending' | null {
+  const { userId, members, presence, today } = params;
+  if (!userId || members.length === 0) return null;
+  const mine = presence.filter((p) => p.localDate === today && p.userId === userId);
+  if (mine.some((p) => p.kind === 'covered')) return 'covered';
+  return mine.length > 0 ? 'done' : 'pending';
+}
+
 /** Every (user_id, local_date) a circle has completed — used both for
  * "who's in today" and the trailing-7-day glow math. Reads directly from
  * completions, which is content-free by design (no mood/line/answer), so
