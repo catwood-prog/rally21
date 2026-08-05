@@ -260,6 +260,9 @@ export default function CheckInComplete() {
         const echo = buildEchoLine(rows);
         if (!echo) return;
         setEchoWarmth(echo);
+        // FF1 rule 1 — silence is right: the stamp only stops this
+        // same echo showing again. A failed write costs a repeat of a
+        // kind line, which is the cheapest failure in the app.
         markWarmthSeen(userId, echo.createdAt).catch(() => {});
       })
       .catch(() => {
@@ -279,10 +282,23 @@ export default function CheckInComplete() {
           // person does next (Turn on, Nice, navigate away, kill the app),
           // the primer never comes back. Before this, only the two buttons
           // marked it seen, so simply continuing let it reappear forever.
-          markPushPromptSeen(userId).catch(() => {});
+          // FF1 rule 3 — REPORTED, never swallowed. Silence for the
+          // person is right; silence for us is not, because a lost
+          // write means this permission primer comes back at every
+          // earned moment forever, which is precisely the nagging PN1's
+          // one-shot law exists to prevent — and nothing else in the app
+          // would ever surface it.
+          markPushPromptSeen(userId).catch((e) =>
+            captureError(e, { screen: 'checkin-complete', op: 'markPushPromptSeen' })
+          );
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // FF1 rule 1 — silence is right: this whole chain is the push
+        // primer's eligibility check. A failed read simply does not
+        // offer the primer this time, which is the conservative
+        // direction — the ask survives to a later earned moment.
+      });
   }, [session?.user]);
 
   const handleTurnOnPush = () => {
@@ -318,7 +334,13 @@ export default function CheckInComplete() {
         setIsDayComplete(state.isComplete);
         setAwaitingCount(state.awaitingCount);
       })
-      .catch(() => {});
+      .catch(() => {
+        // FF1 rule 1 — silence is right, and CONSERVATIVE by design:
+        // `isDayComplete` stays false, so OD1 job 9's gate simply
+        // doesn't open and the share card is not offered. The failure
+        // withholds a card; it can never claim a day is done when it
+        // isn't.
+      });
   }, [session?.user?.id]);
 
   // SC1 — the card slot (Rally21-Share-Cards-Spec.md §3): only fetch once
@@ -741,7 +763,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontWeight: '700',
     fontSize: 15,
-    color: '#fff',
+    color: colors.onFill,
   },
   // WL2 — the echo shares the push-ask's quiet register: small, muted,
   // centered, below the CTA. One line only, so the P3-proven 390×667

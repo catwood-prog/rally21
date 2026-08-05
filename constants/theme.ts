@@ -139,6 +139,52 @@ export const colors = {
   // CH5 — the photo/avatar placeholder grey, promoted from '#ddd'
   // repeated in profile.tsx and Avatar.tsx.
   placeholderGrey: '#ddd',
+  // HY1 job 3 (R6, 5 Aug) — THE FOREGROUND ON A FILL. White text or a
+  // white glyph sitting ON a coloured surface: a gold or green button's
+  // label, the check-in badge's ✓, the timer screen's copy on its dark
+  // green, a spinner inside a filled button, `<Brandmark light />`.
+  //
+  // It is NOT `colors.card`. Those two are the same white today and mean
+  // opposite things — `card` is a SURFACE you put ink on, this is the
+  // INK you put on a surface — so a sweep that mapped 31 `'#fff'`
+  // literals onto `card` would have read as correct and quietly welded
+  // the two roles together. Should a surface ever go off-white, `card`
+  // moves and this must not.
+  //
+  // CONTRAST IS THE FILL'S JOB, NOT THIS TOKEN'S, and the fills below it
+  // today do not all carry it. MEASURED white-on-fill, 5 Aug:
+  //   #16332a (check-in timer)  13.63   errorRed #B3261E   6.54
+  //   plum #7A6486              5.26    heart #D97757      3.12
+  //   green #5BA85B             2.92    gold #F4C84B       1.59
+  // Green is where this actually lands most often (~13 of the 31 sites
+  // swept: every primary CTA, the selected pill/chip family, the wall's
+  // own bubble, CheckedInBadge's ✓) and 2.92:1 misses 4.5:1 for normal
+  // text and 3:1 for large text alike — the same shape OD1 job 10 found
+  // when green was used AS text, arrived at from the other side. HY1 job
+  // 3 changed no pixels and RULED NOTHING: the sweep is `'#fff'` →
+  // `colors.onFill`, byte-for-byte the same white, and the remedy
+  // (darker CTA fills, or ink on green) is a brand decision for Cat, not
+  // a mechanical one. Never map a fill to gold and put this on it: 1.59
+  // is not a near miss.
+  onFill: '#FFFFFF',
+  // HY1 job 3 (R6) — THE GOLD WASH: a SOLID warm-gold surface and the
+  // two things that sit on it. Promoted from reflection.tsx's three
+  // one-off literals (the "your picture grows as you go" card), which
+  // were the last hex trio in a screen file.
+  //
+  // Not `goldSoft`, and the difference is load-bearing: goldSoft is gold
+  // at alpha 0.15, so it takes the colour of whatever is behind it and
+  // cannot be measured against once. These three are opaque, so the pair
+  // below is fixed wherever the card is placed — MEASURED 5 Aug:
+  // goldWashText on goldWash 5.56:1, and 5.39:1 even if the card is ever
+  // dropped straight onto `bg`. Both clear 4.5:1, which is why the card
+  // carries 11.5px copy at all.
+  //
+  // goldWashBorder is a BORDER (1.30:1 against the fill) — decoration,
+  // never text, exactly as the green/gold-are-fills rule has it.
+  goldWash: '#FDF4DC',
+  goldWashBorder: '#EAD79B',
+  goldWashText: '#7A5E1A',
   // Error/destructive text and borders — promoted from repeated literals.
   errorRed: '#B3261E',
   // Modal/sheet backdrop dim — promoted from a repeated literal.

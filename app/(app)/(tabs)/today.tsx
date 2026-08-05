@@ -48,6 +48,7 @@ import {
   isSoloCircle,
   listMyCircles,
   MyCircle,
+  selectFromMyCircles,
   subscribeToCirclePresence,
 } from '@/lib/circle';
 import { isBirthdayToday } from '@/lib/birthday';
@@ -290,6 +291,24 @@ function Today() {
         getMyCircleCap(),
         getDailyQuestion(today),
         getTodayReflection(today),
+        // FF1 rule 1, the three ambient reads at the top of Today, and
+        // the reason each substitutes ABSENCE rather than a value:
+        //   getMyGlow  -> null hides the GlowBadge entirely. Rule 2 is
+        //     the binding one here: the glow is a person-facing NUMBER
+        //     about their own streak, so a `?? 0` or `?? 1` would tell
+        //     someone on day 40 they were on day 1. No badge says
+        //     nothing; a wrong badge says something false.
+        //   getMyWeek  -> null leaves the footer's week row and the
+        //     glow's day dots unrendered, same reasoning: dots are a
+        //     record of days, and an empty week reads as "you missed
+        //     them all".
+        //   hasUnrespondedDayObservation -> false hides the "something
+        //     we noticed" link, the CONSERVATIVE direction (Cat, 28
+        //     July): a link offered on a failed read lands on a screen
+        //     with nothing on it.
+        // None of the three feeds a write, and Today's own load failure
+        // path (the catch below) still owns the case where the circle
+        // data itself is missing.
         getMyGlow().catch(() => null),
         getMyWeek().catch(() => null),
         hasUnrespondedDayObservation(session.user.id).catch(() => false),
@@ -925,7 +944,16 @@ function Today() {
     if (!session?.user) return;
     setHasSeenRemindersAsk(true);
     dismissActiveAsk();
-    markRemindersAskSeen(session.user.id).catch(() => {});
+    // FF1 rule 3 — REPORTED, never swallowed. Silence for the USER is
+    // right (the card is already gone from this session's slot, and an
+    // error toast about bookkeeping would be worse than the bug), but
+    // this is the durable half: if the write never lands, the ask comes
+    // back on the next open having already been answered, and nothing
+    // else in the app would ever notice. Same shape as
+    // markPushPromptSeen in checkin-complete.
+    markRemindersAskSeen(session.user.id).catch((e) =>
+      captureError(e, { screen: 'today', op: 'markRemindersAskSeen' })
+    );
   };
   const remindersAskCard =
     activeAskId === ASK_REMINDERS ? (
@@ -951,14 +979,22 @@ function Today() {
   const handlePhotoAskAdd = () => {
     if (!session?.user) return;
     setHasSeenPhotoAsk(true);
-    markPhotoAskSeen(session.user.id).catch(() => {});
+    // FF1 rule 3 — see handleMaybeLaterReminders above: silent for the
+    // person, reported for us, because a lost write re-asks someone who
+    // has already answered.
+    markPhotoAskSeen(session.user.id).catch((e) =>
+      captureError(e, { screen: 'today', op: 'markPhotoAskSeen' })
+    );
     router.push('/settings');
   };
   const handlePhotoAskDismiss = () => {
     if (!session?.user) return;
     setHasSeenPhotoAsk(true);
     dismissActiveAsk();
-    markPhotoAskSeen(session.user.id).catch(() => {});
+    // FF1 rule 3 — same as the add path above.
+    markPhotoAskSeen(session.user.id).catch((e) =>
+      captureError(e, { screen: 'today', op: 'markPhotoAskSeen' })
+    );
   };
   const photoAskCard =
     activeAskId === ASK_PHOTO && session?.user ? (
@@ -1589,19 +1625,40 @@ function Today() {
 
       {/* NO-NAG LAW (SK1): silent once opted out — see the single-circle
           branch's note. */}
-      {!reflectionsOptOut && !hasWrittenReflectionToday && reflectionQuestion && circles[0] && (
+      {!reflectionsOptOut && !hasWrittenReflectionToday && reflectionQuestion && circles.length > 0 && (
         <TouchableOpacity
           style={styles.reflectionTeaser}
           onPress={() => {
-            const firstCircle = circles[0];
-            const firstCircleData = circleData[firstCircle.id] ?? { members: [], presence: [], lastCelebratedDay: 0 };
-            const firstCircleSignal = computeSignal({
-              presence: firstCircleData.presence,
-              memberCount: firstCircleData.members.length,
+            // HY1 job 1 (R3) — THE PRIMARY-CIRCLE LAW (CLAUDE.md: "No
+            // code may assume a single or primary circle"). This teaser
+            // used to open `circles[0]`'s check-in, and a check-in is
+            // not a read: finishing it WRITES a completion. So a guess
+            // here could record someone's day against a circle they
+            // never picked — the invite-screen class the law was written
+            // after, with a durable side effect attached.
+            //
+            // The reflection itself is per-person-per-day and carries no
+            // circleId (lib/reflections.ts), which is precisely why this
+            // screen cannot infer one: nothing about the question names
+            // a practice. So it takes the law's own answer — one circle
+            // is unambiguous, more than one gets ASKED — and hands the
+            // ask to the circle tab's existing picker rather than
+            // inventing a second one. Clean path, no params: a stale
+            // `circleId` is what OD1 job 6 cleared for the same reason.
+            const selection = selectFromMyCircles(circles);
+            if (selection.kind === 'picker' || !selection.circle) {
+              router.push('/circle');
+              return;
+            }
+            const only = selection.circle;
+            const onlyData = circleData[only.id] ?? { members: [], presence: [], lastCelebratedDay: 0 };
+            const onlySignal = computeSignal({
+              presence: onlyData.presence,
+              memberCount: onlyData.members.length,
               today,
-              circleStartDate: firstCircle.startDate,
+              circleStartDate: only.startDate,
             });
-            goToCheckin(firstCircle, false, firstCircleSignal.dayNumber);
+            goToCheckin(only, false, onlySignal.dayNumber);
           }}
         >
           <Text style={styles.reflectionTeaserText}>

@@ -422,7 +422,7 @@ export function AskRallyScreen({
                 disabled={isDeleting}
               >
                 {isDeleting ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={colors.onFill} />
                 ) : (
                   <Text style={styles.confirmDeleteText}>{STRINGS.askRallyDelete}</Text>
                 )}
@@ -614,7 +614,7 @@ export function AskRallyScreen({
               hitSlop={8}
             >
               {isSending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={colors.onFill} />
               ) : (
                 <Text style={styles.sendButtonText}>{STRINGS.askRallySendCta}</Text>
               )}
@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
   confirmDeleteText: {
     fontWeight: '700',
     fontSize: 12.5,
-    color: '#fff',
+    color: colors.onFill,
   },
   contextRow: {
     flexDirection: 'row',

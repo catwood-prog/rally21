@@ -14,10 +14,10 @@ import { MessageDialog } from '@/components/MessageDialog';
 import { ShareCardView } from '@/components/ShareCardView';
 import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
+import { useShareCardFlow } from '@/hooks/use-share-card-flow';
 import { SHARE_CARD_FX } from '@/lib/motion';
 import { WeekDay } from '@/lib/glow';
 import { captureError } from '@/lib/sentry';
-import { captureShareCard, saveCardImage, shareCardImage } from '@/lib/shareCardExport';
 import { isShareCardFlavor, recordCardEvent, ShareCardFlavor } from '@/lib/shareCards';
 import { dotStripLine } from '@/lib/shareCardTemplates';
 
@@ -76,7 +76,6 @@ export default function ShareCard() {
   const { cardKey } = params;
 
   const [liked, setLiked] = useState(false);
-  const [isSharing, setIsSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // OD1 Job 8d/8e — the card has been engaged (liked, shared, or saved).
   // Right now the heart fills and nothing else moves, which is why the tap
@@ -129,11 +128,17 @@ export default function ShareCard() {
   // future weight) and returns to Today. Shared by the ✕ (Job 8b, kept)
   // and the big "see you tomorrow" close (Job 8a).
   const dismissToToday = () => {
+    // FF1 rule 1 — silence is right: card_events is rotation-tuning
+    // telemetry. A lost 'dismissed' costs a little future weighting
+    // accuracy; blocking the way off the screen on a write would cost
+    // the person their exit.
     if (cardKey) recordCardEvent(flavor, cardKey, 'dismissed').catch(() => {});
     goToToday();
   };
 
   const handleNotForMe = () => {
+    // FF1 rule 1 — same as dismissToToday above: telemetry, never a
+    // reason to hold someone on a card they've said no to.
     if (cardKey) recordCardEvent(flavor, cardKey, 'passed').catch(() => {});
     goToToday();
   };
@@ -160,28 +165,19 @@ export default function ShareCard() {
     });
   };
 
-  const handleShare = async () => {
-    if (!cardKey) return;
-    setIsSharing(true);
-    try {
-      const uri = await captureShareCard(cardRef);
-      const shared = await shareCardImage(uri);
-      if (shared) {
-        recordCardEvent(flavor, cardKey, 'shared').catch(() => {});
-      } else {
-        await saveCardImage(uri);
-        recordCardEvent(flavor, cardKey, 'saved').catch(() => {});
-      }
-      // OD1 Job 8e — a successful share (or save fallback) lands: the
-      // forward close gains its weight, so a person who's just shared is
-      // pointed home instead of left on the card.
-      setResolved(true);
-    } catch {
-      setError(STRINGS.shareCardShareError);
-    } finally {
-      setIsSharing(false);
-    }
-  };
+  // HY1 job 4 (R5) — the capture/share/save/record composition moved
+  // WHOLE into hooks/use-share-card-flow.ts, because /wrapped had typed
+  // out the same seven lines. Nothing about this screen's behaviour moved
+  // with it: same capture ref, same save fallback, same events, same warm
+  // failure line, and OD1 job 8e's `resolved` still flips here — it is
+  // this screen's closing beat, not the flow's.
+  const { share: handleShare, isSharing } = useShareCardFlow({
+    flavor,
+    cardKey,
+    cardRef,
+    onError: setError,
+    onResolved: () => setResolved(true),
+  });
 
   // OD1 Job 8d/8e — once the card has been engaged, the close gets one
   // gentle pop so the eye lands on the way home. One shot, reduced-motion

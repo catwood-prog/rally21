@@ -203,7 +203,9 @@ export function buildReminderPlan(params: {
 
 /** The device-local marker read by syncDailyReminder to keep a
  * post-check-in top-up from re-arming the day it just cancelled. */
-export async function getReminderSkipDate(): Promise<string | null> {
+// HY1 job 2 (R7) — module-private: syncDailyReminder in this file is
+// the only reader, and the marker is an internal detail of it.
+async function getReminderSkipDate(): Promise<string | null> {
   return AsyncStorage.getItem(SKIP_DATE_KEY);
 }
 

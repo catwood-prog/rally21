@@ -106,6 +106,6 @@ const styles = StyleSheet.create({
     color: colors.mutedStrong,
   },
   pillTextOn: {
-    color: '#fff',
+    color: colors.onFill,
   },
 });

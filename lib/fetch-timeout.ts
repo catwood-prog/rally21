@@ -64,6 +64,28 @@ export function timeoutForUrl(url: string): number {
   return url.includes('/storage/v1/') ? STORAGE_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
 }
 
+/** HY1 job 7 — "did this load fail, or did it never answer?", for a
+ * screen that wants to say something truer than "couldn't load".
+ *
+ * IT HAS TO MATCH TWO SHAPES, and that is the whole reason it exists.
+ * The deadline above throws a real `Error` with `name = 'AbortError'` —
+ * but almost nothing in the app ever SEES that error. postgrest-js
+ * (2.110.0, PostgrestBuilder) catches every fetch rejection and RESOLVES
+ * with `{ data: null, error: { message: 'AbortError: …', hint: 'Request
+ * was aborted (timeout or manual cancellation)' } }`, and our `lib/`
+ * readers then `throw error` — a plain object with no `name`. So a check
+ * for `e.name === 'AbortError'` alone is correct-looking and would miss
+ * every PostgREST read, RPC and write in the app, which is all of them.
+ *
+ * Deliberately NARROW: it answers "did the deadline fire", nothing more.
+ * A caller still handles the failure — this only chooses the sentence. */
+export function isRequestTimeout(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const e = error as { name?: unknown; code?: unknown; message?: unknown };
+  if (e.name === 'AbortError' || e.code === 'ABORT_ERR') return true;
+  return typeof e.message === 'string' && e.message.startsWith('AbortError:');
+}
+
 function urlOf(input: RequestInfo | URL): string {
   if (typeof input === 'string') return input;
   const asRequest = input as Request;

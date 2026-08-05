@@ -95,6 +95,12 @@ export function playChime(): void {
   if (!audioContext) return;
   try {
     if (audioContext.state === 'suspended') {
+      // FF1 rule 1 — silence is right, twice over: a browser that
+      // refuses to resume is refusing to make a SOUND, and the timer's
+      // own end-state screen is the real completion signal (see this
+      // function's docblock). The resume is also deliberately not
+      // awaited — the tones below are scheduled on the same context and
+      // an await here would put them outside the gesture.
       audioContext.resume().catch(() => {});
     }
     const now = audioContext.currentTime;
@@ -204,6 +210,8 @@ export function playGlowBeatBowl(): void {
   if (!audioContext) return;
   try {
     if (audioContext.state === 'suspended') {
+      // FF1 rule 1 — see playChime above: a refused resume costs a
+      // sound, nothing else, and the beat plays on screen regardless.
       audioContext.resume().catch(() => {});
     }
     const now = audioContext.currentTime;

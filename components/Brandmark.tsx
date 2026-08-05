@@ -28,7 +28,7 @@ export function Brandmark({
 
   return (
     <Text style={[{ fontSize: size, letterSpacing }, style]}>
-      <Text style={{ fontFamily: FONT_HEADER, color: light ? '#fff' : colors.ink }}>Rally</Text>
+      <Text style={{ fontFamily: FONT_HEADER, color: light ? colors.onFill : colors.ink }}>Rally</Text>
       <Text style={{ fontFamily: FONT_SERIF_ITALIC, color: colors.gold }}>21</Text>
     </Text>
   );

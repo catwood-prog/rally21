@@ -23,6 +23,11 @@ export function useWakeLock(active: boolean) {
         // unsupported or denied — the timer still runs without it
       });
       return () => {
+        // FF1 rule 1 — silence is right: this is teardown on a screen
+        // that is already going away. The tag scopes the lock to this
+        // timer, and expo-keep-awake drops it with the activity anyway,
+        // so the worst case is a screen that stays awake a moment
+        // longer. There is no user left on this screen to tell.
         deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
       };
     }
@@ -40,6 +45,10 @@ export function useWakeLock(active: boolean) {
         .request('screen')
         .then((s: NonNullable<typeof sentinel>) => {
           if (cancelled) {
+            // FF1 rule 1 — silence is right: the effect was torn down
+            // while this request was in flight, so this releases a lock
+            // nobody is using. A failure here is invisible by
+            // definition — the screen it belonged to is gone.
             s.release().catch(() => {});
             return;
           }
@@ -68,6 +77,9 @@ export function useWakeLock(active: boolean) {
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibility);
       }
+      // FF1 rule 1 — same as the cancelled branch above: teardown of a
+      // lock whose screen has ended. The browser releases it on
+      // navigation regardless.
       sentinel?.release().catch(() => {});
     };
   }, [active]);

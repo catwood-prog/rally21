@@ -1,4 +1,4 @@
-import { attachRestingStatus, CircleMember, isSoloCircle, mapCircleRow, MyCircle, resolveCircleSelection } from './circle';
+import { attachRestingStatus, CircleMember, isSoloCircle, mapCircleRow, MyCircle, resolveCircleSelection, selectFromMyCircles } from './circle';
 
 function fakeMember(overrides: Partial<CircleMember> = {}): CircleMember {
   return {
@@ -124,6 +124,53 @@ describe('mapCircleRow — the circle-first duration read (PB1)', () => {
         practices: null,
       }).instructions
     ).toBe('3 rounds — 10 breaths, rest a minute');
+  });
+});
+
+describe('selectFromMyCircles (HY1 job 1 / R3 — the primary-circle law from a list already in hand)', () => {
+  test('exactly one circle is unambiguous', () => {
+    const circle = fakeCircle();
+    expect(selectFromMyCircles([circle])).toEqual({ kind: 'single', circle });
+  });
+
+  test('zero circles resolves to a null circle rather than crashing', () => {
+    expect(selectFromMyCircles([])).toEqual({ kind: 'single', circle: null });
+  });
+
+  test('more than one circle ASKS — it never returns circles[0]', () => {
+    // THE REGRESSION THIS PINS: today.tsx's multi-circle reflection
+    // teaser opened `circles[0]`'s check-in, and a completed check-in
+    // WRITES a completion — so a guess here recorded someone's day
+    // against a circle they never chose.
+    const circleA = fakeCircle({ id: 'circle-a', name: 'Circle A' });
+    const circleB = fakeCircle({ id: 'circle-b', name: 'Circle B' });
+
+    const result = selectFromMyCircles([circleA, circleB]);
+
+    expect(result).toEqual({ kind: 'picker', circles: [circleA, circleB] });
+    expect(result.kind).not.toBe('single');
+  });
+
+  test('three circles still ask — the rule is "more than one", not "exactly two"', () => {
+    const circles = [
+      fakeCircle({ id: 'a' }),
+      fakeCircle({ id: 'b' }),
+      fakeCircle({ id: 'c' }),
+    ];
+    expect(selectFromMyCircles(circles)).toEqual({ kind: 'picker', circles });
+  });
+
+  test('resolveCircleSelection and selectFromMyCircles cannot disagree', async () => {
+    // The async entry point delegates to this one on purpose: two copies
+    // of "more than one" is how a screen ends up with its own quiet
+    // exception to the law.
+    const circles = [fakeCircle({ id: 'a' }), fakeCircle({ id: 'b' })];
+    const viaFetch = await resolveCircleSelection(undefined, 'user-1', {
+      getCircleById: jest.fn(),
+      listMyCircles: jest.fn().mockResolvedValue(circles),
+    });
+
+    expect(viaFetch).toEqual(selectFromMyCircles(circles));
   });
 });
 

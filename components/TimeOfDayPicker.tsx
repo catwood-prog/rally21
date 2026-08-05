@@ -137,6 +137,6 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   chipTextSelected: {
-    color: '#fff',
+    color: colors.onFill,
   },
 });

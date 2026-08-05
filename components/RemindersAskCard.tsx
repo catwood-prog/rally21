@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     color: colors.mutedStrong,
   },
   alarmPillTextOn: {
-    color: '#fff',
+    color: colors.onFill,
   },
   alarmPicker: {
     marginTop: 14,
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   ctaText: {
     fontWeight: '700',
     fontSize: 14,
-    color: '#fff',
+    color: colors.onFill,
   },
   maybeLater: {
     marginTop: 14,

@@ -214,7 +214,7 @@ export default function YourData() {
                     disabled={isDeletingPhoto}
                   >
                     {isDeletingPhoto ? (
-                      <ActivityIndicator size="small" color="#fff" />
+                      <ActivityIndicator size="small" color={colors.onFill} />
                     ) : (
                       <Text style={styles.confirmDeleteText}>{STRINGS.yourDataDeletePhotoConfirmCta}</Text>
                     )}
@@ -270,7 +270,7 @@ export default function YourData() {
               disabled={isDeletingAccount || deleteAccountTypedText.trim().toUpperCase() !== 'DELETE'}
             >
               {isDeletingAccount ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={colors.onFill} />
               ) : (
                 <Text style={styles.confirmDeleteText}>{STRINGS.yourDataDeleteAccountConfirmCta}</Text>
               )}
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   confirmDeleteText: {
     fontWeight: '700',
     fontSize: 12.5,
-    color: '#fff',
+    color: colors.onFill,
   },
   buttonDisabled: {
     opacity: 0.5,

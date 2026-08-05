@@ -42,6 +42,10 @@ export default function Reflection() {
     try {
       const [reflections, myBlueprint] = await Promise.all([
         getMyReflections(session.user.id),
+        // FF1 rule 1 — silence is right: the blueprint is additive
+        // here (it decides only whether the "see your blueprint" link
+        // appears beneath the observation). [] hides the link rather
+        // than offering one to a screen we could not read.
         getMyBlueprint().catch(() => []),
       ]);
       const result = computeDayObservation(reflections);
@@ -298,9 +302,9 @@ const styles = StyleSheet.create({
     color: colors.plum,
   },
   growCard: {
-    backgroundColor: '#FDF4DC',
+    backgroundColor: colors.goldWash,
     borderWidth: 1,
-    borderColor: '#EAD79B',
+    borderColor: colors.goldWashBorder,
     borderRadius: 14,
     padding: 14,
     flexDirection: 'row',
@@ -313,7 +317,7 @@ const styles = StyleSheet.create({
   growText: {
     flex: 1,
     fontSize: 11.5,
-    color: '#7A5E1A',
+    color: colors.goldWashText,
     lineHeight: 16,
   },
 });

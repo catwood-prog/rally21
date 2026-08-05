@@ -7,11 +7,11 @@ import { MessageDialog } from '@/components/MessageDialog';
 import { ShareCardView } from '@/components/ShareCardView';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
+import { useShareCardFlow } from '@/hooks/use-share-card-flow';
 import { useAuth } from '@/lib/auth-context';
 import { listMyReflectionLines } from '@/lib/checkin';
 import { getCircleById, getCirclePresence } from '@/lib/circle';
 import { getLocalDateString, shiftDate } from '@/lib/date';
-import { captureShareCard, saveCardImage, shareCardImage } from '@/lib/shareCardExport';
 import { recordCardEvent } from '@/lib/shareCards';
 import { composeWrappedData, WrappedData } from '@/lib/wrapped';
 
@@ -53,10 +53,19 @@ export default function Wrapped() {
   const [circleName, setCircleName] = useState<string | null>(null);
   const [lines, setLines] = useState<{ date: string; text: string }[]>([]);
   const [pickedLine, setPickedLine] = useState<string | null>(null);
-  const [isSharing, setIsSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const cardKey = `wrapped-${circleId}-${milestoneDay}`;
+
+  // HY1 job 4 (R5) — the capture/share/save/record composition is
+  // /share-card's, shared rather than re-typed. This screen has no
+  // closing beat to earn, so it passes no onResolved.
+  const { share: handleShare, isSharing } = useShareCardFlow({
+    flavor: 'wrapped',
+    cardKey,
+    cardRef,
+    onError: setError,
+  });
 
   useEffect(() => {
     if (!circleId || !session?.user) return;
@@ -84,6 +93,8 @@ export default function Wrapped() {
           })
         );
         setLines(myLines);
+        // FF1 rule 1 — silence is right: rotation telemetry, and the
+        // card is already on screen either way.
         recordCardEvent('wrapped', `wrapped-${circleId}-${milestoneDay}`, 'shown').catch(() => {});
       } catch (e) {
         setError(e instanceof Error ? e.message : 'could not load your card');
@@ -95,25 +106,9 @@ export default function Wrapped() {
 
   const goBackToCircle = () => router.replace({ pathname: '/circle', params: { circleId } });
 
-  const handleShare = async () => {
-    setIsSharing(true);
-    try {
-      const uri = await captureShareCard(cardRef);
-      const shared = await shareCardImage(uri);
-      if (shared) {
-        recordCardEvent('wrapped', cardKey, 'shared').catch(() => {});
-      } else {
-        await saveCardImage(uri);
-        recordCardEvent('wrapped', cardKey, 'saved').catch(() => {});
-      }
-    } catch {
-      setError(STRINGS.shareCardShareError);
-    } finally {
-      setIsSharing(false);
-    }
-  };
-
   const handleDone = () => {
+    // FF1 rule 1 — telemetry; never a reason to hold someone on the
+    // screen. Same call as /share-card's dismissToToday.
     recordCardEvent('wrapped', cardKey, 'dismissed').catch(() => {});
     goBackToCircle();
   };

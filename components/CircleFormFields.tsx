@@ -11,7 +11,10 @@ import { chipShape, chipTextShape, colors } from '@/constants/theme';
  * here so the forms can never drift (EC1's hard rule: one form
  * vocabulary, no second implementation). */
 
-export const MAX_CIRCLE_NAME_LENGTH = 40;
+// HY1 job 2 (R7) — module-private: only this file's own <TextInput>
+// maxLength reads it, and the two forms that share this component share
+// it through the component, not the constant.
+const MAX_CIRCLE_NAME_LENGTH = 40;
 
 export const TIME_OPTIONS = [
   { label: 'Morning', time: '08:00:00' },
@@ -247,7 +250,7 @@ export const circleFormStyles = StyleSheet.create({
     color: colors.ink,
   },
   chipTextSelected: {
-    color: '#fff',
+    color: colors.onFill,
   },
   // PI1 collapsed action — an invite when empty (dashed, muted, like the
   // circle screen's "+ add a link" prompt), a settled card once set.

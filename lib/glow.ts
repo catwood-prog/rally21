@@ -160,13 +160,20 @@ export async function checkGlowMilestone(): Promise<number | null> {
   return data ?? null;
 }
 
-// GS1 (17 July) — the glow goes social (Rally21-Glow-Spec.md §10).
-// Hand-synced with the gs1_glow_goes_social migration's own floor: the
-// server RPC ALREADY applies it (a sub-7 or away member is simply absent
-// from the result — no sub-threshold number ever crosses the API); this
-// client copy exists for display copy and future call sites, never as
-// the enforcement point.
-export const GLOW_SOCIAL_VISIBLE_FROM_DAYS = 7;
+/** THE 7-DAY SOCIAL FLOOR LIVES IN SQL, AND NOWHERE ELSE (GS1, 17 July;
+ * Rally21-Glow-Spec.md §10). `get_glow_for_circle_mates` applies it
+ * server-side — a sub-7 or away member is simply ABSENT from the result,
+ * so no sub-threshold number ever crosses the API and the client has
+ * nothing left to filter.
+ *
+ * HY1 job 2 (R7, 5 Aug) deleted the hand-synced client copy
+ * (`GLOW_SOCIAL_VISIBLE_FROM_DAYS = 7`). It had no importers in the
+ * fourteen months since GS1 and was kept "for future call sites" — but a
+ * duplicated threshold with no reader is not a spare part, it is a
+ * second number that can silently disagree with the migration nobody
+ * would notice changing. If a surface ever genuinely needs to SAY the
+ * floor, add the constant back beside that call site and re-check the
+ * migration in the same change; do not re-add it ahead of one. */
 
 /** Who's Here's glow ride-along: day counts for every circle-mate at
  * 7+ days glowing (and not away), keyed by user id. Circle-mates only,

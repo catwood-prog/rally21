@@ -48,6 +48,11 @@ export default function TabsLayout() {
 
   const [reduceTransparency, setReduceTransparency] = useState(false);
   useEffect(() => {
+    // FF1 rule 1 — silence is right: this is a preference READ with a
+    // safe default. A failure leaves `reduceTransparency` false, which is
+    // the translucent pill every phone gets anyway, so nothing is
+    // claimed and nothing is lost. The `?.` is for platforms (web) where
+    // the API is simply absent.
     AccessibilityInfo.isReduceTransparencyEnabled?.().then(setReduceTransparency).catch(() => {});
     const sub = AccessibilityInfo.addEventListener?.(
       'reduceTransparencyChanged',
@@ -59,6 +64,11 @@ export default function TabsLayout() {
   const [mapDot, setMapDot] = useState(false);
   useEffect(() => {
     if (!session?.user) return;
+    // FF1 rule 1 — silence is right, and it fails in the CONSERVATIVE
+    // direction (Cat's 28 July ruling): a failed read leaves the dot OFF,
+    // so the worst case is an observation waiting one route change longer
+    // to be pointed at. The opposite default would put a notification dot
+    // on a tab with nothing behind it — a promise the screen can't keep.
     hasUnrespondedDayObservation(session.user.id)
       .then(setMapDot)
       .catch(() => {});

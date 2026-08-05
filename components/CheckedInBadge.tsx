@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.bg,
     backgroundColor: colors.green,
-    color: '#fff',
+    color: colors.onFill,
     fontSize: 9,
     fontWeight: '700',
     textAlign: 'center',

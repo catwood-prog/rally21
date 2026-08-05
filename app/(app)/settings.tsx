@@ -128,6 +128,11 @@ export default function Settings() {
         // haven't blocked anyone", which quietly tells someone their
         // blocks are gone. It throws into the catch below instead.
         getMyBlocks(),
+        // FF1 rule 1 — silence is right, and it does NOT repeat the
+        // getMyBlocks shape above: the muted-cards section renders only
+        // when the list is non-empty, so a failed read makes the whole
+        // section ABSENT rather than showing a muted flavour as on. The
+        // mute itself is enforced server-side and is untouched by this.
         getMyMutedCardFlavors().catch(() => []),
         // FF2 — degrade to UNKNOWN, never to 'denied': claiming the OS
         // refused push (and sending the person to iOS Settings for it) is
@@ -978,7 +983,7 @@ const styles = StyleSheet.create({
     color: colors.mutedStrong,
   },
   prefPillTextOn: {
-    color: '#fff',
+    color: colors.onFill,
   },
   chipRow: {
     flexDirection: 'row',

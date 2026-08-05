@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   doneText: {
     fontFamily: FONT_HEADER,
     fontSize: 18,
-    color: '#fff',
+    color: colors.onFill,
   },
   catchUpNote: {
     fontSize: 13,
@@ -477,13 +477,13 @@ const styles = StyleSheet.create({
   },
   backChevron: {
     fontSize: 22,
-    color: '#fff',
+    color: colors.onFill,
     width: 24,
   },
   circleName: {
     fontFamily: FONT_HEADER,
     fontSize: 16,
-    color: '#fff',
+    color: colors.onFill,
   },
   topbarRight: {
     flexDirection: 'row',
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
   countdown: {
     fontFamily: FONT_HEADER,
     fontSize: 44,
-    color: '#fff',
+    color: colors.onFill,
   },
   countdownCaption: {
     fontSize: 11,
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
   },
   footNoteBold: {
     fontWeight: '700',
-    color: '#fff',
+    color: colors.onFill,
   },
   // BR1: a quiet text link, never a third button — hitSlop + padding
   // carry the 44px target at this small type size.
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
   ghostButtonText: {
     fontWeight: '700',
     fontSize: 14,
-    color: '#fff',
+    color: colors.onFill,
   },
   doneButton: {
     flex: 1,

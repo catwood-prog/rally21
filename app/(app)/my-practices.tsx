@@ -310,7 +310,7 @@ function PracticeForm({
           disabled={!form.name.trim() || !form.selection || isSaving}
         >
           {isSaving ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={colors.onFill} />
           ) : (
             <Text style={styles.saveButtonText}>{STRINGS.saveCta}</Text>
           )}
@@ -470,6 +470,6 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontWeight: '700',
     fontSize: 12.5,
-    color: '#fff',
+    color: colors.onFill,
   },
 });

@@ -188,6 +188,31 @@ export type CircleSelection =
   | { kind: 'picker'; circles: MyCircle[] }
   | { kind: 'single'; circle: MyCircle | null };
 
+/** THE PRIMARY-CIRCLE LAW, as one expression (CLAUDE.md: "No code may
+ * assume a single or primary circle"): exactly one circle is
+ * unambiguous, more than one must be ASKED about, and `circles[0]` is
+ * never an answer.
+ *
+ * `resolveCircleSelection` below is this same rule plus the fetching;
+ * this is the rule alone, for a screen that ALREADY HOLDS the list. Two
+ * reasons it exists rather than callers re-awaiting the async one:
+ * a second round trip for rows already in state is waste, and — the
+ * binding one — a tap handler that leads to check-in must call
+ * `unlockAudioContext()` synchronously inside the gesture (iOS Safari
+ * only unlocks audio there, see hooks/use-checkin-launch.ts), so an
+ * `await` before the decision would silently cost the check-in chime.
+ *
+ * HY1 job 1 (R3): today.tsx's multi-circle reflection teaser routed
+ * check-in to `circles[0]` — a guess that could write a completion for a
+ * circle the person never chose. That is the exact class the law was
+ * written after (the invite screen showing the wrong circle's code). */
+export function selectFromMyCircles(circles: MyCircle[]): CircleSelection {
+  if (circles.length > 1) {
+    return { kind: 'picker', circles };
+  }
+  return { kind: 'single', circle: circles[0] ?? null };
+}
+
 /** The shared "if circleId, fetch it; else look at the user's own circles
  * and either use the one unambiguous circle or ask which one" pattern
  * used by the circle tab, wall, and invite screens (see CLAUDE.md's "no
@@ -217,11 +242,9 @@ export async function resolveCircleSelection(
     const circle = await deps.getCircleById(circleId, userId);
     return { kind: 'single', circle };
   }
-  const circles = await deps.listMyCircles(userId);
-  if (circles.length > 1) {
-    return { kind: 'picker', circles };
-  }
-  return { kind: 'single', circle: circles[0] ?? null };
+  // Delegated, not re-typed: the two entry points must never be able to
+  // disagree about what "more than one circle" means.
+  return selectFromMyCircles(await deps.listMyCircles(userId));
 }
 
 /** userId is optional and only fetches the caller's own join_source when

@@ -90,7 +90,11 @@ export async function listAllPractices(userId: string): Promise<Practice[]> {
  * practice's legacy default). Plain update under the existing
  * creator-only RLS UPDATE policy — same pattern as setCircleResourceUrl.
  * Null clears it (an untimed circle). */
-export async function setCircleDurationMinutes(
+// HY1 job 2 (R7) — module-private: createCircleWithDose below is the
+// only caller. The name still stands as the app-side write path two
+// migration headers cite by name (20260722030000, 20260805020104); it
+// simply is not part of this module's import surface.
+async function setCircleDurationMinutes(
   circleId: string,
   minutes: number | null
 ): Promise<void> {
@@ -183,7 +187,11 @@ export async function unarchivePractice(practiceId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function createCircle(
+// HY1 job 2 (R7) — module-private: every screen goes through
+// createCircleWithDose below, which is the whole operation (RPC + the
+// circle's own dose). Exporting the bare RPC step invited a caller that
+// creates a circle and forgets the dose.
+async function createCircle(
   practiceKey: string,
   timeOfDay: string,
   circleName: string,

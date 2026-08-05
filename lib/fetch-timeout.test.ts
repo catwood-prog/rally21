@@ -1,4 +1,5 @@
 import {
+  isRequestTimeout,
   REQUEST_TIMEOUT_MS,
   STORAGE_TIMEOUT_MS,
   timeoutForUrl,
@@ -148,5 +149,56 @@ describe('withRequestTimeout', () => {
         signal: expect.anything(),
       })
     );
+  });
+});
+
+/**
+ * HY1 job 7 — the deadline is only useful to a screen if the screen can
+ * RECOGNISE it, and there are two different shapes to recognise.
+ */
+describe('isRequestTimeout', () => {
+  it('matches the real AbortError the wrapper throws', () => {
+    const e = new Error(`Supabase request timed out after ${REQUEST_TIMEOUT_MS}ms`);
+    e.name = 'AbortError';
+    expect(isRequestTimeout(e)).toBe(true);
+  });
+
+  it('matches postgrest-js\u2019s CONVERTED shape — the one screens actually see', () => {
+    // THE POINT OF THE FUNCTION. PostgrestBuilder catches the fetch
+    // rejection and resolves with `{ error }` instead, so what reaches a
+    // screen is a plain object with no `name` at all — every PostgREST
+    // read, RPC and write in the app arrives this way. A `name`-only
+    // check would have matched nothing that matters.
+    expect(
+      isRequestTimeout({
+        message: `AbortError: Supabase request timed out after ${REQUEST_TIMEOUT_MS}ms`,
+        details: '',
+        hint: 'Request was aborted (timeout or manual cancellation)',
+        code: '',
+      })
+    ).toBe(true);
+  });
+
+  it('matches the ABORT_ERR code variant', () => {
+    expect(isRequestTimeout({ code: 'ABORT_ERR' })).toBe(true);
+  });
+
+  it('does NOT match an ordinary failure — the screen must still say "couldn\u2019t load"', () => {
+    expect(isRequestTimeout(new Error('permission denied for table circles'))).toBe(false);
+    expect(isRequestTimeout({ message: 'JWT expired', code: 'PGRST301' })).toBe(false);
+  });
+
+  it('does not match a message that merely mentions an abort mid-sentence', () => {
+    // `startsWith`, not `includes`: a user-facing P0001 message quoting
+    // the word must never be mistaken for the deadline.
+    expect(isRequestTimeout({ message: 'the practice was AbortError: renamed' })).toBe(false);
+  });
+
+  it('survives the shapes a catch block genuinely receives', () => {
+    expect(isRequestTimeout(null)).toBe(false);
+    expect(isRequestTimeout(undefined)).toBe(false);
+    expect(isRequestTimeout('AbortError: timed out')).toBe(false);
+    expect(isRequestTimeout(42)).toBe(false);
+    expect(isRequestTimeout({})).toBe(false);
   });
 });

@@ -215,7 +215,12 @@ export default function JourneyGate() {
       .then((profile) => {
         if (profile?.sounds_enabled ?? true) playDay21Flourish();
       })
-      .catch(() => {});
+      .catch(() => {
+        // FF1 rule 1 — silence is right: this reads ONE preference to
+        // decide whether a flourish plays. A failed read plays nothing,
+        // which is the conservative direction — the opposite default
+        // would make noise at someone who turned sound off.
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id]);
 

@@ -148,6 +148,9 @@ export default function CircleWall() {
   useEffect(() => {
     if (!circle || !showUnlockCelebration) return;
     setHasSeenUnlockHint(true);
+    // FF1 rule 1 — silence is right, same as markWallSeen above: a
+    // failed stamp means this one-off hint appears once more. Local
+    // state has already hidden it for this visit.
     markVoiceUnlockedHintSeen(circle.id).catch(() => {});
   }, [showUnlockCelebration, circle?.id]);
 
@@ -575,7 +578,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   bubbleTextMe: {
-    color: '#fff',
+    color: colors.onFill,
   },
   reactionRow: {
     flexDirection: 'row',

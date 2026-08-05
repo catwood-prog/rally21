@@ -1,14 +1,6 @@
-import {
-  BricolageGrotesque_700Bold,
-  BricolageGrotesque_800ExtraBold,
-} from '@expo-google-fonts/bricolage-grotesque';
+import { BricolageGrotesque_800ExtraBold } from '@expo-google-fonts/bricolage-grotesque';
 import { InstrumentSerif_400Regular_Italic } from '@expo-google-fonts/instrument-serif';
-import {
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_500Medium,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
-} from '@expo-google-fonts/plus-jakarta-sans';
+import { PlusJakartaSans_400Regular } from '@expo-google-fonts/plus-jakarta-sans';
 import { useFonts } from 'expo-font';
 import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -39,14 +31,15 @@ RNTextInput.defaultProps = RNTextInput.defaultProps || {};
 RNTextInput.defaultProps.style = [{ fontFamily: FONT_BODY }, RNTextInput.defaultProps.style];
 
 export default function RootLayout() {
+  // HY1 job 2 (R7) — THREE families, and every one of them is drawn with
+  // somewhere (constants/fonts.ts names the call sites). This hook gates
+  // first paint (`if (!fontsLoaded) return null` below), so an entry
+  // nobody renders is a render-blocking fetch bought for nothing: the
+  // four deleted here were exactly that. Never add one speculatively.
   const [fontsLoaded] = useFonts({
     BricolageGrotesque_800ExtraBold,
-    BricolageGrotesque_700Bold,
     InstrumentSerif_400Regular_Italic,
     PlusJakartaSans_400Regular,
-    PlusJakartaSans_500Medium,
-    PlusJakartaSans_600SemiBold,
-    PlusJakartaSans_700Bold,
   });
   const pathname = usePathname();
 

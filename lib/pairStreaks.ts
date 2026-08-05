@@ -52,7 +52,9 @@ export function bestPairForCircle(pairs: PairStreak[]): PairStreak | null {
  * whose run has broken shows its cumulative number alone rather than a
  * zero (memo §5.1: "the zeros that do appear attach to the small
  * number", and a zero we simply don't draw is better still). */
-export const PAIR_RUN_MIN_DAYS = 2;
+// HY1 job 2 (R7) — module-private: shouldShowPairRun below is the only
+// reader, and it is the thing call sites actually want to ask.
+const PAIR_RUN_MIN_DAYS = 2;
 
 export function shouldShowPairRun(pair: PairStreak): boolean {
   return pair.streak >= PAIR_RUN_MIN_DAYS;

@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   pickPillText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.onFill,
   },
   cta: {
     backgroundColor: colors.green,
@@ -368,6 +368,6 @@ const styles = StyleSheet.create({
   ctaText: {
     fontWeight: '700',
     fontSize: 14,
-    color: '#fff',
+    color: colors.onFill,
   },
 });

@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     color: colors.greenText,
   },
   chipTextActive: {
-    color: '#fff',
+    color: colors.onFill,
   },
   loadingSpinner: {
     marginTop: 20,

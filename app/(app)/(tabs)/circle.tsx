@@ -244,6 +244,11 @@ function YourCircle() {
             getWallPreview(myCircle.id),
             getMyProfile(session.user.id),
             getMyLastCelebratedDay(myCircle.id, session.user.id),
+            // FF1 rule 1 — silence is right: pair streaks are a
+            // flourish on the member row, and [] renders NOTHING rather
+            // than a wrong number, so a failed read understates a
+            // friendship for one load instead of misstating it. Never
+            // let this substitute a count.
             getPairStreaks(myCircle.id).catch(() => []),
             // FF2 — the blocks read FAILS CLOSED, deliberately not soft:
             // an empty list on a failed read renders a blocked person as
@@ -312,6 +317,10 @@ function YourCircle() {
           new Set(nudgeStates.filter(([, enabled]) => !enabled).map(([id]) => id))
         );
         if (myCircle.completedAt) {
+          // FF1 rule 1 — silence is right: this only supplies the want
+          // STATEMENT printed on a completed circle's card. Null omits
+          // the line; the card, and the completion it celebrates, stand
+          // without it.
           const activation = await getWantActivationForCircle(myCircle.id).catch(() => null);
           setWantStatementForCircle(activation?.wantStatement ?? null);
         } else {
@@ -494,6 +503,26 @@ function YourCircle() {
           const inTodayIds = new Set(
             data.presence.filter((p) => p.localDate === today).map((p) => p.userId)
           );
+          // HY1 job 8 — YOUR own state in this circle, from the same
+          // `inTodayIds` the avatar strip below already builds and the
+          // same `data.presence` rows, so it can never disagree with the
+          // badge on your own avatar. Null until this circle's members
+          // have actually arrived: `listData` fills in per circle, and a
+          // missing entry means NOT LOADED, which must not render as
+          // "not yet" — the one wrong claim this mark could make.
+          // Covered is its own state, never a quiet ✓ (CLAUDE.md's
+          // cover-a-friend rule).
+          const me = session?.user?.id;
+          const myStateHere: 'done' | 'covered' | 'pending' | null =
+            !me || data.members.length === 0
+              ? null
+              : data.presence.some(
+                    (p) => p.localDate === today && p.userId === me && p.kind === 'covered'
+                  )
+                ? 'covered'
+                : inTodayIds.has(me)
+                  ? 'done'
+                  : 'pending';
 
           return (
             <TouchableOpacity
@@ -505,6 +534,30 @@ function YourCircle() {
                 <Text style={styles.listCardName}>{c.name}</Text>
                 {c.completedAt && (
                   <Text style={styles.completedBadgeSmall}>{STRINGS.journeyCompletedBadge}</Text>
+                )}
+                {/* HY1 job 8 (Cat's ruling, 4 Aug) — WHERE YOU ARE, on
+                    every row, from data already in hand. The avatar strip
+                    below has always carried your CheckedInBadge, but
+                    `shown` is capped at MAX_AVATARS_SHOWN and RS1 orders
+                    the huddle's edge first, so on a full circle your own
+                    badge can sit inside the "+N" — the one member the
+                    person is actually looking for is the one the row
+                    could lose. A completed circle is not asking anything
+                    of you, so it keeps its own badge alone. */}
+                {!c.completedAt && myStateHere && (
+                  <Text
+                    style={[
+                      styles.youBadgeSmall,
+                      myStateHere === 'done' && styles.youBadgeSmallDone,
+                      myStateHere === 'covered' && styles.youBadgeSmallCovered,
+                    ]}
+                  >
+                    {myStateHere === 'done'
+                      ? STRINGS.circlePickerYouDoneBadge
+                      : myStateHere === 'covered'
+                        ? STRINGS.circlePickerYouCoveredBadge
+                        : STRINGS.circlePickerYouPendingBadge}
+                  </Text>
                 )}
               </View>
               <SignalMeter
@@ -1638,6 +1691,41 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.3,
     overflow: 'hidden',
+  },
+  // HY1 job 8 — the same pill geometry the completed badge already uses,
+  // so the row gains no new shape. Pending is the QUIET one (a bare
+  // outline on the card): "not yet" is information, not a scold, and the
+  // warmth law means the state you are in most mornings must not be the
+  // loudest thing on the screen. Done fills greenSoft — the same
+  // greenSoft/greenText pair as the completed badge. Covered takes
+  // goldSoft rather than green, because a cover is a gift and not a
+  // tick. MEASURED on the card, 5 Aug, all three past 4.5:1 at this
+  // 9.5px bold: pending 5.66, done 4.63, covered 4.72 (goldSoft is an
+  // alpha token and resolves to #fdf7e4 over the card).
+  youBadgeSmall: {
+    ...chipTextShape,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.line,
+    color: colors.mutedStrong,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    fontSize: 9.5,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    overflow: 'hidden',
+  },
+  youBadgeSmallDone: {
+    backgroundColor: colors.greenSoft,
+    borderColor: colors.greenSoft,
+    color: colors.greenText,
+  },
+  youBadgeSmallCovered: {
+    backgroundColor: colors.goldSoft,
+    borderColor: colors.goldSoft,
+    color: colors.greenDeep,
   },
   content: {
     padding: 20,

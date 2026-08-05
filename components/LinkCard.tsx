@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   textLight: {
-    color: '#fff',
+    color: colors.onFill,
   },
   cta: {
     fontSize: 12.5,

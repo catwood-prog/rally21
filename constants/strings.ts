@@ -887,6 +887,16 @@ export const STRINGS = {
   // never a raw error message or status code (AR1's warmth rule,
   // generalized app-wide; raw errors still go to Sentry, not the user).
   loadFailedLine: (what: string) => `${what} couldn't load just now — give it a moment and try again`,
+  // HY1 job 7 — the load that never ANSWERED, as opposed to the one that
+  // failed. SUP1's 15s deadline had no sentence of its own, so a timeout
+  // borrowed loadFailedLine, which says "couldn't load" — true enough,
+  // but it points at the app when the honest thing to point at is the
+  // connection. YD1's register: say the small true thing rather than the
+  // reassuring general one. Pairs with retryCta, because "try again" is
+  // only fair advice when there is something to tap.
+  // PROPOSED — Cat's wording wins, as with every other line here.
+  loadTimedOutLine: (what: string) => `${what} is taking longer than it should — the connection may be slow`,
+  retryCta: 'try again',
   // FF2 (28 July) — ER1's other half: a WRITE that didn't land. Today had
   // no such line, so the two fixes that must say "your tap didn't save"
   // (the reminders card, the Day-0 obstacle answer) would otherwise have
@@ -1198,6 +1208,18 @@ export const STRINGS = {
   journeyMajorStopBody: (circleName: string) => `${circleName} made it — still climbing.`,
 
   journeyCompletedBadge: 'completed',
+  // HY1 job 8 (Cat RULED YES, 4 Aug late night) — the circle picker's
+  // per-row mark for YOU. Two states, because a mark that only ever
+  // appears when you are done leaves "no mark" meaning both "not yet"
+  // and "still loading", and the whole point of the row is telling those
+  // apart at a glance. Same three words the member badge already speaks
+  // in glyphs (✓ done, 🧡 covered, nothing pending) — this just says
+  // them where you can read them without hunting for your own avatar,
+  // which on a full circle may be inside the "+N" overflow.
+  // PROPOSED — Cat's wording wins, as with every other line here.
+  circlePickerYouDoneBadge: "you're in",
+  circlePickerYouCoveredBadge: 'held for you',
+  circlePickerYouPendingBadge: 'not yet',
   journeyCompletedTitle: (circleName: string) => `${circleName}, complete`,
   // B3 step 3 — when the completing circle was born from a blueprint want,
   // the archive banner names it; the review beat, nothing more.

@@ -148,6 +148,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontWeight: '700',
     fontSize: 14,
-    color: '#fff',
+    color: colors.onFill,
   },
 });

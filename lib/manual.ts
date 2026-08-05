@@ -14,7 +14,10 @@ import { supabase } from './supabase';
 /** The v1 sections, exactly the four MN1 wrote into questions.manual_section
  * (plus null, which simply never reaches a section). Order is the reading
  * order on the screen and in the export. */
-export const MANUAL_SECTIONS = [
+// HY1 job 2 (R7) — module-private. The exported surface that callers
+// genuinely use is the ManualSectionKey type just below, which still
+// derives from this list; the array itself is read only in this file.
+const MANUAL_SECTIONS = [
   'energy-recovery',
   'connection',
   'overwhelm-restore',

@@ -34,6 +34,7 @@ import {
 } from '@/lib/blueprint';
 import { getCircleById, listMyCircles } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
+import { isRequestTimeout } from '@/lib/fetch-timeout';
 import { getMyWeek } from '@/lib/glow';
 import { getMyProfile, setReflectionsOptOut } from '@/lib/profile';
 import { captureError } from '@/lib/sentry';
@@ -214,6 +215,11 @@ function Blueprint() {
         if (activation) {
           const [circles, circle] = await Promise.all([
             listMyCircles(session.user.id),
+            // FF1 rule 1 — silence is right: this is the activated
+            // circle's NAME for one line of copy. Null drops the name,
+            // and `stillMember` (the fact that actually decides whether
+            // the want reads live) comes from listMyCircles beside it,
+            // so a failed name read can never mislabel the state.
             getCircleById(activation.circleId).catch(() => null),
           ]);
           const stillMember = circles.some((c) => c.id === activation.circleId && !c.completedAt);
@@ -253,9 +259,35 @@ function Blueprint() {
           );
         }
       }
-    } catch {
-      // ER1: the warm line, never the raw message (warmth law).
-      setLoadError(STRINGS.loadFailedLine('your map'));
+    } catch (e) {
+      // HY1 job 7 — THE TIMEOUT GETS ITS OWN SENTENCE AND A WAY BACK.
+      //
+      // SUP1's 15s deadline (lib/fetch-timeout.ts) has always fired here
+      // correctly; what it did not have was a state. Every failure took
+      // the same "your map couldn't load just now — give it a moment and
+      // try again" line, on a screen with nothing to tap: this load runs
+      // from useFocusEffect, so "try again" meant navigating away and
+      // back, and a person on bad signal had no way to know that. The
+      // deadline is also the failure most likely to come good on a second
+      // attempt, which is what makes a retry honest here rather than a
+      // button that walks into the same wall.
+      //
+      // ER1 still holds either way: a warm line, never the raw message.
+      const timedOut = isRequestTimeout(e);
+      setLoadError(
+        timedOut ? STRINGS.loadTimedOutLine('your map') : STRINGS.loadFailedLine('your map')
+      );
+      // FF1 rule 3 — reported, never swallowed. `handled: 'yes'` is the
+      // point of the tag: Sentry c726f818 (4 Aug) was this deadline
+      // arriving as an UNHANDLED rejection with no screen state behind
+      // it, and the tag is how a future triage tells "the screen caught
+      // this and said so" apart from "nobody caught it".
+      captureError(e, {
+        screen: 'private-map',
+        op: 'load',
+        handled: 'yes',
+        ...(timedOut ? { timeout: 'yes' } : {}),
+      });
     } finally {
       setIsLoading(false);
     }
@@ -363,7 +395,10 @@ function Blueprint() {
 
       {/* ER1: a failed map load is a whole-moment failure (slip); save
           failures below stay inline text under live content. */}
-      {loadError && <ErrorSlip message={loadError} />}
+      {/* HY1 job 7 — the retry re-runs the same `load` the focus effect
+          runs, so a timed-out map recovers in place instead of asking the
+          person to navigate away and back to discover it works now. */}
+      {loadError && <ErrorSlip message={loadError} onRetry={load} />}
       {error && <Text style={styles.errorText}>{error}</Text>}
 
       {visibleTraits.length > 0 && (

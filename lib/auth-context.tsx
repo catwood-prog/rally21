@@ -52,10 +52,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setIsLoading(false);
-    });
+    // HY1 job 7 — FF1 rule 3, and the one that gates the whole app: until
+    // this resolves, `isLoading` stays true and every screen sits on the
+    // splash. A rejection here (an expired refresh token whose /token
+    // call hits SUP1's 15s deadline is the realistic one) used to leave
+    // it true FOREVER and surface as an unhandled rejection tagged with
+    // whatever route was last open — which is the shape Sentry c726f818
+    // has. Resolving to "signed out" is the honest failure: the sign-in
+    // screen is a place a person can act from; a permanent splash is not.
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+        setIsLoading(false);
+      })
+      .catch((e) => {
+        captureError(e, { op: 'auth.getSession', at: 'app-start' });
+        setIsLoading(false);
+      });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
@@ -66,14 +80,32 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (!session?.user) return;
-    supabase
-      .from('users')
-      .update({ timezone: getDeviceTimeZone() })
-      .eq('id', session.user.id)
+    // HY1 job 7 — both writes below are FIRE-AND-FORGET on the session,
+    // which is right (neither is worth blocking a sign-in on), but
+    // neither had a rejection handler at all, so a failure escaped the
+    // React tree entirely as an unhandled rejection carrying whatever
+    // screen the person happened to be on.
+    //
+    // FF1 rule 3 for both: silent for the USER, reported for us. A lost
+    // timezone quietly sends every nudge and digest at the wrong hour,
+    // and a lost last_seen_at makes the digest's suppression check think
+    // someone never came back — two failures that are invisible from
+    // inside the app by construction.
+    //
+    // `Promise.resolve(...)` around the builder is not decoration:
+    // postgrest's query builder is a PromiseLike with `then` only — it
+    // has no `.catch`, which is precisely why this one had no rejection
+    // handler. Adopting it into a real promise gives it one.
+    Promise.resolve(
+      supabase.from('users').update({ timezone: getDeviceTimeZone() }).eq('id', session.user.id)
+    )
       .then(({ error }) => {
-        if (error) console.warn('Could not save timezone:', error.message);
-      });
-    markSeenNow(session.user.id);
+        if (error) captureError(error, { op: 'saveTimezone', at: 'session-change' });
+      })
+      .catch((e: unknown) => captureError(e, { op: 'saveTimezone', at: 'session-change' }));
+    markSeenNow(session.user.id).catch((e) =>
+      captureError(e, { op: 'markSeenNow', at: 'session-change' })
+    );
   }, [session?.user?.id]);
 
   // AL1 job 2 — reschedule the personal practice reminder at app start, so
@@ -112,7 +144,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
     if (!session?.user) return;
     const userId = session.user.id;
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') markSeenNow(userId);
+      // HY1 job 7 — THE ONE THAT FIRES ON ANY SCREEN. This runs every
+      // time the app comes back to the foreground, so it is the app's
+      // most route-agnostic Supabase call and its rejections arrive
+      // tagged with wherever the person happened to be. `markSeenNow`
+      // awaits with no try/catch of its own (lib/notifications.ts), so
+      // without this the whole thing floated. Reported, never surfaced:
+      // a person reopening their phone must not be met with an error.
+      if (state === 'active') {
+        markSeenNow(userId).catch((e) =>
+          captureError(e, { op: 'markSeenNow', at: 'app-foreground' })
+        );
+      }
     });
     return () => subscription.remove();
   }, [session?.user?.id]);
