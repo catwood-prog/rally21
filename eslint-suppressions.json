@@ -1,0 +1,52 @@
+{
+  "app/onboarding/invite.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 1
+    }
+  },
+  "jest.setup.js": {
+    "no-undef": {
+      "count": 37
+    }
+  },
+  "supabase/functions/ask-rally/index.ts": {
+    "import/no-unresolved": {
+      "count": 2
+    }
+  },
+  "supabase/functions/compose-blueprint/index.ts": {
+    "import/no-unresolved": {
+      "count": 2
+    }
+  },
+  "supabase/functions/compose-digest/index.ts": {
+    "import/no-unresolved": {
+      "count": 2
+    }
+  },
+  "supabase/functions/compose-nudges/index.ts": {
+    "import/no-unresolved": {
+      "count": 2
+    }
+  },
+  "supabase/functions/delete-account/index.ts": {
+    "import/no-unresolved": {
+      "count": 2
+    }
+  },
+  "supabase/functions/report-content/index.ts": {
+    "import/no-unresolved": {
+      "count": 2
+    }
+  },
+  "supabase/functions/send-notifications/index.ts": {
+    "import/no-unresolved": {
+      "count": 2
+    }
+  },
+  "supabase/functions/unsubscribe/index.ts": {
+    "import/no-unresolved": {
+      "count": 2
+    }
+  }
+}
