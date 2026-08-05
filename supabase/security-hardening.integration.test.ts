@@ -837,4 +837,175 @@ describeIfConfigured('security hardening (S1)', () => {
     );
     return circleId;
   }
+
+  /**
+   * HD3 (migration 20260805020104) — the circles UPDATE boundary.
+   *
+   * HD2 closed one CONSEQUENCE of the unguarded UPDATE policy (a public
+   * circle over a private practice) with a trigger. HD3 closes the door: a
+   * host may PATCH exactly four columns and no others.
+   *
+   * WHY NOT A `WITH CHECK`. The policy's `polwithcheck` was NULL, which reads
+   * as "no write-side guard" but isn't — Postgres reuses USING as the WITH
+   * CHECK when one is omitted, so `created_by` was already protected (the
+   * giveaway test below still passes for that reason, and passed before HD3
+   * too). What no policy expression can do is say "this column did not
+   * change": WITH CHECK cannot see OLD. So the column boundary is column-level
+   * UPDATE grants, and the explicit WITH CHECK HD3 added is a no-op that only
+   * stops the created_by guard being invisible to the next reader.
+   *
+   * The refusal is therefore 42501 "permission denied for table circles" —
+   * it fires at the grant, before RLS is consulted, and it fires for the host
+   * too. `name` and `time_of_day` stay editable through edit_circle, which is
+   * SECURITY DEFINER and bypasses policy and grants alike.
+   */
+  describe('the circles UPDATE boundary (HD3)', () => {
+    const ALLOWED: [string, string][] = [
+      ['resource_url', "resource_url = 'https://example.test/x'"],
+      ['instructions', "instructions = 'breathe'"],
+      ['closed_to_joins', 'closed_to_joins = true'],
+      ['duration_minutes', 'duration_minutes = 15'],
+    ];
+
+    // Every other column on the table. If a column is ever added to circles
+    // without a deliberate ruling, this list going stale is the point where
+    // someone notices — the grant assertion below is the one that catches it.
+    const BLOCKED: [string, string][] = [
+      ['hidden_from_browse', 'hidden_from_browse = false'],
+      ['is_public', 'is_public = true'],
+      ['practice_id', 'practice_id = gen_random_uuid()'],
+      ['start_date', 'start_date = current_date - 60'],
+      ['duration_days', 'duration_days = 1'],
+      ['completed_at', 'completed_at = now()'],
+      ['invite_code', "invite_code = 'HD3TEST'"],
+      ['is_active', 'is_active = false'],
+      ['rallied_on_at', 'rallied_on_at = now()'],
+      ['name', "name = 'Renamed'"],
+      ['time_of_day', "time_of_day = '09:00:00'"],
+      ['created_at', 'created_at = now()'],
+      ['id', 'id = gen_random_uuid()'],
+    ];
+
+    test('the host may PATCH exactly the four ruled columns', async () => {
+      const host = await createFakeUser();
+      const circleId = await seedCircle(host);
+
+      for (const [column, assignment] of ALLOWED) {
+        await actAs(host);
+        const { rowCount } = await client.query(
+          `update public.circles set ${assignment} where id = $1`,
+          [circleId]
+        );
+        expect([column, rowCount]).toEqual([column, 1]);
+        await elevated();
+      }
+    });
+
+    test('every other column is refused for the host, at the grant', async () => {
+      const host = await createFakeUser();
+      const circleId = await seedCircle(host);
+
+      for (const [column, assignment] of BLOCKED) {
+        await actAs(host);
+        await client.query('savepoint hd3_blocked');
+        await expect(
+          client.query(`update public.circles set ${assignment} where id = $1`, [circleId])
+        ).rejects.toMatchObject({ code: '42501' });
+        await client.query('rollback to savepoint hd3_blocked');
+        await elevated();
+        // and the row is untouched
+        const { rows } = await client.query('select name from public.circles where id = $1', [
+          circleId,
+        ]);
+        expect([column, rows[0].name]).toEqual([column, 'Fixture Circle']);
+      }
+    });
+
+    test('the grant list itself is exactly the four ruled columns', async () => {
+      await elevated();
+      const { rows } = await client.query(
+        `select grantee, column_name
+           from information_schema.column_privileges
+          where table_schema = 'public' and table_name = 'circles'
+            and privilege_type = 'UPDATE' and grantee in ('anon', 'authenticated')
+          order by grantee, column_name`
+      );
+      // anon has no UPDATE policy either, but HD3 revoked the redundant grant
+      // so the privilege listing matches the intent (Cat ruled 5 Aug).
+      expect(rows.map((r) => `${r.grantee}.${r.column_name}`)).toEqual([
+        'authenticated.closed_to_joins',
+        'authenticated.duration_minutes',
+        'authenticated.instructions',
+        'authenticated.resource_url',
+      ]);
+    });
+
+    test('the created_by guard is now explicit, and still refuses a giveaway', async () => {
+      await elevated();
+      const { rows: policies } = await client.query(
+        `select pg_get_expr(polqual, polrelid) as using_expr,
+                pg_get_expr(polwithcheck, polrelid) as with_check_expr
+           from pg_policy
+          where polrelid = 'public.circles'::regclass and polcmd = 'w'`
+      );
+      expect(policies).toHaveLength(1);
+      expect(policies[0].with_check_expr).not.toBeNull();
+      expect(policies[0].with_check_expr).toBe(policies[0].using_expr);
+
+      // created_by is not in the grant list, so the giveaway now dies at the
+      // grant rather than at the (equivalent) WITH CHECK. Either way: no host
+      // handover, which is CLAUDE.md's law.
+      const host = await createFakeUser();
+      const stranger = await createFakeUser();
+      const circleId = await seedCircle(host);
+      await actAs(host);
+      await client.query('savepoint hd3_giveaway');
+      await expect(
+        client.query('update public.circles set created_by = $2 where id = $1', [
+          circleId,
+          stranger,
+        ])
+      ).rejects.toMatchObject({ code: '42501' });
+      await client.query('rollback to savepoint hd3_giveaway');
+      await elevated();
+    });
+
+    test('USING still refuses a member and a stranger on an ALLOWED column', async () => {
+      const host = await createFakeUser();
+      const member = await createFakeUser();
+      const stranger = await createFakeUser();
+      const circleId = await seedCircle(host, { memberIds: [member] });
+
+      for (const other of [member, stranger]) {
+        await actAs(other);
+        const { rowCount } = await client.query(
+          "update public.circles set instructions = 'not yours' where id = $1",
+          [circleId]
+        );
+        expect(rowCount).toBe(0);
+        await elevated();
+      }
+    });
+
+    test("HD2's trigger is KEPT and still fires on the definer routes", async () => {
+      const host = await createFakeUser();
+      await elevated();
+      const { rows: p } = await client.query(
+        `insert into public.practices (name, category, practice_type, created_by, is_shared)
+         values ('HD3 trigger practice', 'move', 'walk', $1, false) returning id`,
+        [host]
+      );
+      const circleId = await seedCircleUsingPractice(host, p[0].id);
+
+      // The UPDATE arm is now reachable only by an RLS-bypassing route (every
+      // circles writer is a SECURITY DEFINER function owned by postgres).
+      await elevated();
+      await client.query('update public.circles set is_public = true where id = $1', [circleId]);
+      const { rows: after } = await client.query(
+        'select is_shared from public.practices where id = $1',
+        [p[0].id]
+      );
+      expect(after[0].is_shared).toBe(true);
+    });
+  });
 });

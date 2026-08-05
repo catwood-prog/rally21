@@ -167,15 +167,19 @@ describeIfConfigured('edit_circle at the RPC boundary', () => {
       "Only the circle's host can edit it"
     );
 
-    // And a forged direct UPDATE (not via the RPC) dies at RLS: with the
-    // authenticated role and a non-host JWT, the creator-only UPDATE
-    // policy matches zero rows.
+    // And a forged direct UPDATE (not via the RPC) dies before RLS is even
+    // consulted. HD3 (20260805020104) revoked the blanket table-level UPDATE
+    // from `authenticated` and granted back only the four columns the app
+    // PATCHes directly (resource_url, instructions, closed_to_joins,
+    // duration_minutes). `name` is not one of them — it is host-editable only
+    // through edit_circle, which is SECURITY DEFINER and bypasses both the
+    // policy and the grants. So this used to be "matches zero rows" and is
+    // now a hard 42501 permission denial, for the host as much as for anyone.
     await client.query('savepoint forged_update');
     await client.query('set local role authenticated');
-    const forged = await client.query("update public.circles set name = 'Forged' where id = $1", [
-      circleId,
-    ]);
-    expect(forged.rowCount).toBe(0);
+    await expect(
+      client.query("update public.circles set name = 'Forged' where id = $1", [circleId])
+    ).rejects.toMatchObject({ code: '42501' });
     await client.query('rollback to savepoint forged_update');
 
     const { rows } = await client.query('select name from public.circles where id = $1', [circleId]);
