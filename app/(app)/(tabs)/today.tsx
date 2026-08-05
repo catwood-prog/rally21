@@ -27,6 +27,8 @@ import { TodayNotificationSpot } from '@/components/TodayNotificationSpot';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { isVerbPhrasePractice, STRINGS } from '@/constants/strings';
 import { cardShadow, chipTextShape, colors } from '@/constants/theme';
+import { useCheckinLaunch } from '@/hooks/use-checkin-launch';
+import { useOneTimeAskSlot } from '@/hooks/use-one-time-ask-slot';
 import { useTabBarClearance } from '@/hooks/use-tab-bar-clearance';
 import { resolvePrefillAlarmTime, syncDailyReminder } from '@/lib/alarmReminder';
 import { useAuth } from '@/lib/auth-context';
@@ -36,10 +38,7 @@ import {
   getDailyQuestion,
   getTodayReflection,
   isReflectionSubstantive,
-  recordCheckinWithoutReflection,
-  resolveCheckinRoute,
 } from '@/lib/checkin';
-import { unlockAudioContext } from '@/lib/chime';
 import {
   attachRestingStatus,
   CircleMember,
@@ -88,6 +87,11 @@ import {
 } from '@/lib/warmth';
 
 const CIRCLE_COUNT_WORD: Record<number, string> = { 1: 'one', 2: 'two', 3: 'three' };
+
+// WB1 job 1b — Today's one-time asks, named so the slot's priority list
+// and the two render gates cannot drift apart on a typo.
+const ASK_REMINDERS = 'reminders';
+const ASK_PHOTO = 'photo';
 
 function greeting(name: string | null) {
   const hour = new Date().getHours();
@@ -211,10 +215,11 @@ function Today() {
   // the one-tap flow before the real value loads; a wrong guess here
   // would skip someone's reflection screen without being asked.
   const [reflectionsOptOut, setReflectionsOptOut] = useState(false);
-  // SK1 job 3 — the circle whose one-tap check-in is in flight, so the
-  // CTA can't be double-tapped into two saves, plus its own failure
-  // surface (the flow has no screen of its own to fail on).
-  const [oneTapCircleId, setOneTapCircleId] = useState<string | null>(null);
+  // SK1 job 3 — the flow has no screen of its own to fail on, so it needs
+  // a failure surface here. (`oneTapCircleId`, which stops the CTA being
+  // double-tapped into two saves, moved into useCheckinLaunch with the
+  // flow itself — WB1 job 3.) This state is still Today's own: the resume
+  // path below reports through it too.
   const [checkinError, setCheckinError] = useState<string | null>(null);
   // RM1 — defaults true so the card never flashes before the real value
   // loads; only ever matters once it resolves to false. This screen only
@@ -633,6 +638,31 @@ function Today() {
       });
   }, [hasSeenRemindersAsk, session?.user?.id]);
 
+  // WB1 job 1b — Today's one-time-ask slot, in priority order (reminders
+  // has always had priority over the photo ask; that is unchanged). The
+  // eligibility expressions are the ones each card already carried; what
+  // is new is that the SLOT latches, so answering the reminders ask can no
+  // longer promote the photo ask onto the same render. See the hook.
+  //
+  // BG1's rule applies: this is a hook, so it lives above the loading
+  // early return, not beside the cards it feeds.
+  const { activeAskId, dismissActive: dismissActiveAsk } = useOneTimeAskSlot([
+    { id: ASK_REMINDERS, eligible: !hasSeenRemindersAsk },
+    {
+      id: ASK_PHOTO,
+      eligible: !hasSeenPhotoAsk && !myAvatarUrl && hasAnyOwnCompletion && hasSeenRemindersAsk,
+    },
+  ]);
+
+  // WB1 job 3 — the shared check-in flow. Also a hook, also above the
+  // early return (BG1).
+  const { launchCheckin, oneTapCircleId } = useCheckinLaunch({
+    userId: session?.user?.id,
+    hasSeenCheckinConsent,
+    reflectionsOptOut,
+    onError: setCheckinError,
+  });
+
   if (isLoading) {
     return (
       <View style={styles.loading}>
@@ -743,76 +773,13 @@ function Today() {
     }
   };
 
-  const recordOneTapCheckin = async (circle: MyCircle) => {
-    if (!session?.user || oneTapCircleId) return;
-    setOneTapCircleId(circle.id);
-    const userId = session.user.id;
-    try {
-      const { earnedToday } = await recordCheckinWithoutReflection({
-        userId,
-        circleId: circle.id,
-        localDate: getLocalDateString(),
-      });
-      router.push({
-        pathname: '/checkin-complete',
-        params: { circleId: circle.id, ...(earnedToday ? { earnedToday: 'true' } : {}) },
-      });
-    } catch {
-      // A one-tap check-in has no screen of its own to fail on, so the
-      // failure has to be said out loud here — silence would read as "the
-      // button doesn't work". ER1's warm line, never the raw message.
-      setCheckinError(STRINGS.loadFailedLine('your check-in'));
-    } finally {
-      setOneTapCircleId(null);
-    }
-  };
-
-  const goToCheckin = (circle: MyCircle, wantsTimer: boolean, dayNumber: number) => {
-    const wantsTimerWithDuration = wantsTimer && !!circle.durationMinutes;
-    // A circle's resource link (video or otherwise) always routes through
-    // the activity screen — it's the hero of that screen regardless of
-    // whether the user tapped "start timer" or not (see checkin-timer.tsx).
-    const goesToActivityScreen = !!circle.resourceUrl || wantsTimerWithDuration;
-
-    const route = resolveCheckinRoute({
-      hasSeenCheckinConsent,
-      goesToActivityScreen,
-      reflectionsOptOut,
-    });
-
-    // Must happen synchronously inside this tap — iOS Safari only unlocks
-    // audio playback for an AudioContext created/resumed directly inside a
-    // user gesture, not after any awaited work. SK1: the one-tap flow
-    // lands straight on checkin-complete, which plays the check-in pop (or
-    // hands off to the glow beat's bowl), so it needs the unlock too.
-    if (goesToActivityScreen || route === 'one-tap') unlockAudioContext();
-
-    const activityParams = goesToActivityScreen
-      ? {
-          startTimer: 'true',
-          ...(circle.durationMinutes
-            ? { durationMinutes: String(circle.durationMinutes) }
-            : {}),
-          circleName: circle.name,
-          // PA1 — the timer's "day N" is the CIRCLE'S AGE, and a circle
-          // has no deadline to cap it against (memo §3). The old
-          // Math.min pinned every live circle at "day 21" forever, which
-          // is the same stopped clock the pill carried.
-          dayNumber: String(dayNumber),
-          ...(circle.resourceUrl ? { resourceUrl: circle.resourceUrl } : {}),
-        }
-      : {};
-
-    if (route === 'intro') {
-      router.push({ pathname: '/checkin-intro', params: { circleId: circle.id, ...activityParams } });
-    } else if (route === 'activity') {
-      router.push({ pathname: '/checkin-timer', params: { circleId: circle.id, ...activityParams } });
-    } else if (route === 'one-tap') {
-      recordOneTapCheckin(circle);
-    } else {
-      router.push({ pathname: '/checkin', params: { circleId: circle.id } });
-    }
-  };
+  // WB1 job 3 — `goToCheckin` and `recordOneTapCheckin` moved WHOLE into
+  // hooks/use-checkin-launch.ts, unchanged, because the circle screen now
+  // offers a check-in and it has to be the same flow rather than a second
+  // one that resembles it. Nothing about Today's behaviour moved with
+  // them: same routes, same params, same audio unlock, same warm failure
+  // line, and the same `oneTapCircleId` disabling the CTA mid-write.
+  const goToCheckin = launchCheckin;
 
   const handleAddCircle = () => {
     if (atCap) {
@@ -919,15 +886,20 @@ function Today() {
   // AL1 job 4's prefill effect used to sit HERE, beside the card it feeds.
   // It is a hook, and this is below the loading early return — see BG1's
   // note at its new home above that return.
-  const handleTurnOnReminders = async (alarm: RemindersAskAlarmChoice) => {
-    if (!session?.user) return;
+  //
+  // WB1 job 1a — returns whether the writes LANDED. The card confirms only
+  // on true, so the failure paths below (which already set the error line)
+  // leave the ask in place rather than confirming something that did not
+  // happen.
+  const handleTurnOnReminders = async (alarm: RemindersAskAlarmChoice): Promise<boolean> => {
+    if (!session?.user) return false;
     const userId = session.user.id;
     try {
       await updateNotificationPrefs(userId, { nudgeEnabled: true, digestEnabled: true });
     } catch (e) {
       captureError(e, { screen: 'today', op: 'updateNotificationPrefs' });
       setError(STRINGS.saveFailedLine);
-      return;
+      return false;
     }
     // AL1 job 4 — the personal practice time rides the same ask. Same
     // asymmetry rule as above: the seen-marker below is only stamped once
@@ -940,34 +912,42 @@ function Today() {
       } catch (e) {
         captureError(e, { screen: 'today', op: 'setAlarmReminder' });
         setError(STRINGS.saveFailedLine);
-        return;
+        return false;
       }
     }
     setHasSeenRemindersAsk(true);
     markRemindersAskSeen(userId).catch((e) =>
       captureError(e, { screen: 'today', op: 'markRemindersAskSeen' })
     );
+    return true;
   };
   const handleMaybeLaterReminders = () => {
     if (!session?.user) return;
     setHasSeenRemindersAsk(true);
+    dismissActiveAsk();
     markRemindersAskSeen(session.user.id).catch(() => {});
   };
-  const remindersAskCard = !hasSeenRemindersAsk ? (
-    <RemindersAskCard
-      variant="compact"
-      onTurnOn={handleTurnOnReminders}
-      onMaybeLater={handleMaybeLaterReminders}
-      alarmPrefillTime={alarmPrefill?.time}
-      alarmPrefilled={alarmPrefill?.prefilled}
-    />
-  ) : null;
+  const remindersAskCard =
+    activeAskId === ASK_REMINDERS ? (
+      <RemindersAskCard
+        variant="compact"
+        onTurnOn={handleTurnOnReminders}
+        onMaybeLater={handleMaybeLaterReminders}
+        alarmPrefillTime={alarmPrefill?.time}
+        alarmPrefilled={alarmPrefill?.prefilled}
+      />
+    ) : null;
 
   // AV1 — the one-shot photo ask: photo-less account, never seen it,
   // first check-in celebrated. Any interaction stamps it forever (a
   // failed stamp is low-stakes — the card just might show once more).
   // Never stacked under the RM1 card: reminders keeps priority and the
   // photo ask simply waits for a later visit.
+  //
+  // WB1 job 1b — "never stacked under the RM1 card" is now a RULE rather
+  // than a gate: the slot below holds whichever ask it first saw this
+  // mount, so the photo ask cannot be promoted into the slot by the
+  // reminders ask being answered. Its own eligibility is unchanged.
   const handlePhotoAskAdd = () => {
     if (!session?.user) return;
     setHasSeenPhotoAsk(true);
@@ -977,10 +957,11 @@ function Today() {
   const handlePhotoAskDismiss = () => {
     if (!session?.user) return;
     setHasSeenPhotoAsk(true);
+    dismissActiveAsk();
     markPhotoAskSeen(session.user.id).catch(() => {});
   };
   const photoAskCard =
-    !hasSeenPhotoAsk && !myAvatarUrl && hasAnyOwnCompletion && hasSeenRemindersAsk && session?.user ? (
+    activeAskId === ASK_PHOTO && session?.user ? (
       <PhotoAskCard
         userId={session.user.id}
         onAddPhoto={handlePhotoAskAdd}

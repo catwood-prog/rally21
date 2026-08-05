@@ -53,22 +53,44 @@ export default function RemindersAsk() {
     router.replace('/onboarding/circle-setup');
   };
 
-  const handleTurnOn = async (alarm: RemindersAskAlarmChoice) => {
-    if (!session?.user) return finish();
-    const userId = session.user.id;
-    await Promise.all([
-      updateNotificationPrefs(userId, { nudgeEnabled: true, digestEnabled: true }),
-      markRemindersAskSeen(userId),
-      // Only written when they actually turned the row on — the personal
-      // reminder is opt-in inside an opt-in, never a rider on the CTA.
-      alarm.enabled ? setAlarmReminder(userId, alarm) : Promise.resolve(),
-    ]);
-    if (alarm.enabled) {
-      // The turn-it-on tap IS the earned moment, so this is the one place
-      // in the reminder's life that may ask the OS for permission.
-      await syncDailyReminder({ enabled: true, alarmTime: alarm.time, requestPermission: true });
+  // WB1 job 1a — this no longer navigates on its own. It reports whether
+  // the writes landed, the card swaps to its confirm, and `finish` runs
+  // from the confirm's own continue button: the acknowledgment beat is
+  // exactly the gap that used to be a silent screen change. A failure
+  // resolves false, and the ask stays put rather than continuing as if it
+  // had worked (which is what the old unconditional finish() did — a
+  // rejected write here took the person to circle-setup with reminders
+  // silently off).
+  const handleTurnOn = async (alarm: RemindersAskAlarmChoice): Promise<boolean> => {
+    if (!session?.user) {
+      finish();
+      return false;
     }
-    finish();
+    const userId = session.user.id;
+    try {
+      await Promise.all([
+        updateNotificationPrefs(userId, { nudgeEnabled: true, digestEnabled: true }),
+        markRemindersAskSeen(userId),
+        // Only written when they actually turned the row on — the personal
+        // reminder is opt-in inside an opt-in, never a rider on the CTA.
+        alarm.enabled ? setAlarmReminder(userId, alarm) : Promise.resolve(),
+      ]);
+      if (alarm.enabled) {
+        // The turn-it-on tap IS the earned moment, so this is the one place
+        // in the reminder's life that may ask the OS for permission.
+        await syncDailyReminder({ enabled: true, alarmTime: alarm.time, requestPermission: true });
+      }
+      return true;
+    } catch (e) {
+      // FF1 — reported, not swallowed. Onboarding has no error surface of
+      // its own here, and the honest fallback is to let the person carry
+      // on rather than trapping them in setup: the ask's seen-flag write
+      // is inside the same batch, so an un-marked account simply meets
+      // Today's compact card and can say yes again there.
+      captureError(e, { screen: 'onboarding/reminders', op: 'handleTurnOn' });
+      finish();
+      return false;
+    }
   };
 
   const handleMaybeLater = async () => {
@@ -105,6 +127,7 @@ export default function RemindersAsk() {
           variant="full"
           onTurnOn={handleTurnOn}
           onMaybeLater={handleMaybeLater}
+          onContinue={finish}
           alarmPrefillTime={alarmPrefill?.time}
           alarmPrefilled={alarmPrefill?.prefilled}
         />

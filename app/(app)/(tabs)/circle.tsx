@@ -30,6 +30,7 @@ import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipTextShape, colors } from '@/constants/theme';
+import { useCheckinLaunch } from '@/hooks/use-checkin-launch';
 import { useRevealIntoView } from '@/hooks/use-reveal-into-view';
 import { useTabBarClearance } from '@/hooks/use-tab-bar-clearance';
 import { useAuth } from '@/lib/auth-context';
@@ -158,6 +159,15 @@ function YourCircle() {
   // Defaults to true so the discovery hint never flashes before the real
   // value loads — it only ever matters once it resolves to false.
   const [hasSeenCoverHint, setHasSeenCoverHint] = useState(true);
+  // WB1 job 3 — the two profile flags the check-in flow branches on. Both
+  // ride the profile read this screen ALREADY does in `load`; neither adds
+  // a query. The defaults are Today's, and for Today's reasons: consent
+  // defaults SEEN so the one-shot intro never flashes before the real
+  // value lands, and opt-out defaults FALSE so nobody's reflection screen
+  // is skipped on a guess.
+  const [hasSeenCheckinConsent, setHasSeenCheckinConsent] = useState(true);
+  const [reflectionsOptOut, setReflectionsOptOut] = useState(false);
+  const [checkinError, setCheckinError] = useState<string | null>(null);
   // CB1 job 1b — null means "not loaded yet", and that distinction is
   // load-bearing, not tidiness. `load` calls setCircle BEFORE awaiting the
   // batch that fetches this value, so `circle` commits a render earlier
@@ -268,6 +278,9 @@ function YourCircle() {
         setCoverableByUserId(coverable);
         setWallPreview(preview);
         setHasSeenCoverHint(!!profile?.has_seen_cover_hint);
+        // WB1 job 3 — same profile row, no extra round trip.
+        setHasSeenCheckinConsent(profile?.has_seen_checkin_consent ?? false);
+        setReflectionsOptOut(profile?.reflections_opt_out ?? false);
         setMyLastCelebratedDay(lastCelebratedDay);
         setPairStreaks(myPairStreaks);
         setBlockedIds(new Set(myBlocks.map((b) => b.blockedId)));
@@ -435,6 +448,18 @@ function YourCircle() {
     });
   };
 
+  // WB1 job 3 — THE SAME FLOW TODAY USES, not a second one that resembles
+  // it: this is the hook Today's own CTA calls, so the route decision, the
+  // params, the audio unlock and the one-tap write cannot diverge between
+  // the two screens. BG1's rule applies as it does on Today — a hook lives
+  // above the early returns below, never beside the button it feeds.
+  const { launchCheckin, oneTapCircleId } = useCheckinLaunch({
+    userId: session?.user?.id,
+    hasSeenCheckinConsent,
+    reflectionsOptOut,
+    onError: setCheckinError,
+  });
+
   if (isLoading) {
     return (
       <View style={styles.loading}>
@@ -534,6 +559,13 @@ function YourCircle() {
   const inTodayUserIds = new Set(
     presence.filter((p) => p.localDate === today).map((p) => p.userId)
   );
+  // WB1 job 3 — the two facts the check-in CTA turns on. Both are derived
+  // from data this screen already holds: today's presence rows, and the
+  // membership's own finished_at (read from `members` for the reason the
+  // ceremony effect above states — this screen resolves its circle by id,
+  // and a circle row carries no membership columns).
+  const iAmCheckedInToday = !!session?.user && inTodayUserIds.has(session.user.id);
+  const myFinishedAt = members.find((m) => m.userId === session?.user?.id)?.finishedAt ?? null;
   const isSolo = isSoloCircle(members.length);
   const signal = computeSignal({
     presence,
@@ -963,6 +995,40 @@ function YourCircle() {
           isSolo={isSolo}
           size="large"
         />
+        {/* WB1 job 3 (Cat's fresh-account walk, 3 Aug) — THE WAY TO ACT.
+            This card stated the viewer's own status three ways ("your
+            practice is resting", "your rally: 0 of 21", and the headcount
+            line above it) and offered nothing to do about any of it; the
+            only check-in in the app was on Today. The CTA joins the card
+            that makes the claim.
+
+            AN INVITATION, NEVER A NAG (warmth law): it appears only when
+            there is something to invite — not once the day is done, not
+            on a warmly-archived circle, and not to a member who has
+            FINISHED their rally here, who is never asked to check in
+            (PA2, memo §8). Once checked in the card reverts to plain
+            status: no "edit check-in" door, because that door belongs to
+            Today's own CTA slot and a second one here would be a second
+            place to reason about.
+
+            WANTS-TIMER IS TRUE, deliberately. Today shows two buttons for
+            a timed circle; this card shows one, so the one has to be the
+            practice's own front door rather than the shortcut past it —
+            and nothing is lost by that, because the timer screen carries
+            its own "mark as done". For a circle with a resource link the
+            argument changes nothing (Today always routes those to the
+            activity screen), and for a plain circle it changes nothing
+            either (there is no duration to trigger it). */}
+        {!iAmCheckedInToday && !circle.completedAt && !myFinishedAt && (
+          <TouchableOpacity
+            style={styles.signalCardCta}
+            onPress={() => launchCheckin(circle, true, signal.dayNumber)}
+            disabled={oneTapCircleId === circle.id}
+            accessibilityRole="button"
+          >
+            <Text style={styles.signalCardCtaText}>{STRINGS.checkInCta}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.wallPreviewCard}>
@@ -1517,6 +1583,15 @@ function YourCircle() {
         onDismiss={() => setGestureNotice(null)}
       />
       <MessageDialog visible={!!error} title="hmm" message={error ?? ''} onDismiss={() => setError(null)} />
+      {/* WB1 job 3 — the one-tap check-in has no screen of its own to fail
+          on, so its failure is said out loud here, exactly as Today says
+          it. Same dialog treatment as this screen's other three. */}
+      <MessageDialog
+        visible={!!checkinError}
+        title="hmm"
+        message={checkinError ?? ''}
+        onDismiss={() => setCheckinError(null)}
+      />
     </ScrollView>
   );
 }
@@ -1622,6 +1697,25 @@ const styles = StyleSheet.create({
     padding: 18,
     marginBottom: 24,
     ...cardShadow,
+  },
+  // WB1 job 3 — Today's own CTA shape and colour (gold = action, the
+  // colour-roles convention), so the two check-in buttons in the app read
+  // as one control in two places rather than as two different offers. It
+  // sits inside the card, under the caption, with the card's own padding
+  // holding it in.
+  signalCardCta: {
+    backgroundColor: colors.gold,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  signalCardCtaText: {
+    fontWeight: '700',
+    fontSize: 14,
+    // Ink on a gold FILL is 9.52:1 (OD1 job 10) — the one place gold and
+    // text belong together.
+    color: colors.ink,
   },
   linkSection: {
     marginBottom: 24,

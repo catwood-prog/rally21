@@ -34,7 +34,11 @@ function renderCard(variant: 'full' | 'compact') {
   let tree!: ReactTestRenderer;
   act(() => {
     tree = create(
-      <RemindersAskCard variant={variant} onTurnOn={() => {}} onMaybeLater={() => {}} />
+      <RemindersAskCard
+        variant={variant}
+        onTurnOn={async () => true}
+        onMaybeLater={() => {}}
+      />
     );
   });
   const texts = tree.root.findAllByType(Text).flatMap((n) =>
@@ -74,27 +78,94 @@ describe.each(['full', 'compact'] as const)('the reminders ask — %s variant', 
   });
 });
 
+/** Tap "turn on reminders" on a freshly-rendered card and return the tree
+ * so the caller can look at what replaced it. `onTurnOn` decides whether
+ * the writes "landed". */
+async function tapTurnOn(onTurnOn: (alarm: unknown) => Promise<boolean>) {
+  let tree!: ReactTestRenderer;
+  await act(async () => {
+    tree = create(
+      <RemindersAskCard variant="compact" onTurnOn={onTurnOn} onMaybeLater={() => {}} />
+    );
+  });
+  // Find the CTA's own label, then walk up to whatever is listening for
+  // the tap — more robust than guessing at the wrapper's shape.
+  let node = tree.root
+    .findAllByType(Text)
+    .find((n) => n.props.children === STRINGS.remindersAskCta)!;
+  while (!node.props.onPress) node = node.parent!;
+  await act(async () => node.props.onPress());
+  return tree;
+}
+
+function textsOf(tree: ReactTestRenderer): string[] {
+  return tree.root.findAllByType(Text).flatMap((n) =>
+    (Array.isArray(n.props.children) ? n.props.children : [n.props.children]).filter(
+      (c: unknown) => typeof c === 'string'
+    )
+  ) as string[];
+}
+
 describe('what the CTA reports back', () => {
-  it('says the reminder is off unless the person turned the row on', () => {
+  it('says the reminder is off unless the person turned the row on', async () => {
     setPlatform('ios');
-    const onTurnOn = jest.fn();
-    let tree!: ReactTestRenderer;
-    act(() => {
-      tree = create(
-        <RemindersAskCard variant="full" onTurnOn={onTurnOn} onMaybeLater={() => {}} />
-      );
-    });
-    // Find the CTA's own label, then walk up to whatever is listening for
-    // the tap — more robust than guessing at the wrapper's shape.
-    let node = tree.root
-      .findAllByType(Text)
-      .find((n) => n.props.children === STRINGS.remindersAskCta)!;
-    while (!node.props.onPress) node = node.parent!;
-    act(() => node.props.onPress());
+    const onTurnOn = jest.fn(async () => true);
+    const tree = await tapTurnOn(onTurnOn);
     act(() => tree.unmount());
 
     // Opt-in inside an opt-in: "turn on reminders" alone never sets a
     // personal practice time.
     expect(onTurnOn).toHaveBeenCalledWith({ enabled: false, time: null });
+  });
+});
+
+/**
+ * WB1 job 1a — the acknowledgment beat. Cat's fresh-account walk found
+ * "turn on reminders" writing the prefs and vanishing without a word, so
+ * these pin that yes is now ANSWERED, that the answer is honest about the
+ * platform it is on, and that it is never given when the write failed.
+ */
+describe('the answer to yes', () => {
+  it('swaps the ask for a confirm, and the confirm names EMAIL on web', async () => {
+    setPlatform('web');
+    const tree = await tapTurnOn(async () => true);
+    const texts = textsOf(tree);
+    act(() => tree.unmount());
+
+    // The ask is gone and the confirm is in its place.
+    expect(texts).not.toContain(STRINGS.remindersAskCta);
+    expect(texts).not.toContain(STRINGS.remindersAskMaybeLater);
+    expect(texts).toContain(STRINGS.remindersConfirmWeb);
+    // Web has no local scheduled reminder, so it must never claim one,
+    // and the native pointer at a time-setting it does not have must not
+    // ride along either.
+    expect(texts).not.toContain(STRINGS.remindersConfirmNative);
+    expect(texts).not.toContain(STRINGS.remindersConfirmTimePointer);
+  });
+
+  it('says the native thing on native, and points at settings when the row was left off', async () => {
+    setPlatform('ios');
+    const tree = await tapTurnOn(async () => true);
+    const texts = textsOf(tree);
+    act(() => tree.unmount());
+
+    expect(texts).toContain(STRINGS.remindersConfirmNative);
+    expect(texts).toContain(STRINGS.remindersConfirmTimePointer);
+    // The web line is a promise about email delivery, and it is not
+    // native's to make.
+    expect(texts).not.toContain(STRINGS.remindersConfirmWeb);
+  });
+
+  it('NEVER confirms when the write did not land — the ask stays put', async () => {
+    setPlatform('web');
+    const tree = await tapTurnOn(async () => false);
+    const texts = textsOf(tree);
+    act(() => tree.unmount());
+
+    expect(texts).not.toContain(STRINGS.remindersConfirmWeb);
+    expect(texts).not.toContain(STRINGS.remindersConfirmNative);
+    // Still askable, so the person can try again rather than being told
+    // it worked.
+    expect(texts).toContain(STRINGS.remindersAskCta);
   });
 });

@@ -9,6 +9,13 @@ import { formatTimeForDisplay, PREFILL_FALLBACK_TIME } from '@/lib/alarmReminder
 
 export type RemindersAskAlarmChoice = { enabled: boolean; time: string | null };
 
+/** WB1 job 1a — whether the one-time settings pointer rides the native
+ * confirm. PROPOSED: Cat rules the wording AND whether it ships at all,
+ * so it is one named constant rather than an expression threaded through
+ * the render, and turning it off is a one-word edit that leaves the rest
+ * of the beat exactly as it is. */
+const SHOW_TIME_POINTER_WHEN_ROW_LEFT_OFF = true;
+
 /** RM1 (13 July) — the reminders ask (mockup screen 6, rev-7): "full" is
  * the onboarding step shown once between profile and circle-setup;
  * "compact" is the one-time dismissible Today card for existing users.
@@ -26,17 +33,43 @@ export type RemindersAskAlarmChoice = { enabled: boolean; time: string | null };
  * personal reminder only if the person actually asked for it — the app's
  * own reminders (nudge + digest) still turn on exactly as they did
  * before, on both platforms. Both variants carry it, because they are one
- * component precisely so they can never drift apart. */
+ * component precisely so they can never drift apart.
+ *
+ * WB1 job 1a (4 Aug) — YES NOW GETS AN ANSWER. The card swaps in place to
+ * a one-line confirm naming what turned on, instead of writing the prefs
+ * and vanishing. Two details that are load-bearing:
+ *
+ *  - The confirm is driven by the PARENT'S SUCCESS, never by the tap.
+ *    `onTurnOn` resolves true only when the writes landed, and a false
+ *    resolution leaves the ask exactly where it was — today.tsx's failure
+ *    path shows its own error line, and a confirm on top of that would be
+ *    the card claiming something the database refused.
+ *  - The line is PLATFORM-SPLIT (see the strings): web has no local
+ *    scheduled reminder at all, so its yes turns on the email nudge and
+ *    digest and says so.
+ *
+ * Both variants swap, again so they cannot drift. The difference is what
+ * follows: the compact Today card's confirm is terminal for the visit,
+ * while the onboarding step passes `onContinue` and the confirm carries
+ * the button that moves the flow on. */
 export function RemindersAskCard({
   variant,
   onTurnOn,
   onMaybeLater,
+  onContinue,
   alarmPrefillTime,
   alarmPrefilled = false,
 }: {
   variant: 'full' | 'compact';
-  onTurnOn: (alarm: RemindersAskAlarmChoice) => void;
+  /** Resolves TRUE when the preferences actually saved. Typed as a
+   * required promise rather than `void | Promise<...>` on purpose: an
+   * accidental void return would be falsy, and the card would silently
+   * never confirm. */
+  onTurnOn: (alarm: RemindersAskAlarmChoice) => Promise<boolean>;
   onMaybeLater: () => void;
+  /** Onboarding only — what the confirm's button does. Omitted on Today,
+   * where the confirm simply sits until the next visit. */
+  onContinue?: () => void;
   /** Where the time picker opens — the prefill rule's answer, resolved by
    * the parent (which knows the account) rather than here. */
   alarmPrefillTime?: string;
@@ -48,7 +81,59 @@ export function RemindersAskCard({
   const compact = variant === 'compact';
   const [alarmOn, setAlarmOn] = useState(false);
   const [alarmTime, setAlarmTime] = useState(alarmPrefillTime ?? PREFILL_FALLBACK_TIME);
+  const [isTurningOn, setIsTurningOn] = useState(false);
+  /** WB1 job 1a — what the confirm should say, captured at the moment the
+   * writes landed. Null means the ask is still the ask. */
+  const [confirmed, setConfirmed] = useState<RemindersAskAlarmChoice | null>(null);
   const prefillNoteTime = alarmPrefilled ? formatTimeForDisplay(alarmTime) : null;
+
+  const handleTurnOn = async () => {
+    if (isTurningOn) return;
+    const choice: RemindersAskAlarmChoice = { enabled: alarmOn, time: alarmOn ? alarmTime : null };
+    setIsTurningOn(true);
+    try {
+      const saved = await onTurnOn(choice);
+      // Only a landed write earns the confirm. On false the parent has
+      // already said what went wrong; the ask stays put so the person can
+      // try again rather than being told it worked.
+      if (saved) setConfirmed(choice);
+    } finally {
+      setIsTurningOn(false);
+    }
+  };
+
+  if (confirmed) {
+    // The confirm inherits the ask's own wrap, so it swaps IN PLACE: the
+    // card does not resize or move under the finger that just tapped it.
+    const showTimePointer =
+      Platform.OS !== 'web' && !confirmed.enabled && SHOW_TIME_POINTER_WHEN_ROW_LEFT_OFF;
+    // formatTimeForDisplay returns null for anything it cannot parse, and
+    // that null is respected rather than papered over: the line names a
+    // time only when there is a real time to name, and otherwise says the
+    // plain native thing. A confirm that printed a broken time would be
+    // worse than the silence this section exists to fix.
+    const confirmedTime = confirmed.enabled ? formatTimeForDisplay(confirmed.time) : null;
+    const line =
+      Platform.OS === 'web'
+        ? STRINGS.remindersConfirmWeb
+        : confirmedTime
+          ? STRINGS.remindersConfirmNativeWithTime(confirmedTime)
+          : STRINGS.remindersConfirmNative;
+    return (
+      <View style={compact ? styles.compactWrap : styles.fullWrap}>
+        <Text style={styles.bell}>🔔</Text>
+        <Text style={styles.confirmLine}>{line}</Text>
+        {showTimePointer && (
+          <Text style={styles.confirmPointer}>{STRINGS.remindersConfirmTimePointer}</Text>
+        )}
+        {onContinue && (
+          <TouchableOpacity style={[styles.cta, styles.confirmCta]} onPress={onContinue}>
+            <Text style={styles.ctaText}>{STRINGS.remindersConfirmContinueCta}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }
 
   return (
     <View style={compact ? styles.compactWrap : styles.fullWrap}>
@@ -86,13 +171,10 @@ export function RemindersAskCard({
         </View>
       )}
 
-      <TouchableOpacity
-        style={styles.cta}
-        onPress={() => onTurnOn({ enabled: alarmOn, time: alarmOn ? alarmTime : null })}
-      >
+      <TouchableOpacity style={styles.cta} onPress={handleTurnOn} disabled={isTurningOn}>
         <Text style={styles.ctaText}>{STRINGS.remindersAskCta}</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={onMaybeLater}>
+      <TouchableOpacity onPress={onMaybeLater} disabled={isTurningOn}>
         <Text style={styles.maybeLater}>{STRINGS.remindersAskMaybeLater}</Text>
       </TouchableOpacity>
     </View>
@@ -209,6 +291,32 @@ const styles = StyleSheet.create({
     color: colors.mutedStrong,
     lineHeight: scaledLineHeight(18),
     marginBottom: 12,
+  },
+  // WB1 job 1a — the confirm's register is YD1's honest toast, not a
+  // celebration: it states what saved, quietly, in the body's own size and
+  // colour. Ink rather than mutedStrong because it is the only sentence on
+  // the card now and it is the answer to a question the person just asked.
+  confirmLine: {
+    fontSize: 13,
+    color: colors.ink,
+    lineHeight: scaledLineHeight(19),
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  confirmPointer: {
+    fontSize: 12.5,
+    color: colors.mutedStrong,
+    lineHeight: scaledLineHeight(18),
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  // The confirm's continue button reuses `cta`'s shape and weight, so the
+  // onboarding step's one control looks the same as it did a tap ago, and
+  // adds only the top gap the ask got from its body's margin. Kept
+  // separate rather than folded into `cta` so the ASK's spacing is
+  // untouched by this section.
+  confirmCta: {
+    marginTop: 18,
   },
   cta: {
     backgroundColor: colors.green,

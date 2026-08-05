@@ -27,6 +27,15 @@ export function daysInMonth(month: number): number {
   return 31;
 }
 
+/** WB1 job 2 — the year's plausible range, exported so the picker's quiet
+ * hint and isValidBirthday's rejection can never name different bounds.
+ * The max is a function, not a constant: a module-load snapshot would be
+ * wrong for anyone whose app is open across New Year. */
+export const BIRTHDAY_YEAR_MIN = 1900;
+export function maxBirthdayYear(): number {
+  return new Date().getFullYear();
+}
+
 /** A birthday is either fully unset (no month, no day) or a valid
  * month+day pair; the year is optional and, if present, must be plausible.
  * Mirrors the DB check constraint exactly so the client rejects the same
@@ -36,7 +45,7 @@ export function isValidBirthday(
   day: number | null,
   year: number | null = null
 ): boolean {
-  if (year != null && (year < 1900 || year > new Date().getFullYear())) return false;
+  if (year != null && (year < BIRTHDAY_YEAR_MIN || year > maxBirthdayYear())) return false;
   if (month == null && day == null) return true;
   if (month == null || day == null) return false;
   if (month < 1 || month > 12) return false;

@@ -519,13 +519,27 @@ export const STRINGS = {
   // plainly (circle-mates can see the day) per the spec.
   birthdayLabel: "when's your birthday?",
   birthdayOptionalTag: '(optional)',
-  birthdayWhy: 'so your circle can celebrate you on the day — the year stays private, and you can skip this',
+  // WB1 job 2 (4 Aug) — the em dash goes, per Cat's ruled Option B copy.
+  birthdayWhy: 'so your circle can celebrate you on the day. the year stays private, and you can skip this',
   birthdayMonthSubLabel: 'month',
   birthdayDaySubLabel: 'day',
   birthdayYearSubLabel: 'year (optional)',
   birthdayYearPlaceholder: 'e.g. 1990',
   birthdayDayPlaceholder: 'e.g. 14',
-  birthdayPickMonthFirst: 'pick a month too',
+  // WB1 job 2 — the month is typed now, so its placeholder is a NUMBER,
+  // and the numeral is the point: the labelled boxes exist precisely so
+  // nobody has to guess whether 03/04 is March or April.
+  birthdayMonthPlaceholder: 'e.g. 4',
+  // WB1 job 2 — the quiet hint set. Every one of these states a range or
+  // asks for the missing half; none of them tells anybody off (warmth
+  // law), and none appears until there is something real to say about
+  // what was typed. "add a month too" replaced "pick a month too" with
+  // the chips it referred to: nothing is picked on this block any more.
+  birthdayPickMonthFirst: 'add a month too',
+  birthdayAddDayToo: 'add a day too',
+  birthdayDayOutOfRange: 'days go from 1 to 31',
+  birthdayMonthOutOfRange: 'months go from 1 to 12',
+  birthdayYearOutOfRange: (min: number, max: number) => `years go from ${min} to ${max}`,
   birthdayDayNotInMonth: (monthFull: string, max: number) => `${monthFull} only has ${max} days`,
   birthdayInvalid: "that day isn't in that month — pick another",
   settingsBirthdayLabel: 'your birthday',
@@ -961,6 +975,40 @@ export const STRINGS = {
   // conversation. Native only, and genuinely optional: the row starts off,
   // and "turn on reminders" saves it only if the person turned it on.
   remindersAskAlarmRowLabel: '⏰ and remind me at my own time',
+
+  // WB1 job 1a (4 Aug, from Cat's fresh-account walk) — THE ANSWER TO
+  // YES. "turn on reminders" wrote the prefs and the card vanished, so
+  // the tap read as nothing having happened, and on Today the next
+  // one-time ask slid into the same slot on the same render, which read
+  // as a segue into a photo pitch. The card now swaps in place to a
+  // one-line confirm that names what actually turned on.
+  //
+  // PLATFORM-SPLIT, and the split is the honesty (the voice-hint
+  // precedent, OD1 job 1a/c/d). A LOCAL SCHEDULED REMINDER DOES NOT
+  // EXIST ON WEB — expo-notifications' scheduler is native-only, which is
+  // why AL1 hides the row there rather than disabling it — so a web yes
+  // enables exactly two things, the daily nudge and the evening digest,
+  // and both reach a browser user as EMAIL. A shared line saying "we'll
+  // remind you" would be a promise the web build cannot keep. On native
+  // the same two go out as push when a device token exists and as email
+  // otherwise (PN1), so the native lines name the nudge without naming a
+  // channel — which is true on both of that platform's paths.
+  //
+  // ALL OF THIS COPY IS PROPOSED, FOR CAT'S NOD. Warmth laws, commas
+  // rather than em dashes, and never the word "alarm" (AL1's standing
+  // rule: an app cannot ring through a silenced iPhone, so calling it one
+  // would promise something the feature cannot do).
+  remindersConfirmWeb: "reminders are on, by email: a gentle nudge when it's time, and an evening recap.",
+  remindersConfirmNative: "reminders are on. we'll nudge you when it's time, and when your circle could use you.",
+  remindersConfirmNativeWithTime: (time: string) =>
+    `reminders are on, and your own quiet reminder comes at ${time}.`,
+  // The one-time settings pointer, shown only on native and only when the
+  // person left their own time OFF. AL1's default-off is a RULING and is
+  // untouched here: this points at the door, it does not open it. One-time
+  // by construction rather than by a new flag — the ask it rides is
+  // itself once-per-account-ever.
+  remindersConfirmTimePointer: 'you can pick your own reminder time in settings whenever you like.',
+  remindersConfirmContinueCta: 'continue',
 
   // Today's reflection teaser (D4 design review) — an invitation, never a
   // reminder of something missed. Only shows before today's reflection is
