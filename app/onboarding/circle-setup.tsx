@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,6 +8,8 @@ import { Brandmark } from '@/components/Brandmark';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors, scaledLineHeight } from '@/constants/theme';
+import { useAuth } from '@/lib/auth-context';
+import { recordFunnelEvent } from '@/lib/funnel';
 
 export default function CircleSetup() {
   const router = useRouter();
@@ -31,6 +34,23 @@ export default function CircleSetup() {
   // Today (fromToday) is not Day-0, so both skip straight to the browse.
   const isDayZero = !wantKey && fromToday !== 'true';
   const carriedTail = { ...(fromToday === 'true' ? { fromToday: 'true' } : {}), ...wantParams };
+
+  // AN1 job 2 — this fork is where in-onboarding abandonment actually
+  // happens, and it is invisible today: join_source records which door
+  // somebody came THROUGH, but only for the people who made it out the
+  // other side. Gated on isDayZero (this file's own name for a genuine
+  // first-run visit), so a want-act flow or an extra circle added from
+  // Today never counts as an onboarding step — the same visit reached by
+  // two different routes must not land in one funnel.
+  const { session } = useAuth();
+  const emitSetupEvent = (event: Parameters<typeof recordFunnelEvent>[1]) => {
+    if (isDayZero) recordFunnelEvent(session?.user?.id, event);
+  };
+
+  useEffect(() => {
+    if (isDayZero) recordFunnelEvent(session?.user?.id, 'onboarding_circle_setup_opened');
+  }, [isDayZero, session?.user?.id]);
+
   const goStart = (extra: Record<string, string>) =>
     router.push(
       isDayZero
@@ -68,7 +88,10 @@ export default function CircleSetup() {
 
       <TouchableOpacity
         style={[styles.card, styles.cardHighlighted]}
-        onPress={() => goStart({})}
+        onPress={() => {
+          emitSetupEvent('onboarding_circle_setup_start_chosen');
+          goStart({});
+        }}
       >
         <Text style={styles.cardEmoji}>✨</Text>
         <Text style={styles.cardTitle}>{STRINGS.circleSetupStartCardTitle}</Text>
@@ -79,12 +102,13 @@ export default function CircleSetup() {
 
       <TouchableOpacity
         style={styles.card}
-        onPress={() =>
+        onPress={() => {
+          emitSetupEvent('onboarding_circle_setup_join_chosen');
           router.push({
             pathname: '/onboarding/join-circle',
             params: fromToday === 'true' ? { fromToday: 'true' } : {},
-          })
-        }
+          });
+        }}
       >
         <Text style={styles.cardEmoji}>🤝</Text>
         <Text style={styles.cardTitle}>{STRINGS.circleSetupInviteCardTitle}</Text>
@@ -95,7 +119,10 @@ export default function CircleSetup() {
 
       <TouchableOpacity
         style={styles.card}
-        onPress={() => goStart({ solo: 'true' })}
+        onPress={() => {
+          emitSetupEvent('onboarding_circle_setup_solo_chosen');
+          goStart({ solo: 'true' });
+        }}
       >
         <Text style={styles.cardEmoji}>🌱</Text>
         <Text style={styles.cardTitle}>{STRINGS.circleSetupSoloCardTitle}</Text>

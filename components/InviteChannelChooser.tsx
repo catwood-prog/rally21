@@ -13,6 +13,10 @@ type Props = {
   mailSubject: string;
   /** Runs the screen's existing copy flow (clipboard + "copied" notice). */
   onCopy: () => void;
+  /** AN1 job 2 — fires when a real channel row is tapped, before the
+   * compose surface opens. Deliberately not fired for the copy row, which
+   * the screen already reports as its own event. */
+  onChannelChosen?: () => void;
   onDismiss: () => void;
 };
 
@@ -27,7 +31,7 @@ const CHANNEL_ROWS: { channel: InviteChannel; label: string; icon: keyof typeof 
 // Safari get the real sheet instead). Each row opens that channel's
 // compose surface with the invite message pre-populated; a channel that
 // can't open falls back to the copy flow rather than erroring.
-export function InviteChannelChooser({ visible, message, mailSubject, onCopy, onDismiss }: Props) {
+export function InviteChannelChooser({ visible, message, mailSubject, onCopy, onChannelChosen, onDismiss }: Props) {
   // OD1 job 18a — the reduced-motion law reached 14 files and skipped
   // every shared modal: all four hardcoded a fade. A fade is only a small
   // transition, but the law is not graded by size and these are among the
@@ -37,6 +41,7 @@ export function InviteChannelChooser({ visible, message, mailSubject, onCopy, on
   const channels = availableInviteChannels();
 
   const handleChannel = async (channel: InviteChannel) => {
+    onChannelChosen?.();
     onDismiss();
     const opened = await openInviteChannel(channel, message, mailSubject);
     if (!opened) onCopy();

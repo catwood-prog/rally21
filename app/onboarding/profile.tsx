@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -21,6 +21,7 @@ import { STRINGS } from '@/constants/strings';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { isValidBirthday } from '@/lib/birthday';
+import { recordFunnelEvent } from '@/lib/funnel';
 import { saveProfile } from '@/lib/profile';
 
 // O1 (Google slice, 8/12 July): a brand-new Google signup arrives with a
@@ -58,6 +59,14 @@ export default function ProfileSetup() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [birthday, setBirthday] = useState<BirthdayValue>({ month: null, day: null, year: null });
   const [isSaving, setIsSaving] = useState(false);
+  // AN1 job 2 — `users.name` records that this step FINISHED but carries no
+  // timestamp of its own, and nothing at all records reaching it. Both
+  // halves are emitted so an opened-but-never-saved profile is visible as
+  // abandonment instead of as an account that simply never existed. Firing
+  // again on a revisit is harmless: the lens reads min(created_at).
+  useEffect(() => {
+    recordFunnelEvent(session?.user?.id, 'onboarding_profile_opened');
+  }, [session?.user?.id]);
   const [error, setError] = useState('');
   const [avatarWarning, setAvatarWarning] = useState<string | null>(null);
   const showAppleRescueLine = isNewAppleAccount(session);
@@ -91,6 +100,10 @@ export default function ProfileSetup() {
         avatarUri: photoUri,
         birthday,
       });
+      // AN1 — after the write, not after the navigation: an avatar warning
+      // still means the name landed, and this step is "saved" the moment
+      // the profile row is written.
+      recordFunnelEvent(session.user.id, 'onboarding_profile_saved');
       if (warning) {
         setAvatarWarning(warning);
       } else {

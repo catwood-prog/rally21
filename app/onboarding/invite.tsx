@@ -24,6 +24,7 @@ import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { MyCircle, resolveCircleSelection } from '@/lib/circle';
 import { useAuth } from '@/lib/auth-context';
+import { recordFunnelEvent } from '@/lib/funnel';
 
 export default function Invite() {
   const router = useRouter();
@@ -88,6 +89,20 @@ export default function Invite() {
   const handleShare = () => {
     if (!inviteCode) return;
 
+    // AN1 job 2 — the sent side of the k-factor. Nothing in this screen
+    // touches the database today: the message goes to the OS share sheet,
+    // the in-app chooser or the clipboard, and there is no invites table
+    // anywhere in the schema. The ACCEPTED side already lives in
+    // join_source='invite'; this is the half that was missing.
+    //
+    // Named for what it can actually observe. The OS never reports that a
+    // message was sent, let alone delivered, so this records that a send
+    // path was OPENED — an honest proxy, and the reason the enum key does
+    // not say "invite_sent". NOT gated on onboarding: this screen is
+    // reached from the circle tab too, and an invite sent on day 30 is
+    // exactly as much of a k-factor event as one sent on day 0.
+    recordFunnelEvent(session?.user?.id, 'invite_share_opened');
+
     if (Platform.OS === 'web') {
       const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
       if (typeof nav.share === 'function') {
@@ -111,6 +126,7 @@ export default function Invite() {
 
   const handleCopyCode = async () => {
     if (!inviteCode) return;
+    recordFunnelEvent(session?.user?.id, 'invite_code_copied');
     await Clipboard.setStringAsync(inviteCode);
     setNotice('code copied');
   };
@@ -229,6 +245,7 @@ export default function Invite() {
         message={shareMessage}
         mailSubject={STRINGS.inviteMailSubject(circleName)}
         onCopy={copyMessage}
+        onChannelChosen={() => recordFunnelEvent(session?.user?.id, 'invite_channel_chosen')}
         onDismiss={() => setChooserVisible(false)}
       />
 

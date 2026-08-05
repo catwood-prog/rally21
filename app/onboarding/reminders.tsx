@@ -9,6 +9,7 @@ import { colors } from '@/constants/theme';
 import { resolvePrefillAlarmTime, syncDailyReminder } from '@/lib/alarmReminder';
 import { useAuth } from '@/lib/auth-context';
 import { updateNotificationPrefs } from '@/lib/notifications';
+import { recordFunnelEvent } from '@/lib/funnel';
 import { markRemindersAskSeen, setAlarmReminder } from '@/lib/profile';
 import { captureError } from '@/lib/sentry';
 
@@ -34,6 +35,13 @@ export default function RemindersAsk() {
   // NAV1 job 0 — the safe-area inset still applies without an AppHeader.
   const insets = useSafeAreaInsets();
   const [alarmPrefill, setAlarmPrefill] = useState<{ time: string; prefilled: boolean } | null>(null);
+
+  // AN1 job 2 — `reminders_ask_seen_at` is written on CONTINUE only (both
+  // handlers below), so reaching this step and leaving stamps nothing
+  // today. This is the arrival half; the answer half stays where it is.
+  useEffect(() => {
+    recordFunnelEvent(session?.user?.id, 'onboarding_reminders_opened');
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (Platform.OS === 'web' || !session?.user) return;

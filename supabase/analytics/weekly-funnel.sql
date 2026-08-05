@@ -1,0 +1,115 @@
+-- =====================================================================
+-- THE WEEKLY FUNNEL QUERY  (AN1 job 1, 5 August 2026)
+--
+-- Paste the block at the bottom into the Supabase dashboard's SQL editor
+-- (Project → SQL Editor → new query) and run it. No session, no app, no
+-- Claude needed — the dashboard connects as `postgres`, which is the only
+-- other door into the `analytics` schema besides the founder RPC.
+--
+-- HOW TO READ IT, AND THE ONE RULE: THESE ARE COUNTS, NOT CONCLUSIONS.
+-- At this cohort size a percentage is a rounding artefact and a trend is
+-- a coincidence. Read the integers, notice which ones surprise you, and
+-- go and ask the actual person — six of the accounts in here are Cat,
+-- Russ, her brother and her dad (settled 28 July), so nothing in this
+-- table is yet evidence about how strangers behave.
+--
+-- ONE SOURCE OF TRUTH. The arithmetic lives in the views
+-- (analytics.funnel_person → analytics.funnel_weekly, created by
+-- migration 20260805150500_an1_the_activation_lens.sql), NOT in this
+-- file. That is deliberate: a pasted block that carries its own copy of
+-- the logic is a second definition waiting to disagree with the first.
+-- If a number here looks wrong, fix the view and every reader is fixed.
+--
+-- ---------------------------------------------------------------------
+-- COLUMN GLOSSARY (the ones with a judgement call inside them)
+-- ---------------------------------------------------------------------
+--
+--   cohort_week
+--     Monday of the week the ACCOUNT was created (UTC). People are
+--     counted in the week they signed up forever, not the week they acted.
+--
+--   joined_or_started / first_join_creator|invite|browse
+--     Whether they ever got into a circle, and by which of the three
+--     doors they came through FIRST. From memberships.join_source (OC1),
+--     which has recorded this since 13 July with no backfill needed.
+--
+--   first_practice_within_2min / first_practice_over_2min
+--     Signup → first `kind='self'` completion, against TF1 job 4a's
+--     stopwatch standard ("over ~2 minutes = a bug"). READ THIS ONE
+--     CAREFULLY: that standard was written for a deliberate walkthrough
+--     on a fresh account — the fastest possible path. Applied backwards
+--     to real accounts it also flags everyone who signed up at night and
+--     first practised the next morning, which is not a bug and not a
+--     person doing anything wrong. It is a count of who did NOT take the
+--     fast path, and the "why" is still Cat's stopwatch to run.
+--
+--   eligible_d7 / alive_d7  (same shape for d21)
+--     alive_dN = practised at least once on or after day N of their own
+--     signup, i.e. got PAST that day rather than merely reaching it.
+--     eligible_dN is the DENOMINATOR: accounts old enough for the
+--     question to have an answer. An account too young is excluded from
+--     both, never counted as a loss — an unanswerable question is not a
+--     negative answer. Always read alive_dN against eligible_dN, never
+--     against `accounts`.
+--
+--   solo_accounts / circle_accounts (and their alive_dN splits)
+--     Solo = every circle they are in has exactly one member
+--     (lib/circle.ts's own isSoloCircle rule). Measured at QUERY TIME
+--     from current member counts: a circle that grew from one member to
+--     three keeps no record of when it stopped being solo, so this reads
+--     "has ever practised alongside anyone in a circle they are in now".
+--
+--   best_rally_count_in_cohort / reached_rally_21 / continued_past_rally_21
+--     THE PERSONAL-ARC LAW, and the reason this is not a day count.
+--     A rally is counted in PRACTICES, per person per circle, and
+--     `kind='self'` ONLY — covered and away days protect the glow and
+--     never advance the rally (Rally21-Personal-Arc-Decision-Memo.md §4,
+--     which corrected its own first draft on exactly this point). The
+--     expression is PA1/PA2/PA4's, character for character:
+--     count(distinct local_date) where kind='self'. Never substitute
+--     elapsed calendar days here — that is the dishonest number the memo
+--     exists to remove.
+--
+--   invite_sends_started / memberships_joined_via_invite
+--     The k-factor SEED, and only a seed. The sent side comes from
+--     funnel_events and is honestly named: the OS never tells us a
+--     message was sent, so what is recorded is that a send path was
+--     opened. It is zero for every week before 5 August because nothing
+--     recorded it — that is missing data, not a cohort that never
+--     invited anyone. The accepted side is join_source='invite'. The two
+--     sides belong to different people by definition, so do not divide
+--     one by the other within a row.
+--
+-- ---------------------------------------------------------------------
+-- WHAT THIS QUERY CANNOT SEE (so you don't read a gap as a zero)
+-- ---------------------------------------------------------------------
+--   * Pre-auth link opens. The invite message points at a bare
+--     https://rally21.com with the code typed separately, so an open is
+--     not attributable to an inviter even in principle. Cat ruled 5 Aug:
+--     build nothing; the real fix is a coded invite link, queued.
+--   * Anything before 5 August in the funnel_events columns
+--     (profile_step_opened, circle_setup_opened, chose_a_setup_door,
+--     invite_sends_started). Those stages started recording the day AN1
+--     shipped and cannot be backfilled. Every other column IS historical.
+-- =====================================================================
+
+
+-- ---------------------------------------------------------------------
+-- PASTE FROM HERE
+-- ---------------------------------------------------------------------
+
+select * from analytics.funnel_weekly order by cohort_week;
+
+
+-- ---------------------------------------------------------------------
+-- AND THIS ONE when a week's number is surprising and you want the
+-- people behind it. One row per account, every stage, newest last.
+-- ---------------------------------------------------------------------
+
+-- select display_name, cohort_week, account_age_days,
+--        first_join_source, circles_joined, days_signup_to_first_join,
+--        seconds_signup_to_first_practice, over_tf1_two_minute_mark,
+--        self_days_any_circle, best_rally_count, company_kind,
+--        alive_d7, alive_d21, last_self_local_date, has_device_token
+-- from analytics.funnel_person
+-- order by signed_up_at;
