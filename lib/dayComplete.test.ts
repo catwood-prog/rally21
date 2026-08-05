@@ -225,6 +225,101 @@ describe('getDayCloseState — the count behind the closing beat', () => {
     expect(state.awaitingCount).toBe(0);
   });
 
+  // DD1 (5 Aug) — "remaining" is now also what decides whether the
+  // celebration headline may say "done", so the three ways a circle is
+  // NOT awaiting anything each get pinned here rather than at the
+  // headline, where they would be a second mechanism.
+  it('a FINISHED membership is never awaiting — PA2 stopped asking, so this stops counting', async () => {
+    // today.tsx is explicit ("a finished member is never asked to check
+    // in") and skips the check-in flow entirely on myFinishedAt. Before
+    // DD1 this traversal disagreed: it counted the finished circle,
+    // inflating "N more today" AND holding the day open permanently —
+    // a member who finishes one of two circles could never reach a done
+    // day again, so the farewell and the share card would simply stop.
+    const state = await getDayCloseState({
+      userId: ME,
+      localDate: TODAY,
+      deps: {
+        listMyCircles: async () => [
+          fakeCircle({ id: 'a' }),
+          fakeCircle({ id: 'finished', myFinishedAt: '2026-07-19T00:00:00Z' }),
+        ],
+        getCirclePresence: async (id) => (id === 'a' ? [{ userId: ME, localDate: TODAY }] : []),
+      },
+    });
+    expect(state).toEqual({ isComplete: true, awaitingCount: 0 });
+  });
+
+  it('finished circles do not inflate the count either', async () => {
+    const state = await getDayCloseState({
+      userId: ME,
+      localDate: TODAY,
+      deps: {
+        listMyCircles: async () => [
+          fakeCircle({ id: 'a' }),
+          fakeCircle({ id: 'b' }),
+          fakeCircle({ id: 'finished', myFinishedAt: '2026-07-19T00:00:00Z' }),
+        ],
+        getCirclePresence: async (id) => (id === 'a' ? [{ userId: ME, localDate: TODAY }] : []),
+      },
+    });
+    // 'b' alone is awaiting; 'finished' is not a practice anyone is
+    // waiting on, so the button says "one more today", not "two".
+    expect(state).toEqual({ isComplete: false, awaitingCount: 1 });
+  });
+
+  it('finishing everything but one circle collapses to the single-circle short-circuit', async () => {
+    // The exclusion happens BEFORE the `active.length <= 1` test, so a
+    // member down to one live circle gets job 9c's zero-fetch path — and
+    // therefore always gets "done", exactly like anyone else with one.
+    const getCirclePresence = jest.fn();
+    const state = await getDayCloseState({
+      userId: ME,
+      localDate: TODAY,
+      deps: {
+        listMyCircles: async () => [
+          fakeCircle({ id: 'a' }),
+          fakeCircle({ id: 'finished', myFinishedAt: '2026-07-19T00:00:00Z' }),
+          fakeCircle({ id: 'archived', completedAt: '2026-07-20T00:00:00Z' }),
+        ],
+        getCirclePresence,
+      },
+    });
+    expect(state).toEqual({ isComplete: true, awaitingCount: 0 });
+    expect(getCirclePresence).not.toHaveBeenCalled();
+  });
+
+  it('an RS2 AWAY row is presence, so an away-held circle is never awaiting', async () => {
+    // RS2's away pause is person-level (users.away_since), not per
+    // circle, and return_from_away() leaves one 'away'-kind completions
+    // row per held day behind. hasPresenceToday is kind-blind, so those
+    // rows read as presence here exactly as they do for the picker's
+    // per-row mark (lib/circle.test.ts pins the same decision for
+    // myStateInCircle) — the two can never disagree about the same day.
+    //
+    // The LIVE half of the pause needs no test because it cannot reach
+    // this function: lib/checkin.ts's saveCompletion calls
+    // return_from_away() on every check-in, so a caller of this is never
+    // currently away.
+    // The rows carry their real `kind` — DayCloseDeps' row type is a
+    // structural subset of lib/circle's CirclePresenceRow, which is what
+    // the production getCirclePresence actually hands over, so this is
+    // the shape the traversal really sees rather than a reduction of it.
+    const awayRow = { userId: ME, localDate: TODAY, kind: 'away' as const, coveredBy: null };
+    const selfRow = { userId: ME, localDate: TODAY, kind: 'self' as const, coveredBy: null };
+    const state = await getDayCloseState({
+      userId: ME,
+      localDate: TODAY,
+      deps: {
+        listMyCircles: async () => [fakeCircle({ id: 'a' }), fakeCircle({ id: 'held' })],
+        getCirclePresence: async (id) => (id === 'a' ? [selfRow] : [awayRow]),
+      },
+    });
+    expect(state).toEqual({ isComplete: true, awaitingCount: 0 });
+    // And the same row on somebody else's account is still not mine.
+    expect(hasPresenceToday([{ ...awayRow, userId: 'other' }], ME, TODAY)).toBe(false);
+  });
+
   it('isEndOfDayComplete still answers exactly as before (same source, one definition)', async () => {
     const deps = {
       listMyCircles: async () => [fakeCircle({ id: 'a' }), fakeCircle({ id: 'b' })],

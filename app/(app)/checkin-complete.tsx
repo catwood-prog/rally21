@@ -111,14 +111,34 @@ function makeConfettiSpecs(): { behind: ConfettiSpec[]; front: ConfettiSpec[] } 
  * title is ABSENT and the subtitle ("You showed up again.") carries the
  * moment on its own. A missing line is a smaller loss than a wrong one.
  *
+ * DD1 (5 Aug, Cat's ruling) — the same principle now governs a SECOND
+ * word in the same line. "done" is a claim about the day, and this screen
+ * fires on every check-in, so on a multi-circle day it was making that
+ * claim while its own button underneath read "one more today". The
+ * headline now takes the day-close read the button already takes —
+ * `isDayComplete`, one traversal, one answer — and keeps "done" for the
+ * day's last check-in only.
+ *
+ * `null` (still resolving) reads as NOT done, and that is the same rule
+ * as the count above rather than a different one: "day 12" is true
+ * whether or not another circle is waiting, so the unknown state gets the
+ * line that cannot be wrong. It can only ever gain the word once the read
+ * lands — the same one-way settling the CTA below already does, and never
+ * a claim retracted in front of the person who just earned it.
+ *
+ * A glow milestone still outranks both: it makes no day-done claim of its
+ * own, so it is untouched here.
+ *
  * Exported for its test, the same way checkin.tsx exports QuestionInput.
  */
 export function successTitleFor(input: {
   glowMilestone: number | null;
   rallyCount: number | null;
+  isDayComplete: boolean | null;
 }): string | null {
   if (input.glowMilestone) return STRINGS.glowMilestoneTitle(input.glowMilestone);
   if (input.rallyCount === null) return null;
+  if (input.isDayComplete !== true) return STRINGS.checkinSuccessTitleOpen(input.rallyCount);
   return STRINGS.checkinSuccessTitle(input.rallyCount);
 }
 
@@ -557,7 +577,10 @@ export default function CheckInComplete() {
   });
   const pendingCard = closingBeat.cardFollows ? cardNavParams : null;
 
-  const successTitle = successTitleFor({ glowMilestone, rallyCount });
+  // DD1 — the headline reads the SAME `isDayComplete` the closing beat
+  // above reads, deliberately not a second lookup: the word "done" and
+  // the button under it are two halves of one claim about the day.
+  const successTitle = successTitleFor({ glowMilestone, rallyCount, isDayComplete });
 
   const handleDismiss = () => {
     // G5 (Rally21-Glow-Spec.md §1): the glow moment only replaces this

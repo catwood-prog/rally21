@@ -110,6 +110,28 @@ export const STRINGS = {
     "Something on our side slipped — nothing you've done is lost. Let's get you back to solid ground.",
   errorBoundaryCta: 'take me back',
 
+  // DD1 (5 Aug, Cat's ruling from her 03:48 screenshot) — "done" is a
+  // claim about the DAY, not about this check-in, so it waits for the
+  // day's LAST one. The screenshot is the whole argument: "day 12 done"
+  // sitting directly above a button reading "one more today". Two lines,
+  // eight pixels apart, disagreeing about the same fact.
+  //
+  // So the headline splits in two. `checkinSuccessTitle` keeps the full
+  // claim and is now reached only when nothing else is still waiting;
+  // every earlier check-in of a multi-circle day gets the count alone.
+  // A solo or single-circle person never sees the open variant — their
+  // one check-in IS the day's last, and getDayCloseState short-circuits
+  // them to complete without so much as a presence fetch.
+  //
+  // Bare is Cat's own wording ("we can just remove 'done'") and it is
+  // also the conservative shape: the body line ("You showed up again.")
+  // was already carrying the warmth, and adding a second sentence here
+  // would be inventing copy to fill a hole the removal didn't leave.
+  // NODDED in-session, 5 Aug, against two alternatives (a quiet "day 12
+  // ✓" and a warmer "day 12, one down" — the second was the weaker one
+  // anyway, since it says what the button two lines below already says,
+  // which is the exact doubling DD1 exists to remove).
+  checkinSuccessTitleOpen: (n: number) => `day ${n}`,
   checkinSuccessTitle: (n: number) => `day ${n} done`,
   checkinSuccessBody: 'You showed up again.',
   // OD1 job 9d — kept as the DEFERRAL label, no longer the everyday one.
