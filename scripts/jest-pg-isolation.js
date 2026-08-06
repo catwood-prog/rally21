@@ -61,9 +61,33 @@ if (IS_DB_SUITE) installGuards();
  *
  * Raised only for the DB-bound suites: a unit test that hangs should still
  * fail in 5s rather than tie up a run for two minutes.
+ *
+ * RAISED AGAIN TO 300s BY RE1 (6 Aug), because 120s was still inside the
+ * suites' real working range and that is the SECOND of the two mechanisms
+ * behind the re-ask-cycle flake. re-ask-cycle's "the cycle is what delivers
+ * a third answer" test replays 90 simulated days TWICE for its controlled
+ * comparison — 720 round trips to a pooled remote database, measured at
+ * 68-86s across ten isolation runs. The margin to 120s was under 2x, and a
+ * routine latency excursion eats it: on the run that failed, a probe against
+ * the same pooler showed the round trip going 350ms -> 3820ms with DNS
+ * healthy, and the test came in at 124.6s.
+ *
+ * WHAT THE TIMEOUT THEN COSTS, which is why it looked connection-level for
+ * four sittings. Jest abandons the timed-out test but its in-flight query is
+ * still on the wire, so the afterEach `rollback to savepoint` below queues
+ * BEHIND the abandoned work and the shared transaction stays poisoned. The
+ * NEXT test dies with `current transaction is aborted, commands ignored
+ * until end of transaction block` — thrown from pg/lib/client.js:652, the
+ * very frame the ledger had been reading as `read ETIMEDOUT`. One slow test
+ * therefore fails two, and neither failure names the slowness that caused
+ * it. THAT CASCADE IS NOT FIXED HERE, only made much harder to reach: a
+ * DB-bound test that genuinely times out will still take its neighbour with
+ * it. The guards in jest-pg-guards.js still bound the pathological cases
+ * (statement_timeout 30s, idle_in_transaction 60s), so a true hang is caught
+ * there rather than by this ceiling.
  */
 if (IS_DB_SUITE) {
-  jest.setTimeout(120000);
+  jest.setTimeout(300000);
 }
 
 // A client that is connected but NOT inside a transaction (or one already

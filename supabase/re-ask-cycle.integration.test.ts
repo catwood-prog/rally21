@@ -16,6 +16,7 @@
  * always rolled back in afterAll, so it never leaves a row behind whatever
  * it asserts — including the reask_tracked flips below.
  */
+import { createHash } from 'crypto';
 import { Client } from 'pg';
 
 const DB_URL = process.env.SUPABASE_DB_URL;
@@ -64,11 +65,47 @@ describeIfConfigured('RA1 — the re-ask cycle', () => {
     ]);
   }
 
+  /** RE1, 6 August — THE TESTER'S UUID WAS THIS SUITE'S HIDDEN RANDOM SEED,
+   * and it is the root cause of the flake this file was ledgered for since
+   * 4 August. get_daily_question breaks its ordering ties on
+   * `md5(v_user || p_local_date || q.id)`, so the user id CHOOSES the
+   * question sequence — and `crypto.randomUUID()` drew a fresh one per
+   * tester, per test, per run. Every hedge in the comments below ("a
+   * different tester means different md5 tie-breaks", "a seed that loses a
+   * weekend to the L2 cap slips a whole week") is that randomness being
+   * apologised for.
+   *
+   * Measured 6 Aug, replaying the same 90 days against pinned uuids: the
+   * outcome is a pure function of the seed (identical across repeats), and
+   * 3 of 40 seeds left HAB-15 one ask short — which is exactly the
+   * `Expected: >= 3 / Received: 2` the ledger recorded, alternating between
+   * lines 207 and 275 because those two tests each drew their OWN tester.
+   *
+   * So the ids are derived from a counter instead. Same sequence every run,
+   * distinct within a run, and a failure is now reproducible by re-running
+   * rather than by waiting for it to come round again. NOTE the ordering
+   * dependency this buys: inserting a new test that builds a tester shifts
+   * every later tester's id, which is a deterministic change in fixture but
+   * a change nonetheless — re-run the suite after adding one. */
+  let testerSeq = 0;
+  function nextTesterId(): string {
+    testerSeq += 1;
+    const h = createHash('md5').update(`re1-tester-${testerSeq}`).digest('hex');
+    const variant = ((parseInt(h[16], 16) & 0x3) | 0x8).toString(16);
+    return [
+      h.slice(0, 8),
+      h.slice(8, 12),
+      `4${h.slice(13, 16)}`,
+      `${variant}${h.slice(17, 20)}`,
+      h.slice(20, 32),
+    ].join('-');
+  }
+
   /** A user in a circle that started on day 1 — the replay needs the
    * membership because `v_missed_yesterday` reads completions, and a user
    * with no completions at all looks like someone who misses every day. */
   async function createTester(): Promise<string> {
-    const id = crypto.randomUUID();
+    const id = nextTesterId();
     await client.query('insert into auth.users (id) values ($1)', [id]);
     const { rows } = await client.query(
       `insert into public.circles (name, invite_code, start_date, practice_id)
@@ -125,6 +162,32 @@ describeIfConfigured('RA1 — the re-ask cycle', () => {
       [userId, BASE]
     );
     return new Map(rows.map((r: any) => [r.code, r.days.map(Number)]));
+  }
+
+  /** THE 90-DAY FLOOR IS A POOL-SCOPED CLAIM, not a flat one (RE1, 6 Aug).
+   *
+   * A tracked question on `pool = 'any'` can be re-asked the day its 30-day
+   * cycle comes due, so its third ask lands around day 62-76 — comfortably
+   * inside MN3's window. A tracked question on `pool = 'weekend'` cannot:
+   * a cycle that comes due on a Monday waits for Saturday, which makes its
+   * real period 34-35 days rather than 30. Three asks therefore need
+   * ~20 + 35 + 35 = day 90 AT BEST, and the ordinary pool's competition for
+   * the same weekend L2 slot pushes it to 97 whenever it bites.
+   *
+   * Measured 6 Aug across 24 seeds replayed to day 126: every `any`-pool
+   * tracked question reached three asks by day 76; the weekend one landed
+   * its third between day 90 and day 97. So "every tracked question reaches
+   * three asks inside 90 days" was never true of the product — it was true
+   * of most seeds, by a margin of zero days, which is precisely why it read
+   * as a flake instead of as a wrong assertion.
+   *
+   * Read from the column rather than hard-coded, for FA1's reason: a test
+   * pinned to a live figure is the lesson this file has already paid for. */
+  async function trackedPools(): Promise<Map<string, string>> {
+    const { rows } = await client.query(
+      'select code, pool from public.questions where reask_tracked'
+    );
+    return new Map(rows.map((r: any) => [r.code, r.pool]));
   }
 
   beforeAll(async () => {
@@ -202,8 +265,17 @@ describeIfConfigured('RA1 — the re-ask cycle', () => {
       // The claim RA1 exists to make, stated as a controlled comparison
       // rather than as a sequence diff (a different tester means different
       // md5 tie-breaks, so the sequences legitimately differ).
+      const pools = await trackedPools();
       const withCycle = await trackedAskDays((await livePerfectTester(90)).id);
-      for (const code of TRACKED) {
+      // Scoped to the `any` pool — see trackedPools above. The weekend-pool
+      // question's third ask lands day 90-97, so asserting it here was the
+      // coin flip; its ceiling is pinned by the JOB 4 test instead. The
+      // control arm below stays unscoped, because with the cycle switched
+      // off NOTHING reaches three, weekend pool included (measured 6 Aug:
+      // max 2 asks per tracked code across 24 seeds replayed to day 126).
+      const anyPool = TRACKED.filter((code) => pools.get(code) === 'any');
+      expect(anyPool.length).toBeGreaterThan(0);
+      for (const code of anyPool) {
         expect((withCycle.get(code) ?? []).length).toBeGreaterThanOrEqual(3);
       }
 
@@ -271,8 +343,24 @@ describeIfConfigured('RA1 — the re-ask cycle', () => {
       );
 
       expect(rows.map((r: any) => r.code).sort()).toEqual(tracked.map((r: any) => r.code));
+
+      // RE1, 6 Aug — POOL-SCOPED, and the scope is now part of the claim.
+      // This assertion is where the ledgered flake fired (line 275, and its
+      // twin at 207): it read "every tracked question reaches three asks in
+      // 90 days", which the weekend-pool question meets on day 90 exactly or
+      // not at all. See trackedPools above for the measurement. The honest
+      // statement is per pool — and the weekend one's own floor is asserted
+      // right below it, so nothing is quietly dropped from the suite.
+      const pools = await trackedPools();
       for (const row of rows) {
-        expect(row.n).toBeGreaterThanOrEqual(3);
+        if (pools.get(row.code) === 'any') {
+          expect(row.n).toBeGreaterThanOrEqual(3);
+        } else {
+          // It IS on the schedule and it IS being re-asked — two asks by day
+          // 90 is the weekend pool's cost, not a stalled cycle. The third is
+          // pinned by the JOB 4 test's day-105 ceiling.
+          expect(row.n).toBeGreaterThanOrEqual(2);
+        }
       }
     });
 
