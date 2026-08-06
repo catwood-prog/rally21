@@ -219,6 +219,45 @@ function sendNativeErrorEvent(dsn: string, error: unknown, context?: Record<stri
   }
 }
 
+/** IL1 job 2 (6 Aug) — the invite code out of anything we report.
+ *
+ * `rally21.com/j/<code>` puts a shareable secret in a URL, which is a
+ * deliberate and defensible trade (see lib/invite-link.ts). What is NOT
+ * defensible is that trade quietly widening: the web SDK attaches
+ * window.location.href to every event as `request.url`, its Breadcrumbs
+ * integration records each client-side navigation's from/to, and
+ * setSentryScreen tags the live pathname — so before this, any error
+ * thrown while an invite landing was open would have carried somebody's
+ * circle code to a third-party service, with no screen anywhere saying so.
+ *
+ * The path segment is the only place a code can appear (nothing composes
+ * one into an error message), so redacting that segment is sufficient and
+ * exact. Not a guess at "things that look like codes" — anchored on the
+ * one route that carries one. */
+export function redactInviteCode(text: string): string {
+  return text.replace(/\/j\/[^/?#\s]+/g, '/j/[code]');
+}
+
+function redactEvent<T extends Sentry.ErrorEvent>(event: T): T {
+  if (event.request?.url) event.request.url = redactInviteCode(event.request.url);
+  const headers = event.request?.headers;
+  if (headers) {
+    for (const key of Object.keys(headers)) {
+      if (typeof headers[key] === 'string') headers[key] = redactInviteCode(headers[key]);
+    }
+  }
+  for (const crumb of event.breadcrumbs ?? []) {
+    if (typeof crumb.message === 'string') crumb.message = redactInviteCode(crumb.message);
+    if (crumb.data) {
+      for (const key of Object.keys(crumb.data)) {
+        const value = crumb.data[key];
+        if (typeof value === 'string') crumb.data[key] = redactInviteCode(value);
+      }
+    }
+  }
+  return event;
+}
+
 export function initSentry() {
   // Native needs no init — its transport (above) is stateless.
   if (Platform.OS !== 'web') return;
@@ -229,6 +268,7 @@ export function initSentry() {
     dsn,
     release: appConfig.expo.version,
     tracesSampleRate: 0,
+    beforeSend: redactEvent,
   });
 }
 
@@ -249,9 +289,15 @@ export function captureError(error: unknown, context?: Record<string, string>): 
 /** Tags subsequent events with the current screen so a crash/report is
  * traceable to where it happened. */
 export function setSentryScreen(screen: string): void {
-  currentNativeScreen = screen;
+  // IL1 job 2 — usePathname() hands this the RESOLVED path, so the invite
+  // landing arrives here as '/j/ABC123'. Redacted at the one door every
+  // caller goes through, rather than at the call site in _layout.tsx: a
+  // screen tag is exactly the kind of thing a future route adds a secret
+  // to without noticing.
+  const redacted = redactInviteCode(screen);
+  currentNativeScreen = redacted;
   if (Platform.OS !== 'web' || !process.env.EXPO_PUBLIC_SENTRY_DSN) return;
-  Sentry.setTag('screen', screen);
+  Sentry.setTag('screen', redacted);
 }
 
 /** NR1 Job 1d — route native uncaught errors + unhandled promise

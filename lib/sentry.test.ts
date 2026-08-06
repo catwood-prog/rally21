@@ -12,6 +12,7 @@ import {
   buildNativeEvent,
   createReportBudget,
   parseDsn,
+  redactInviteCode,
   serializeEnvelope,
   type NativeSentryEvent,
 } from './sentry';
@@ -166,5 +167,36 @@ describe('createReportBudget — flood control (Job 2d)', () => {
     expect(budget.take(1, 'B')).toBe(true);
     expect(budget.take(2, 'A')).toBe(false);
     expect(budget.take(3, 'C')).toBe(false);
+  });
+});
+
+// IL1 job 2 (6 Aug) — the invite code never leaves the app in a report.
+// The landing puts a shareable secret in the path, so every place the SDK
+// copies a URL into an event (request.url, the Referer header, the
+// navigation breadcrumbs it records on every client-side route change) is
+// a door it could walk out of.
+describe('redactInviteCode — the coded invite link never reaches Sentry', () => {
+  it('replaces the code segment, keeping the route readable', () => {
+    expect(redactInviteCode('https://rally21.com/j/ABC123')).toBe('https://rally21.com/j/[code]');
+    expect(redactInviteCode('/j/ABC123')).toBe('/j/[code]');
+  });
+
+  it('stops at the segment boundary, and at a query or fragment', () => {
+    expect(redactInviteCode('/j/ABC123?utm=x')).toBe('/j/[code]?utm=x');
+    expect(redactInviteCode('/j/ABC123#top')).toBe('/j/[code]#top');
+    expect(redactInviteCode('/j/ABC123/extra')).toBe('/j/[code]/extra');
+  });
+
+  it('redacts every occurrence — a breadcrumb carries from AND to', () => {
+    expect(redactInviteCode('from /j/ABC123 to /j/XYZ789')).toBe('from /j/[code] to /j/[code]');
+  });
+
+  it('leaves everything else exactly alone', () => {
+    expect(redactInviteCode('/today')).toBe('/today');
+    expect(redactInviteCode('/journal')).toBe('/journal');
+    expect(redactInviteCode('/j/[code]')).toBe('/j/[code]');
+    expect(redactInviteCode('https://rally21.com/onboarding/join-circle')).toBe(
+      'https://rally21.com/onboarding/join-circle'
+    );
   });
 });

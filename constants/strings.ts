@@ -1,4 +1,5 @@
 import { stripAccentMarkers } from '@/lib/accentMarkup';
+import { buildInviteLink } from '@/lib/invite-link';
 
 // Seeded practices follow the verb-phrase convention (see CLAUDE.md), but
 // a custom practice can be any free-form name — nothing validates that at
@@ -356,10 +357,33 @@ export const STRINGS = {
   welcomeBackSubtitleReset:
     'no guilt. that run ended, and your longest rally is kept. one check-in starts the next one.',
 
+  // IL1 (6 Aug) — the invite becomes one tap. The old line sent a bare
+  // https://rally21.com with the code beside it ("sign in … and enter code
+  // ABC123"), so the first thing a cold arrival did was carry six
+  // characters across a sign-in by hand. The code now rides IN the link,
+  // which means it is still visible in plain text if a channel mangles the
+  // URL — nothing is hidden, one step is removed. PROPOSED wording, Cat
+  // nods in session.
   inviteShareMessage: (circleName: string | null, inviteCode: string) =>
     circleName
-      ? `Join ${circleName} on Rally21! Sign in at https://rally21.com and enter code ${inviteCode} to hop in.`
-      : `Join my Rally21 circle! Sign in at https://rally21.com and enter code ${inviteCode} to hop in.`,
+      ? `Join ${circleName} on Rally21! Tap ${buildInviteLink(inviteCode)} to hop in.`
+      : `Join my Rally21 circle! Tap ${buildInviteLink(inviteCode)} to hop in.`,
+
+  // IL1 job 1 — the /j/<code> landing, which a signed-out visitor sees
+  // before the sign-in screen. THE FIRST REAL SEAM DATUM (Soraya, 5 Aug,
+  // n=1): the first outside tester got through signup and circle creation
+  // and stalled on "didn't quite understand the point" — so this landing
+  // is a cold arrival's one chance to hear what Rally21 IS, in one plain
+  // line, before being asked for an email address. One line only; this is
+  // not an onboarding redesign. PROPOSED wording, Cat nods in session.
+  inviteLandingTitle: "you've been invited",
+  inviteLandingPurpose:
+    'a friend has asked you to do one small daily practice together — a few minutes a day, side by side.',
+  inviteLandingCodeLabel: 'your code',
+  inviteLandingCta: 'sign in to join',
+  // Says what happens next without promising the code is real — this
+  // screen deliberately never asks the server whether the circle exists.
+  inviteLandingReassurance: "we'll keep this code for you — no need to write it down",
 
   // IN1 (15 July) — "Share invite" opens a channel chooser instead of
   // silently copying. The message a channel carries is always

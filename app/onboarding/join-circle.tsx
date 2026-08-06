@@ -19,6 +19,7 @@ import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { joinCircleByCode, joinPublicCircle, listPublicCircles, PublicCircle } from '@/lib/circle-setup';
+import { normalizeInviteCode } from '@/lib/invite-link';
 import { reportContent } from '@/lib/moderation';
 
 export default function JoinCircle() {
@@ -26,9 +27,18 @@ export default function JoinCircle() {
   // NAV1 job 0 — no AppHeader on pre-signed-in-chrome screens, but the
   // safe-area inset still applies.
   const insets = useSafeAreaInsets();
-  const { fromToday } = useLocalSearchParams<{ fromToday?: string }>();
+  const { fromToday, code: codeParam } = useLocalSearchParams<{
+    fromToday?: string;
+    code?: string;
+  }>();
   const isFromToday = fromToday === 'true';
-  const [code, setCode] = useState('');
+  // IL1 job 1 — the prefill. The code arrives as a param from exactly two
+  // places: `/j/<code>` when the visitor was already signed in, and
+  // circle-setup when it consumed a code held across a sign-in. Everyone
+  // else gets the empty field they always got. Normalised on the way in
+  // for the same reason the field uppercases on the way in — the server
+  // matches exactly, upper()ed.
+  const [code, setCode] = useState(() => normalizeInviteCode(codeParam));
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

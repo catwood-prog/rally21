@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BackLink } from '@/components/BackLink';
@@ -10,6 +10,7 @@ import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors, scaledLineHeight } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { recordFunnelEvent } from '@/lib/funnel';
+import { takePendingInviteCode } from '@/lib/invite-link';
 
 export default function CircleSetup() {
   const router = useRouter();
@@ -47,9 +48,38 @@ export default function CircleSetup() {
     if (isDayZero) recordFunnelEvent(session?.user?.id, event);
   };
 
+  // IL1 job 1 — where an invite code lands after the sign-in round trip.
+  // This fork is the one screen every route into onboarding replaces to
+  // (profile.tsx and reminders.tsx both do, and so does index.tsx's
+  // needs-circle branch), so a code held across a magic link or an OAuth
+  // redirect is picked up here no matter which step the person resumed at.
+  //
+  // ONE-SHOT: takePendingInviteCode reads AND clears, so a code that was
+  // saved but never used cannot silently redirect a visit weeks later, and
+  // backing out of the join screen returns to the ordinary fork. Day-zero
+  // only — someone adding a THIRD circle from Today, or acting on a want,
+  // is not a cold arrival and must not be steered by an old invite.
+  const [pendingChecked, setPendingChecked] = useState(() => !isDayZero);
   useEffect(() => {
-    if (isDayZero) recordFunnelEvent(session?.user?.id, 'onboarding_circle_setup_opened');
-  }, [isDayZero, session?.user?.id]);
+    if (!isDayZero) return;
+    let cancelled = false;
+    takePendingInviteCode().then((pending) => {
+      if (cancelled) return;
+      if (pending) router.replace({ pathname: '/onboarding/join-circle', params: { code: pending } });
+      else setPendingChecked(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isDayZero, router]);
+
+  useEffect(() => {
+    // Gated on pendingChecked so an invited arrival, who is redirected
+    // straight past this fork, never stamps a setup-opened event for a
+    // screen they were never shown — the funnel would read it as a fork
+    // they abandoned.
+    if (isDayZero && pendingChecked) recordFunnelEvent(session?.user?.id, 'onboarding_circle_setup_opened');
+  }, [isDayZero, pendingChecked, session?.user?.id]);
 
   const goStart = (extra: Record<string, string>) =>
     router.push(
@@ -57,6 +87,12 @@ export default function CircleSetup() {
         ? { pathname: '/onboarding/desired-change', params: extra }
         : { pathname: '/onboarding/create-circle', params: { ...carriedTail, ...extra } }
     );
+
+  // IL1 — one frame of warm background rather than a fork that flashes
+  // into view and immediately replaces itself. The read is local storage,
+  // so this resolves in the same beat; nothing spins, because a spinner
+  // for a few milliseconds is worse than nothing at all.
+  if (!pendingChecked) return <View style={styles.container} />;
 
   return (
     // OD1 job 17a — this was a non-scrolling centred View, so at large

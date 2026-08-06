@@ -65,6 +65,11 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="(intro)" />
           <Stack.Screen name="sign-in" />
+          {/* IL1 — the coded invite landing. Root-level on purpose: a
+              stranger holding an invite link has no session, so it cannot
+              live under (intro) (which bounces signed-in visitors), (app)
+              or onboarding (which bounce signed-out ones). */}
+          <Stack.Screen name="j/[code]" />
           <Stack.Screen name="auth/callback" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="(app)" />

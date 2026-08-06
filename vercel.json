@@ -1,5 +1,11 @@
 {
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/j/:code",
+      "destination": "/j/[code]"
+    }
+  ]
 }

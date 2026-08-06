@@ -137,12 +137,22 @@ describeIfConfigured('security hardening (S1)', () => {
      * from anon` explicitly. Nothing in Postgres will mention this. This
      * test is the thing that mentions it.
      *
-     * To grant anon EXECUTE deliberately (a genuine pre-auth surface —
-     * there are none today), add the function's name here with a comment
-     * saying which signed-out screen calls it. An empty list is the
-     * correct default posture, not an oversight.
+     * To grant anon EXECUTE deliberately (a genuine pre-auth surface),
+     * add the function's name here with a comment saying which signed-out
+     * screen calls it. An empty list is the correct default posture, not
+     * an oversight — this list was empty until 6 August.
      */
-    const ANON_EXECUTE_ALLOWED: string[] = [];
+    const ANON_EXECUTE_ALLOWED: string[] = [
+      // IL1 job 3 (6 Aug) — THE FIRST ENTRY THIS LIST HAS EVER HAD.
+      // app/j/[code].tsx is the invite landing: a stranger holding
+      // rally21.com/j/<code> reaches it with no account, which is the
+      // whole point of the screen and the reason the grant exists.
+      // Returns void for every input (so it is not a circle-existence
+      // oracle), takes no ids, writes one CHECK-shaped code into a
+      // per-day capped tally in the non-exposed `analytics` schema.
+      // Boundary proven in invite-link-opens.integration.test.ts.
+      'record_invite_link_open',
+    ];
 
     test('no public function grants EXECUTE to anon (generated from pg_proc)', async () => {
       await elevated();
