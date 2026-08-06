@@ -194,6 +194,170 @@ describeIfConfigured('security hardening (S1)', () => {
       expect(rows.map((r) => r.func)).toEqual([]);
     });
 
+    /**
+     * HD4 job 2 (5 Aug) — the sweep learns the SECOND class.
+     *
+     * HD1's sweep above counts anon-executable functions and is green at
+     * 0/66. It is blind by construction to the class HD3 found: the live
+     * `pg_default_acl` row for (grantor `postgres`, schema `public`,
+     * functions) is
+     *     {postgres=X/postgres, authenticated=X/postgres, service_role=X/postgres}
+     * so `authenticated=X` is MERGED onto every newly created function
+     * whether or not its migration ever grants it — and S1's per-function
+     * block revokes `public` and `anon` and never names `authenticated`.
+     * Measured 5 Aug in a rolled-back transaction: a scratch function
+     * created with S1's exact convention and NO grant of its own arrives
+     * `{postgres=X, authenticated=X, service_role=X}`, i.e. callable by
+     * every signed-in account. The risk shape is cross-USER, not pre-auth
+     * — the next SECURITY DEFINER helper taking a user id would be
+     * reachable by any authenticated stranger — and nothing above would
+     * have said a word.
+     *
+     * So this sweep asks the same catalog the same way, against an
+     * explicit allowlist of what the app DELIBERATELY exposes to signed-in
+     * callers. Every name below was cross-checked 5 Aug against both the
+     * live grants and the client's `.rpc(` call sites.
+     *
+     * TRIGGER FUNCTIONS ARE EXCLUDED BY MECHANISM, not by allowlisting:
+     * a function returning `trigger` refuses a direct call with SQLSTATE
+     * 0A000 whatever its ACL says, so its EXECUTE bit grants nothing. The
+     * test right after this one proves that for the live set rather than
+     * asking anyone to take it on faith — otherwise every new trigger
+     * would land in the allowlist and train the reader to wave it through.
+     *
+     * TO ADD A NAME: grant it deliberately in the function's own migration
+     * (`grant execute on function ... to authenticated;`), then add it here
+     * with the call site. A name that has to be added with no call site to
+     * point at is the finding this sweep exists to make loud.
+     */
+    const AUTHENTICATED_EXECUTE_ALLOWED: string[] = [
+      // --- helpers with no client call site: RLS policy predicates, an
+      // internal question-engine helper, the founder lens, and the RPC the
+      // report-content edge function invokes ON THE REPORTER'S OWN JWT
+      // (anon key + forwarded Authorization header, so it runs as
+      // `authenticated`, not as service_role).
+      '_rest_question_dimension', // get_daily_question's dimension re-pick (Q1)
+      'founder_activation_funnel', // AN1; founder-gated internally
+      'get_pebble_candidates', // PA3; called by gift_pebble's screen path
+      'is_member_of_circle', // memberships RLS predicate
+      'practice_domain_of', // practices/CF1 invariant predicate
+      'practice_used_by_my_circle', // practices RLS predicate
+      'report_content', // via supabase/functions/report-content (user JWT)
+      'shares_circle_with', // users/wall RLS predicate
+
+      // --- called directly by the app over the anon key + a user session
+      'admin_delete_wall_message', // lib/moderation.ts
+      'admin_hide_circle', // lib/moderation.ts
+      'admin_set_report_status', // lib/moderation.ts
+      'app_caps', // lib/caps.ts
+      'check_glow_milestone', // lib/glow.ts
+      'complete_circle', // lib/journey.ts
+      'count_open_circles_by_practice', // lib/circle-setup.ts
+      'create_circle', // lib/circle-setup.ts
+      'edit_circle', // lib/circle.ts
+      'finish_my_rally', // lib/journey.ts
+      'get_coverable_members', // lib/circle.ts
+      'get_daily_question', // lib/checkin.ts
+      'get_glow_for_circle_mates', // lib/glow.ts
+      'get_my_blueprint', // lib/blueprint.ts
+      'get_my_card_prefs', // lib/shareCards.ts
+      'get_my_fresh_pebble_gifts', // lib/glow.ts
+      'get_my_fresh_warmth', // lib/warmth.ts
+      'get_my_glow', // lib/glow.ts
+      'get_my_liked_cards', // lib/shareCards.ts
+      'get_my_week', // lib/glow.ts
+      'get_pair_streaks', // lib/glow.ts
+      'get_pending_reports', // lib/moderation.ts
+      'get_share_card_for_today', // lib/shareCards.ts
+      'gift_pebble', // lib/glow.ts
+      'is_founder', // lib/moderation.ts
+      'is_friend_nudge_enabled', // lib/wall.ts
+      'join_circle_by_code', // lib/circle-setup.ts
+      'join_public_circle', // lib/circle-setup.ts
+      'leave_circle', // lib/circle.ts
+      'list_public_circles', // lib/circle-setup.ts
+      'mark_blueprint_pattern_surfaced', // lib/blueprint.ts
+      'mark_celebration_seen', // lib/journey.ts
+      'mark_voice_unlocked_hint_seen', // lib/circle.ts
+      'mark_wall_seen', // lib/warmth.ts
+      'record_card_event', // lib/shareCards.ts
+      'record_my_rally_cliff', // lib/glow.ts
+      'remove_member_from_circle', // lib/circle.ts
+      'resume_my_rally', // lib/journey.ts
+      'return_from_away', // lib/away.ts, lib/checkin.ts
+      'send_friend_nudge', // lib/wall.ts
+      'set_card_flavor_muted', // lib/shareCards.ts
+      'unlike_card', // lib/shareCards.ts
+    ];
+
+    test('no public function is authenticated-executable outside the allowlist (generated from pg_proc)', async () => {
+      await elevated();
+      const { rows } = await client.query<{ func: string }>(
+        `select p.oid::regprocedure::text as func
+           from pg_proc p
+           join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public'
+            and p.prorettype <> 'trigger'::regtype
+            and has_function_privilege('authenticated', p.oid, 'EXECUTE')
+          order by 1`
+      );
+      const offenders = rows
+        .map((r) => r.func)
+        .filter((f) => !AUTHENTICATED_EXECUTE_ALLOWED.includes(f.replace(/\(.*$/, '')));
+
+      expect(offenders).toEqual([]);
+    });
+
+    test('every trigger function in public is inert (0A000) — the sweep exclusion above, proved', async () => {
+      await elevated();
+      const { rows } = await client.query<{ name: string }>(
+        `select p.proname as name
+           from pg_proc p
+           join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public'
+            and p.prorettype = 'trigger'::regtype
+          order by 1`
+      );
+      // EVERY trigger function, not just the ones that currently carry an
+      // authenticated grant — otherwise HD4's own migration (which revokes
+      // the two that did) would empty this set and leave the test passing
+      // vacuously forever after.
+      expect(rows.length).toBeGreaterThan(0);
+
+      // Probed as postgres, which holds EXECUTE on all of them: the refusal
+      // comes from the function call handler, not from a privilege check,
+      // so a role that CAN execute it still cannot call it — which is the
+      // strong form of the claim the exclusion rests on. (Additionally
+      // confirmed 5 Aug as a real signed-in account, same 0A000, for the
+      // two that carried the faucet's grant at the time.)
+      for (const { name } of rows) {
+        await client.query('savepoint hd4_trigger_probe');
+        await expect(client.query(`select public.${name}()`)).rejects.toMatchObject({
+          code: '0A000',
+        });
+        await client.query('rollback to savepoint hd4_trigger_probe');
+        await elevated();
+      }
+    });
+
+    test('the allowlist has no stale entries (every name is a live authenticated-executable function)', async () => {
+      await elevated();
+      const { rows } = await client.query<{ name: string }>(
+        `select distinct p.proname as name
+           from pg_proc p
+           join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public'
+            and p.prorettype <> 'trigger'::regtype
+            and has_function_privilege('authenticated', p.oid, 'EXECUTE')`
+      );
+      // A name that stops being exposed should leave the list in the same
+      // change — otherwise the list slowly becomes a wish rather than a
+      // description, and the sweep above starts waving through a name
+      // nobody has looked at in months.
+      const live = new Set(rows.map((r) => r.name));
+      expect(AUTHENTICATED_EXECUTE_ALLOWED.filter((n) => !live.has(n))).toEqual([]);
+    });
+
     const cases: [string, string, unknown[]][] = [
       ['create_circle', 'select * from create_circle($1, $2, $3, $4)', [null, '08:00:00', 'x', false]],
       ['join_public_circle', 'select join_public_circle($1)', [null]],
