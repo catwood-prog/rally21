@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { captureError } from './sentry';
 import { supabase } from './supabase';
 
 export type PushPermissionStatus = 'granted' | 'denied' | 'undetermined';
@@ -24,9 +25,17 @@ const LAST_TOKEN_KEY = 'rally21_push_token';
  * itself only ever shows the real system dialog once, so calling this
  * repeatedly can never violate the "never re-prompt in a loop" rule) and,
  * if granted, registers this device's ExpoPushToken into device_tokens.
- * The iOS Simulator has no real APNs credentials and throws fetching a
- * token — caught and treated as "permission granted, no token yet"
- * rather than crashing. */
+ *
+ * PN2 (6 Aug) — THE TWO FAILURES HERE ARE NOT THE SAME FAILURE, and one
+ * catch around both is what let a live account carry
+ * `has_seen_push_prompt = true` with no device_tokens row and nobody
+ * knowing. The token FETCH throwing is usually the iOS Simulator, which
+ * has no real APNs credentials: expected, permanent in dev, and not worth
+ * reporting. The UPSERT failing is OUR write failing on a real phone, and
+ * that is FF1 rule 3 territory — silence for the person is still right
+ * (nothing is broken at the check-in moment they are standing in), but
+ * silence for US means a person who accepted push never receives one and
+ * no surface anywhere could tell either of us. */
 export async function registerForPushNotificationsAsync(userId: string): Promise<PushPermissionStatus> {
   if (Platform.OS === 'web') return 'denied';
 
@@ -34,10 +43,22 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
   if (status !== 'granted') return status;
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+
+  let token: string;
   try {
-    const { data: token } = await Notifications.getExpoPushTokenAsync(
-      projectId ? { projectId } : undefined
-    );
+    const result = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
+    token = result.data;
+  } catch (e) {
+    // FF1 rule 1 — silence is right, and this is the ONLY half of the old
+    // catch it was ever right for: the simulator throws here on every
+    // call, so reporting it would report our own dev environment forever.
+    // A real phone failing here still ends up unregistered, which the
+    // settings row now renders honestly as off (PN2 job 2) instead of on.
+    console.warn('No push token available (simulator, or a transient error):', e);
+    return status;
+  }
+
+  try {
     const { error } = await supabase
       .from('device_tokens')
       .upsert(
@@ -47,9 +68,43 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
     if (error) throw error;
     await AsyncStorage.setItem(LAST_TOKEN_KEY, token);
   } catch (e) {
-    console.warn('Could not register push token (simulator, or a transient error):', e);
+    // FF1 rule 3 — REPORTED, never swallowed. Tags only: the user id says
+    // WHOSE pipe is dead (the whole point — otherwise the report cannot
+    // be acted on), the token itself never leaves the phone.
+    captureError(e, { lib: 'pushNotifications', op: 'registerDeviceToken', userId });
   }
   return status;
+}
+
+/** PN2 — WOULD A NOTIFICATION ACTUALLY ARRIVE ON THIS DEVICE? The OS
+ * permission answers a different question: 'granted' means the phone
+ * would DISPLAY one, not that we hold a token to send one to. Answering
+ * the real question needs both halves — the local marker naming the token
+ * THIS device registered, and a live read proving that row still exists.
+ *
+ * The read is RLS-scoped twice over: the select policy on device_tokens is
+ * `user_id = auth.uid()`, so it can only ever see the caller's own rows,
+ * and the token filter narrows that to this device. A leftover marker from
+ * another account on a shared phone therefore reads as NOT registered,
+ * which is the conservative direction.
+ *
+ * A stale marker self-heals: send-notifications deletes a token APNs
+ * rejects, so the next read here returns false, the pill flips to off, and
+ * a tap re-registers.
+ *
+ * THROWS rather than substituting a value — the caller decides what an
+ * unreadable answer renders as (FF2: 'unknown' never becomes a claim). */
+export async function isThisDeviceRegisteredForPush(): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
+  const token = await AsyncStorage.getItem(LAST_TOKEN_KEY);
+  if (!token) return false;
+  const { data, error } = await supabase
+    .from('device_tokens')
+    .select('token')
+    .eq('token', token)
+    .limit(1);
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
 /** Removes THIS device's token on sign-out (not every token the user has

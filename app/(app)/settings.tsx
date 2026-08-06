@@ -36,6 +36,7 @@ import { getMyNotificationPrefs, NotificationPrefs, updateNotificationPrefs } fr
 import { getMyProfile, saveBirthday, saveProfile, setAlarmReminder, setCelebrateBirthday, setReflectionsOptOut, setSoundsEnabled } from '@/lib/profile';
 import {
   getPushPermissionStatus,
+  isThisDeviceRegisteredForPush,
   PushPermissionStatus,
   registerForPushNotificationsAsync,
 } from '@/lib/pushNotifications';
@@ -74,6 +75,34 @@ const QUIET_END_OPTIONS = [
   { label: '9am', time: '09:00:00' },
 ];
 
+/** PN2 — the push row needs TWO questions answered, and the second one is
+ * the one the app never used to ask: not "did the OS say yes" but "is
+ * this device actually registered to receive anything". Either read
+ * failing degrades to 'unknown', which renders no row at all (FF2) —
+ * because a row that cannot tell the truth is worse than no row. */
+async function readPushState(): Promise<{
+  status: PushPermissionStatus | 'unknown';
+  registered: boolean;
+}> {
+  let status: PushPermissionStatus;
+  try {
+    status = await getPushPermissionStatus();
+  } catch (e) {
+    // FF2 — degrade to UNKNOWN, never to 'denied': claiming the OS
+    // refused push (and sending the person to iOS Settings for it) is a
+    // fabricated fact about their phone.
+    captureError(e, { screen: 'settings', op: 'getPushPermissionStatus' });
+    return { status: 'unknown', registered: false };
+  }
+  if (status !== 'granted') return { status, registered: false };
+  try {
+    return { status, registered: await isThisDeviceRegisteredForPush() };
+  } catch (e) {
+    captureError(e, { screen: 'settings', op: 'isThisDeviceRegisteredForPush' });
+    return { status: 'unknown', registered: false };
+  }
+}
+
 export default function Settings() {
   const router = useRouter();
   const { session, signOut } = useAuth();
@@ -98,6 +127,9 @@ export default function Settings() {
   // FF2 — 'unknown' is a real state: before the read lands, and after one
   // that failed. Nothing renders a permission claim from it.
   const [pushStatus, setPushStatus] = useState<PushPermissionStatus | 'unknown'>('unknown');
+  // PN2 — 'granted' is not 'registered'. A live account carried the
+  // permission with no device_tokens row, and the row rendered "on".
+  const [pushRegistered, setPushRegistered] = useState(false);
   const [isRequestingPush, setIsRequestingPush] = useState(false);
   const [awaySince, setAwaySinceState] = useState<string | null>(null);
   const [isTogglingAway, setIsTogglingAway] = useState(false);
@@ -121,7 +153,7 @@ export default function Settings() {
     if (!session?.user) return;
     setIsLoading(true);
     try {
-      const [profile, notificationPrefs, myBlocks, myMutedCardFlavors, pushPermissionStatus] = await Promise.all([
+      const [profile, notificationPrefs, myBlocks, myMutedCardFlavors, pushState] = await Promise.all([
         getMyProfile(session.user.id),
         getMyNotificationPrefs(session.user.id),
         // FF2 — FAIL CLOSED. An empty list on a failed read renders "you
@@ -134,14 +166,9 @@ export default function Settings() {
         // section ABSENT rather than showing a muted flavour as on. The
         // mute itself is enforced server-side and is untouched by this.
         getMyMutedCardFlavors().catch(() => []),
-        // FF2 — degrade to UNKNOWN, never to 'denied': claiming the OS
-        // refused push (and sending the person to iOS Settings for it) is
-        // a fabricated fact about their phone. The row simply doesn't
-        // render until a read succeeds.
-        getPushPermissionStatus().catch((e) => {
-          captureError(e, { screen: 'settings', op: 'getPushPermissionStatus' });
-          return 'unknown' as const;
-        }),
+        // FF2 — the row simply doesn't render until BOTH reads succeed;
+        // see readPushState above for why there are two of them now.
+        readPushState(),
       ]);
       setName(profile?.name ?? '');
       setAvatarUrl(profile?.avatar_url ?? null);
@@ -155,7 +182,8 @@ export default function Settings() {
       setPrefs(notificationPrefs);
       setBlockedPeople(myBlocks);
       setMutedCardFlavors(myMutedCardFlavors);
-      setPushStatus(pushPermissionStatus);
+      setPushStatus(pushState.status);
+      setPushRegistered(pushState.registered);
       setAwaySinceState(profile?.away_since ?? null);
       setReflectionsOff(profile?.reflections_opt_out ?? false);
       setAlarmEnabled(profile?.alarm_enabled ?? false);
@@ -167,6 +195,10 @@ export default function Settings() {
     }
   }, [session?.user?.id]);
 
+  // PN2 — THE ONE THING THE PILL CLAIMS: that a notification sent right
+  // now would arrive. Not that the OS said yes. Both halves have to hold.
+  const pushDeliverable = pushStatus === 'granted' && pushRegistered;
+
   // PN1 — 'denied' means the OS already made that call: re-requesting
   // does nothing on iOS, so this deep-links to the OS Settings app
   // instead of silently failing. 'undetermined' is the only state where
@@ -174,7 +206,12 @@ export default function Settings() {
   const handlePushRowPress = async () => {
     // FF2 — 'unknown' never acts: the row is not rendered in that state,
     // and a status we could not read is not one to branch on.
-    if (!session?.user || pushStatus === 'granted' || pushStatus === 'unknown') return;
+    if (!session?.user || pushStatus === 'unknown') return;
+    // PN2 — granted AND registered is the only state with nothing to do.
+    // Granted-but-unregistered used to early-return here as well, which
+    // is precisely what made the control inert: the pill read "on", the
+    // tap did nothing, and no notification was ever coming.
+    if (pushDeliverable) return;
     if (pushStatus === 'denied') {
       Linking.openSettings();
       return;
@@ -183,6 +220,15 @@ export default function Settings() {
     try {
       const status = await registerForPushNotificationsAsync(session.user.id);
       setPushStatus(status);
+      try {
+        setPushRegistered(await isThisDeviceRegisteredForPush());
+      } catch (e) {
+        // The registration may well have landed — we just cannot prove it
+        // this second, and an unproven "on" is exactly the fabricated
+        // fact PN2 exists to remove. The pill stays off and stays
+        // tappable; the next focus re-reads it properly.
+        captureError(e, { screen: 'settings', op: 'isThisDeviceRegisteredForPush' });
+      }
     } finally {
       setIsRequestingPush(false);
     }
@@ -623,8 +669,12 @@ export default function Settings() {
         <View style={[styles.prefRow, styles.sectionSpacing]}>
           <View style={styles.prefRowText}>
             <Text style={styles.prefRowLabel}>{STRINGS.pushToggleLabel}</Text>
+            {/* PN2 — granted-but-unregistered reads as the OFF state, not
+                a new fourth one: the helper invites, the pill says off,
+                and the tap registers. "you're all set" is reserved for
+                the one case where it is true. */}
             <Text style={styles.prefRowHelper}>
-              {pushStatus === 'granted'
+              {pushDeliverable
                 ? STRINGS.pushToggleHelperGranted
                 : pushStatus === 'denied'
                   ? STRINGS.pushToggleHelperDenied
@@ -632,15 +682,15 @@ export default function Settings() {
             </Text>
           </View>
           <TouchableOpacity
-            style={[styles.prefPill, pushStatus === 'granted' && styles.prefPillOn]}
+            style={[styles.prefPill, pushDeliverable && styles.prefPillOn]}
             onPress={handlePushRowPress}
             disabled={isRequestingPush}
           >
             {isRequestingPush ? (
               <ActivityIndicator size="small" color={colors.ink} />
             ) : (
-              <Text style={[styles.prefPillText, pushStatus === 'granted' && styles.prefPillTextOn]}>
-                {pushStatus === 'granted' ? 'on' : 'off'}
+              <Text style={[styles.prefPillText, pushDeliverable && styles.prefPillTextOn]}>
+                {pushDeliverable ? 'on' : 'off'}
               </Text>
             )}
           </TouchableOpacity>
