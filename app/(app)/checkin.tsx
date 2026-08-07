@@ -40,6 +40,7 @@ import { getGoalsSetQuestion } from '@/lib/goalsSet';
 import * as haptics from '@/lib/haptics';
 import { deriveCheckinAccent } from '@/lib/practice-accent';
 import { getMyProfile, markVoiceHintSeen, setReflectionsOptOut } from '@/lib/profile';
+import { resolveQuestionPromptWithAccents } from '@/lib/reflections';
 
 
 export default function CheckIn() {
@@ -115,7 +116,26 @@ export default function CheckIn() {
           setQuestionAnswer(existing.questionAnswer ?? '');
           setQuestionSkipped(existing.questionSkipped);
           if (existing.questionId) {
-            setQuestion(await getQuestionById(existing.questionId));
+            // QP1 (7 Aug) — the RESUME branch. getQuestionById still supplies
+            // format/options/depth (nothing else holds them), but its `prompt`
+            // is the BANK's current wording — for a follow-up template that is
+            // the raw `You said "{answer}" …` form, and rendering it put a
+            // literal {answer} on screen for every re-open of a day. The
+            // sentence this person was actually shown is the snapshot the
+            // engine wrote when it pinned the question; the fallback to the
+            // bank's prompt is the journal's own rule, shared rather than
+            // re-stated so the two surfaces cannot drift again.
+            const q = await getQuestionById(existing.questionId);
+            setQuestion(
+              q && {
+                ...q,
+                prompt:
+                  resolveQuestionPromptWithAccents({
+                    question_prompt_snapshot: existing.questionPromptSnapshot,
+                    questions: { prompt: q.prompt },
+                  }) ?? q.prompt,
+              }
+            );
           }
         } else {
           setQuestion(await getDailyQuestion(today));

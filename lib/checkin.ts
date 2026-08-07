@@ -41,6 +41,14 @@ export type TodayReflection = {
   line1: string | null;
   line2: string | null;
   questionId: string | null;
+  // QP1 (7 Aug) — the sentence this person was ACTUALLY shown today,
+  // written by get_daily_question at the moment it pinned the question.
+  // For a follow-up template this is the ONLY place the interpolated text
+  // exists: `questions.prompt` still holds the raw `{answer}` form, and
+  // re-deriving from it is what put a literal `{answer}` on Cat's screen.
+  // Null only on genuinely pre-snapshot rows (see resolveQuestionPrompt's
+  // fallback, and QP1's note about which live rows can reach it).
+  questionPromptSnapshot: string | null;
   questionAnswer: string | null;
   questionSkipped: boolean;
 };
@@ -140,7 +148,7 @@ export async function listMyReflectionLines(
 export async function getTodayReflection(localDate: string): Promise<TodayReflection | null> {
   const { data, error } = await supabase
     .from('reflections')
-    .select('mood, line1, line2, question_id, question_answer, question_skipped')
+    .select('mood, line1, line2, question_id, question_prompt_snapshot, question_answer, question_skipped')
     .eq('local_date', localDate)
     .maybeSingle();
 
@@ -152,6 +160,7 @@ export async function getTodayReflection(localDate: string): Promise<TodayReflec
     line1: data.line1,
     line2: data.line2,
     questionId: data.question_id,
+    questionPromptSnapshot: data.question_prompt_snapshot,
     questionAnswer: data.question_answer,
     questionSkipped: data.question_skipped,
   };

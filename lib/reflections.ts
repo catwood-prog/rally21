@@ -34,15 +34,33 @@ type ReflectionRow = {
   questions: { prompt: string } | null;
 };
 
-/** The question a past day was actually asked, ready for a plain-text
- * surface: the stored snapshot wins over the bank's current wording, and
- * the `*accent*` markers come off either way. Exported for its unit test —
+/** The question a day was actually asked, with the bank's `*accent*`
+ * markers still in place. ONE rule and only one: the stored snapshot wins
+ * over the bank's current wording.
+ *
+ * QP1 (7 Aug) — split out of resolveQuestionPrompt so the CHECK-IN CARD can
+ * share it. Check-in renders its prompt through AccentedText, which needs
+ * the markers, so it cannot call the stripping resolver below; before this
+ * split it called neither and re-derived the prompt straight off
+ * `questions.prompt`, which is how it ended up showing a raw `{answer}`
+ * template on every re-open of a day. The fallback rule lives in exactly
+ * one place now — a second copy of it is precisely how the two surfaces
+ * drifted apart the first time. */
+export function resolveQuestionPromptWithAccents(row: {
+  question_prompt_snapshot: string | null;
+  questions: { prompt: string } | null;
+}): string | null {
+  return row.question_prompt_snapshot ?? row.questions?.prompt ?? null;
+}
+
+/** The same question, ready for a plain-text surface: the snapshot rule
+ * above, plus the `*accent*` markers come off. Exported for its unit test —
  * the two rules are easy to regress and both are honesty rules. */
 export function resolveQuestionPrompt(row: {
   question_prompt_snapshot: string | null;
   questions: { prompt: string } | null;
 }): string | null {
-  const text = row.question_prompt_snapshot ?? row.questions?.prompt ?? null;
+  const text = resolveQuestionPromptWithAccents(row);
   return text === null ? null : stripAccentMarkers(text);
 }
 
