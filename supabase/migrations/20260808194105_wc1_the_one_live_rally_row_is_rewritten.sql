@@ -43,8 +43,12 @@
 -- being re-read from users — a rename since 30 July must not silently
 -- rewrite the history of who was celebrated.
 --
--- STAMP: 20260808133000, after this section's own 20260808130700 and
--- after another session's 20260808103052. Touches one row of
+-- STAMP: 20260808194105, after this section's own 20260808132404 and
+-- after another session's 20260808103052. Both WC1 files are named after
+-- the versions supabase_migrations.schema_migrations actually holds --
+-- apply_migration stamps its own timestamp, and a repo migration with no
+-- registered version is re-applied by the next db push (the divergence
+-- f2a4796 named as worth closing on sight). Touches one row of
 -- wall_messages and no object either of them touches.
 
 update public.wall_messages

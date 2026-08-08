@@ -92,8 +92,15 @@
 -- applied to both the solo and the group path.
 --
 -- STAMP: the newest migration on disk is 20260808103052 (another
--- session's, untracked at the time of writing). This is 20260808130700,
+-- session's, untracked at the time of writing). This is 20260808132404,
 -- after it, and it touches no object that migration touches.
+--
+-- That number is the version supabase_migrations.schema_migrations
+-- actually holds, not the one this file was first written under:
+-- apply_migration stamps its OWN timestamp, and a repo migration with no
+-- registered version gets re-applied by the next db push. So the file is
+-- named after the registry — the divergence f2a4796 named as worth
+-- closing on sight, closed here on sight.
 
 create or replace function public.mark_celebration_seen(
   p_circle_id uuid,
