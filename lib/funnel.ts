@@ -50,26 +50,19 @@ export function recordFunnelEvent(userId: string | undefined, event: FunnelEvent
 }
 
 /**
- * IL1 job 3 (6 Aug) — the one analytics emit with NO user id, because
- * there is no user yet.
+ * IL2 (8 Aug) — `recordInviteLinkOpen` USED TO LIVE HERE and is deleted,
+ * not parked. It called `record_invite_link_open` from `app/j/[code].tsx`,
+ * the signed-out invite landing, which needed the project's first anon
+ * EXECUTE grant; Cat declined that grant on 7 August, so no client role can
+ * execute the RPC and a client shim for it could only ever fail silently.
+ * That is dead, not dormant — a function whose one job is to call something
+ * it is refused is worse than absent, because it reads as a working emit.
+ * Git history is the archive (IL1, 27e6eb3).
  *
- * It lives here rather than beside the link helpers so there is still one
- * place that knows how this app talks to its own analytics, and one place
- * carrying the lens-never-a-gate rule. It is NOT a funnel_events key: that
- * table's user_id is `not null references auth.users`, correctly — a
- * pre-auth open has no person to hang off, and inventing a placeholder id
- * would put a fake account in every count computed from that table.
- *
- * Everything the RPC records is a tally: `analytics.invite_link_opens`
- * holds (code, date, capped count) and nothing else. Silent by FF1 rule 1
- * for the same reason as the emit above, with one addition — this fires on
- * a screen a STRANGER is looking at, so a surfaced error would be the
- * first thing Rally21 ever said to them.
+ * THE SERVER SIDE IS DELIBERATELY KEPT: `public.record_invite_link_open`
+ * and `analytics.invite_link_opens` still exist, executable by no client
+ * role, because that is the shape a future TRUSTED-CONTEXT caller needs.
+ * If pre-auth opens are ever worth counting again, the sanctioned caller is
+ * a public edge function holding the service-role key server-side — never a
+ * new anon grant, and never a new emit in this file.
  */
-export function recordInviteLinkOpen(code: string): void {
-  if (!code) return;
-  void supabase.rpc('record_invite_link_open', { p_code: code }).then(
-    () => undefined,
-    () => undefined
-  );
-}

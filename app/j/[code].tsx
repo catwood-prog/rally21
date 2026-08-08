@@ -1,5 +1,5 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,7 +8,6 @@ import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { recordInviteLinkOpen } from '@/lib/funnel';
 import { normalizeInviteCode, savePendingInviteCode } from '@/lib/invite-link';
 
 /**
@@ -30,11 +29,23 @@ import { normalizeInviteCode, savePendingInviteCode } from '@/lib/invite-link';
  * looks perfectly healthy. vercel.json takes no comments, so the reason
  * lives here; the two are only ever correct together.
  *
- * IT NEVER ASKS THE SERVER ANYTHING. No lookup, no "no circle found" — a
- * landing that confirmed which codes are real would be a circle-existence
- * oracle available to anyone with no account at all, which is strictly
- * more than the signed-in join flow reveals today. Whether the code works
- * is `join_circle_by_code`'s answer to give, after sign-in, as before.
+ * IT NEVER ASKS THE SERVER ANYTHING, and since IL2 (8 Aug) it never TELLS
+ * the server anything either. No lookup, no "no circle found" — a landing
+ * that confirmed which codes are real would be a circle-existence oracle
+ * available to anyone with no account at all, which is strictly more than
+ * the signed-in join flow reveals today. Whether the code works is
+ * `join_circle_by_code`'s answer to give, after sign-in, as before.
+ *
+ * IL1 job 3 also had this screen tally its own opens through
+ * `record_invite_link_open`, which needed the project's first anon EXECUTE
+ * grant. Cat declined that grant on 7 August — not because the function was
+ * unsafe, but because an allowlist turns HD1's machine-checkable "0
+ * anon-executable" into a standing human judgement — so the call is gone
+ * and this screen makes NO network call at all before sign-in. Do not add
+ * one back with an anon grant: the sanctioned route for a pre-auth write is
+ * a public edge function holding the service-role key server-side. The RPC
+ * and `analytics.invite_link_opens` are kept dormant for exactly that
+ * caller; nothing on the client may reach them.
  */
 export default function InviteLanding() {
   const router = useRouter();
@@ -44,19 +55,6 @@ export default function InviteLanding() {
   const raw = Array.isArray(params.code) ? params.code[0] : params.code;
   const code = normalizeInviteCode(raw);
   const [isHandingOff, setIsHandingOff] = useState(false);
-
-  // IL1 job 3 — one tally mark per pre-auth open, and only per-auth: a
-  // visitor who already has a session is redirected past this screen
-  // before it paints, and their arrival is already observable through
-  // memberships.join_source. The ref makes it once per mount rather than
-  // once per render, so a re-render (the auth state settling, a resize)
-  // cannot turn one person's open into three.
-  const hasCountedOpen = useRef(false);
-  useEffect(() => {
-    if (isLoading || session || !code || hasCountedOpen.current) return;
-    hasCountedOpen.current = true;
-    recordInviteLinkOpen(code);
-  }, [isLoading, session, code]);
 
   if (isLoading) {
     return (

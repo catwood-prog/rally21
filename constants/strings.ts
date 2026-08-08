@@ -375,12 +375,24 @@ export const STRINGS = {
   // and stalled on "didn't quite understand the point" — so this landing
   // is a cold arrival's one chance to hear what Rally21 IS, in one plain
   // line, before being asked for an email address. One line only; this is
-  // not an onboarding redesign. PROPOSED wording, Cat nods in session.
+  // not an onboarding redesign.
+  //
+  // NODDED BY CAT, 7 Aug (IL2), with ONE change: the CTA. Four of the five
+  // lines stand exactly as proposed. "a friend" in inviteLandingPurpose is
+  // deliberate and is not a weakness to be fixed later — naming the inviter
+  // or the circle would need an anon-readable lookup, which is a far bigger
+  // grant than the one she just declined and is the existence-oracle
+  // problem HD2 closed.
   inviteLandingTitle: "you've been invited",
   inviteLandingPurpose:
     'a friend has asked you to do one small daily practice together — a few minutes a day, side by side.',
   inviteLandingCodeLabel: 'your code',
-  inviteLandingCta: 'sign in to join',
+  // Was "sign in to join" (IL1). Cat's ruling, 7 Aug: "sign in" presumes an
+  // account, and a stranger who has never heard of Rally21 reads it as
+  // being in the wrong place. The app is passwordless, so signing in and
+  // signing up are the same action — but the word does not say so, and this
+  // is the live conversion surface with a real invite batch out.
+  inviteLandingCta: 'join the circle',
   // Says what happens next without promising the code is real — this
   // screen deliberately never asks the server whether the circle exists.
   inviteLandingReassurance: "we'll keep this code for you — no need to write it down",

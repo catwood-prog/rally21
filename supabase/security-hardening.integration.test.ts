@@ -140,19 +140,25 @@ describeIfConfigured('security hardening (S1)', () => {
      * To grant anon EXECUTE deliberately (a genuine pre-auth surface),
      * add the function's name here with a comment saying which signed-out
      * screen calls it. An empty list is the correct default posture, not
-     * an oversight — this list was empty until 6 August.
+     * an oversight.
+     *
+     * IT HAS BEEN EMPTY ALL BUT ONE DAY OF ITS LIFE, and the exception is
+     * worth knowing about before adding the next one. It held exactly one
+     * entry, `record_invite_link_open`, from 6 to 7 August (IL1 job 3, the
+     * pre-auth invite-open tally). Cat DECLINED that grant on 7 August and
+     * IL2 revoked it. The reasoning was not about that function, which was
+     * carefully built: an empty list lets this test answer a BOOLEAN, which
+     * a machine can check, while any entry turns the answer into "zero
+     * except the ones a human judged boring" — a list needing judgement
+     * forever. HD4's finding was that a whole class stayed invisible
+     * because the convention never named the role; an allowlist is a slower
+     * version of the same failure, with a human where the blind spot was.
+     * So the bar for the next entry is not "is this function boring", it is
+     * "is this worth spending the boolean on". The sanctioned alternative
+     * for a pre-auth write is a public edge function, which holds the
+     * service-role key server-side and revokes without a migration.
      */
-    const ANON_EXECUTE_ALLOWED: string[] = [
-      // IL1 job 3 (6 Aug) — THE FIRST ENTRY THIS LIST HAS EVER HAD.
-      // app/j/[code].tsx is the invite landing: a stranger holding
-      // rally21.com/j/<code> reaches it with no account, which is the
-      // whole point of the screen and the reason the grant exists.
-      // Returns void for every input (so it is not a circle-existence
-      // oracle), takes no ids, writes one CHECK-shaped code into a
-      // per-day capped tally in the non-exposed `analytics` schema.
-      // Boundary proven in invite-link-opens.integration.test.ts.
-      'record_invite_link_open',
-    ];
+    const ANON_EXECUTE_ALLOWED: string[] = [];
 
     test('no public function grants EXECUTE to anon (generated from pg_proc)', async () => {
       await elevated();
