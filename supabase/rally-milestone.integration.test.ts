@@ -14,6 +14,16 @@
  * between a client that computes the ladder and a server that trusted
  * it. This suite closes that gap at the RPC boundary, where it is real.
  *
+ * WC1 (8 Aug) — the composed sentence changed and the assertions below
+ * moved with it: "has rallied N practices" became "has shown up for N
+ * days" at both the solo and the group path (Cat's ruled string, twice
+ * refined by her the same day). The 28 July quote above is left VERBATIM
+ * on purpose — it is a record of what actually appeared on two real
+ * walls, not an expectation. The literals stay literals rather than
+ * importing STRINGS: this suite's job is to prove what the DEPLOYED
+ * function composes, and lib/rallyMilestoneWallLine.test.ts separately
+ * pins the migration text against the client's reference copy.
+ *
  * These RPCs are SECURITY DEFINER and branch on auth.uid(), which reads
  * the `request.jwt.claim.sub` GUC — only a real signed JWT or a direct,
  * privileged Postgres connection can set it, so this needs a direct
@@ -159,7 +169,7 @@ describeIfConfigured('PA4 — a rally milestone must be earned before it reaches
     await actAs(user);
 
     await client.query('select mark_celebration_seen($1, 21)', [circle]);
-    expect(await milestoneBodies(circle)).toEqual(['Earned It has rallied 21 practices 🎉']);
+    expect(await milestoneBodies(circle)).toEqual(['Earned It has shown up for 21 days 🎉']);
     expect(await marker(circle, user)).toBe(21);
   });
 
@@ -208,7 +218,7 @@ describeIfConfigured('PA4 — a rally milestone must be earned before it reaches
 
     await client.query('select mark_celebration_seen($1, 21)', [circle]);
     expect(await milestoneBodies(circle)).toEqual([
-      'Ada and Bo have each rallied 21 practices 🎉 — they started the same day, July 1',
+      'Ada and Bo have each shown up for 21 days 🎉 — they started the same day, July 1',
     ]);
   });
 
@@ -224,7 +234,7 @@ describeIfConfigured('PA4 — a rally milestone must be earned before it reaches
 
     await client.query('select mark_celebration_seen($1, 21)', [circle]);
     const bodies = await milestoneBodies(circle);
-    expect(bodies).toEqual(['Ada has rallied 21 practices 🎉']);
+    expect(bodies).toEqual(['Ada has shown up for 21 days 🎉']);
     expect(bodies[0]).not.toContain('Behind');
   });
 
@@ -238,7 +248,7 @@ describeIfConfigured('PA4 — a rally milestone must be earned before it reaches
     await actAs(a);
 
     await client.query('select mark_celebration_seen($1, 21)', [circle]);
-    expect(await milestoneBodies(circle)).toEqual(['Ada has rallied 21 practices 🎉']);
+    expect(await milestoneBodies(circle)).toEqual(['Ada has shown up for 21 days 🎉']);
   });
 
   test('the milestone is unforgeable from a client — only the definer path writes the kind', async () => {
@@ -253,7 +263,7 @@ describeIfConfigured('PA4 — a rally milestone must be earned before it reaches
     await expect(
       client.query(
         `insert into public.wall_messages (circle_id, user_id, body, kind)
-         values ($1, $2, 'Forger has rallied 100 practices 🎉', 'milestone')`,
+         values ($1, $2, 'Forger has shown up for 100 days 🎉', 'milestone')`,
         [circle, user]
       )
     ).rejects.toThrow();

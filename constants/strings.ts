@@ -1419,15 +1419,51 @@ export const STRINGS = {
   // mark_celebration_seen (S1 — a definer function never accepts
   // client-composed content destined for another user's surface), and
   // these two must be kept in step with that migration by hand, exactly
-  // as glowSocialWallLine is with GS1's.
+  // as glowSocialWallLine is with GS1's. Unlike GS1's, that is no longer
+  // by hand alone: lib/rallyMilestoneWallLine.test.ts reads the migration
+  // and fails if either of these drifts from it.
+  //
+  // WC1 (8 Aug) — "has rallied N practices" became "has shown up for N
+  // days", and both halves of that matter.
+  //
+  // "practices" was engineer-language for a number that the code's own
+  // comment (lib/journey.ts:5) already described honestly as "a count of
+  // days this member actually showed up". "days" is Cat's word.
+  //
+  // But it is NOT calendar days, and that distinction is the whole
+  // reason this line is worded so carefully. n counts distinct local
+  // dates with kind='self' in ONE circle — Russ's 21st landed 26
+  // calendar days after his first, so "has rallied 21 days" would have
+  // been false by five, which is exactly the frozen-false-claim class
+  // AU1 fixed for glowSocialWallLine. "shown up for N days" is true of
+  // the number the server actually counts: a covered day protects the
+  // glow and never advances the rally, so it correctly is not a day this
+  // person showed up.
+  //
+  // THE STRING IS RULED, twice refined by Cat on 7 Aug: the "for" goes
+  // in front of the number ("has shown up 21 days" is ungrammatical),
+  // and the scoping word "here" a docs session proposed after the number
+  // is struck. Do not reintroduce a scoping word and do not reopen the
+  // wording.
+  //
+  // Also deliberate: this reads MORE like glowSocialWallLine's "hit N
+  // days glowing 🔥" than the old wording did, and the two still fire
+  // together on every rung the ladders share (21/50/100/365). Cat ruled
+  // KEEP BOTH, fix only the copy — the doubling is accepted, not a bug
+  // to suppress, and the two numbers are different facts (the glow is
+  // personal across every circle; this one is per-circle).
   wallRallyMilestoneLine: (name: string, n: number) =>
-    `${name} has rallied ${n} practices 🎉`,
+    `${name} has shown up for ${n} days 🎉`,
   /** JOB 4 — synchronised rallies. Named only when the co-starters have
    * ALSO reached this milestone: naming someone who is behind would
    * publish a comparison between two members' counts, which is the
-   * leaderboard §5 forbids arriving by the back door. */
+   * leaderboard §5 forbids arriving by the back door.
+   *
+   * WC1 job 2 — the same treatment as the solo line above: same verb,
+   * same "for" in front of the number, same absent scoping word. The
+   * co-starter clause is untouched. */
   wallRallyMilestoneTogetherLine: (names: string, n: number, startedOn: string) =>
-    `${names} have each rallied ${n} practices 🎉 — they started the same day, ${startedOn}`,
+    `${names} have each shown up for ${n} days 🎉 — they started the same day, ${startedOn}`,
 
   // Blueprint v0 (Rally21-Blueprint-Notes.md) — deterministic pattern
   // cards, day-14 observation's visual grammar. Renamed "your blueprint"
