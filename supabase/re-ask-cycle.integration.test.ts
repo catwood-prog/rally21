@@ -19,6 +19,8 @@
 import { createHash } from 'crypto';
 import { Client } from 'pg';
 
+import { withQuestionBank } from './question-bank-lock';
+
 const DB_URL = process.env.SUPABASE_DB_URL;
 const describeIfConfigured = DB_URL ? describe : describe.skip;
 
@@ -279,27 +281,43 @@ describeIfConfigured('RA1 — the re-ask cycle', () => {
         expect((withCycle.get(code) ?? []).length).toBeGreaterThanOrEqual(3);
       }
 
-      await client.query('update public.questions set reask_tracked = false');
-      try {
-        const { id } = await livePerfectTester(90);
-        const { rows } = await client.query(
-          `select q.code, count(*)::int as n
-             from public.reflections r
-             join public.questions q on q.id = r.question_id
-            where r.user_id = $1 and q.code = any($2::text[])
-            group by q.code`,
-          [id, TRACKED]
-        );
-        // Pre-RA1 the same five got one ask each from the arc and, at best,
-        // a lucky second later on. Never three. That was MN3's blocker.
-        for (const row of rows) expect(row.n).toBeLessThan(3);
-      } finally {
-        await client.query(
-          `update public.questions
-              set reask_tracked = coalesce(code = any($1::text[]), false)`,
-          [TRACKED]
-        );
-      }
+      // RE2, 8 Aug — M3. THE CONTROL ARM IS WHERE THIS SUITE WRITES TO THE
+      // SHARED QUESTION BANK, and it then holds those row locks for the ~43s of
+      // a second 90-day replay. first-ask's HAB-15 archive and question-arc's
+      // SELF-12 archive want the same rows, and whichever asks second dies at
+      // `lock_timeout = 5s`. Forced and reproduced 8 Aug (the neighbour failed
+      // in 5.4s with `canceling statement due to lock timeout`) — so the write
+      // and everything that depends on it now run under the fixture mutex.
+      // See supabase/question-bank-lock.ts for why narrowing alone cannot fix
+      // it and why raising the timeout was not on the table.
+      await withQuestionBank(client, 're-ask-cycle: the cycle switched off', async () => {
+        // Narrowed as well as locked: six rows rather than the whole bank, which
+        // takes question-arc's VAL-09 and FU-07 tests out of the contention set
+        // altogether. Smaller blast radius, not a fix — HAB-15 and SELF-12 are
+        // tracked, so they are inside the narrowed set either way.
+        await client.query('update public.questions set reask_tracked = false where reask_tracked');
+        try {
+          const { id } = await livePerfectTester(90);
+          const { rows } = await client.query(
+            `select q.code, count(*)::int as n
+               from public.reflections r
+               join public.questions q on q.id = r.question_id
+              where r.user_id = $1 and q.code = any($2::text[])
+              group by q.code`,
+            [id, TRACKED]
+          );
+          // Pre-RA1 the same five got one ask each from the arc and, at best,
+          // a lucky second later on. Never three. That was MN3's blocker.
+          for (const row of rows) expect(row.n).toBeLessThan(3);
+        } finally {
+          await client.query(
+            `update public.questions
+                set reask_tracked = coalesce(code = any($1::text[]), false)
+              where reask_tracked or code = any($1::text[])`,
+            [TRACKED]
+          );
+        }
+      });
     });
 
     test("inside MN3's 90-day window, only a tracked question reaches three asks", async () => {
@@ -412,18 +430,25 @@ describeIfConfigured('RA1 — the re-ask cycle', () => {
     });
 
     test('a struck tracked question is not re-asked, and the day still gets a question', async () => {
-      await client.query("update public.questions set is_archived = true where code = 'MOOD-09'");
-      try {
-        const id = await createTester();
-        const codes: string[] = [];
-        // Days 1-13 skip MOOD-09 via CS1's fall-through; day 32 must not
-        // resurrect it either.
-        for (let n = 1; n <= CYCLE_DAYS + 3; n += 1) codes.push(await liveOneDay(id, n));
-        expect(codes).not.toContain('MOOD-09');
-        expect(codes.every((c) => !!c)).toBe(true);
-      } finally {
-        await client.query("update public.questions set is_archived = false where code = 'MOOD-09'");
-      }
+      // RE2, 8 Aug — a bank write, so it takes its turn. MOOD-09 is one of the
+      // six, and question-arc archives it nowhere, but the mutex is the rule for
+      // every write to `public.questions` rather than a per-row judgement call.
+      await withQuestionBank(client, 're-ask-cycle: MOOD-09 struck', async () => {
+        await client.query("update public.questions set is_archived = true where code = 'MOOD-09'");
+        try {
+          const id = await createTester();
+          const codes: string[] = [];
+          // Days 1-13 skip MOOD-09 via CS1's fall-through; day 32 must not
+          // resurrect it either.
+          for (let n = 1; n <= CYCLE_DAYS + 3; n += 1) codes.push(await liveOneDay(id, n));
+          expect(codes).not.toContain('MOOD-09');
+          expect(codes.every((c) => !!c)).toBe(true);
+        } finally {
+          await client.query(
+            "update public.questions set is_archived = false where code = 'MOOD-09'"
+          );
+        }
+      });
     });
 
     test('a rested dimension suppresses its re-ask rather than overriding the rest', async () => {

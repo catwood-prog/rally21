@@ -20,6 +20,8 @@
  */
 import { Client } from 'pg';
 
+import { withQuestionBank } from './question-bank-lock';
+
 const DB_URL = process.env.SUPABASE_DB_URL;
 const describeIfConfigured = DB_URL ? describe : describe.skip;
 
@@ -200,54 +202,68 @@ describeIfConfigured('CS1 — the cold-start arc', () => {
       ]);
     }
 
+    // RE2, 8 Aug — M3. All three of these write to `public.questions`, which is
+    // a fixture shared with re-ask-cycle and first-ask, so each takes its turn
+    // at it rather than racing them for a row lock and dying at
+    // `lock_timeout = 5s`. SELF-12 is inside re-ask-cycle's tracked set and so
+    // was always exposed; VAL-09 and FU-07 were exposed only to that suite's
+    // WHERE-less sweep, which RE2 narrowed. They come through here anyway — the
+    // rule is every write to the bank, not a per-row judgement that goes stale
+    // the next time the tracked set moves. See supabase/question-bank-lock.ts.
     test('a struck arc question is skipped, and the day falls through instead of blanking', async () => {
-      await archive('SELF-12', true);
-      try {
-        const id = await createFakeUser();
-        await actAs(id);
-        let day9: string | null = null;
-        for (let n = 1; n <= 9; n += 1) day9 = await liveOneDay(id, n);
+      await withQuestionBank(client, 'question-arc: SELF-12 struck', async () => {
+        await archive('SELF-12', true);
+        try {
+          const id = await createFakeUser();
+          await actAs(id);
+          let day9: string | null = null;
+          for (let n = 1; n <= 9; n += 1) day9 = await liveOneDay(id, n);
 
-        expect(day9).not.toBe('SELF-12');
-        expect(day9).toBe('VAL-09');
-      } finally {
-        await archive('SELF-12', false);
-      }
+          expect(day9).not.toBe('SELF-12');
+          expect(day9).toBe('VAL-09');
+        } finally {
+          await archive('SELF-12', false);
+        }
+      });
     });
 
     test('with the VAL-09 floor struck too, the last resort still hands back an L1/L2 question', async () => {
-      await archive('SELF-12', true);
-      await archive('VAL-09', true);
-      try {
-        const id = await createFakeUser();
-        await actAs(id);
-        let day9: string | null = null;
-        for (let n = 1; n <= 9; n += 1) day9 = await liveOneDay(id, n);
+      await withQuestionBank(client, 'question-arc: SELF-12 + VAL-09 struck', async () => {
+        await archive('SELF-12', true);
+        await archive('VAL-09', true);
+        try {
+          const id = await createFakeUser();
+          await actAs(id);
+          let day9: string | null = null;
+          for (let n = 1; n <= 9; n += 1) day9 = await liveOneDay(id, n);
 
-        expect(day9).not.toBeNull();
-        expect(['SELF-12', 'VAL-09']).not.toContain(day9);
+          expect(day9).not.toBeNull();
+          expect(['SELF-12', 'VAL-09']).not.toContain(day9);
 
-        const { rows } = await client.query(
-          'select depth, is_archived from public.questions where code = $1',
-          [day9]
-        );
-        expect(rows[0].is_archived).toBe(false);
-        expect(['L1', 'L2']).toContain(rows[0].depth);
-      } finally {
-        await archive('SELF-12', false);
-        await archive('VAL-09', false);
-      }
+          const { rows } = await client.query(
+            'select depth, is_archived from public.questions where code = $1',
+            [day9]
+          );
+          expect(rows[0].is_archived).toBe(false);
+          expect(['L1', 'L2']).toContain(rows[0].depth);
+        } finally {
+          await archive('SELF-12', false);
+          await archive('VAL-09', false);
+        }
+      });
     });
 
     test("day 14's follow-up select skips a struck template", async () => {
-      await archive('FU-07', true);
-      try {
-        const { codes } = await livePerfectTester(14);
-        expect(codes[13]).not.toBe('FU-07');
-        expect(codes[13]).toBe('VAL-09');
-      } finally {
-        await archive('FU-07', false);
-      }
+      await withQuestionBank(client, 'question-arc: FU-07 struck', async () => {
+        await archive('FU-07', true);
+        try {
+          const { codes } = await livePerfectTester(14);
+          expect(codes[13]).not.toBe('FU-07');
+          expect(codes[13]).toBe('VAL-09');
+        } finally {
+          await archive('FU-07', false);
+        }
+      });
     });
   });
 });

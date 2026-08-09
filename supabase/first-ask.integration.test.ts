@@ -22,7 +22,11 @@
  * integration tests" in CLAUDE.md. Everything runs inside one transaction,
  * always rolled back in afterAll, so it never leaves a row behind.
  */
+import { createHash } from 'crypto';
+
 import { Client } from 'pg';
+
+import { withQuestionBank } from './question-bank-lock';
 
 const DB_URL = process.env.SUPABASE_DB_URL;
 const describeIfConfigured = DB_URL ? describe : describe.skip;
@@ -71,8 +75,52 @@ describeIfConfigured('FA1 — the first ask', () => {
     ]);
   }
 
+  /** RE1's M1, SECOND HOME — closed here by RE2 on 8 Aug.
+   *
+   * `get_daily_question` breaks its ordering ties on `md5(v_user ||
+   * p_local_date || q.id)`, so the tester's uuid CHOOSES the question sequence.
+   * RE1 root-caused that on 6 Aug and derived re-ask-cycle's ids from a counter
+   * — but this sibling suite, which runs the identical 90/105-day walks against
+   * the identical bank, kept drawing `crypto.randomUUID()`, so it kept
+   * reseeding itself every run. Both of its HAB-15 floor assertions have since
+   * failed in the wild on that lottery, `Expected: >= 3 / Received: 2`, once at
+   * each site (QP1's net run, 8 Aug small hours; WC1's, the same day) — the
+   * SAME assertion in two places, which is why the fix had to be the seed and
+   * not either bound. A loosened bound would have hidden a real product
+   * question rather than answered it.
+   *
+   * So the ids come from a counter, exactly as re-ask-cycle's do: same sequence
+   * every run, distinct within a run, and a failure is reproducible by
+   * re-running instead of by waiting for it to come round again. NOTE the
+   * ordering dependency that buys — inserting a test that builds a tester
+   * shifts every later tester's id, a deterministic change in fixture but a
+   * change nonetheless. Re-run the suite after adding one.
+   *
+   * WHAT IT DOES NOT SETTLE, and must not be read as settling. The weekend pool
+   * stretches HAB-15's cycle to a real 34-35 days, so its third ask lands late:
+   * RE1 measured 3 of 40 seeds one ask short at day 90, and the two failures
+   * above are 105-day walks, so some seeds fall short at 105 too — a rate nobody
+   * has measured. Pinning the seed makes this SUITE honest and repeatable; it
+   * does nothing for the real users whose own uuid draws one of those sequences,
+   * and the pinned ids below are not evidence that the floor is met in general.
+   * CAT'S HAB-15 RULING IS STILL OWED — restate MN3's floor for weekend-pool
+   * questions, or move HAB-15 to `pool = 'any'`. */
+  let testerSeq = 0;
+  function nextTesterId(): string {
+    testerSeq += 1;
+    const h = createHash('md5').update(`fa1-tester-${testerSeq}`).digest('hex');
+    const variant = ((parseInt(h[16], 16) & 0x3) | 0x8).toString(16);
+    return [
+      h.slice(0, 8),
+      h.slice(8, 12),
+      `4${h.slice(13, 16)}`,
+      `${variant}${h.slice(17, 20)}`,
+      h.slice(20, 32),
+    ].join('-');
+  }
+
   async function createTester(): Promise<string> {
-    const id = crypto.randomUUID();
+    const id = nextTesterId();
     await client.query('insert into auth.users (id) values ($1)', [id]);
     const { rows } = await client.query(
       `insert into public.circles (name, invite_code, start_date, practice_id)
@@ -323,18 +371,29 @@ describeIfConfigured('FA1 — the first ask', () => {
     });
 
     test('a struck tracked question is never seeded, and the day still gets a question', async () => {
-      await client.query(`update public.questions set is_archived = true where code = '${SEEDED}'`);
-      try {
-        const id = await createTester();
-        const codes: string[] = [];
-        for (let n = 1; n <= 30; n += 1) codes.push(await liveOneDay(id, n));
-        expect(codes).not.toContain(SEEDED);
-        expect(codes.every((c) => !!c)).toBe(true);
-      } finally {
+      // RE2, 8 Aug — M3, and THIS IS THE STATEMENT THAT DIED. HAB-15 is inside
+      // re-ask-cycle's tracked set, so while that suite's control arm holds the
+      // bank this archive waits on a row it cannot have and is cancelled at
+      // `lock_timeout = 5s`. Reproduced on purpose 8 Aug, both with a stand-in
+      // holder and with the two real suites overlapped on a pg_locks trigger:
+      // failed in 5.4s, `canceling statement due to lock timeout`, while
+      // re-ask-cycle itself passed 13/13. It takes its turn now.
+      await withQuestionBank(client, 'first-ask: HAB-15 struck', async () => {
         await client.query(
-          `update public.questions set is_archived = false where code = '${SEEDED}'`
+          `update public.questions set is_archived = true where code = '${SEEDED}'`
         );
-      }
+        try {
+          const id = await createTester();
+          const codes: string[] = [];
+          for (let n = 1; n <= 30; n += 1) codes.push(await liveOneDay(id, n));
+          expect(codes).not.toContain(SEEDED);
+          expect(codes.every((c) => !!c)).toBe(true);
+        } finally {
+          await client.query(
+            `update public.questions set is_archived = false where code = '${SEEDED}'`
+          );
+        }
+      });
     });
 
     test('a rested dimension suppresses the seed rather than overriding the rest', async () => {

@@ -115,5 +115,14 @@ if (IS_DB_SUITE) {
     // aborted-transaction state, which is the half that was missing.
     await tryOnEach(`rollback to savepoint ${SAVEPOINT}`);
     await tryOnEach(`release savepoint ${SAVEPOINT}`);
+    // RE2 (8 Aug) — the release of last resort for supabase/question-bank-lock.ts.
+    // A SESSION-level advisory lock outlives both an aborted statement and the
+    // `rollback to savepoint` above (measured, not assumed), so a test abandoned
+    // mid-hold — the jest-timeout path described above is exactly that — would
+    // otherwise leave every other bank-writing suite polling until its deadline.
+    // It runs AFTER the rollback because a poisoned transaction cannot execute
+    // it. No suite takes an advisory lock for any other purpose, so releasing
+    // all of them at a test boundary is exact rather than a broad sweep.
+    await tryOnEach('select pg_advisory_unlock_all()');
   });
 }
