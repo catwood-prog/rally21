@@ -8,10 +8,25 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // reused for a different user/kind and needs no separate token table or
 // expiry. verify_jwt is off (a browser hitting an email link carries no
 // Supabase session), so this signature check IS the auth.
+//
+// EM1 (9 Aug) — REPORTED, NOT FIXED: `ember_nudge` and `rest_rejoin` are
+// missing from this map and have been since G4/RS1. Both send real
+// emails whose footer link carries their own kind, so both currently
+// land on "that link isn't quite right" instead of unsubscribing anyone.
+// Left alone deliberately (EM1's remit is its own two kinds, and each of
+// those is a pref decision of its own); named here so the next session
+// finds it rather than re-discovering it.
 const KIND_TO_PREF_COLUMN: Record<string, string> = {
   nudge_daily: "nudge_enabled",
   social_digest: "digest_enabled",
   friend_nudge: "friend_nudge_enabled",
+  // EM1 — both halves of the ember mechanic ride the peer-to-peer pref
+  // (see send-notifications' KIND_TO_PREF_COLUMN, where that choice is
+  // argued and flagged for Cat). Kept in step with it by hand: an
+  // unsubscribe link that turns off a DIFFERENT switch than the one the
+  // sender consults is worse than no link at all.
+  ember_ask: "friend_nudge_enabled",
+  covered_notice: "friend_nudge_enabled",
 };
 
 async function signToken(secret: string, userId: string, kind: string): Promise<string> {

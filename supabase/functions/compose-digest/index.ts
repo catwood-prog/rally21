@@ -180,10 +180,30 @@ Deno.serve(async (req) => {
       // Covered: someone logged this user's day for them, since last seen.
       const { data: covered } = await admin
         .from("completions")
-        .select("circle_id, covered_by, created_at")
+        // EM1 — local_date rides along so the "already told them" check
+        // below can match a cover to its own covered_notice row.
+        .select("circle_id, covered_by, created_at, local_date")
         .eq("user_id", user.id)
         .eq("kind", "covered")
         .gt("created_at", lastSeenAt);
+
+      // EM1 job 3 — ONE warm notification per cover. The covered notice
+      // now goes out the moment a cover lands, so repeating it here that
+      // evening would be the pile-on the whole pipeline exists to avoid.
+      // Matched on the notice's own dedupe key, and only when it really
+      // SENT: a notice the daily cap or a pref held back never told
+      // anyone anything, and in that case this line is the fallback
+      // rather than a duplicate.
+      const { data: sentNotices } = await admin
+        .from("notification_outbox")
+        .select("dedupe_key")
+        .eq("user_id", user.id)
+        .eq("kind", "covered_notice")
+        .is("suppressed_reason", null)
+        .not("sent_at", "is", null);
+      const alreadyToldKeys = new Set(
+        (sentNotices ?? []).map((r: any) => r.dedupe_key as string)
+      );
 
       const covererIds = Array.from(new Set((covered ?? []).map((c) => c.covered_by).filter(Boolean)));
       const covererNames = new Map<string, string>();
@@ -395,6 +415,7 @@ Deno.serve(async (req) => {
 
       const lines: string[] = [...birthdayLines, ...journeyLines, ...pairLines, ...glowMilestoneLines];
       for (const c of covered ?? []) {
+        if (alreadyToldKeys.has(`covered_notice-${user.id}-${c.local_date}`)) continue;
         const name = covererNames.get(c.covered_by as string) ?? "someone in your circle";
         lines.push(`${name} covered you today 💛 — "no pressure, we've got you"`);
       }

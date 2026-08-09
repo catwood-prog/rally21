@@ -45,7 +45,17 @@ type PrefRow = {
 type OutboxRow = {
   id: string;
   user_id: string;
-  kind: "nudge_daily" | "social_digest" | "friend_nudge" | "ember_nudge" | "rest_rejoin";
+  kind:
+    | "nudge_daily"
+    | "social_digest"
+    | "friend_nudge"
+    | "ember_nudge"
+    | "rest_rejoin"
+    // EM1 (9 Aug) — the two outbound halves of the ember mechanic. Both
+    // carry NAMES and ids only; their copy is composed here from fixed
+    // templates, the friend_nudge shape (security spec S1, F4).
+    | "ember_ask"
+    | "covered_notice";
   payload: {
     subject?: string;
     html?: string;
@@ -60,6 +70,17 @@ type OutboxRow = {
     // RS1 — rest_rejoin only, so the send-time staleness recheck below
     // knows which circle to re-verify the member is still resting in.
     circleId?: string;
+    // EM1 — ember_ask: who is being rescued, and the day a cover would
+    // rescue. Both are re-read at send time (the window can close while
+    // the row waits) and both ride into the push payload so a tap opens
+    // CV1's cover flow on the right person and the right day.
+    missedUserId?: string;
+    missedName?: string;
+    missed_local_date?: string;
+    spell_day?: number;
+    // EM1 — covered_notice: who did the covering.
+    covererId?: string;
+    covererName?: string;
   };
   scheduled_for: string;
 };
@@ -89,6 +110,76 @@ function composeFriendNudgeEmail(senderName: string): { subject: string; html: s
   };
 }
 
+/** A person's own name reaches an email BODY here, so it is escaped
+ * rather than interpolated raw. (The older friend_nudge template above
+ * predates this and is deliberately left as it is — EM1 does not widen
+ * its scope to rewrite it, but it does not add a second one either.)
+ *
+ * Only the html is escaped, never the subject or the push body: those
+ * two are plain-text fields (Resend's `subject`, Expo's `title`), where
+ * an escaped ampersand would arrive on someone's lock screen reading
+ * "Ben &amp; Co" — the escaping would be the bug. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// EM1 (9 Aug) — BOTH of the mechanic's notifications are composed here,
+// server-side, from fixed templates: the ask's row carries only the
+// missed member's looked-up NAME, the notice's only the coverer's, and
+// nothing client-composed ever crosses into either (the send_friend_nudge
+// precedent, security spec S1 F4).
+//
+// HOUSE LAWS, restated because this is the app's first proactive
+// friend-nudge. The ask is a care-framed RESCUE — it never says anyone
+// is failing, never counts anything, and never implies a debt; "a gift,
+// never a debt" is the shipped cover-flow register (constants/strings.ts)
+// and this copy stays inside it. The notice is warmth — it never says
+// "you missed", and its reassurance is the already-approved
+// circleCoveredYouCardBody verbatim. Both render IN FULL on a lock
+// screen, so neither may carry anything the person named would mind a
+// stranger reading over their shoulder: the ask says someone has been
+// quiet, never that they have failed, and no practice name appears in
+// either. No pronouns beyond "them" — there is no gender data in this
+// app (CLAUDE.md's cover-a-friend rule).
+function composeEmberAsk(missedName: string): {
+  subject: string;
+  html: string;
+  pushBody: string;
+} {
+  const name = escapeHtml(missedName);
+  return {
+    subject: `${missedName}'s been quiet`,
+    pushBody: "yesterday's still open — you could cover it 🧡",
+    html: `<p>${name}'s been quiet, and yesterday is still open.</p>
+<p>you can log the day for them — a gift, never a debt 🧡</p>
+<p><a href="https://rally21.com">open Rally21</a></p>`,
+  };
+}
+
+function composeCoveredNotice(covererName: string): {
+  subject: string;
+  html: string;
+  pushBody: string;
+} {
+  const name = escapeHtml(covererName);
+  // Cat's words, 9 Aug, in session: "{name}'s got your back" over
+  // "Today is a new day, keep on rallying!". Quoted here because the
+  // house law is that this copy is HERS — a future session editing it
+  // for register (every other notification is lowercase sentence case;
+  // this one deliberately is not) needs her, not a style rule.
+  return {
+    subject: `${covererName}'s got your back 🧡`,
+    pushBody: 'Today is a new day, keep on rallying!',
+    html: `<p>${name} covered you for yesterday 🧡</p>
+<p>Today is a new day, keep on rallying!</p>
+<p><a href="https://rally21.com">open Rally21</a></p>`,
+  };
+}
+
 const KIND_TO_PREF_COLUMN: Record<OutboxRow["kind"], keyof PrefRow> = {
   nudge_daily: "nudge_enabled",
   social_digest: "digest_enabled",
@@ -99,6 +190,21 @@ const KIND_TO_PREF_COLUMN: Record<OutboxRow["kind"], keyof PrefRow> = {
   // RS1 — the rejoin email is fundamentally an invitation nudge (no
   // dedicated pref exists, or is warranted, for this one rare email).
   rest_rejoin: "nudge_enabled",
+  // EM1 — REPORTED FOR CAT'S RULING, and this is the whole of the
+  // decision in one place. Both halves ride friend_nudge_enabled, the
+  // app's only peer-to-peer category: everything under it is warmth
+  // BETWEEN circle-mates rather than a reminder about your own practice,
+  // which is exactly what the ask and the notice are. The mismatch worth
+  // knowing about is the settings HELPER, which today describes waves
+  // specifically ("let someone in your circle send you a quiet wave…"),
+  // so a person who turned that off to stop being poked is also, now,
+  // opting out of being ASKED to help — a defensible reading of the same
+  // switch, but not one they were told about. A dedicated
+  // `ember_ask_enabled` column plus its own settings row is the
+  // alternative; it is a new pref, so it is Cat's to rule. Changing this
+  // is two lines here and one in unsubscribe/index.ts.
+  ember_ask: "friend_nudge_enabled",
+  covered_notice: "friend_nudge_enabled",
 };
 
 function localDateString(date: Date, timeZone: string): string {
@@ -220,7 +326,11 @@ async function sendExpoPush(
   admin: ReturnType<typeof createClient>,
   userId: string,
   title: string,
-  body: string
+  body: string,
+  // EM1 job 2 — the tap destination, when the row has one. Expo carries
+  // `data` through to the response the app reads back on launch; a row
+  // without one behaves exactly as every push did before.
+  data?: Record<string, string>
 ): Promise<{ ticket: ExpoTicket; token: string } | null> {
   const { data: device } = await admin
     .from("device_tokens")
@@ -235,7 +345,7 @@ async function sendExpoPush(
   const res = await fetch("https://exp.host/--/api/v2/push/send", {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify([{ to: device.token, title, body, sound: "default" }]),
+    body: JSON.stringify([{ to: device.token, title, body, sound: "default", ...(data ? { data } : {}) }]),
   });
   const json = await res.json();
   const ticket: ExpoTicket = Array.isArray(json?.data) ? json.data[0] : json?.data;
@@ -321,7 +431,8 @@ Deno.serve(async (req) => {
       const { data: user } = await admin
         .from("users")
         // AL1 job 3 — the alarm pair rides along for the cap below.
-        .select("timezone, last_seen_at, away_since, alarm_enabled, alarm_time")
+        // EM1 — `name` rides along too, for the ask's deep-link payload.
+        .select("name, timezone, last_seen_at, away_since, alarm_enabled, alarm_time")
         .eq("id", row.user_id)
         .single();
       const { data: prefs } = await admin
@@ -387,6 +498,80 @@ Deno.serve(async (req) => {
               suppressed_reason: glow?.state === "glowing" ? "already_checked_in" : "expired",
               sent_at: now.toISOString(),
             })
+            .eq("id", row.id);
+          summary.suppressed++;
+          continue;
+        }
+      }
+
+      // EM1 job 1 — THE ASK'S SUPPRESSION, and it is the whole of "a
+      // landed cover or the person's own check-in kills every pending ask
+      // for that window". It lives here, at send time, for the same
+      // reason every other suppression in this pipeline does: a row can
+      // sit queued behind quiet hours or the daily cap while the very
+      // thing it asks for happens. Nothing is deleted — the row is
+      // stamped with its reason, so why an ask never arrived is
+      // answerable afterwards.
+      //
+      // The order matters, because the reasons are not interchangeable and
+      // the row keeps whichever one is TRUE. A landed cover is checked
+      // first and looks across EVERY circle, not just this ask's: the
+      // window itself is per-circle (that is the day a cover would be
+      // written against), but somebody rescuing them somewhere else is
+      // still a reason not to poke a third person about it.
+      //
+      // The last check re-asks `ember_window_for` — the same function
+      // find_open_ember_windows and the circle screen both use — rather
+      // than re-deriving the rule here. A hand-copy at send time is
+      // exactly the drift this section's migration exists to remove.
+      if (row.kind === "ember_ask" && row.payload?.missedUserId && row.payload?.missed_local_date) {
+        const missedUserId = row.payload.missedUserId;
+        const { count: coveredCount } = await admin
+          .from("completions")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", missedUserId)
+          .eq("local_date", row.payload.missed_local_date);
+
+        const { data: missedUser } = await admin
+          .from("users")
+          .select("timezone, away_since")
+          .eq("id", missedUserId)
+          .maybeSingle();
+        const missedTz = missedUser?.timezone || "UTC";
+        const { count: selfToday } = await admin
+          .from("completions")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", missedUserId)
+          .eq("kind", "self")
+          .eq("local_date", localDateString(now, missedTz));
+
+        let emberAskReason: string | null = null;
+        if ((coveredCount ?? 0) > 0) {
+          emberAskReason = "already_covered";
+        } else if ((selfToday ?? 0) > 0) {
+          // They came back on their own. Asking someone to rescue
+          // yesterday moments after that reads as not having noticed.
+          emberAskReason = "already_checked_in";
+        } else if (missedUser?.away_since) {
+          emberAskReason = "away";
+        } else if (row.payload.circleId) {
+          // Still open? Same definition the ask was composed from, and
+          // the same one the circle screen's cover pill reads. A closed
+          // window here means the day rolled on (or the spell passed
+          // Cat's two-day cadence) while this row waited.
+          const { data: windowRows } = await admin.rpc("ember_window_for", {
+            p_user: missedUserId,
+            p_circle_id: row.payload.circleId,
+          });
+          if ((Array.isArray(windowRows) ? windowRows.length : windowRows ? 1 : 0) === 0) {
+            emberAskReason = "expired";
+          }
+        }
+
+        if (emberAskReason) {
+          await admin
+            .from("notification_outbox")
+            .update({ suppressed_reason: emberAskReason, sent_at: now.toISOString() })
             .eq("id", row.id);
           summary.suppressed++;
           continue;
@@ -549,10 +734,47 @@ Deno.serve(async (req) => {
       // subject/html and fall straight through unchanged.
       let renderedSubject = row.payload?.subject;
       let renderedHtml = row.payload?.html;
+      // NQ1: the composer's exact push body when it wrote one; EM1's two
+      // kinds compose theirs right here alongside the email, so the push
+      // is Cat's words rather than stripped html.
+      let renderedPushBody = row.payload?.push_body;
       if (row.kind === "friend_nudge" && !renderedSubject && !renderedHtml && row.payload?.senderName) {
         const composed = composeFriendNudgeEmail(row.payload.senderName);
         renderedSubject = composed.subject;
         renderedHtml = composed.html;
+      }
+      if (row.kind === "ember_ask" && row.payload?.missedName) {
+        const composed = composeEmberAsk(row.payload.missedName);
+        renderedSubject = composed.subject;
+        renderedHtml = composed.html;
+        renderedPushBody = composed.pushBody;
+      }
+      if (row.kind === "covered_notice" && row.payload?.covererName) {
+        const composed = composeCoveredNotice(row.payload.covererName);
+        renderedSubject = composed.subject;
+        renderedHtml = composed.html;
+        renderedPushBody = composed.pushBody;
+      }
+
+      // EM1 job 2 — what a TAP should open. Carried on the push only:
+      // email has its own link, and nothing here is ever trusted as
+      // authorisation (lib/notificationDeepLink.ts says why). The ask
+      // needs the asked person's own name too, because CV1's cover screen
+      // previews the note the covered member will get ("{myName} covered
+      // you for yesterday") and a deep link that skipped it would preview
+      // a stranger's words.
+      let pushData: Record<string, string> | undefined;
+      if (row.kind === "ember_ask" && row.payload?.missedUserId && row.payload?.missed_local_date) {
+        pushData = {
+          type: "ember_ask",
+          circleId: row.payload.circleId ?? "",
+          memberId: row.payload.missedUserId,
+          memberName: row.payload.missedName ?? "",
+          missedDate: row.payload.missed_local_date,
+          myName: (user as { name?: string } | null)?.name ?? "",
+        };
+      } else if (row.kind === "covered_notice") {
+        pushData = { type: "covered_notice" };
       }
 
       if (!renderedSubject || !renderedHtml) {
@@ -574,8 +796,8 @@ Deno.serve(async (req) => {
         // NQ1: prefer the composer's exact push body (nudge_daily) over
         // stripping the email html; every other kind has no push_body and
         // keeps the stripped-html behaviour.
-        const pushBody = row.payload?.push_body ?? stripHtmlToPushBody(renderedHtml);
-        const pushResult = await sendExpoPush(admin, row.user_id, renderedSubject, pushBody);
+        const pushBody = renderedPushBody ?? stripHtmlToPushBody(renderedHtml);
+        const pushResult = await sendExpoPush(admin, row.user_id, renderedSubject, pushBody, pushData);
         if (pushResult) {
           const { ticket, token: pushToken } = pushResult;
           if (ticket.status === "ok") {

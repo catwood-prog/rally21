@@ -116,6 +116,11 @@ Deno.serve(async (req) => {
     // says out loud how often a declared time changed what happened.
     alarmDropped: 0,
     alarmHeldPastMidnight: 0,
+    // EM1 job 1 — counted separately from `enqueued` so a live
+    // invocation says out loud how often an open ember window actually
+    // produced an ask, which is the number the window's definition is
+    // judged on.
+    emberAsksEnqueued: 0,
   };
 
   const { data: candidates, error: candidatesError } = await admin
@@ -490,6 +495,100 @@ Deno.serve(async (req) => {
       if ((inserted ?? []).length > 0) summary.enqueued++;
     } catch (e) {
       console.error(`Unhandled error composing nudge for user ${user.id}:`, e instanceof Error ? e.message : e);
+    }
+  }
+
+  // EM1 job 1 (9 Aug) — THE EMBER ASK. A separate pass, not part of the
+  // per-user loop above, because it is driven by somebody ELSE's open
+  // window rather than by the asked person's own nudge schedule — and it
+  // must not be skipped just because that loop already `continue`d for
+  // an unrelated reason (an ember day of their own, a wave they
+  // received, an alarm hold).
+  //
+  // WHAT THIS PASS DOES AND DOES NOT DECIDE. It enqueues; it does not
+  // send. The 2-A-DAY PROMISE HOLDS ABSOLUTELY — the ask goes through
+  // send-notifications' one generic cap and its one quiet-hours clamp
+  // exactly like every other kind, riding inside them rather than beside
+  // them, and it carries no send-time logic of its own here. It is also
+  // enqueued with scheduled_for = now() rather than at a computed hour:
+  // NS1's smart send time exists to learn the recipient's OWN practice
+  // rhythm, which has nothing to do with when a friend's window opened,
+  // and the quiet-hours hold at send time already keeps it out of the
+  // night.
+  //
+  // The window itself — who is missing what day, and whether Cat's
+  // two-day cadence still allows an ask — is decided in ONE place,
+  // public.find_open_ember_windows(), so the notification can never
+  // offer a rescue the circle screen would not. See that migration.
+  type EmberWindow = {
+    asked_user_id: string;
+    asked_user_timezone: string | null;
+    missed_user_id: string;
+    missed_user_name: string;
+    circle_id: string;
+    circle_name: string;
+    missed_local_date: string;
+    spell_day: number;
+  };
+
+  const { data: emberWindows, error: emberWindowsError } = await admin.rpc("find_open_ember_windows");
+  if (emberWindowsError) {
+    console.error("Could not load open ember windows:", emberWindowsError.message);
+  }
+
+  for (const w of (emberWindows ?? []) as EmberWindow[]) {
+    try {
+      const askedTimeZone = w.asked_user_timezone || "UTC";
+      // ONE ask per asked person per window, whatever the circle count:
+      // two people who share two circles with the same missed member are
+      // one poke, not two. The key deliberately omits the circle — the
+      // glow being rescued is personal, not per-circle, so a second ask
+      // would be the same request wearing a different circle's name.
+      const dedupeKey = `ember_ask-${w.asked_user_id}-${w.missed_user_id}-${w.missed_local_date}`;
+
+      // CH5: DO NOTHING on the dedupe key — this function re-evaluates
+      // every window every 15 minutes for as long as it stays open, so
+      // the collision is the design and not a 23505 to log.
+      const { data: askInserted, error: askInsertError } = await admin
+        .from("notification_outbox")
+        .upsert(
+          {
+            user_id: w.asked_user_id,
+            kind: "ember_ask",
+            payload: {
+              missedUserId: w.missed_user_id,
+              missedName: w.missed_user_name,
+              circleId: w.circle_id,
+              circleName: w.circle_name,
+              missed_local_date: w.missed_local_date,
+              spell_day: w.spell_day,
+              // The ASKED person's own local date, so the generic
+              // staleness guard in send-notifications expires a row held
+              // by quiet hours across their midnight: by then the window
+              // has moved on and tomorrow's tick composes a fresh ask if
+              // one is still owed.
+              local_date: localDateString(now, askedTimeZone),
+            },
+            scheduled_for: now.toISOString(),
+            dedupe_key: dedupeKey,
+          },
+          { onConflict: "dedupe_key", ignoreDuplicates: true }
+        )
+        .select("id");
+
+      if (askInsertError) {
+        console.error(
+          `Could not enqueue ember ask for user ${w.asked_user_id}:`,
+          askInsertError.message
+        );
+      } else if ((askInserted ?? []).length > 0) {
+        summary.emberAsksEnqueued++;
+      }
+    } catch (e) {
+      console.error(
+        `Unhandled error composing ember ask for user ${w.asked_user_id}:`,
+        e instanceof Error ? e.message : e
+      );
     }
   }
 
