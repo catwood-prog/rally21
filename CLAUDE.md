@@ -53,6 +53,24 @@ mirrored in `supabase/functions/compose-nudges/nudge-lines.ts`).
 
 - **Running the unit tests.** `npm run test:ci` runs the full Jest suite once (`npm test` runs it in `--watchAll` mode for local dev). The runner is `jest` + the `jest-expo` preset, already configured in `package.json` — no extra setup needed. `jest.setup.js` mocks `@react-native-async-storage/async-storage` and `lib/supabase.ts` itself, since `EXPO_PUBLIC_*` env vars are inlined at build time (setting them in a Jest setup file is a no-op under `jest-expo`) and the native AsyncStorage module doesn't exist under Jest. Because of that mock, any `lib/` test exercising real Supabase calls needs to inject its dependencies (see `resolveCircleSelection`'s `deps` parameter in `lib/circle.ts` for the pattern) rather than relying on the module's real network calls.
 - **Running the RPC-boundary integration tests.** `supabase/caps.integration.test.ts` and `supabase/practice-privacy.integration.test.ts` exercise real RLS/RPC enforcement — this needs a direct, privileged Postgres connection (not the anon-key REST client the app uses), since the RPCs branch on `auth.uid()`, which reads a JWT claim no anon-key call can forge. Set `SUPABASE_DB_URL` (the project's direct Postgres connection string — Supabase dashboard → Project Settings → Database → Connection string, "URI" tab, direct connection not the pooler) before running `npm run test:ci`; without it, both suites log a warning and skip. Each suite runs inside one transaction that's always rolled back in `afterAll`, so neither ever leaves rows behind regardless of what it asserts — never point `SUPABASE_DB_URL` at anything you're not comfortable temporarily inserting throwaway `auth.users`/`circles`/`memberships`/`practices` rows into. The privacy suite specifically must `set local role authenticated` before every visibility check — a direct connection's default role (`postgres`/table owner) bypasses RLS entirely regardless of the JWT claim, so skipping that role switch would silently test nothing.
+- **Any test that WRITES to `public.questions` must take the
+  question-bank mutex** (`supabase/question-bank-lock.ts`).
+  RE2 (8 Aug) found three suites writing to the shared bank —
+  re-ask-cycle's control arm, first-ask's HAB-15 archive and
+  question-arc's SELF-12/VAL-09/FU-07 archives — where whoever
+  asked second was cancelled at `lock_timeout = 5s` and had its
+  transaction poisoned until the per-test savepoint rollback.
+  The mutex is taken with `pg_try_advisory_lock` in a poll, so
+  no statement ever WAITS on a lock and `lock_timeout` is
+  neither raised nor routed around. **IT IS COOPERATIVE: a
+  writer that bypasses the helper still kills its neighbour,
+  and nothing enforces the rule but this line.** The lock
+  survives rollback to savepoint, so the release must be
+  explicit; `jest-pg-isolation.js` runs
+  `pg_advisory_unlock_all()` at every test boundary as the
+  release of last resort. A new bank-writing suite that skips
+  the helper is a defect even when it passes, because it
+  passes by luck.
 - **Shared logic in `lib/` gets a test when it gains a second caller.** A helper used by exactly one screen can stay untested if it's simple enough to eyeball — but the moment a second call site starts depending on the same behavior (like `resolveCircleSelection`, shared by the circle tab, wall, and invite screens), a regression in it breaks multiple screens at once and it's cheap enough to pin down with a unit test. Add the test in the same change that introduces the second caller, not later.
 
 ## Deployment / workflow conventions

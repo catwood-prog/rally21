@@ -524,7 +524,19 @@ function YourCircle() {
               onPress={() => router.setParams({ circleId: c.id })}
             >
               <View style={styles.listCardNameRow}>
-                <Text style={styles.listCardName}>{c.name}</Text>
+                {/* OD2 job 1 (Cat's 5 Aug screenshot) — the name is the one
+                    thing in this row allowed to give way. It is the only
+                    item with an unbounded width (a circle name is
+                    user-generated and nothing validates its length), and
+                    the badge beside it is a STATE: a clipped "YOU'RE IN"
+                    is a wrong answer to "where am I", where a truncated
+                    name is still a recognisable name. numberOfLines={1}
+                    with flexShrink on the name and flexShrink: 0 on the
+                    badges is the whole fix — nothing about the row's
+                    shape, spacing or wording changes. */}
+                <Text style={styles.listCardName} numberOfLines={1} ellipsizeMode="tail">
+                  {c.name}
+                </Text>
                 {c.completedAt && (
                   <Text style={styles.completedBadgeSmall}>{STRINGS.journeyCompletedBadge}</Text>
                 )}
@@ -1671,9 +1683,20 @@ const styles = StyleSheet.create({
     fontFamily: FONT_HEADER,
     fontSize: 15,
     color: colors.ink,
+    // OD2 job 1 — yoga defaults flexShrink to 0, so without this the name
+    // is laid out at its full single-line width and pushes the badge past
+    // the card's right edge instead of yielding to it. minWidth 0 is the
+    // web half of the same rule: react-native-web renders these as flex
+    // items whose min-width is auto by default, which floors a shrinking
+    // item at its content width and would leave the overflow on web only.
+    flexShrink: 1,
+    minWidth: 0,
   },
   completedBadgeSmall: {
     ...chipTextShape,
+    // Never the thing that gives way: a clipped state badge is a wrong
+    // answer, a truncated name is still a name.
+    flexShrink: 0,
     backgroundColor: colors.greenSoft,
     color: colors.greenText,
     paddingHorizontal: 8,
@@ -1697,6 +1720,8 @@ const styles = StyleSheet.create({
   // alpha token and resolves to #fdf7e4 over the card).
   youBadgeSmall: {
     ...chipTextShape,
+    // OD2 job 1 — same rule as completedBadgeSmall above.
+    flexShrink: 0,
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: colors.line,

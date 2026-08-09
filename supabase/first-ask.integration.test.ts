@@ -103,8 +103,15 @@ describeIfConfigured('FA1 — the first ask', () => {
    * has measured. Pinning the seed makes this SUITE honest and repeatable; it
    * does nothing for the real users whose own uuid draws one of those sequences,
    * and the pinned ids below are not evidence that the floor is met in general.
-   * CAT'S HAB-15 RULING IS STILL OWED — restate MN3's floor for weekend-pool
-   * questions, or move HAB-15 to `pool = 'any'`. */
+   *
+   * CAT'S HAB-15 RULING LANDED 8 Aug and OD2 job S built it (migration
+   * 20260809182553): MN3's declared window is now DERIVED from the cycle and
+   * the pool — 105 days for `pool = 'weekend'`, still 90 for `pool = 'any'` —
+   * and HAB-15 STAYS weekend, the move to `pool = 'any'` having been
+   * considered and ruled against. That settles the WINDOW, and nothing else:
+   * the paragraph above still stands, because how fast a given user's own md5
+   * sequence delivers three asks is a different question and is still
+   * unmeasured. */
   let testerSeq = 0;
   function nextTesterId(): string {
     testerSeq += 1;
@@ -507,6 +514,126 @@ describeIfConfigured('FA1 — the first ask', () => {
         [id, dayOf(days[2])]
       );
       expect(rows[0].n).toBe(0);
+    });
+  });
+
+  describe("OD2 job S — the declared window follows the question's POOL", () => {
+    /**
+     * Cat ruled 8 Aug: widen MN3's declared window for weekend-pool
+     * questions, and HAB-15 STAYS on `pool = 'weekend'`. The window is no
+     * longer the constant 90 — it is derived, cycle period x
+     * (last asks - 1), so 3 x 30 = 90 for `pool = 'any'` and 3 x 35 = 105
+     * for `pool = 'weekend'`.
+     *
+     * These tests live in FA1's suite deliberately rather than in a
+     * seventeenth integration file: the only other tests of
+     * `detect_contrast_candidates` are the two above, this suite already
+     * holds the question-bank mutex for its own bank write, and WC1
+     * measured a connection burst from 16 workers dialling at once as the
+     * likely cause of two whole-net red runs. A new suite is not free.
+     *
+     * They also do not walk `get_daily_question`. The rows are written
+     * directly at chosen dates, so the fixture is exact and carries none
+     * of M1's seeded-lottery risk — the point here is the WINDOW, and a
+     * 105-day replay would only obscure it.
+     */
+
+    /** The case the old constant dropped, and the reason the multiplier is
+     * (last asks - 1) rather than (min - 1): the three qualifying answers
+     * are asks 1, 2 and 4, so the set spans THREE cycles, not two. */
+    async function declareOverSpan(firstAskDaysBack: number): Promise<string> {
+      const id = await createTester();
+      const { rows: q } = await client.query(
+        'select id from public.questions where code = $1',
+        [SEEDED]
+      );
+      const asOf = dayOf(200);
+      const back = (n: number) =>
+        `(date '${asOf}' - ${n})`;
+      // Four asks; the odd one out is the THIRD, so 'protect it' wins the
+      // group-by 3-1 and `v_declared_first` is the earliest of the three.
+      const asks: [number, string][] = [
+        [firstAskDaysBack, 'protect it'],
+        [Math.floor(firstAskDaysBack * 0.65), 'protect it'],
+        [Math.floor(firstAskDaysBack * 0.33), 'let it slip'],
+        [0, 'protect it'],
+      ];
+      for (const [n, answer] of asks) {
+        await client.query(
+          `insert into public.reflections
+             (user_id, local_date, mood, question_id, question_answer, question_skipped)
+           values ($1, ${back(n)}, 4, $2, $3, false)`,
+          [id, q[0].id, answer]
+        );
+      }
+      // Checks in on every WEEKDAY and never at a weekend, so the observed
+      // side disagrees with "protect it" by a full 1.0 — far past the 0.25
+      // threshold, which is not what these tests are about.
+      await client.query(
+        `insert into public.completions (user_id, circle_id, local_date, kind)
+         select $1, current_setting('fa1.circle')::uuid, d::date, 'self'
+           from generate_series(${back(firstAskDaysBack)}, date '${asOf}', interval '1 day') d
+          where extract(dow from d)::int not in (0, 6)
+            and not exists (
+              select 1 from public.completions c
+               where c.user_id = $1 and c.local_date = d::date
+            )`,
+        [id]
+      );
+      return id;
+    }
+
+    async function candidates(id: string, asOf: string): Promise<number> {
+      const { rows } = await client.query(
+        'select count(*)::int as n from public.detect_contrast_candidates($1, $2::date)',
+        [id, asOf]
+      );
+      return rows[0].n;
+    }
+
+    test('a declaration spanning 100 days is DETECTED — the old 90 dropped it', async () => {
+      const id = await declareOverSpan(100);
+      expect(await candidates(id, dayOf(200))).toBe(1);
+    });
+
+    test('the edge is exactly 105 days inclusive, not 90 and not forever', async () => {
+      // 104 days back is the 105th day of the window and still inside it;
+      // 105 days back is the first day outside. Both asserted, because a
+      // window that never excludes anything is not a window.
+      expect(await candidates(await declareOverSpan(104), dayOf(200))).toBe(1);
+      expect(await candidates(await declareOverSpan(105), dayOf(200))).toBe(0);
+    });
+
+    test("moving the question to pool 'any' pulls the window back to 90 — it is the POOL that decides", async () => {
+      // The other direction, forced rather than reasoned: the SAME rows
+      // that fire on 'weekend' go silent on 'any', and a 30-day-cycle
+      // question is still held to 90 days exactly as the ruling required.
+      // This writes to the shared bank, so it takes the mutex — see
+      // supabase/question-bank-lock.ts and CLAUDE.md's Testing section.
+      const spanning100 = await declareOverSpan(100);
+      const spanning89 = await declareOverSpan(89);
+      expect(await candidates(spanning100, dayOf(200))).toBe(1);
+
+      await withQuestionBank(client, 'first-ask: HAB-15 pool flipped to any', async () => {
+        await client.query(
+          `update public.questions set pool = 'any' where code = '${SEEDED}'`
+        );
+        try {
+          expect(await candidates(spanning100, dayOf(200))).toBe(0);
+          expect(await candidates(spanning89, dayOf(200))).toBe(1);
+        } finally {
+          await client.query(
+            `update public.questions set pool = 'weekend' where code = '${SEEDED}'`
+          );
+        }
+      });
+
+      // And the bank is back where it was, so nothing downstream inherits
+      // a question that quietly changed pool.
+      const { rows } = await client.query(
+        `select pool from public.questions where code = '${SEEDED}'`
+      );
+      expect(rows[0].pool).toBe('weekend');
     });
   });
 });
