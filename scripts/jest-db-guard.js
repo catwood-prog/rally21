@@ -1,7 +1,14 @@
 /**
  * HD1 job 1 (3 Aug) — make the DB-bound skip LOUD.
  *
- * The 14 `*.integration.test.ts` suites under supabase/ are the only tests
+ * SCOPE OF THIS FILE'S COUNT: the suites matching
+ * `supabase/*.integration.test.ts`, which is the whole population — no
+ * integration suite lives anywhere else in the repo. There are 17
+ * (recounted 10 Aug, EL1; the number read 14 and had gone stale silently).
+ * Recount with `ls supabase/*.integration.test.ts | wc -l` rather than
+ * trusting the number written here.
+ *
+ * Those suites are the only tests
  * of the security conventions (function grants, RLS, the anon EXECUTE
  * posture), and they self-skip when SUPABASE_DB_URL is unset. Each one
  * already carried a `console.warn` for that case — and measuring it found
@@ -9,7 +16,7 @@
  * suite's buffered console output when that suite reports test results, and
  * a fully-`describe.skip`'d file reports none. So the safety net could be
  * (and was, for a month) entirely absent from every run with no signal at
- * all beyond a "14 skipped" count nobody reads.
+ * all beyond a "N skipped" count nobody reads.
  *
  * This module backs jest's `globalSetup` / `globalTeardown` (the two thin
  * wrappers beside it; see package.json). It writes straight to
@@ -30,7 +37,7 @@ function banner(where) {
   const lines = [
     '',
     RULE,
-    '  !!  SUPABASE_DB_URL IS NOT SET — 14 INTEGRATION SUITES DID NOT RUN',
+    '  !!  SUPABASE_DB_URL IS NOT SET — 17 INTEGRATION SUITES DID NOT RUN',
     RULE,
     '  Skipped: every supabase/*.integration.test.ts suite. These are the',
     '  ONLY tests of the RLS policies, the function grants and the anon',
@@ -67,7 +74,7 @@ function guard(phase) {
   if (process.env.CI_REQUIRE_DB === '1') {
     if (phase === 'setup') {
       throw new Error(
-        'CI_REQUIRE_DB=1 but SUPABASE_DB_URL is not set — the 14 ' +
+        'CI_REQUIRE_DB=1 but SUPABASE_DB_URL is not set — the 17 ' +
           'supabase/*.integration.test.ts suites (RLS, function grants, ' +
           'anon EXECUTE) would silently skip. Refusing to run a test pass ' +
           'that cannot see the database.'
@@ -79,7 +86,7 @@ function guard(phase) {
   banner(
     phase === 'setup'
       ? 'before the run'
-      : 'after the run — this is what "14 skipped" above means'
+      : 'after the run — this is what the "skipped" count above means'
   );
 }
 

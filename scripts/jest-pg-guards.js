@@ -1,7 +1,12 @@
 /**
  * HD1 job 2 (3 Aug) — run guards for the DB-bound suites.
  *
- * The 14 supabase/*.integration.test.ts suites open a direct Postgres
+ * SCOPE: the suites matching `supabase/*.integration.test.ts` — 17 of them
+ * as of 10 Aug (EL1; was 14 and went stale silently). Recount with
+ * `ls supabase/*.integration.test.ts | wc -l`; that glob is the whole
+ * population, no integration suite lives elsewhere in the repo.
+ *
+ * They open a direct Postgres
  * connection and hold ONE transaction for the whole file. Pointed at
  * production that is safe (every suite rolls back, nothing commits), but a
  * suite that wedges — a lock it can't take, a runaway statement, a hang
