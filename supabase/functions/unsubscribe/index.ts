@@ -9,17 +9,37 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // expiry. verify_jwt is off (a browser hitting an email link carries no
 // Supabase session), so this signature check IS the auth.
 //
-// EM1 (9 Aug) — REPORTED, NOT FIXED: `ember_nudge` and `rest_rejoin` are
-// missing from this map and have been since G4/RS1. Both send real
-// emails whose footer link carries their own kind, so both currently
-// land on "that link isn't quite right" instead of unsubscribing anyone.
-// Left alone deliberately (EM1's remit is its own two kinds, and each of
-// those is a pref decision of its own); named here so the next session
-// finds it rather than re-discovering it.
+// EM1 (9 Aug) reported it, UN1 (10 Aug) fixed it: `ember_nudge` and
+// `rest_rejoin` were missing from this map from G4/RS1 until now. Both
+// send real emails, `unsubscribeFooter` is appended to EVERY kind's
+// email unconditionally, and each footer link carries its own kind — so
+// both landed on "that link isn't quite right" instead of unsubscribing
+// anyone. Eight real `rest_rejoin` emails went out that way, to three
+// people, 31 Jul–6 Aug.
+//
+// THE REASON IT HAPPENED, which is the part worth keeping: this map is
+// maintained BY HAND against send-notifications' own, so a kind can be
+// added to the sender and emitted for weeks before anyone notices the
+// door here was never cut. Two kinds, twice, is a class not an
+// accident. It is now pinned by `kind-coverage.test.ts`, which derives
+// the kind list from the SENDER's own union — a new kind fails CI
+// rather than shipping a dead footer.
 const KIND_TO_PREF_COLUMN: Record<string, string> = {
   nudge_daily: "nudge_enabled",
   social_digest: "digest_enabled",
   friend_nudge: "friend_nudge_enabled",
+  // UN1 — mirrors send-notifications' `ember_nudge: "nudge_enabled"`.
+  // Not a taste call: compose-nudges enqueues the ember nudge inside the
+  // per-user loop gated by `.eq("notification_prefs.nudge_enabled",
+  // true)`, and says why — "the ember nudge IS the daily nudge on an
+  // ember day (it rides the same pref and never sends alongside one)".
+  ember_nudge: "nudge_enabled",
+  // UN1 — mirrors send-notifications' `rest_rejoin: "nudge_enabled"`.
+  // compose-nudges' rejoin pass reads exactly one pref before it will
+  // enqueue: `.select("nudge_enabled") … if (!prefs?.nudge_enabled)
+  // continue;`. No dedicated pref exists for this one rare email, and
+  // the sender's own note says none is warranted.
+  rest_rejoin: "nudge_enabled",
   // EM1 — both halves of the ember mechanic ride the peer-to-peer pref
   // (see send-notifications' KIND_TO_PREF_COLUMN, where that choice is
   // argued and flagged for Cat). Kept in step with it by hand: an
