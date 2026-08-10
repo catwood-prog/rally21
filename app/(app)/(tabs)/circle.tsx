@@ -30,11 +30,13 @@ import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, chipTextShape, colors } from '@/constants/theme';
+import { useAddCircle } from '@/hooks/use-add-circle';
 import { useCheckinLaunch } from '@/hooks/use-checkin-launch';
 import { useRevealIntoView } from '@/hooks/use-reveal-into-view';
 import { useTabBarClearance } from '@/hooks/use-tab-bar-clearance';
 import { useAuth } from '@/lib/auth-context';
 import { deriveWantPhrase, getWantActivationForCircle } from '@/lib/blueprint';
+import { getMyCircleCap, MAX_CIRCLES } from '@/lib/caps';
 import {
   attachRestingStatus,
   CircleMember,
@@ -147,6 +149,12 @@ function YourCircle() {
   // than asserting this is your only circle.
   const [hasOtherCircles, setHasOtherCircles] = useState<boolean | null>(null);
   const [listData, setListData] = useState<Record<string, ListCircleData>>({});
+  // CR1 job 1 — this screen's "+ add a circle" needs the person's REAL cap,
+  // not the product default: app_caps() is auth.uid()-aware and Cat's
+  // founder allowlist sits at 10 where everyone else is at 3, so defaulting
+  // would send her to the cap screen with seven circles still to spare.
+  // MAX_CIRCLES is the pre-load placeholder only, exactly as on Today.
+  const [circleCap, setCircleCap] = useState(MAX_CIRCLES);
   const [isConfirmingLeave, setIsConfirmingLeave] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isEditingLink, setIsEditingLink] = useState(false);
@@ -221,15 +229,24 @@ function YourCircle() {
     try {
       const selection = await resolveCircleSelection(circleId, session.user.id);
       if (selection.kind === 'picker') {
-        const entries = await Promise.all(
-          selection.circles.map(async (c): Promise<[string, ListCircleData]> => {
-            const [circleMembers, circlePresence] = await Promise.all([
-              getCircleMembers(c.id),
-              getCirclePresence(c.id),
-            ]);
-            return [c.id, { members: circleMembers, presence: circlePresence }];
-          })
-        );
+        const [entries, myCircleCap] = await Promise.all([
+          Promise.all(
+            selection.circles.map(async (c): Promise<[string, ListCircleData]> => {
+              const [circleMembers, circlePresence] = await Promise.all([
+                getCircleMembers(c.id),
+                getCirclePresence(c.id),
+              ]);
+              return [c.id, { members: circleMembers, presence: circlePresence }];
+            })
+          ),
+          // CR1 job 1 — rides the same round, never a second one. It cannot
+          // fail into the catch below: getMyCircleCap swallows its own error
+          // and returns MAX_CIRCLES, which is the conservative direction
+          // here (a low cap offers the cap screen; a high one would offer a
+          // create flow the server then refuses).
+          getMyCircleCap(),
+        ]);
+        setCircleCap(myCircleCap);
         setListCircles(selection.circles);
         setListData(Object.fromEntries(entries));
         setCircle(null);
@@ -470,6 +487,14 @@ function YourCircle() {
     onError: setCheckinError,
   });
 
+  // CR1 job 2 — THE SAME BRANCH TODAY USES. Also a hook, so it sits up here
+  // with the others and above the early returns (BG1), never beside the link
+  // it feeds in the list below.
+  const { handleAddCircle } = useAddCircle({
+    circleCount: listCircles.length,
+    circleCap,
+  });
+
   if (isLoading) {
     return (
       <View style={styles.loading}>
@@ -485,6 +510,19 @@ function YourCircle() {
         <AppHeader style={styles.brandmark} />
         <Text style={styles.title}>your circles</Text>
         <Text style={styles.subtitle}>tap one to see how it&apos;s going</Text>
+
+        {/* CR1 job 1 (Cat, 10 Aug) — the same link Today carries, in the one
+            place this screen didn't have it. Deliberately at the TOP, where
+            Today puts it at the END of its lists: this screen IS the list,
+            so a person with several circles would have to scroll past all of
+            them to find the way to add another. Today's weight exactly (12px
+            600 greenText, the ruled colour for togetherness actions) so it
+            stays a quiet link rather than a second CTA competing with the
+            cards; left-aligned to the title and subtitle above it, where
+            Today's is centred with the rest of that screen. */}
+        <TouchableOpacity style={styles.addCircleLink} onPress={handleAddCircle}>
+          <Text style={styles.addCircleLinkText}>{STRINGS.addCircleLink}</Text>
+        </TouchableOpacity>
 
         {listCircles.map((c) => {
           const data = listData[c.id] ?? { members: [], presence: [] };
@@ -1665,6 +1703,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.bg,
     padding: 24,
+  },
+  // CR1 job 1 — the link's own spacing, so `subtitle` (shared with the
+  // no-circle empty state) is untouched. alignSelf keeps it to its own text
+  // width in this left-aligned column: a full-width touchable would put a
+  // tap target across the whole screen for a 12px link.
+  addCircleLink: {
+    alignSelf: 'flex-start',
+    marginBottom: 18,
+  },
+  addCircleLinkText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.greenText,
   },
   listCard: {
     backgroundColor: colors.card,

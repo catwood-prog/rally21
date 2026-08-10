@@ -27,6 +27,7 @@ import { TodayNotificationSpot } from '@/components/TodayNotificationSpot';
 import { FONT_HEADER, FONT_SERIF_ITALIC } from '@/constants/fonts';
 import { isVerbPhrasePractice, STRINGS } from '@/constants/strings';
 import { cardShadow, chipTextShape, colors } from '@/constants/theme';
+import { useAddCircle } from '@/hooks/use-add-circle';
 import { useCheckinLaunch } from '@/hooks/use-checkin-launch';
 import { useOneTimeAskSlot } from '@/hooks/use-one-time-ask-slot';
 import { useTabBarClearance } from '@/hooks/use-tab-bar-clearance';
@@ -682,6 +683,14 @@ function Today() {
     onError: setCheckinError,
   });
 
+  // CR1 job 2 — the cap branch, now shared with the circles tab. A hook, so
+  // it belongs ABOVE the early return with the others (BG1), not beside the
+  // button it feeds further down.
+  const { handleAddCircle } = useAddCircle({
+    circleCount: circles.length,
+    circleCap,
+  });
+
   if (isLoading) {
     return (
       <View style={styles.loading}>
@@ -694,7 +703,6 @@ function Today() {
   // CV1 — a cover now lands on the covered member's local yesterday, so the
   // "{name} covered you for yesterday" note reads yesterday's covered row.
   const coveredDay = shiftDate(today, -1);
-  const atCap = circles.length >= circleCap;
 
   // ON1 — record Q2's obstacle, then refetch so the card gives way to the
   // Day-0 reflected sentence. ON2: it records on the PERSON now, so it
@@ -799,14 +807,6 @@ function Today() {
   // them: same routes, same params, same audio unlock, same warm failure
   // line, and the same `oneTapCircleId` disabling the CTA mid-write.
   const goToCheckin = launchCheckin;
-
-  const handleAddCircle = () => {
-    if (atCap) {
-      router.push({ pathname: '/onboarding/circle-cap', params: { cap: String(circleCap) } });
-    } else {
-      router.push({ pathname: '/onboarding/circle-setup', params: { fromToday: 'true' } });
-    }
-  };
 
   const addCircleButton = (
     <TouchableOpacity style={styles.addCircleLink} onPress={handleAddCircle}>
