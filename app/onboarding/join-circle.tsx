@@ -59,6 +59,40 @@ export default function JoinCircle() {
       .finally(() => setIsLoadingPublic(false));
   }, []);
 
+  /**
+   * IL3 job 3 (10 Aug) — WHY THE REFUSAL REASON NEVER REACHED ANYONE.
+   *
+   * `join_circle_by_code` composes four deliberate, human refusals: at your
+   * circle cap, no circle for that code, closed to joins, already full.
+   * Measured 10 Aug through the real REST surface, all four arrive intact
+   * as `{code: 'P0001', message: '…'}` — and all three refusals a person
+   * can actually hit rendered the SAME generic line, "that code didn't
+   * work — double check it". A full circle told them to re-check a code
+   * that was never wrong.
+   *
+   * The reason is one `instanceof`: postgrest-js only builds a real
+   * `PostgrestError` when `shouldThrowOnError` is set, which the app does
+   * not use. Everywhere else it returns `JSON.parse(body)` — a PLAIN
+   * OBJECT — so `e instanceof Error` is false for every PostgREST and RPC
+   * error in this app, and the composed message is discarded unread.
+   *
+   * `P0001` is the only code taken, and that is the point: it is Postgres's
+   * marker for a hand-written `raise exception`, i.e. a sentence somebody
+   * wrote for a person to read. Anything else — a constraint, a timeout, a
+   * permission error — keeps the friendly fallback rather than putting raw
+   * Postgres on screen. No new copy: the right words already existed.
+   *
+   * THE SAME `instanceof Error` IDIOM IS IN 61 PLACES ACROSS 21 FILES and
+   * is discarding server messages in all of them. That sweep is not this
+   * section's to make; only the invite-code path IL3 named is fixed here.
+   */
+  const refusalMessage = (e: unknown): string => {
+    const err = e as { code?: unknown; message?: unknown } | null;
+    return err?.code === 'P0001' && typeof err.message === 'string' && err.message
+      ? err.message
+      : "that code didn't work — double check it";
+  };
+
   const handleJoin = async () => {
     if (!code.trim()) return;
     setIsJoining(true);
@@ -67,7 +101,7 @@ export default function JoinCircle() {
       // "/" re-checks profile + membership and lands on Today
       router.replace('/');
     } catch (e) {
-      setError(e instanceof Error ? e.message : "that code didn't work — double check it");
+      setError(refusalMessage(e));
       setIsJoining(false);
     }
   };

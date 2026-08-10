@@ -59,6 +59,13 @@ export default function CircleSetup() {
   // backing out of the join screen returns to the ordinary fork. Day-zero
   // only — someone adding a THIRD circle from Today, or acting on a want,
   // is not a cold arrival and must not be steered by an old invite.
+  //
+  // IL3 (10 Aug) — this branch is now the COLD half of a pair. A returning
+  // account never reaches this screen at all, so app/index.tsx reads the
+  // code for that arrival; see the note there for why one reader cannot
+  // serve both. Since IL3 the helper also refuses a code older than its
+  // freshness window, so the day-zero guard is no longer the only thing
+  // standing between a stale code and a visit it has no business steering.
   const [pendingChecked, setPendingChecked] = useState(() => !isDayZero);
   useEffect(() => {
     if (!isDayZero) return;

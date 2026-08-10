@@ -37,6 +37,32 @@ const CODE_CHARS = /[^A-Z0-9]/g;
 
 const PENDING_CODE_KEY = 'rally21_pending_invite_code';
 
+/**
+ * IL3 (10 Aug) — HOW LONG A SAVED CODE STAYS CONSUMABLE.
+ *
+ * The stamp exists because the old design could not tell "a stale code
+ * lying around" from "the code they tapped thirty seconds ago", and paid
+ * for the difference with a day-zero guard that made the invite link work
+ * for strangers and fail silently for everyone with an account.
+ *
+ * THE WINDOW IS THE ROUND TRIP IT EXISTS TO BRIDGE, and nothing more: tap
+ * the link, reach /sign-in, wait for an email, open it, land back in the
+ * app. Its ceiling is the magic link's own lifetime — a code that has
+ * outlived the link it was waiting for cannot be the code someone tapped
+ * on the way to this sign-in, and this project sits at or under GoTrue's
+ * recommended 1-hour email OTP expiry (no `auth_otp_long_expiry` advisory
+ * against it, measured 10 Aug). Thirty minutes is comfortably inside that
+ * ceiling and comfortably outside a real trip, where the email arrives in
+ * seconds and the slow part is a distracted person.
+ *
+ * It is deliberately not hours. The hazard the day-zero guard named is
+ * real — an old code must never steer an unrelated later visit — and half
+ * an hour is short enough that a visit inside it is the SAME visit.
+ */
+export const PENDING_CODE_FRESH_MS = 30 * 60 * 1000;
+
+type StoredPendingCode = { code: string; savedAt: number };
+
 /** Uppercase, strip anything that isn't a code character, take the first 6. */
 export function normalizeInviteCode(raw: string | null | undefined): string {
   if (!raw) return '';
@@ -49,28 +75,62 @@ export function buildInviteLink(code: string): string {
   return `${APP_LINK}/j/${normalizeInviteCode(code)}`;
 }
 
-/** Hold the code across sign-in. Silent on failure by FF1 rule 1: this is
- * a convenience, and the person can still type the code — a storage error
- * must not stop them reaching the sign-in screen they came here for. */
+/** Hold the code across sign-in, STAMPED with the moment it was tapped.
+ * Silent on failure by FF1 rule 1: this is a convenience, and the person
+ * can still type the code — a storage error must not stop them reaching
+ * the sign-in screen they came here for. */
 export async function savePendingInviteCode(code: string): Promise<void> {
   const normalized = normalizeInviteCode(code);
   if (!normalized) return;
   try {
-    await AsyncStorage.setItem(PENDING_CODE_KEY, normalized);
+    const stamped: StoredPendingCode = { code: normalized, savedAt: Date.now() };
+    await AsyncStorage.setItem(PENDING_CODE_KEY, JSON.stringify(stamped));
   } catch {
     // The link still shows the code on screen and the join field still
     // accepts it typed — losing this costs one prefill, never the join.
   }
 }
 
-/** Read-and-clear. One-shot on purpose: the code is spent the moment it is
- * handed to the join flow, so a code left over from an abandoned invite
- * can never redirect a later visit to the setup fork. */
+/**
+ * Read-and-clear, and hand back the code ONLY while it is fresh.
+ *
+ * ONE-SHOT, unchanged: the code is spent the moment it is read, so it can
+ * never fire twice. The clear happens BEFORE the freshness test, so a code
+ * that has gone stale is thrown away rather than left to rot in storage
+ * and be re-tested on every arrival for the rest of the account's life.
+ *
+ * A value with NO STAMP is a code saved by a build older than IL3, and its
+ * age is unknowable. Unknowable is not fresh: it is cleared and refused.
+ * That costs a prefill to anyone holding one at the moment this ships —
+ * the link still works on the next tap, and it fails toward the safe side,
+ * which is the whole reason the stamp exists.
+ */
 export async function takePendingInviteCode(): Promise<string | null> {
   try {
     const stored = await AsyncStorage.getItem(PENDING_CODE_KEY);
-    if (stored) await AsyncStorage.removeItem(PENDING_CODE_KEY);
-    return normalizeInviteCode(stored) || null;
+    if (!stored) return null;
+    await AsyncStorage.removeItem(PENDING_CODE_KEY);
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(stored);
+    } catch {
+      // A bare pre-IL3 string, or anything else that isn't ours.
+      return null;
+    }
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const { code, savedAt } = parsed as Partial<StoredPendingCode>;
+    if (typeof code !== 'string' || typeof savedAt !== 'number' || !Number.isFinite(savedAt)) {
+      return null;
+    }
+    // A NEGATIVE age (a stamp in the future) means the device clock moved
+    // backwards between the tap and the arrival, not that the code is old.
+    // Refusing it would make the fix silently not work for that person;
+    // allowing it costs nothing, since the worst case is joining the
+    // circle they just asked to join with a code they already hold.
+    if (Date.now() - savedAt > PENDING_CODE_FRESH_MS) return null;
+
+    return normalizeInviteCode(code) || null;
   } catch {
     // Same reason as above — no pending code just means the ordinary
     // fork, which is exactly what everyone without an invite link sees.
