@@ -155,6 +155,18 @@ function YourCircle() {
   // would send her to the cap screen with seven circles still to spare.
   // MAX_CIRCLES is the pre-load placeholder only, exactly as on Today.
   const [circleCap, setCircleCap] = useState(MAX_CIRCLES);
+  // CR2 job 1 — HOW MANY CIRCLES THIS PERSON IS IN, which the detail branch
+  // did not have. `listCircles` is empty by construction on that path (it is
+  // only ever filled in the picker branch), so the cap branch there was
+  // comparing 0 against the cap: a person already at 3 of 3, tapped into one
+  // of them, would be offered the create flow and refused by the server at
+  // the end of it. The count rides `listMyCircles`, already in the detail
+  // batch below for `hasOtherCircles` — no second round trip.
+  // FF2's three states, for FF2's reason: null is "the read failed, we do
+  // not know", never 0. The link is not offered on an unknown count, because
+  // both destinations make a claim about this person and neither is safe to
+  // guess (see the render site in the detail tail).
+  const [myCircleCount, setMyCircleCount] = useState<number | null>(null);
   const [isConfirmingLeave, setIsConfirmingLeave] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isEditingLink, setIsEditingLink] = useState(false);
@@ -222,6 +234,10 @@ function YourCircle() {
     setError(null);
     setListCircles([]);
     setHasOtherCircles(false);
+    // CR2 job 1 — back to "unknown" for the duration of this load, so the
+    // add link can never branch on the previous account's or the previous
+    // circle's count.
+    setMyCircleCount(null);
     // CB1 job 1b — back to "not loaded" for the duration of this load, so
     // a switch between circles can never judge the new circle's ceremony
     // against the previous circle's marker.
@@ -247,6 +263,9 @@ function YourCircle() {
           getMyCircleCap(),
         ]);
         setCircleCap(myCircleCap);
+        // CR2 job 1 — the same number `listCircles.length` was already
+        // giving this branch, said once so both branches read one state.
+        setMyCircleCount(selection.circles.length);
         setListCircles(selection.circles);
         setListData(Object.fromEntries(entries));
         setCircle(null);
@@ -255,7 +274,7 @@ function YourCircle() {
       const myCircle = selection.circle;
       setCircle(myCircle);
       if (myCircle) {
-        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay, myPairStreaks, myBlocks, mateGlows, myCirclesList, coverable] =
+        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay, myPairStreaks, myBlocks, mateGlows, myCirclesList, coverable, myCircleCap] =
           await Promise.all([
             getCircleMembers(myCircle.id),
             getCirclePresence(myCircle.id),
@@ -292,8 +311,21 @@ function YourCircle() {
             // the ember + timezone rule). A failed fetch just means no cover
             // pills this visit, never an error.
             getCoverableMembers(myCircle.id).catch(() => new Map<string, string>()),
+            // CR2 job 1 — the REAL cap on this path too, riding the round
+            // this screen already makes. The list branch has read it since
+            // CR1; this branch was still holding the MAX_CIRCLES
+            // placeholder, which is Cat's founder allowlist (10) reported
+            // as 3. Same non-throwing contract as the list branch's call:
+            // getMyCircleCap swallows its own error and returns
+            // MAX_CIRCLES, so it can never reach the catch below.
+            getMyCircleCap(),
           ]);
         setHasOtherCircles(myCirclesList === null ? null : myCirclesList.length > 1);
+        // CR2 job 1 — the same read `hasOtherCircles` is derived from, kept
+        // as the number rather than the boolean, because "more than one" is
+        // not enough to decide "already at the cap".
+        setMyCircleCount(myCirclesList === null ? null : myCirclesList.length);
+        setCircleCap(myCircleCap);
         setMembers(circleMembers);
         setPresence(circlePresence);
         setPresenceLoaded(true);
@@ -490,8 +522,16 @@ function YourCircle() {
   // CR1 job 2 — THE SAME BRANCH TODAY USES. Also a hook, so it sits up here
   // with the others and above the early returns (BG1), never beside the link
   // it feeds in the list below.
+  //
+  // CR2 job 1 — ONE hook for BOTH of this screen's branches, which is why it
+  // now takes `myCircleCount` rather than `listCircles.length`: that array is
+  // empty on the detail path, and a second `useAddCircle` call with a second
+  // count would be the drifting copy CR1 existed to retire. The `?? 0` is a
+  // type floor, not a behaviour — neither render site offers the link on a
+  // null count (the list branch always has a number; the detail branch's
+  // link is gated on one).
   const { handleAddCircle } = useAddCircle({
-    circleCount: listCircles.length,
+    circleCount: myCircleCount ?? 0,
     circleCap,
   });
 
@@ -1628,6 +1668,48 @@ function YourCircle() {
         </View>
       ) : null}
 
+      {/* CR2 jobs 1 + 2 (Cat's ruling, 10 Aug) — THE LINK, ON THE ONLY VIEW
+          the two single-circle accounts ever see. resolveCircleSelection
+          sends a person with exactly one circle straight here, so CR1's link
+          on the list branch reached everyone in the cohort except the two
+          people the beta exists to test.
+
+          WHY THE TAIL AND NOT THE TOP. On the list branch "at the top" was
+          right because that screen IS the list — a person with three circles
+          would otherwise scroll past all of them to find the way to add
+          another. This screen is ONE circle's own page, and everything at
+          the top of it acts ON that circle: the back link, the name, the
+          edit pencil, the headcount. A "+ add a circle" up there reads as
+          adding something TO this circle. The tail is where the screen stops
+          being about the circle and starts being about your relationship to
+          it — invite someone, host controls, leave this circle — and it is
+          also where Today renders the same link, at the END of all five of
+          its branches. So the list branch is the deliberate exception and
+          this agrees with Today.
+
+          ABOVE the leave link, never below: leave is the terminal
+          destructive-ish action (OD1 job 4a keeps its confirm card last on a
+          long screen), and the two read as a matched pair of quiet 12px/600
+          links — green for the togetherness action, mutedStrong for the exit.
+
+          THE NULL GATE IS THE POINT, not tidiness. `myCircleCount` is null
+          only when listMyCircles failed, and this link's whole job is a
+          BRANCH on that count: with it unknown, "start another" walks
+          someone who is full through a create flow the server then refuses,
+          and the cap screen tells someone with room to spare that they are
+          full. Both are claims about this person made on a guess. FF2
+          already made no claim on this same failed read (the back link says
+          'back'); an absent quiet link makes none either, and Today still
+          carries its own. */}
+      {myCircleCount !== null && (
+        <TouchableOpacity
+          style={[styles.addCircleLink, styles.addCircleLinkTail]}
+          onPress={handleAddCircle}
+        >
+          <Text style={styles.addCircleLinkText}>{STRINGS.addCircleLink}</Text>
+        </TouchableOpacity>
+      )}
+
       {isConfirmingLeave ? (
         // OD1 job 4a/4c — the card Cat reported. It is the last thing on
         // a long screen, so it is the one most often revealed straight
@@ -1716,6 +1798,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.greenText,
+  },
+  // CR2 job 2 — WHERE the tail's copy of the link sits, layered OVER the
+  // style above rather than replacing it, so the TREATMENT (12px, 600,
+  // greenText) is still declared exactly once for both branches and this
+  // carries nothing but position. Centred and 32 above, because on the
+  // detail view the link's neighbour is the leave link (`leaveLink`, same
+  // 32/centre/12px/600) and the two are read as a pair.
+  addCircleLinkTail: {
+    alignSelf: 'center',
+    marginTop: 32,
+    marginBottom: 0,
   },
   listCard: {
     backgroundColor: colors.card,
