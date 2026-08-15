@@ -169,6 +169,16 @@ function YourCircle() {
   const [myCircleCount, setMyCircleCount] = useState<number | null>(null);
   const [isConfirmingLeave, setIsConfirmingLeave] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  // LV2 job 5 (Cat's ruling, 15 Aug) — the leave's OWN error, held apart
+  // from `error`. `error` drives the early return below, which replaces
+  // the entire circle screen with an ErrorSlip. That is right for a failed
+  // LOAD, where there is nothing left to show, and wrong for a failed
+  // ACTION: a person whose leave failed lost the whole screen instead of
+  // being told the leave did not work. Every other action here already
+  // knows the difference — `linkError` renders inline, `checkinError` has
+  // its own surface, `gestureNotice` uses a dialog. The message text is
+  // unchanged; only where it renders has moved.
+  const [leaveError, setLeaveError] = useState<string | null>(null);
   const [isEditingLink, setIsEditingLink] = useState(false);
   const [linkDraft, setLinkDraft] = useState('');
   const [isSavingLink, setIsSavingLink] = useState(false);
@@ -228,32 +238,75 @@ function YourCircle() {
   // dialog, NEVER the screen-replacing `error` state.
   const [gestureNotice, setGestureNotice] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    if (!session?.user) return;
-    setIsLoading(true);
-    setError(null);
+  /**
+   * THE RULE FOR THIS SCREEN, and it took four bugs to write it down:
+   * ANY STATE THAT DESCRIBES *THIS* CIRCLE IS CLOSED BEFORE THE NEXT ONE
+   * LOADS.
+   *
+   * The circle tab is ONE mounted component that `load` re-points at
+   * whatever `resolveCircleSelection` returns — it does not unmount
+   * between circles, and it does not unmount on the `router.replace`
+   * that follows a leave. So anything not closed here is inherited by a
+   * circle the person never opened it on, and the inheritance is silent
+   * because the values re-render against the NEW `circle`.
+   *
+   * Four sections fixed this one value at a time, each patching only the
+   * one that had just bitten: CB1's stale marker re-fired a ceremony,
+   * CR2's stale count routed an at-cap screen, LV1's stale confirm card
+   * armed a destructive button, and LV2's three below each reach a WRITE
+   * against the wrong circle. They are gathered into one named place so
+   * the next reader meets a rule instead of four accidents. This is
+   * deliberately NOT the DEC1 extraction — nothing moves out of this
+   * file; the point is only that the rule is now visible.
+   *
+   * DELIBERATELY NOT HERE: the in-flight booleans (`isSavingLink`,
+   * `isRemovingMember`, `isCompleting`, `isTogglingClosed`,
+   * `isSubmittingMemberAction`). Every one of their eight clear-sites is
+   * inside its handler's own `finally` — checked, not assumed — so none
+   * can outlive the action that set it. `isLeaving` IS here precisely
+   * because until LV1 it was the one that could not say that.
+   */
+  const closeStateForPreviousCircle = useCallback(() => {
     setListCircles([]);
     setHasOtherCircles(false);
-    // CR2 job 1 — back to "unknown" for the duration of this load, so the
-    // add link can never branch on the previous account's or the previous
-    // circle's count.
+    // CR2 job 1 — back to "unknown", never 0, so the add link cannot
+    // branch on the previous account's or the previous circle's count.
     setMyCircleCount(null);
-    // CB1 job 1b — back to "not loaded" for the duration of this load, so
-    // a switch between circles can never judge the new circle's ceremony
-    // against the previous circle's marker.
+    // CB1 job 1b — back to "not loaded", never 0, so a ceremony is never
+    // judged against the previous circle's marker.
     setMyLastCelebratedDay(null);
-    // LV1 job 2 — the leave flow's two flags, closed on every load for the
-    // same reason as the two above, and this is the third time the screen
-    // has needed that rule (CB1's stale marker routed a ceremony, CR2's
-    // stale count routed an at-cap screen). `isConfirmingLeave` is the
-    // serious one: the tab does not unmount on the `router.replace` that
-    // follows a successful leave, so an open confirm card survived both
-    // the navigation AND the switch to another circle, re-rendering with
-    // the NEW circle's name above a live destructive button — armed at a
-    // circle nobody asked to leave. `isLeaving` closes with it so the card
-    // can never return frozen behind its own spinner.
+    // LV1 — the leave confirm card, its spinner, and (LV2 job 5) the
+    // message left behind by a leave that failed on the previous circle.
     setIsConfirmingLeave(false);
     setIsLeaving(false);
+    setLeaveError(null);
+    // LV2 job 1 — the complete-circle confirm card, and it is the worst
+    // of the four. The card names one circle while the button completes
+    // the one ON SCREEN, which ends that circle for every member, and
+    // unlike leave there is no accident protecting it: since
+    // `handleCompleteCircle` already clears `isCompleting` in a `finally`,
+    // the button is live rather than frozen behind a spinner.
+    setIsConfirmingComplete(false);
+    // LV2 job 2 — the resource-link editor and its draft. The draft is
+    // text typed for the PREVIOUS circle and `saveLink` writes it to
+    // `circle.id`, so an editor left open saves A's URL onto B's row with
+    // no error and no sign anything happened.
+    setIsEditingLink(false);
+    setLinkDraft('');
+    // LV2 job 3 — the member-removal row. It self-guards on membership,
+    // so it survives only for someone who is in BOTH circles — and then
+    // removes them from the wrong one.
+    setRemovingMemberId(null);
+    setIsManagingMembers(false);
+  }, []);
+
+  const load = useCallback(async () => {
+    if (!session?.user) return;
+    // These two describe THIS LOAD rather than the previous circle, so
+    // they stay out of the block above.
+    setIsLoading(true);
+    setError(null);
+    closeStateForPreviousCircle();
     try {
       const selection = await resolveCircleSelection(circleId, session.user.id);
       if (selection.kind === 'picker') {
@@ -395,7 +448,10 @@ function YourCircle() {
     } finally {
       setIsLoading(false);
     }
-  }, [session?.user?.id, circleId]);
+    // `closeStateForPreviousCircle` holds an empty dep array and every
+    // setter React hands out is stable, so it never changes identity and
+    // cannot churn `load` (which the focus effect keys on).
+  }, [session?.user?.id, circleId, closeStateForPreviousCircle]);
 
   useFocusEffect(
     useCallback(() => {
@@ -827,12 +883,19 @@ function YourCircle() {
   const handleLeave = async () => {
     if (!session?.user) return;
     setIsLeaving(true);
+    // LV2 job 5 — clear the previous attempt's message on the way in, the
+    // same way saveLink/removeLink clear `linkError`.
+    setLeaveError(null);
     try {
       await leaveCircle(circle.id);
       const remaining = await listMyCircles(session.user.id);
       router.replace(remaining.length === 0 ? '/onboarding/circle-setup' : '/today');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not leave — try again');
+      // LV2 job 5 — `setLeaveError`, NOT `setError`. The text is
+      // deliberately untouched (leave_circle raises no P0001, so MS1
+      // correctly left this fallback alone); only its destination moved,
+      // so the person keeps the circle screen they were standing on.
+      setLeaveError(e instanceof Error ? e.message : 'could not leave — try again');
     } finally {
       // LV1 job 1 — the success path used to `return` with this still
       // true, and the screen behind the navigation kept it: a tab does
@@ -1748,6 +1811,11 @@ function YourCircle() {
           style={styles.leaveConfirmCard}
         >
           <Text style={styles.leaveConfirmText}>{STRINGS.circleLeaveConfirmBody(circle.name)}</Text>
+          {/* LV2 job 5 — the failed leave says so HERE, inside the card
+              that failed, instead of `error` replacing the whole screen
+              with an ErrorSlip. linkError's placement exactly: above the
+              action row, so the retry is the next thing under it. */}
+          {leaveError && <Text style={styles.leaveErrorText}>{leaveError}</Text>}
           <View style={styles.leaveConfirmRow}>
             <TouchableOpacity
               style={styles.leaveCancelButton}
@@ -2539,6 +2607,16 @@ const styles = StyleSheet.create({
     color: colors.ink,
     lineHeight: 18,
     marginBottom: 14,
+  },
+  // LV2 job 5 — linkErrorText's treatment (11.5 / errorRed), pulled up
+  // into the body's own 14px gap so the message reads as attached to the
+  // sentence that failed rather than floating above the buttons.
+  leaveErrorText: {
+    fontSize: 11.5,
+    color: colors.errorRed,
+    lineHeight: 16,
+    marginTop: -6,
+    marginBottom: 12,
   },
   leaveConfirmRow: {
     flexDirection: 'row',
