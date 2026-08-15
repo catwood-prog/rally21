@@ -25,6 +25,7 @@ import { seedInstructionsDraft, takeInstructionsDraft } from '@/lib/practiceInst
 import { groupingLine } from '@/lib/practiceTaxonomy';
 import { isHttpUrl } from '@/lib/resourceLink';
 import { captureError } from '@/lib/sentry';
+import { serverRefusalOr } from '@/lib/serverRefusal';
 
 /**
  * CF2 screen 5 — CIRCLE SETUP: the practice is LOCKED (chosen one screen
@@ -143,7 +144,7 @@ export default function StartCircle() {
         });
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'something went wrong — try again');
+      setError(serverRefusalOr(e, 'something went wrong — try again'));
       setIsCreating(false);
       setConfirmingShareFlip(false);
     }

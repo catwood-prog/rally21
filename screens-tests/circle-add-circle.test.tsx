@@ -16,9 +16,21 @@
  * the founder allowlist), so a hard-coded 3 would tell the wrong person the
  * wrong thing.
  *
- * THE CAP FIXTURE IS 3 AND THE ACCOUNTS ARE REAL: every account in the
- * cohort except Cat's own sits at 3 of 3, so the at-cap case below is the
- * ordinary case for this button, not the edge.
+ * THE CAP FIXTURE IS 3, AND WHAT IT REPRESENTS IS NOT WHAT THIS COMMENT
+ * USED TO SAY. CR1's line — "every account in the cohort except Cat's own
+ * sits at 3 of 3" — was inherited here from its commit message and was
+ * false when written. Measured 11 Aug from `memberships` plus `app_caps()`
+ * read from source: the seven accounts hold 1, 1, 2, 2, 2, 3, 3 circles,
+ * and the allowlist inside `app_caps()` holds exactly three uuids, so the
+ * two accounts at three are Cathy S (allowlisted, cap 10, NOT at cap) and
+ * catherine@amsadvisory.co.uk (not allowlisted, cap 3, AT cap).
+ *
+ * So the fixtures below are a SHAPE, not a census: `myCircleCount: 3` with
+ * `cap: 3` is the at-cap case, and `cap: 10` is the allowlisted case. Both
+ * are real states in the cohort, but the at-cap one is one account, not
+ * the majority — it is the case worth pinning because it is the one that
+ * silently walks somebody through a create flow the server will refuse,
+ * not because it is the common one.
  *
  * WHY THIS FILE IS NOT CO-LOCATED (BG1, and it shipped a visible bug once):
  * `app/` IS the router, and anything inside the Tabs group becomes a TAB —

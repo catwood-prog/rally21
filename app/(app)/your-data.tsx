@@ -12,6 +12,7 @@ import { cardShadow, colors, scaledLineHeight } from '@/constants/theme';
 import { deleteMyAccount } from '@/lib/account';
 import { useAuth } from '@/lib/auth-context';
 import { removeAvatar } from '@/lib/profile';
+import { captureError } from '@/lib/sentry';
 import { DataSummary, exportMyData, getDataSummary } from '@/lib/yourData';
 
 type Section = 'summary' | 'deletePhoto' | null;
@@ -93,6 +94,11 @@ export default function YourData() {
     }
   };
 
+  /** MS1 job 5 — THE `instanceof` WAS WORKING HERE, AND THAT WAS THE BUG.
+   * Storage rejects with `StorageError extends Error`, so this branch was
+   * TRUE and put a raw storage API message on screen instead of the line
+   * written for it. The message goes to Sentry, where it is useful, and
+   * the person gets the sentence we wrote. */
   const handleRemovePhoto = async () => {
     if (!userId) return;
     setIsDeletingPhoto(true);
@@ -100,12 +106,22 @@ export default function YourData() {
       await removeAvatar(userId);
       setConfirmingDeletePhoto(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : STRINGS.yourDataDeletePhotoError);
+      captureError(e, { screen: 'your-data', op: 'removeAvatar' });
+      setError(STRINGS.yourDataDeletePhotoError);
     } finally {
       setIsDeletingPhoto(false);
     }
   };
 
+  /** MS1 job 5 — the same class on the most trust-critical path in the
+   * app. `functions.invoke` rejects with `FunctionsHttpError`, a real
+   * Error whose message is the literal string "Edge Function returned a
+   * non-2xx status code" — so somebody deleting their account was shown
+   * that, verbatim, instead of `yourDataDeleteAccountError`. The edge
+   * function's own error bodies are no better (they forward
+   * `prepError.message` / `deleteError.message`, raw Postgres and auth
+   * internals), which is why nothing here tries to read one: this is not
+   * the P0001 case, there is no server-authored sentence to rescue. */
   const handleDeleteAccount = async () => {
     setIsDeletingAccount(true);
     try {
@@ -113,7 +129,8 @@ export default function YourData() {
       await signOut();
       router.replace('/sign-in');
     } catch (e) {
-      setError(e instanceof Error ? e.message : STRINGS.yourDataDeleteAccountError);
+      captureError(e, { screen: 'your-data', op: 'deleteMyAccount' });
+      setError(STRINGS.yourDataDeleteAccountError);
       setIsDeletingAccount(false);
     }
   };

@@ -27,6 +27,7 @@ import { useAuth } from '@/lib/auth-context';
 import { editCircle, getCircleById, MyCircle, setCircleInstructions } from '@/lib/circle';
 import { seedInstructionsDraft, takeInstructionsDraft } from '@/lib/practiceInstructionsDraft';
 import { isHttpUrl } from '@/lib/resourceLink';
+import { serverRefusalOr } from '@/lib/serverRefusal';
 
 /** EC1 — the host edits their circle after creation: name, time of day,
  * the practice wording/duration, and the resource link. Reached only
@@ -130,7 +131,7 @@ export default function EditCircle() {
       await setCircleInstructions(circle.id, instructions.trim() || null);
       router.push({ pathname: '/circle', params: { circleId: circle.id } });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not save — try again');
+      setError(serverRefusalOr(e, 'could not save — try again'));
       setIsSaving(false);
     }
   };

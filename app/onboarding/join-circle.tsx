@@ -21,6 +21,7 @@ import { cardShadow, colors } from '@/constants/theme';
 import { joinCircleByCode, joinPublicCircle, listPublicCircles, PublicCircle } from '@/lib/circle-setup';
 import { normalizeInviteCode } from '@/lib/invite-link';
 import { reportContent } from '@/lib/moderation';
+import { serverRefusalOr } from '@/lib/serverRefusal';
 
 export default function JoinCircle() {
   const router = useRouter();
@@ -68,31 +69,22 @@ export default function JoinCircle() {
    * as `{code: 'P0001', message: '…'}` — and all three refusals a person
    * can actually hit rendered the SAME generic line, "that code didn't
    * work — double check it". A full circle told them to re-check a code
-   * that was never wrong.
+   * that was never wrong. The mechanism, and the P0001 discipline that
+   * answers it, now live in one place: `lib/serverRefusal.ts`.
    *
-   * The reason is one `instanceof`: postgrest-js only builds a real
-   * `PostgrestError` when `shouldThrowOnError` is set, which the app does
-   * not use. Everywhere else it returns `JSON.parse(body)` — a PLAIN
-   * OBJECT — so `e instanceof Error` is false for every PostgREST and RPC
-   * error in this app, and the composed message is discarded unread.
+   * MS1 (11 Aug) swept the class and found the sweep was SIX sites, not
+   * the 61 this comment used to claim — a plain `.from(...)` write can
+   * never raise a P0001 (no trigger in this schema raises), so only a
+   * catch reaching an `.rpc()` that raises a human sentence could ever
+   * have been losing one. `server-refusal-guard.test.ts` now derives that
+   * set from the migrations instead of anybody re-counting it by hand.
    *
-   * `P0001` is the only code taken, and that is the point: it is Postgres's
-   * marker for a hand-written `raise exception`, i.e. a sentence somebody
-   * wrote for a person to read. Anything else — a constraint, a timeout, a
-   * permission error — keeps the friendly fallback rather than putting raw
-   * Postgres on screen. No new copy: the right words already existed.
-   *
-   * THE SAME `instanceof Error` IDIOM IS IN 61 PLACES ACROSS 21 FILES and
-   * is discarding server messages in all of them. That sweep is not this
-   * section's to make; only the invite-code path IL3 named is fixed here.
+   * AND ONE OF THE SIX WAS ELEVEN LINES BELOW THIS ONE: `handleJoin` got
+   * the fix, `handleJoinPublic` did not — the browse path went on telling
+   * people "could not join that circle" when the circle was simply full.
+   * Not IL3's failure (its remit was the coded-invite path); precisely
+   * why the rule needed a guard rather than a careful reader.
    */
-  const refusalMessage = (e: unknown): string => {
-    const err = e as { code?: unknown; message?: unknown } | null;
-    return err?.code === 'P0001' && typeof err.message === 'string' && err.message
-      ? err.message
-      : "that code didn't work — double check it";
-  };
-
   const handleJoin = async () => {
     if (!code.trim()) return;
     setIsJoining(true);
@@ -101,7 +93,7 @@ export default function JoinCircle() {
       // "/" re-checks profile + membership and lands on Today
       router.replace('/');
     } catch (e) {
-      setError(refusalMessage(e));
+      setError(serverRefusalOr(e, "that code didn't work — double check it"));
       setIsJoining(false);
     }
   };
@@ -112,7 +104,7 @@ export default function JoinCircle() {
       await joinPublicCircle(circle.circleId);
       router.replace('/');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not join that circle — try again');
+      setError(serverRefusalOr(e, 'could not join that circle — try again'));
       setJoiningCircleId(null);
     }
   };

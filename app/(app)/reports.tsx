@@ -16,6 +16,7 @@ import {
   isFounder,
   PendingReport,
 } from '@/lib/moderation';
+import { serverRefusalOr } from '@/lib/serverRefusal';
 
 /** MOD1 (7 July) — the founder-only /reports screen. Same allowlist
  * pattern as app_caps()/is_founder() — gated both client-side (redirect
@@ -82,6 +83,12 @@ export default function Reports() {
     }
   };
 
+  // MS1 — the one act on this screen whose RPC composes a real sentence
+  // ("only the circle creator can remove a member" / "use leave_circle to
+  // remove yourself"). is_founder() bypasses the first, so both are
+  // race-only from here — which is exactly why they are worth reading:
+  // a moderation act that fails on a founder-only screen is the one place
+  // a generic line leaves you debugging blind. Cat's ruling, 11 Aug.
   const handleRemoveMember = async (report: PendingReport) => {
     if (!report.memberCircleId) return;
     setActingOnId(report.reportId);
@@ -90,7 +97,7 @@ export default function Reports() {
       await adminMarkReportActioned(report.reportId);
       removeFromList(report.reportId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not remove that member — try again');
+      setError(serverRefusalOr(e, 'could not remove that member — try again'));
     } finally {
       setActingOnId(null);
     }

@@ -25,6 +25,7 @@ import { coverMember } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 import { getMyGlow, giftPebble } from '@/lib/glow';
 import { captureError } from '@/lib/sentry';
+import { serverRefusal } from '@/lib/serverRefusal';
 import { isFriendNudgeEnabled, sendFriendNudge } from '@/lib/wall';
 
 // PA3 job 3 — a pebble joins cover and wave as a third gesture.
@@ -167,7 +168,16 @@ export default function CoverAFriend() {
       // whenever we already know it's off — same warm mapping either way.
       // Self-wave/not-a-member shouldn't be reachable at all from this
       // screen's own navigation, so they fall to the plain fallback.
-      const message = e instanceof Error ? e.message : '';
+      //
+      // MS1 — THESE BRANCHES WERE ALL DEAD, and not one of them had ever
+      // fired. `send_friend_nudge` and `gift_pebble` refuse through
+      // `raise exception`, which postgrest hands back as a PLAIN OBJECT,
+      // so `e instanceof Error` was false every time and `message` was
+      // always ''. An empty nest fell through to "couldn't deliver that
+      // pebble"; a nudges-disabled race fell all the way to "something
+      // went wrong". This is why the shared helper exposes the extracted
+      // text and not just a resolved string — see lib/serverRefusal.ts.
+      const message = serverRefusal(e) ?? '';
       if (message.includes('nudges disabled')) {
         setError(STRINGS.waveOptedOutError(name));
       } else if (message.includes('nest is empty')) {

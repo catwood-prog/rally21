@@ -26,6 +26,7 @@ import { getMyProfile } from '@/lib/profile';
 import { groupingLine } from '@/lib/practiceTaxonomy';
 import { isHttpUrl } from '@/lib/resourceLink';
 import { captureError } from '@/lib/sentry';
+import { serverRefusalOr } from '@/lib/serverRefusal';
 
 /**
  * CF2 screen 4 — SOLO SETUP: "{practice}, solo · a circle of one". No
@@ -177,7 +178,7 @@ export default function SoloSetup() {
         router.replace('/');
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'something went wrong — try again');
+      setError(serverRefusalOr(e, 'something went wrong — try again'));
       setIsCreating(false);
     }
   };

@@ -125,6 +125,19 @@ remembered practice, including your own.**
   shipped string). Source correct at HEAD does not mean the shipped bundle
   is correct — that gap is exactly what the rule above closes, and this is
   how you prove it closed.
+- **When a section introduces no new user-facing copy, coin a new
+  StyleSheet key and grep for THAT** — style keys survive as strings in
+  Hermes bytecode and the web bundle, so one literal grep is decisive on
+  all three lanes with no control build (CR2's `addCircleLinkTail` proved
+  it; CR1 needed source maps without it). **The technique has a floor, and
+  MS1 found it (11 Aug): a section that changes only BEHAVIOUR introduces
+  neither new copy nor a new style key**, so there is nothing to coin. Then
+  the discriminator is a cross-module EXPORT NAME — Metro's CommonJS output
+  turns an imported binding into a property access (`_mod.exportName`), and
+  property names are not mangled — which is why a shared helper's name is
+  worth choosing to be greppable. Verify that it actually survived rather
+  than assuming it did, and if nothing discriminates, say so plainly in the
+  receipt instead of dressing a source check up as an artifact check.
 
 ## Every handoff ends with a VERIFY RECEIPT (24 July)
 

@@ -11,6 +11,7 @@ import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { joinPublicCircle, listPublicCircles, PublicCircle } from '@/lib/circle-setup';
 import { groupingLine } from '@/lib/practiceTaxonomy';
+import { serverRefusalOr } from '@/lib/serverRefusal';
 
 /**
  * CF2 screen 3 — THE PRACTICE HUB: every practice card lands here, and
@@ -86,7 +87,7 @@ export default function PracticeHub() {
       await joinPublicCircle(circle.circleId);
       router.replace('/');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not join that circle — try again');
+      setError(serverRefusalOr(e, 'could not join that circle — try again'));
       setJoiningCircleId(null);
     }
   };
