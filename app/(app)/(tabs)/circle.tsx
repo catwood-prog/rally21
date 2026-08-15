@@ -242,6 +242,18 @@ function YourCircle() {
     // a switch between circles can never judge the new circle's ceremony
     // against the previous circle's marker.
     setMyLastCelebratedDay(null);
+    // LV1 job 2 — the leave flow's two flags, closed on every load for the
+    // same reason as the two above, and this is the third time the screen
+    // has needed that rule (CB1's stale marker routed a ceremony, CR2's
+    // stale count routed an at-cap screen). `isConfirmingLeave` is the
+    // serious one: the tab does not unmount on the `router.replace` that
+    // follows a successful leave, so an open confirm card survived both
+    // the navigation AND the switch to another circle, re-rendering with
+    // the NEW circle's name above a live destructive button — armed at a
+    // circle nobody asked to leave. `isLeaving` closes with it so the card
+    // can never return frozen behind its own spinner.
+    setIsConfirmingLeave(false);
+    setIsLeaving(false);
     try {
       const selection = await resolveCircleSelection(circleId, session.user.id);
       if (selection.kind === 'picker') {
@@ -821,6 +833,21 @@ function YourCircle() {
       router.replace(remaining.length === 0 ? '/onboarding/circle-setup' : '/today');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not leave — try again');
+    } finally {
+      // LV1 job 1 — the success path used to `return` with this still
+      // true, and the screen behind the navigation kept it: a tab does
+      // NOT unmount on `router.replace`. `finally` rather than a clear
+      // placed before the navigation, because it is the shape the two
+      // handlers either side of this one already use (removeLink,
+      // handleToggleClosedToJoins) — one exit covering every path,
+      // including any future early return. The usual objection to
+      // `finally` — a set-state after unmount — does not arise here, and
+      // not only for the reason the bug report gives: this block runs in
+      // the SAME tick as `router.replace`, before React has processed the
+      // navigation at all, so even the zero-circles-remaining path (which
+      // leaves the tabs group for /onboarding/circle-setup, and IS an
+      // unmount) batches the two together rather than setting state on a
+      // gone component.
       setIsLeaving(false);
     }
   };
