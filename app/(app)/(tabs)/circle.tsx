@@ -812,14 +812,11 @@ function YourCircle() {
   // roster (memo §8), joining resting and away members in being real
   // members who are not part of today's "N of M checked in". They stay
   // fully VISIBLE in the huddle below — only the headcount changes.
-  const activeMembers = orderedMembers.filter(
-    (m) => !m.isResting && !m.awaySince && !m.finishedAt
-  );
-  const activeMemberCount = activeMembers.length;
-  // AU1 job 2 — the numerator takes the same roster rule as M (see
-  // lib/headcount.ts): counting every completion row for today let an
-  // away or finished member's check-in push this past M.
-  const activeInTodayCount = activeMembers.filter((m) => inTodayUserIds.has(m.userId)).length;
+  // HC1 — the active filter and both counts USED to be derived here and
+  // handed to headcountLine as two numbers. They moved into the function
+  // itself (see its header): it now needs a third fact off the same
+  // rows, and deriving three facts in three call sites is what AU1 spent
+  // its job 2 ending.
   const shownMembers = orderedMembers.slice(0, MAX_AVATARS_SHOWN);
   // HW1: in a fuller huddle the gesture pills shrink to their glyphs so
   // the row never crowds at 390px — a gesture is never dropped, the
@@ -1134,8 +1131,11 @@ function YourCircle() {
           becomes what it always mostly was: the headcount. That also
           retires the third private copy of the headcount decision —
           lib/headcount.ts is now the only place it is made. */}
+      {/* HC1 — `orderedMembers`, NOT `shownMembers`: the guard's roster is
+          the strip's full source, before the MAX_AVATARS_SHOWN slice, so a
+          member folded into the "+N" chip still blocks the 🔥. */}
       <Text style={styles.headerStatus}>
-        {headcountLine(activeInTodayCount, activeMemberCount)}
+        {headcountLine(orderedMembers, inTodayUserIds)}
       </Text>
 
       {isEditingLink ? (

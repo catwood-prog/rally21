@@ -1044,24 +1044,18 @@ function Today() {
     );
     // RS1/RS2 — every "N of M" headcount line counts only non-resting,
     // non-away members in M (they're still real members, just quietly
-    // at the edge for now); the circle screen owns the actual visual
-    // fade/sleeping badge, this screen's own member row is untouched
-    // per RS1's scope.
+    // at the edge for now).
     // PA2 — finished members leave the active roster, same as resting
     // and away members (memo §8). They remain members and remain visible.
-    const activeMembers = attachRestingStatus(members, presence, today).filter(
-      (m) => !m.isResting && !m.awaySince && !m.finishedAt
-    );
-    const activeMemberCount = activeMembers.length;
-    // AU1 job 2 — the NUMERATOR gets the same roster rule the
-    // denominator has had since RS1. `inTodayUserIds.size` counted every
-    // completion row for today, an away or finished member's included,
-    // so the pair could read "3 of 2" and the all-in equality could be
-    // satisfied by a different set of people than the active roster.
-    // The avatar strip below still reads inTodayUserIds directly — an
-    // away member who checked in absolutely keeps their badge; it is
-    // only the sentence that counts the roster.
-    const inCount = activeMembers.filter((m) => inTodayUserIds.has(m.userId)).length;
+    // HC1 (Cat's ruling 1, 16 Aug) — THE SENTENCE'S RULE IS UNCHANGED AND
+    // THIS SCREEN NOW SHOWS IT. The clause that used to sit here said the
+    // circle screen owns the visual fade and "this screen's own member row
+    // is untouched per RS1's scope" — true as scope, and it is what left an
+    // excluded member on Today looking exactly like an active one who
+    // simply hasn't checked in yet. The strip below now wears RS1's own
+    // treatment, so `attachRestingStatus` is needed for the RENDER too and
+    // is hoisted rather than consumed inside a filter.
+    const rosterWithResting = attachRestingStatus(members, presence, today);
     const isSolo = isSoloCircle(members.length);
     const signal = computeSignal({
       presence,
@@ -1230,24 +1224,34 @@ function Today() {
             rallyCount={countRallyDays(presence, session?.user?.id ?? '')}
             isSolo={isSolo}
           />
+          {/* HC1 — the roster in, not two counts: the guard is derived
+              inside headcountLine off the same rows the strip renders. */}
           <Text style={styles.cardLink}>
             {isSolo
               ? 'view your practice →'
-              : `${headcountLine(inCount, activeMemberCount)} · view circle →`}
+              : `${headcountLine(rosterWithResting, inTodayUserIds)} · view circle →`}
           </Text>
         </TouchableOpacity>
 
         <View style={styles.membersRow}>
-          {members.map((member) => {
+          {rosterWithResting.map((member) => {
             const isMe = member.userId === session?.user.id;
             const checkedIn = inTodayUserIds.has(member.userId);
             const isCovered = presence.some(
               (p) => p.localDate === today && p.userId === member.userId && p.kind === 'covered'
             );
             const state = isCovered ? 'covered' : checkedIn ? 'done' : 'pending';
+            // HC1 (Cat's ruling 1) — an excluded member reads as AT THE
+            // EDGE here now, the same soft treatment they already wear on
+            // the circle screen (circle.tsx's avatarWrapResting/awayBadge
+            // is the reference rendering). Without it the sentence quietly
+            // excluded someone the strip drew at full strength, and no
+            // reader could tell which face the denominator dropped.
+            const isAway = !!member.awaySince;
+            const isAtEdge = member.isResting || isAway || !!member.finishedAt;
             return (
               <View key={member.userId} style={styles.memberItem}>
-                <View style={styles.avatarWrap}>
+                <View style={[styles.avatarWrap, isAtEdge && styles.avatarWrapResting]}>
                   {/* AV1 — tapping YOUR OWN placeholder penguin (never
                       someone else's, never a photo) opens the photo
                       upload in settings. This strip had no avatar tap
@@ -1262,7 +1266,13 @@ function Today() {
                   ) : (
                     <Avatar name={member.name} userId={member.userId} avatarUrl={member.avatarUrl} size={42} ring={state} />
                   )}
-                  <CheckedInBadge state={state} />
+                  {isAway ? (
+                    <View style={styles.awayBadge}>
+                      <Text style={styles.awayBadgeText}>😴</Text>
+                    </View>
+                  ) : (
+                    <CheckedInBadge state={state} />
+                  )}
                 </View>
                 <Text style={styles.memberName} numberOfLines={1}>
                   {isMe ? 'You' : member.name ?? 'circle-mate'}
@@ -1439,13 +1449,10 @@ function Today() {
         // RS1/RS2 — see the single-circle branch above for the full note.
         // PA2 — see the single-circle branch above: finished members
         // leave the active roster but never the huddle.
-        // AU1 job 2 — numerator restricted to the active roster, same as
-        // the single-circle branch above.
-        const activeMembers = attachRestingStatus(members, presence, today).filter(
-          (m) => !m.isResting && !m.awaySince && !m.finishedAt
-        );
-        const activeMemberCount = activeMembers.length;
-        const inCount = activeMembers.filter((m) => inTodayUserIds.has(m.userId)).length;
+        // AU1 job 2 / HC1 — the counts and the 🔥 guard are all derived
+        // inside headcountLine now; this branch takes RS1's edge treatment
+        // too, same as the single-circle strip above.
+        const rosterWithResting = attachRestingStatus(members, presence, today);
         const isSolo = isSoloCircle(members.length);
         const signal = computeSignal({
           presence,
@@ -1505,24 +1512,28 @@ function Today() {
                 rallyCount={countRallyDays(presence, session?.user?.id ?? '')}
                 isSolo={isSolo}
               />
+              {/* HC1 — same roster-in call as the single-circle branch. */}
               <Text style={styles.cardLink}>
                 {isSolo
                   ? 'view your practice →'
-                  : `${headcountLine(inCount, activeMemberCount)} · view circle →`}
+                  : `${headcountLine(rosterWithResting, inTodayUserIds)} · view circle →`}
               </Text>
             </TouchableOpacity>
 
             <View style={styles.membersRow}>
-              {members.map((member) => {
+              {rosterWithResting.map((member) => {
                 const isMe = member.userId === session?.user.id;
                 const checkedIn = inTodayUserIds.has(member.userId);
                 const isCovered = presence.some(
                   (p) => p.localDate === today && p.userId === member.userId && p.kind === 'covered'
                 );
                 const state = isCovered ? 'covered' : checkedIn ? 'done' : 'pending';
+                // HC1 — same edge treatment as the single-circle strip.
+                const isAway = !!member.awaySince;
+                const isAtEdge = member.isResting || isAway || !!member.finishedAt;
                 return (
                   <View key={member.userId} style={styles.memberItem}>
-                    <View style={styles.avatarWrap}>
+                    <View style={[styles.avatarWrap, isAtEdge && styles.avatarWrapResting]}>
                       {/* AV1 — same own-penguin tap as the single-circle
                           strip. */}
                       {isMe && !member.avatarUrl ? (
@@ -1535,7 +1546,13 @@ function Today() {
                       ) : (
                         <Avatar name={member.name} userId={member.userId} avatarUrl={member.avatarUrl} size={38} ring={state} />
                       )}
-                      <CheckedInBadge state={state} />
+                      {isAway ? (
+                        <View style={styles.awayBadge}>
+                          <Text style={styles.awayBadgeText}>😴</Text>
+                        </View>
+                      ) : (
+                        <CheckedInBadge state={state} />
+                      )}
                     </View>
                     <Text style={styles.memberName} numberOfLines={1}>
                       {isMe ? 'You' : member.name ?? 'circle-mate'}
@@ -1883,6 +1900,36 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     position: 'relative',
+  },
+  // HC1 (Cat's ruling 1, 16 Aug) — RS1's soft fade, ported from
+  // circle.tsx's `avatarWrapResting` unchanged, so a member the headcount
+  // excludes reads as at-the-edge here too instead of as an active member
+  // who simply hasn't checked in yet. Opacity only, never a grey filter
+  // and never a label: the resting member themselves must never know, and
+  // nobody else sees why — just a quieter presence.
+  avatarWrapResting: {
+    opacity: 0.5,
+  },
+  // HC1 — RS2's sleeping-penguin badge, ported from circle.tsx unchanged
+  // (it replaces the done/covered checkmark rather than joining it), no
+  // duration ever shown. Geometry matches CheckedInBadge's corner so the
+  // two never disagree about where a badge sits.
+  awayBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: colors.bg,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  awayBadgeText: {
+    fontSize: 10,
+    lineHeight: 12,
   },
   memberName: {
     fontSize: 9,
