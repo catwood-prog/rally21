@@ -18,6 +18,14 @@
 --
 -- ORDER MATTERS: the collapse has to run BEFORE the constraint, or the
 -- constraint cannot be created.
+--
+-- STAMP: 20260816193356 is the version supabase_migrations.schema_migrations
+-- actually holds, not the 20260816193314 this file was first written under
+-- — apply_migration stamps its OWN timestamp, and a repo migration with no
+-- registered version gets re-applied by the next db push. That matters more
+-- here than it did for WC1's two: this one is NOT idempotent (the add
+-- constraint and the create policy both fail on a second run), so the file
+-- is named after the registry, per cf09cac.
 
 -- ── 1. collapse the duplicates that already exist ────────────────────
 -- Keeps, for each (user_id, pattern_key), the row with the EARLIEST
