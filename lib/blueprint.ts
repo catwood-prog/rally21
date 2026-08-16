@@ -197,19 +197,78 @@ export async function getMyBlueprintResponses(userId: string): Promise<Blueprint
   }));
 }
 
+/** BP1 — ONE row per (person, pattern), and the LAST answer wins.
+ *
+ * This was a plain `.insert()` against a table carrying no unique
+ * constraint at all, so every tap appended: seven identical `confirmed`
+ * rows for one pattern in eleven seconds on 16 Aug, because the card never
+ * told the person their answer had landed. The fix is an upsert paired
+ * with a real `unique (user_id, pattern_key)` constraint rather than a
+ * read-then-write in app code, because **the constraint is the guarantee**
+ * — a select-then-insert loses exactly the race this bug is made of, two
+ * taps in flight at once with neither seeing the other's row.
+ *
+ * `note` is written on every answer, INCLUDING as null. A note belongs to
+ * the answer it was written for, so carrying a `not_quite` correction over
+ * onto a later `confirmed` would make the row claim something the person
+ * never said. `created_at` is deliberately untouched by the update — it
+ * means "when you first answered this pattern", the same meaning BP1's
+ * duplicate collapse preserved by keeping the earliest row.
+ */
 export async function respondToBlueprintPattern(params: {
   userId: string;
   patternKey: string;
   response: 'confirmed' | 'not_quite';
   note?: string | null;
 }): Promise<void> {
-  const { error } = await supabase.from('blueprint_responses').insert({
-    user_id: params.userId,
-    pattern_key: params.patternKey,
-    response: params.response,
-    note: params.note ?? null,
-  });
+  const { error } = await supabase.from('blueprint_responses').upsert(
+    {
+      user_id: params.userId,
+      pattern_key: params.patternKey,
+      response: params.response,
+      note: params.note ?? null,
+    },
+    { onConflict: 'user_id,pattern_key' }
+  );
   if (error) throw error;
+}
+
+/** BP1 — the private map's two pattern lists, derived TOGETHER so they
+ * cannot both claim the same pattern.
+ *
+ * THE BUG THIS SHAPE EXISTS TO PREVENT: the screen used to pick the active
+ * card by KEY alone (`patterns.find(p => p.patternKey === activeKey)`) and
+ * never consult the responses, while the confirmed list took anything
+ * answered `confirmed`. Two filters written as though exclusive, in two
+ * places — so the moment an answer landed the pattern satisfied BOTH and
+ * rendered twice, the top copy still carrying live "sounds right / not
+ * quite" buttons. That read as nothing having happened, which is why the
+ * founder tapped seven times.
+ *
+ * An answered pattern does not render as the active card at all; if it was
+ * confirmed it appears once in the answered list below. Deriving both from
+ * one `respondedByKey` is what makes the exclusivity true by construction
+ * instead of by two call sites agreeing.
+ */
+export function selectBlueprintCards(
+  patterns: BlueprintPattern[],
+  responses: BlueprintResponse[],
+  activeKey: string | null
+): { activePattern: BlueprintPattern | null; confirmedPatterns: BlueprintPattern[] } {
+  const respondedByKey = new Map(responses.map((r) => [r.patternKey, r]));
+  const activePattern =
+    (activeKey && !respondedByKey.has(activeKey)
+      ? patterns.find((p) => p.patternKey === activeKey)
+      : undefined) ?? null;
+  // Confirmed wants get their own dedicated card on the map (act flow /
+  // live / retired states) — never the generic "you said this sounds
+  // right" card.
+  const confirmedPatterns = patterns.filter(
+    (p) =>
+      respondedByKey.get(p.patternKey)?.response === 'confirmed' &&
+      p.patternType !== 'synthesis_want'
+  );
+  return { activePattern, confirmedPatterns };
 }
 
 export async function markBlueprintPatternSurfaced(patternKey: string): Promise<void> {

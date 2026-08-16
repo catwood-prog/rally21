@@ -30,6 +30,7 @@ import {
   getWantActivation,
   markBlueprintPatternSurfaced,
   respondToBlueprintPattern,
+  selectBlueprintCards,
   WantActivation,
 } from '@/lib/blueprint';
 import { getCircleById, listMyCircles } from '@/lib/circle';
@@ -333,7 +334,14 @@ function Blueprint() {
     setIsSaving(true);
     try {
       await respondToBlueprintPattern({ userId: session.user.id, patternKey, response, note });
-      setResponses((prev) => [...prev, { patternKey, response, note: note ?? null }]);
+      // BP1 — REPLACE, never append: the write upserts on
+      // (user_id, pattern_key), so the local list has to mirror one row per
+      // pattern or a changed answer would leave two entries behind for the
+      // same key.
+      setResponses((prev) => [
+        ...prev.filter((r) => r.patternKey !== patternKey),
+        { patternKey, response, note: note ?? null },
+      ]);
       setIsWritingNote(false);
       setNoteDraft('');
     } catch (e) {
@@ -378,13 +386,11 @@ function Blueprint() {
     );
   }
 
-  const respondedByKey = new Map(responses.map((r) => [r.patternKey, r]));
-  // Confirmed wants get their own dedicated card below (act flow / live /
-  // retired states) — never the generic "you said this sounds right" card.
-  const confirmedPatterns = patterns.filter(
-    (p) => respondedByKey.get(p.patternKey)?.response === 'confirmed' && p.patternType !== 'synthesis_want'
-  );
-  const activePattern = patterns.find((p) => p.patternKey === activeKey) ?? null;
+  // BP1 — both lists come from ONE derivation (lib/blueprint), so an
+  // answered pattern can no longer satisfy both and render twice with its
+  // buttons still live. An answered pattern leaves the active slot; a
+  // confirmed one reappears once below in its answered state.
+  const { activePattern, confirmedPatterns } = selectBlueprintCards(patterns, responses, activeKey);
   const visibleTraits = document.traits
     .map((t) => ({ trait: t, word: describeConfidence(t.confidence) }))
     .filter((t): t is { trait: typeof document.traits[number]; word: NonNullable<ReturnType<typeof describeConfidence>> } => !!t.word);
