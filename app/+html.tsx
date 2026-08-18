@@ -18,11 +18,21 @@ export default function Root({ children }: { children: React.ReactNode }) {
 
         {/* SC1 (13 July, spec §6) — so a shared card's link unfurls as a
             tappable preview in Messages/WhatsApp. Same tokenized tagline
-            + link the share payload itself carries; og:image reuses the
-            existing apple-touch-icon asset rather than adding a new one. */}
+            + link the share payload itself carries.
+
+            OG1 (18 Aug): og:image was pointed at the apple-touch-icon,
+            which made one asset do two jobs it was bad at — and that
+            asset was still July's grey placeholder wireframe, so every
+            shared invite unfurled with a graph-paper diagram on it. The
+            share image is now its own dedicated file, 1200x630, built
+            from the two-penguin logo with its background colour SAMPLED
+            from the source art. `twitter:card` stays
+            `summary_large_image` because there is finally a wide image
+            to serve it; the apple-touch-icon below is now a real
+            180x180 home-screen icon and nothing else. */}
         <meta property="og:title" content={SHARE_TAGLINE} />
         <meta property="og:description" content="Show up on a new habit, together with people who matter to you." />
-        <meta property="og:image" content={`${APP_LINK}/apple-touch-icon.png`} />
+        <meta property="og:image" content={`${APP_LINK}/rally21-share-card-1200x630.png`} />
         <meta property="og:url" content={APP_LINK} />
         <meta name="twitter:card" content="summary_large_image" />
 
