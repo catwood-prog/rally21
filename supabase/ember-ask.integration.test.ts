@@ -16,6 +16,37 @@
  * section. The nest state is therefore now IRRELEVANT to whether a window
  * is open, which the full-nest and empty-nest tests below both assert.
  *
+ * ══════════════════════════════════════════════════════════════════
+ * CV2 (18 Aug) — ELIGIBILITY AND POLICY ARE NOW TWO THINGS
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * EM1 had both readers share one BOUND. CV2 keeps one DEFINITION but
+ * splits the bound in two, because they were answering different
+ * questions all along:
+ *
+ *   ember_window_for        — "can a cover still help here?" spells 1..5,
+ *                             the full shelter window. What the circle
+ *                             screen's 🧡 pill reads.
+ *   find_open_ember_windows — "should we ASK someone?" spells 2 and 5
+ *                             only, Cat's ruling of 15 Aug. A filter over
+ *                             the rows above, never a re-derivation.
+ *
+ * THE PROPERTY THAT REPLACES "IDENTICAL BOUNDS" IS A SUBSET RELATION:
+ * every (member, day) the ask fires on is a (member, day) the screen
+ * offers a cover for, so the notification can still never offer a rescue
+ * the circle screen would refuse. That was always EM1's real guarantee;
+ * equal bounds were only how it was achieved. It is PROVEN below by
+ * sweeping spells 0..6 and comparing the two readers, not asserted.
+ *
+ * FIXTURE LAW, AND IT IS THE EASIEST WAY TO WRITE A VACUOUS TEST HERE:
+ * `emberFixture(n)` produces spell EXACTLY n, and spells 1, 3 and 4 now
+ * produce NO ASK on their own. So an exclusion test built on
+ * emberFixture(1) — as all seven of them were before CV2 — passes whether
+ * or not the exclusion works, because the spell filter empties the list
+ * first. Every exclusion test below therefore runs at SPELL 2, and a
+ * control at the top of that block fails loudly if that ever stops being
+ * a spell that would otherwise produce an ask.
+ *
  * See "Running the RPC-boundary integration tests" in CLAUDE.md for how
  * to supply SUPABASE_DB_URL — same direct-connection, single
  * rolled-back-transaction pattern as cover-a-friend.integration.test.ts.
@@ -216,15 +247,41 @@ describeIfConfigured('EM1 — open ember windows, and the covered notice', () =>
   });
 
   describe('the eligible window', () => {
-    test('day 1 of a spell: the circle-mate is asked, about yesterday', async () => {
-      const { missed, mate, circleId } = await emberFixture(1);
+    test('spell 2 — the third morning: the circle-mate is asked, about yesterday', async () => {
+      // CV2: Cat's original sentence, "miss two days in a row, then on
+      // the third day get a message". v_spell counts fully missed days as
+      // of YESTERDAY, so her sentence is spell 2 and the ask lands on the
+      // gap's third morning.
+      const { missed, mate, circleId } = await emberFixture(2);
 
       const found = await windowsFor(circleId);
       expect(found).toHaveLength(1);
       expect(found[0].asked_user_id).toBe(mate);
       expect(found[0].missed_user_id).toBe(missed);
       expect(found[0].missed_user_name).toBe('Russ');
-      expect(found[0].spell_day).toBe(1);
+      expect(found[0].spell_day).toBe(2);
+
+      const { rows: dates } = await client.query(
+        `select ((now() at time zone 'UTC')::date - 1)::text as yesterday`
+      );
+      // CV1's window slides: the coverable day is always the member's own
+      // local yesterday, so the ask targets the most recent missed day,
+      // never the first one (which is out of reach for good).
+      expect(found[0].missed_local_date).toBe(dates[0].yesterday);
+    });
+
+    test('spell 5 — the last morning a cover can hold their place: asked again', async () => {
+      // The second of Cat's two moments. 5 is the last spell value at
+      // which a cover still resets glow_day_states' gap counter — it
+      // shelters while v_gap_len <= 5 and cliffs at 6, and v_gap_len is
+      // one HIGHER than v_spell for the same real gap.
+      const { missed, mate, circleId } = await emberFixture(5);
+
+      const found = await windowsFor(circleId);
+      expect(found).toHaveLength(1);
+      expect(found[0].asked_user_id).toBe(mate);
+      expect(found[0].missed_user_id).toBe(missed);
+      expect(found[0].spell_day).toBe(5);
 
       const { rows: dates } = await client.query(
         `select ((now() at time zone 'UTC')::date - 1)::text as yesterday`
@@ -232,20 +289,18 @@ describeIfConfigured('EM1 — open ember windows, and the covered notice', () =>
       expect(found[0].missed_local_date).toBe(dates[0].yesterday);
     });
 
-    test('day 2 of a spell: still asked, and the day named is the SECOND missed day', async () => {
-      const { circleId } = await emberFixture(2);
+    test('spell 1 — the second morning: NOT asked, but the pill still offers', async () => {
+      // THE ASK AND THE PILL DELIBERATELY DISAGREE HERE, and this is the
+      // whole shape of CV2. A cover on this morning works, so the screen
+      // offers it; nobody is poked about it, because Cat ruled the first
+      // ask waits for the third morning. Under EM1 this was an ask.
+      const { missed, mate, circleId } = await emberFixture(1);
 
-      const found = await windowsFor(circleId);
-      expect(found).toHaveLength(1);
-      expect(found[0].spell_day).toBe(2);
+      expect(await windowsFor(circleId)).toEqual([]);
 
-      const { rows: dates } = await client.query(
-        `select ((now() at time zone 'UTC')::date - 1)::text as yesterday`
-      );
-      // CV1's window slides: the coverable day is always the member's own
-      // local yesterday, so a day-2 ask targets the second missed day, not
-      // the first (which is now out of reach for good).
-      expect(found[0].missed_local_date).toBe(dates[0].yesterday);
+      const coverable = await coverableFor(mate, circleId);
+      expect(coverable).toHaveLength(1);
+      expect(coverable[0].user_id).toBe(missed);
     });
 
     test('every other member of the circle is asked, once each', async () => {
@@ -253,7 +308,10 @@ describeIfConfigured('EM1 — open ember windows, and the covered notice', () =>
       const mateA = await createUser('Cat');
       const mateB = await createUser('Sam');
       const circleId = await seedCircle(mateA, [missed, mateB]);
-      await selfDays(missed, circleId, 30, 2);
+      // CV2: spell 2, so the ask actually fires. At the old spell-1
+      // fixture this test would now assert an empty list against an
+      // empty list and prove nothing.
+      await selfDays(missed, circleId, 30, 3);
 
       const found = await windowsFor(circleId);
       expect(found.map((w) => w.asked_user_id).sort()).toEqual([mateA, mateB].sort());
@@ -262,9 +320,51 @@ describeIfConfigured('EM1 — open ember windows, and the covered notice', () =>
     });
   });
 
-  describe('ONE definition — the ask and the cover pill can never disagree', () => {
+  describe('ONE definition — the ask is a strict SUBSET of what the pill offers', () => {
+    /**
+     * CV2's replacement for "identical bounds", swept rather than
+     * asserted. For every spell 0..6 this builds an independent circle,
+     * asks BOTH readers, and checks the implication that actually
+     * matters: an ask implies a coverable member. The converse is
+     * deliberately allowed to fail — spells 1, 3 and 4 offer a cover with
+     * no ask, which is the point of the split.
+     */
+    test('sweeping spells 0..6: every ask has a cover behind it, and 2+5 are the asks', async () => {
+      const asked: number[] = [];
+      const offered: number[] = [];
+
+      for (let spell = 0; spell <= 6; spell++) {
+        const missed = await createUser(`Russ ${spell}`);
+        const mate = await createUser(`Cat ${spell}`);
+        const circleId = await seedCircle(mate, [missed]);
+        // spell 0 means they checked in yesterday: no gap at all.
+        await selfDays(missed, circleId, 30, spell === 0 ? 1 : spell + 1);
+
+        const windowsHere = await windowsFor(circleId);
+        const coverableHere = await coverableFor(mate, circleId);
+
+        if (windowsHere.length > 0) {
+          asked.push(spell);
+          // THE INVARIANT: the notification can never offer a rescue the
+          // circle screen would refuse.
+          expect(coverableHere).toHaveLength(1);
+          expect(coverableHere[0].user_id).toBe(missed);
+          expect(coverableHere[0].missed_local_date).toBe(windowsHere[0].missed_local_date);
+          expect(windowsHere[0].spell_day).toBe(spell);
+        }
+        if (coverableHere.length > 0) offered.push(spell);
+      }
+
+      // Cat's ruling, and the shelter window it sits inside.
+      expect(asked).toEqual([2, 5]);
+      expect(offered).toEqual([1, 2, 3, 4, 5]);
+      // Stated as the relation itself, so a future widening of either
+      // side has to keep it true rather than just keep the two lists.
+      expect(asked.every((s) => offered.includes(s))).toBe(true);
+    });
+
     test('a full nest is now irrelevant: the window is open and the pill is shown', async () => {
-      const { missed, mate, circleId } = await emberFixture(1);
+      const { missed, mate, circleId } = await emberFixture(2);
 
       // The nest is untouched, so PA3 shelters the day and the flame
       // reads as if nothing happened. Before Cat's 9 Aug ruling this was
@@ -280,8 +380,8 @@ describeIfConfigured('EM1 — open ember windows, and the covered notice', () =>
     });
 
     test('an empty nest (the old ember state) is open too — same answer, both readers', async () => {
-      const { missed, mate, circleId } = await emberFixture(1);
-      await drainNest(missed, 1);
+      const { missed, mate, circleId } = await emberFixture(2);
+      await drainNest(missed, 2);
 
       expect(await glowState(missed)).toBe('embers');
 
@@ -292,7 +392,7 @@ describeIfConfigured('EM1 — open ember windows, and the covered notice', () =>
     });
 
     test('every exclusion the finder makes, the pill makes too', async () => {
-      const { missed, mate, circleId } = await emberFixture(1);
+      const { missed, mate, circleId } = await emberFixture(2);
       await coverDay(mate, missed, circleId, 1);
 
       expect(await windowsFor(circleId)).toEqual([]);
@@ -300,7 +400,7 @@ describeIfConfigured('EM1 — open ember windows, and the covered notice', () =>
     });
 
     test('a non-member asking gets nothing, never an error that confirms the circle', async () => {
-      const { circleId } = await emberFixture(1);
+      const { circleId } = await emberFixture(2);
       const outsider = await createUser('Outsider');
 
       expect(await coverableFor(outsider, circleId)).toEqual([]);
@@ -308,8 +408,21 @@ describeIfConfigured('EM1 — open ember windows, and the covered notice', () =>
   });
 
   describe('the exclusions — each one a promise about not poking people', () => {
+    // CV2 — EVERY TEST IN THIS BLOCK RUNS AT SPELL 2, ON PURPOSE. They
+    // were all written on emberFixture(1) under EM1, where spell 1 was an
+    // asking day. It no longer is, so on the old fixture each of these
+    // would assert an empty list that the SPELL FILTER had already
+    // emptied — seven promises about not poking people, all passing, none
+    // of them tested. This control is the tripwire for that: if spell 2
+    // ever stops producing an ask, it fails here rather than silently
+    // hollowing out the seven tests below.
+    test('CONTROL: the un-excluded spell-2 fixture really does produce an ask', async () => {
+      const { circleId } = await emberFixture(2);
+      expect(await windowsFor(circleId)).toHaveLength(1);
+    });
+
     test('already covered for the missed day: no ask', async () => {
-      const { missed, mate, circleId } = await emberFixture(1);
+      const { missed, mate, circleId } = await emberFixture(2);
       await coverDay(mate, missed, circleId, 1);
       expect(await windowsFor(circleId)).toEqual([]);
     });
@@ -323,35 +436,35 @@ describeIfConfigured('EM1 — open ember windows, and the covered notice', () =>
     });
 
     test('away is a total pause: the away member is never asked ABOUT', async () => {
-      const { missed, circleId } = await emberFixture(1);
+      const { missed, circleId } = await emberFixture(2);
       await elevated();
       await client.query('update public.users set away_since = now() where id = $1', [missed]);
       expect(await windowsFor(circleId)).toEqual([]);
     });
 
     test('an away circle-mate is never asked TO cover', async () => {
-      const { mate, circleId } = await emberFixture(1);
+      const { mate, circleId } = await emberFixture(2);
       await elevated();
       await client.query('update public.users set away_since = now() where id = $1', [mate]);
       expect(await windowsFor(circleId)).toEqual([]);
     });
 
     test('a finished circle asks nobody anything', async () => {
-      const { circleId } = await emberFixture(1);
+      const { circleId } = await emberFixture(2);
       await elevated();
       await client.query('update public.circles set completed_at = now() where id = $1', [circleId]);
       expect(await windowsFor(circleId)).toEqual([]);
     });
 
     test('an inactive circle asks nobody anything', async () => {
-      const { circleId } = await emberFixture(1);
+      const { circleId } = await emberFixture(2);
       await elevated();
       await client.query('update public.circles set is_active = false where id = $1', [circleId]);
       expect(await windowsFor(circleId)).toEqual([]);
     });
 
     test('a block stops the ask in BOTH directions (MOD1)', async () => {
-      const forward = await emberFixture(1);
+      const forward = await emberFixture(2);
       await elevated();
       await client.query(
         'insert into public.blocks (blocker_id, blocked_id) values ($1, $2)',
@@ -359,7 +472,7 @@ describeIfConfigured('EM1 — open ember windows, and the covered notice', () =>
       );
       expect(await windowsFor(forward.circleId)).toEqual([]);
 
-      const reverse = await emberFixture(1);
+      const reverse = await emberFixture(2);
       await elevated();
       await client.query(
         'insert into public.blocks (blocker_id, blocked_id) values ($1, $2)',
@@ -378,12 +491,55 @@ describeIfConfigured('EM1 — open ember windows, and the covered notice', () =>
     });
   });
 
-  describe("Cat's cadence ruling — two days in a row, and never after", () => {
-    test('spell day 3 closes the window for good', async () => {
-      const { mate, circleId } = await emberFixture(3);
+  describe("Cat's cadence ruling — two moments, spell 2 and spell 5", () => {
+    /**
+     * CV2 — THE INVERTED EXPECTATION. Under EM1 this test read "spell day
+     * 3 closes the window for good" and asserted that BOTH readers went
+     * silent. Half of it is now false: the ASK is still silent at spell 3
+     * (it is not one of Cat's two moments), but the PILL is not, because
+     * a cover on that morning still resets the gap. The old second
+     * assertion — `coverableFor` empty — is exactly what this section
+     * exists to reverse, so it is inverted rather than deleted.
+     */
+    test('spell 3 — the ask stays silent, but the window is NO LONGER closed for good', async () => {
+      const { missed, mate, circleId } = await emberFixture(3);
+
+      expect(await windowsFor(circleId)).toEqual([]);
+
+      const coverable = await coverableFor(mate, circleId);
+      expect(coverable).toHaveLength(1);
+      expect(coverable[0].user_id).toBe(missed);
+    });
+
+    test('spell 4 — same: no ask, and a cover that still works', async () => {
+      const { mate, circleId } = await emberFixture(4);
+
+      expect(await windowsFor(circleId)).toEqual([]);
+      expect(await coverableFor(mate, circleId)).toHaveLength(1);
+    });
+
+    test('spell 6 — past the cliff: both readers close, and this is the real edge', async () => {
+      // glow_day_states shelters while v_gap_len <= 5 and cliffs at 6.
+      // v_gap_len is one HIGHER than v_spell for the same gap, so spell 6
+      // is the first morning a cover can no longer hold the run — and the
+      // first morning the pill correctly disappears.
+      const { mate, circleId } = await emberFixture(6);
 
       expect(await windowsFor(circleId)).toEqual([]);
       expect(await coverableFor(mate, circleId)).toEqual([]);
+    });
+
+    test('the two asking moments are NOT adjacent, so no ask ever repeats next morning', async () => {
+      // 3-3 was rejected partly for consecutive-day repeats. Cat's 2+5
+      // makes them structurally impossible: between the two asking spells
+      // sit 3 and 4, both silent.
+      const silent = await Promise.all(
+        [3, 4].map(async (spell) => {
+          const { circleId } = await emberFixture(spell);
+          return (await windowsFor(circleId)).length;
+        })
+      );
+      expect(silent).toEqual([0, 0]);
     });
 
     test('a covered day 1 followed by a missed day 2 IS still day 2, and is asked', async () => {
@@ -402,7 +558,7 @@ describeIfConfigured('EM1 — open ember windows, and the covered notice', () =>
       expect(found[0].spell_day).toBe(2);
     });
 
-    test('a covered day 1 and a covered day 2 leave nothing to ask about on day 3', async () => {
+    test('two covered days do not reset the spell: this is spell 3, so no ask', async () => {
       const missed = await createUser('Russ');
       const mate = await createUser('Cat');
       const circleId = await seedCircle(mate, [missed]);
@@ -410,7 +566,12 @@ describeIfConfigured('EM1 — open ember windows, and the covered notice', () =>
       await coverDay(mate, missed, circleId, 3);
       await coverDay(mate, missed, circleId, 2);
 
+      // The spell is counted on SELF check-ins only, so two covers later
+      // this is still spell 3 — not an asking moment.
       expect(await windowsFor(circleId)).toEqual([]);
+      // CV2: but the pill DOES still offer, and a cover here would still
+      // reset the gap. Under EM1 both were silent.
+      expect(await coverableFor(mate, circleId)).toHaveLength(1);
     });
 
     test('showing up yesterday in ANOTHER circle is not a spell at all', async () => {

@@ -145,12 +145,52 @@ function escapeHtml(value: string): string {
 // quiet, never that they have failed, and no practice name appears in
 // either. No pronouns beyond "them" — there is no gender data in this
 // app (CLAUDE.md's cover-a-friend rule).
-function composeEmberAsk(missedName: string): {
+//
+// CV2 (18 Aug) — THE ASK IS NOW TWO MOMENTS, so the copy is two arms.
+// Cat's ruling, 15 Aug: the ask fires at spell 2 and spell 5 and nowhere
+// between. Both strings below are HERS, ruled 16 Aug, and ship verbatim.
+//
+//   spell 2 — the third morning, after two quiet days. RE-ENGAGEMENT,
+//     which is the job the existing copy was written for, so it is
+//     UNCHANGED: zero new strings on this arm.
+//   spell 5 — the last morning a cover can still reset the gap
+//     (glow_day_states cliffs at v_gap_len 6; see the CV2 migration).
+//
+// WHY SPELL 5 SAYS "HOLD THEIR PLACE" AND NOT "SAVE THEIR RUN", ruled
+// deliberately: eligibility does NOT consult the covered person's
+// remaining monthly cover capacity, and glow_day_states only holds the
+// day while `v_holds_this_month < v_capacity`. Most people have capacity
+// 1. So on a capacity-spent month a cover lands, renders as pebble-held,
+// and the gap does not reset — a promise of a save would be a promise
+// this app cannot keep. Hold-their-place is true in both cases. Do not
+// "improve" it into a rescue promise without Cat, and without first
+// fixing the capacity inversion it is written around.
+//
+// The subject is deliberately the SAME on both arms: the lock-screen law
+// is that the ask says someone has been quiet and never that they have
+// failed, and that sentence does not get more urgent because the app is
+// more worried.
+function composeEmberAsk(
+  missedName: string,
+  spellDay?: number
+): {
   subject: string;
   html: string;
   pushBody: string;
 } {
   const name = escapeHtml(missedName);
+  // An older queued row (pre-CV2) may carry no spell_day at all. It gets
+  // the spell-2 arm — exactly the copy it would have been sent with when
+  // it was enqueued — rather than a last-day claim nothing has checked.
+  if (spellDay === 5) {
+    return {
+      subject: `${missedName}'s been quiet`,
+      pushBody: "today's the last day a cover can hold their place 🧡",
+      html: `<p>${name}'s been quiet for a few days, and today is the last day a cover can hold their place.</p>
+<p>you can log a day for them — a gift, never a debt 🧡</p>
+<p><a href="https://rally21.com">open Rally21</a></p>`,
+    };
+  }
   return {
     subject: `${missedName}'s been quiet`,
     pushBody: "yesterday's still open — you could cover it 🧡",
@@ -556,9 +596,21 @@ Deno.serve(async (req) => {
           emberAskReason = "away";
         } else if (row.payload.circleId) {
           // Still open? Same definition the ask was composed from, and
-          // the same one the circle screen's cover pill reads. A closed
-          // window here means the day rolled on (or the spell passed
-          // Cat's two-day cadence) while this row waited.
+          // the same one the circle screen's cover pill reads.
+          //
+          // CV2 — WHAT THIS RECHECK NOW INHERITS, and it is a real
+          // behaviour change. ember_window_for is ELIGIBILITY (spells
+          // 1..5), not the asking policy (spells 2 and 5), so a row held
+          // by quiet hours past the asked person's midnight NO LONGER
+          // EXPIRES just because the spell moved on: at spell 3 the
+          // window is still open, because a cover would still work. Under
+          // EM1's shared bound the same row died at spell 3 and the
+          // rescue went unmentioned on the one morning it could still
+          // have landed. Calling the function rather than hand-copying
+          // its rule is what makes this inheritance automatic — and a
+          // hand-copy here is exactly the drift the CV2 migration exists
+          // to prevent. A closed window now means what it says: the day
+          // rolled on past the whole shelter window.
           const { data: windowRows } = await admin.rpc("ember_window_for", {
             p_user: missedUserId,
             p_circle_id: row.payload.circleId,
@@ -744,7 +796,10 @@ Deno.serve(async (req) => {
         renderedHtml = composed.html;
       }
       if (row.kind === "ember_ask" && row.payload?.missedName) {
-        const composed = composeEmberAsk(row.payload.missedName);
+        // CV2 — the payload already carried spell_day from EM1, so the
+        // copy split needs no schema change: which arm this row gets was
+        // decided when find_open_ember_windows chose to enqueue it.
+        const composed = composeEmberAsk(row.payload.missedName, row.payload.spell_day);
         renderedSubject = composed.subject;
         renderedHtml = composed.html;
         renderedPushBody = composed.pushBody;
