@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -117,7 +118,33 @@ export default function CircleSetup() {
         { paddingTop: insets.top, paddingBottom: insets.bottom },
       ]}
     >
-      <Brandmark style={styles.brandmark} />
+      {/* DA1 — the way OUT of this fork for someone who has no circle and
+          does not want one. The needs-circle redirect used to make every
+          `(app)` route unreachable, settings and `your-data` included, so
+          an account that left its last circle (or abandoned a signup
+          here) could not reach its own deletion at all — Apple 5.1.1(v)
+          territory, and the reason this screen now carries one door.
+
+          The gear, not a written link: it is AppHeader's own settings
+          icon, in AppHeader's own top-right corner — the corner SO1
+          already established as this app's account-chrome slot when it
+          moved profile.tsx's sign-out there. Chrome is not copy, so this
+          affordance coins no new string and rules on no new words; the
+          route it opens (settings → your data & privacy → delete my
+          account) is the SAME one every other screen offers, not a second
+          private path to deletion. */}
+      <View style={styles.headerRow}>
+        <Brandmark />
+        <TouchableOpacity
+          style={styles.settingsTap}
+          onPress={() => router.push('/settings')}
+          hitSlop={4}
+          accessibilityRole="button"
+          accessibilityLabel="settings"
+        >
+          <Ionicons name="settings-outline" size={20} color={colors.muted} />
+        </TouchableOpacity>
+      </View>
       <BackLink
         label={fromToday === 'true' ? 'today' : 'back'}
         onPress={() => router.push(fromToday === 'true' ? '/today' : '/onboarding/profile')}
@@ -187,8 +214,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
-  brandmark: {
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 18,
+  },
+  settingsTap: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // The 44x44 target is AppHeader's; the negative margin is BackLink's
+    // trick, for the same reason — a real target that costs the layout
+    // nothing. This screen is a centred ScrollView, so any height the
+    // door added would shift the three cards. Measured at 390px: the
+    // target contributes 44 - 20 = 24, the brandmark beside it is 31, and
+    // the row comes out at exactly 31 — the brandmark's own height, so
+    // nothing below it moved.
+    marginVertical: -10,
   },
   back: {
     marginBottom: 20,
