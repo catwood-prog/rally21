@@ -1,8 +1,9 @@
 /**
  * HD1 job 2 (3 Aug) — run guards for the DB-bound suites.
  *
- * SCOPE: the suites matching `supabase/*.integration.test.ts` — 17 of them
- * as of 10 Aug (EL1; was 14 and went stale silently). Recount with
+ * SCOPE: the suites matching `supabase/*.integration.test.ts` — 19 of them
+ * as of 23 Aug (HT1 added the nineteenth; read 14 on 10 Aug and 17 while
+ * there were 18, both stale silently). Recount with
  * `ls supabase/*.integration.test.ts | wc -l`; that glob is the whole
  * population, no integration suite lives elsewhere in the repo.
  *
