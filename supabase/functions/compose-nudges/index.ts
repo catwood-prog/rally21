@@ -6,7 +6,7 @@ import {
   resolveAlarmHeldSendTime,
   resolveSendTime,
 } from "./timing.ts";
-import { CLIFF_NOTICE_COPY_UNRULED, selectDailyNudgeKind } from "./cliff-notice.ts";
+import { CLIFF_NOTICE_COPY, selectDailyNudgeKind } from "./cliff-notice.ts";
 import {
   LOVED_LINE_MIN_LIKES,
   composeLovedNudge,
@@ -367,11 +367,15 @@ Deno.serve(async (req) => {
                   user_id: user.id,
                   kind: "cliff_notice",
                   payload: {
-                    // ⚠️ UNRULED COPY — job 3 is a copy stop and Cat has
-                    // not ruled. This function is NOT deployed with these
-                    // words. See ./cliff-notice.ts.
-                    subject: CLIFF_NOTICE_COPY_UNRULED.subject,
-                    html: CLIFF_NOTICE_COPY_UNRULED.html,
+                    // Cat's ruled copy, 23 Aug — candidate C, verbatim on
+                    // all three surfaces. push_body is carried explicitly
+                    // so the lock screen gets her exact line rather than
+                    // stripped html (NQ1's pattern, which
+                    // send-notifications prefers when a composer supplies
+                    // one).
+                    subject: CLIFF_NOTICE_COPY.subject,
+                    html: CLIFF_NOTICE_COPY.html,
+                    push_body: CLIFF_NOTICE_COPY.pushBody,
                     local_date: localDate,
                     missed_local_date: cliff.missed_local_date,
                     spell_day: cliff.spell_day,

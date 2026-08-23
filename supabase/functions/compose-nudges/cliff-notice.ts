@@ -52,40 +52,51 @@ export function selectDailyNudgeKind(facts: {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// JOB 3 — THE COPY. **NOT RULED. NOT SHIPPED.**
+// JOB 3 — THE COPY. **RULED BY CAT, 23 Aug. Candidate C, verbatim.**
 // ─────────────────────────────────────────────────────────────────────
 //
-// Cat owns these words and has not seen them yet. The candidates are in
-// the section handoff; the constant below exists ONLY so the tests and
-// the type-checker have something to run against, and this function is
-// NOT deployed. compose-nudges has not been redeployed with it, and it
-// must not be until she rules.
+// Ruled on all three surfaces at once and shipped exactly as ruled: no
+// other candidate ships and no wording drifts. Candidates A and B are in
+// the section handoff and are not in this file, deliberately — a
+// rejected line kept next to a shipped one is the next session's
+// accident.
 //
-// THE REGISTER, binding, from the section brief: this is their own lock
-// screen, so quiet-day information is theirs to see; no shame words, no
-// verdicts, no countdown dread; lowercase (LC1); never 🔥 (the no-flame
-// law); TN1's "your place is being kept" family. It may say today
-// matters; it may not say they failed.
+// THE REGISTER IT WAS WRITTEN TO, binding and still binding on any
+// future edit: this is their own lock screen, so quiet-day information
+// is theirs to see; no shame words, no verdicts, no countdown dread;
+// lowercase (LC1); never 🔥 (the no-flame law); TN1's "your place is
+// being kept" family. It may say today matters; it may not say they
+// failed. Candidate C says today matters twice and never once says
+// anything about them.
 //
-// TWO CONSTRAINTS THE BUILD DISCOVERED, both real limits on what a
-// candidate can say:
+// WHY THIS LINE IS TRUE, which is the part a future edit can break
+// without noticing. "held for you" is a claim about the pebble shelter,
+// and it is only true of somebody actually pebble-held — which is
+// exactly what cliff_window_for's shelter guard guarantees (see
+// migration 20260823121445). Cat ruled that guard STAYS on 23 Aug, and
+// the two decisions are one decision: LOOSENING THE GUARD WOULD MAKE
+// THIS SENTENCE A LIE for anyone whose run had already broken
+// unsheltered.
 //
-//  1. NO NUMBER IS AVAILABLE. The run at stake is 25-26 days in the
-//     measured fixture, but get_glow_for_user returns glow = 0 on the
-//     cliff branch and never publishes the run-before-the-break. A line
-//     that quotes the number needs a new field first — costed in the
-//     handoff, not built here.
-//  2. THE HOLD MAY ONLY BE NAMED IF THE SHELTER GUARD STAYS. A line
-//     about a pebble keeping their place is true only for someone
-//     actually pebble-held; the follow-up migration excludes everyone
-//     else for exactly that reason. A pure-invitation line would be
-//     true for both, and would let that exclusion be lifted.
+// NO NUMBER APPEARS HERE and none can: get_glow_for_user returns
+// glow = 0 on the cliff branch and never publishes the
+// run-before-the-break, so the 25-26 days actually at stake are not
+// available to this pipeline. Ledgered with the pen, not built.
 
-/** PLACEHOLDER — candidate A, pending Cat's ruling. Never deployed. */
-export const CLIFF_NOTICE_COPY_UNRULED = {
-  subject: "your place is still here",
+/** Cat's ruled copy, 23 Aug. Three surfaces, one sentence family.
+ *
+ * `subject` is BOTH the email subject and the push TITLE; `pushBody` is
+ * the lock-screen line (send-notifications prefers a composer's exact
+ * push body over stripping the email html, NQ1's pattern); `html` is the
+ * email body.
+ *
+ * The email carries the ruled words and nothing else — no "open Rally21"
+ * line was ruled, so none was added. send-notifications appends its own
+ * unsubscribe footer to every email regardless. */
+export const CLIFF_NOTICE_COPY = {
+  subject: "today's the one that counts",
+  pushBody: 'a few quiet days have been held for you. today keeps them.',
   html:
-    "<p>it's been a quiet few days — that's all it is.</p>" +
-    "<p>one small thing today, and your rally picks up right where it left off.</p>" +
-    '<p><a href="https://rally21.com">open Rally21</a></p>',
+    '<p>a few quiet days have been held for you.</p>' +
+    '<p>today is the one that keeps them held — nothing big, just one small thing.</p>',
 };

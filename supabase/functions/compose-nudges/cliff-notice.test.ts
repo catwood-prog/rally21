@@ -15,7 +15,7 @@
  * and extracted the other; neither behaviour changed.
  */
 import { resolveSendTime } from './timing';
-import { selectDailyNudgeKind } from './cliff-notice';
+import { CLIFF_NOTICE_COPY, selectDailyNudgeKind } from './cliff-notice';
 
 describe('CV3 — never both: one automated nudge per person per day', () => {
   const NO_CLIFF = {
@@ -137,5 +137,51 @@ describe('CV3 — quiet hours HOLD the cliff notice rather than lose it', () => 
     expect(resolveSendTime('12:59:00', '13:00:00', '15:00:00')).toBe('12:59');
     expect(resolveSendTime('13:30:00', '13:00:00', '15:00:00')).toBe('skip');
     expect(resolveSendTime('15:30:00', '13:00:00', '15:00:00')).toBe('15:30');
+  });
+});
+
+describe("CV3 — Cat's ruled copy, 23 Aug (candidate C, verbatim)", () => {
+  // Pinned BYTE-EXACTLY, which is the only form of "verbatim" a test can
+  // actually enforce. She ruled all three surfaces at once and ruled that
+  // no wording drifts, so a future edit that improves a word has to come
+  // here and delete her ruling on purpose.
+  test('the subject / push title', () => {
+    expect(CLIFF_NOTICE_COPY.subject).toBe("today's the one that counts");
+  });
+
+  test('the lock-screen line', () => {
+    expect(CLIFF_NOTICE_COPY.pushBody).toBe(
+      'a few quiet days have been held for you. today keeps them.'
+    );
+  });
+
+  test('the email body', () => {
+    expect(CLIFF_NOTICE_COPY.html).toBe(
+      '<p>a few quiet days have been held for you.</p>' +
+        '<p>today is the one that keeps them held — nothing big, just one small thing.</p>'
+    );
+  });
+
+  test('the warmth laws it was ruled against still hold on the shipped strings', () => {
+    // Not decoration: these are the laws the register named, checked on
+    // the bytes that actually ship rather than trusted to review.
+    const all = [
+      CLIFF_NOTICE_COPY.subject,
+      CLIFF_NOTICE_COPY.pushBody,
+      CLIFF_NOTICE_COPY.html,
+    ].join(' ');
+
+    expect(all).not.toContain('🔥'); // the no-flame law
+    expect(all).not.toContain('🕯️'); // and not the ember candle either
+
+    // LC1 — lowercase. No capital may appear except inside markup.
+    const words = all.replace(/<[^>]+>/g, '');
+    expect(words).toBe(words.toLowerCase());
+
+    // No shame words, no verdicts. The line never addresses what they
+    // did or failed to do.
+    for (const shame of ['missed', 'failed', 'lost', 'broke', 'streak', "don't", 'last chance']) {
+      expect(words).not.toContain(shame);
+    }
   });
 });
