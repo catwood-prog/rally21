@@ -158,7 +158,8 @@ describe("CV3 — Cat's ruled copy, 23 Aug (candidate C, verbatim)", () => {
   test('the email body', () => {
     expect(CLIFF_NOTICE_COPY.html).toBe(
       '<p>a few quiet days have been held for you.</p>' +
-        '<p>today is the one that keeps them held — nothing big, just one small thing.</p>'
+        '<p>today is the one that keeps them held — nothing big, just one small thing.</p>' +
+        '<p><a href="https://rally21.com">open Rally21</a></p>'
     );
   });
 
@@ -174,8 +175,15 @@ describe("CV3 — Cat's ruled copy, 23 Aug (candidate C, verbatim)", () => {
     expect(all).not.toContain('🔥'); // the no-flame law
     expect(all).not.toContain('🕯️'); // and not the ember candle either
 
-    // LC1 — lowercase. No capital may appear except inside markup.
-    const words = all.replace(/<[^>]+>/g, '');
+    // LC1 — lowercase. No capital may appear except inside markup, and
+    // except the PRODUCT NAME in the shipped open-Rally21 link line, which
+    // Cat ruled in verbatim on 23 Aug. That sentence is not ruled copy: it
+    // is the chrome every email in the app already ends on (the ember ask
+    // in send-notifications, nudge_daily in nudge-lines, compose-digest),
+    // and stripping tags leaves its LINK TEXT behind, capital R and all.
+    // The exemption is exactly one token wide on purpose — a capital
+    // anywhere in the ruled copy still fails this test.
+    const words = all.replace(/<[^>]+>/g, '').replace(/Rally21/g, 'rally21');
     expect(words).toBe(words.toLowerCase());
 
     // No shame words, no verdicts. The line never addresses what they

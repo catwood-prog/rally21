@@ -90,13 +90,16 @@ export function selectDailyNudgeKind(facts: {
  * push body over stripping the email html, NQ1's pattern); `html` is the
  * email body.
  *
- * The email carries the ruled words and nothing else — no "open Rally21"
- * line was ruled, so none was added. send-notifications appends its own
- * unsubscribe footer to every email regardless. */
+ * The email closes on the app's shipped open-Rally21 link line — ruled in
+ * by Cat on 23 Aug and reused VERBATIM from the ember ask email rather
+ * than reworded, because every other email in the app ends on that exact
+ * sentence and a second wording would be a second sentence to keep.
+ * send-notifications appends its own unsubscribe footer besides. */
 export const CLIFF_NOTICE_COPY = {
   subject: "today's the one that counts",
   pushBody: 'a few quiet days have been held for you. today keeps them.',
   html:
     '<p>a few quiet days have been held for you.</p>' +
-    '<p>today is the one that keeps them held — nothing big, just one small thing.</p>',
+    '<p>today is the one that keeps them held — nothing big, just one small thing.</p>' +
+    '<p><a href="https://rally21.com">open Rally21</a></p>',
 };
