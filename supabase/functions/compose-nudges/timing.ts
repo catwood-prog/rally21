@@ -151,3 +151,41 @@ export function resolveAlarmHeldSendTime(params: {
   const held = minutesToHHMM(heldMinutes);
   return held > smart ? held : smart;
 }
+
+/** Quiet hours, applied to a due time. `quietStart`/`quietEnd` are
+ * "HH:MM:SS" and so is `sendTime`.
+ *
+ * Returns 'skip' (the due time falls in the late/evening part of the
+ * quiet window — don't send at all today), a clamped "HH:MM" (it falls
+ * in the early/morning part — DELAY to quiet_end), or the original
+ * "HH:MM" unchanged (no collision).
+ *
+ * MOVED HERE FROM index.ts BY CV3, unchanged line for line. It had
+ * always been pure, but living inside a `Deno.serve` module meant Jest
+ * could not import it, so the one place quiet hours are decided was the
+ * one place no test could reach — and CV3's notice fires on the LAST
+ * morning that a person can still be reached, where "held until 8am"
+ * and "dropped for the day" are very different promises. A test that
+ * re-implemented this arithmetic would have pinned the copy of the rule
+ * rather than the rule.
+ *
+ * THE TWO OUTCOMES ARE NOT INTERCHANGEABLE, which is the whole reason
+ * this is worth a test: a clamp HOLDS the notification (the composer
+ * simply waits for local time to reach the returned hour, then enqueues
+ * with scheduled_for = now()), while 'skip' LOSES it for that day. */
+export function resolveSendTime(
+  sendTime: string,
+  quietStart: string,
+  quietEnd: string
+): string | "skip" {
+  const send = sendTime.slice(0, 5);
+  const start = quietStart.slice(0, 5);
+  const end = quietEnd.slice(0, 5);
+  if (start === end) return send; // quiet hours disabled
+  const inWrappedWindow = start < end ? send >= start && send < end : send >= start || send < end;
+  if (!inWrappedWindow) return send;
+  // Within the window: the "late" half (>= start) never sends today; the
+  // "early" half (< end) clamps forward to when quiet hours end.
+  if (start < end) return send >= start ? "skip" : end;
+  return send >= start ? "skip" : end;
+}

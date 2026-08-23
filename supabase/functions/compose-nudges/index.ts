@@ -1,6 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { computeSmartSendTime, hhmmToMinutes, resolveAlarmHeldSendTime } from "./timing.ts";
+import {
+  computeSmartSendTime,
+  hhmmToMinutes,
+  resolveAlarmHeldSendTime,
+  resolveSendTime,
+} from "./timing.ts";
+import { CLIFF_NOTICE_COPY_UNRULED, selectDailyNudgeKind } from "./cliff-notice.ts";
 import {
   LOVED_LINE_MIN_LIKES,
   composeLovedNudge,
@@ -76,23 +82,10 @@ function daysBetween(fromLocalDate: string, toLocalDate: string): number {
   return Math.round((to - from) / 86400000);
 }
 
-/** quiet_start/quiet_end are "HH:MM:SS"; sendTime is "HH:MM:SS".
- * Returns 'skip' (send time falls in the late/evening part of the quiet
- * window — don't send at all today), a clamped "HH:MM" (send time falls
- * in the early/morning part — delay to quiet_end), or the original
- * "HH:MM" unchanged (no collision). */
-function resolveSendTime(sendTime: string, quietStart: string, quietEnd: string): string | "skip" {
-  const send = sendTime.slice(0, 5);
-  const start = quietStart.slice(0, 5);
-  const end = quietEnd.slice(0, 5);
-  if (start === end) return send; // quiet hours disabled
-  const inWrappedWindow = start < end ? send >= start && send < end : send >= start || send < end;
-  if (!inWrappedWindow) return send;
-  // Within the window: the "late" half (>= start) never sends today; the
-  // "early" half (< end) clamps forward to when quiet hours end.
-  if (start < end) return send >= start ? "skip" : end;
-  return send >= start ? "skip" : end;
-}
+// resolveSendTime MOVED TO ./timing.ts BY CV3, unchanged line for line —
+// it had always been pure, but living in this Deno.serve module meant
+// Jest could never import it, so the one place quiet hours are decided
+// was the one place no test could reach. See its note there.
 
 Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -121,6 +114,10 @@ Deno.serve(async (req) => {
     // produced an ask, which is the number the window's definition is
     // judged on.
     emberAsksEnqueued: 0,
+    // CV3 — same reasoning, for the person's own half. Five cliffs have
+    // happened in the project's life, so this number staying at 0 for a
+    // long stretch is expected rather than evidence of a fault.
+    cliffNoticesEnqueued: 0,
   };
 
   const { data: candidates, error: candidatesError } = await admin
@@ -316,7 +313,96 @@ Deno.serve(async (req) => {
       // while still in embers never produces a second row.
       const { data: glowRow } = await admin.rpc("get_glow_for_user", { p_user: user.id });
       const glow = Array.isArray(glowRow) ? glowRow[0] : glowRow;
-      if (glow?.state === "embers" && glow.missed_local_date) {
+
+      // CV3 (23 Aug) — THE PERSON'S OWN CLIFF NOTICE. Cat's ruling of 16
+      // Aug was that the friends hear AND the person hears; CV2 shipped
+      // the friends' half. This is the other half, and it exists because
+      // the ember ask structurally cannot reach a SOLO member.
+      //
+      // The window is decided in ONE place, public.cliff_window_for(),
+      // which is itself a filter over CV2's ember_window_for rather than
+      // a second derivation — so this notice can never claim a cliff on
+      // a morning the circle screen would still offer a cover for. Every
+      // suppression (a cover or away day on the missed date, their own
+      // check-in this morning, a run that already broke unsheltered)
+      // lives in that function with its argument, and is tested there.
+      const { data: cliffRows, error: cliffError } = await admin.rpc("cliff_window_for", {
+        p_user: user.id,
+      });
+      if (cliffError) {
+        // FF1: a failed read here decides whether to send someone a
+        // notification about their own glow. Fail CLOSED and say so —
+        // the conservative direction — rather than substituting "no
+        // window" silently and calling it a decision.
+        console.error(`Could not read the cliff window for user ${user.id}:`, cliffError.message);
+      }
+      const cliff = Array.isArray(cliffRows) ? cliffRows[0] : cliffRows;
+
+      // EM0's never-both rule, now with three competitors instead of
+      // two. Decided in one pure function so it can be tested at all —
+      // see ./cliff-notice.ts.
+      const todaysKind = selectDailyNudgeKind({
+        cliffWindowOpen: !cliffError && !!cliff?.missed_local_date,
+        glowState: glow?.state,
+        emberMissedLocalDate: glow?.missed_local_date,
+      });
+
+      if (todaysKind === "cliff_notice") {
+        // EM1's dedupe pattern: keyed on the MISSED date (the event),
+        // never today's, so re-evaluating every 15 minutes produces one
+        // row and one only.
+        const cliffDedupeKey = `cliff-${user.id}-${cliff.missed_local_date}`;
+        // dueTime, not smartSendTime: this IS the daily nudge today, so
+        // AL1's hold governs it exactly as it governs the ember nudge —
+        // a declared practice time must not be honoured on ordinary days
+        // and ignored on the one day that decides the run.
+        const cliffResolved = resolveSendTime(dueTime, prefs.quiet_start, prefs.quiet_end);
+        if (cliffResolved !== "skip") {
+          const cliffLocalTime = localTimeString(now, timeZone);
+          if (cliffLocalTime >= cliffResolved) {
+            const { data: cliffInserted, error: cliffInsertError } = await admin
+              .from("notification_outbox")
+              .upsert(
+                {
+                  user_id: user.id,
+                  kind: "cliff_notice",
+                  payload: {
+                    // ⚠️ UNRULED COPY — job 3 is a copy stop and Cat has
+                    // not ruled. This function is NOT deployed with these
+                    // words. See ./cliff-notice.ts.
+                    subject: CLIFF_NOTICE_COPY_UNRULED.subject,
+                    html: CLIFF_NOTICE_COPY_UNRULED.html,
+                    local_date: localDate,
+                    missed_local_date: cliff.missed_local_date,
+                    spell_day: cliff.spell_day,
+                    // CV3 job R (Cat's ruling, 23 Aug, from CV2 job 6(a)'s
+                    // diagnosability find) — the timezone COMPOSE used,
+                    // stamped so a row can be read back afterwards
+                    // without guessing which zone dated it. No read path
+                    // consumes this; it is a diagnostic.
+                    compose_tz: timeZone,
+                  },
+                  scheduled_for: now.toISOString(),
+                  dedupe_key: cliffDedupeKey,
+                },
+                { onConflict: "dedupe_key", ignoreDuplicates: true }
+              )
+              .select("id");
+
+            if (cliffInsertError) {
+              console.error(
+                `Could not enqueue cliff notice for user ${user.id}:`,
+                cliffInsertError.message
+              );
+            } else if ((cliffInserted ?? []).length > 0) {
+              summary.cliffNoticesEnqueued++;
+            }
+          }
+        }
+        continue; // never also enqueue an ember nudge or nudge_daily today
+      }
+
+      if (todaysKind === "ember_nudge") {
         const emberDedupeKey = `ember-${user.id}-${glow.missed_local_date}`;
         // dueTime, not smartSendTime: the ember nudge IS the daily nudge on
         // an ember day (it rides the same pref and never sends alongside
@@ -568,6 +654,14 @@ Deno.serve(async (req) => {
               // has moved on and tomorrow's tick composes a fresh ask if
               // one is still owed.
               local_date: localDateString(now, askedTimeZone),
+              // CV3 job R (Cat's ruling, 23 Aug, from CV2 job 6(a)'s
+              // diagnosability find) — the timezone COMPOSE used to date
+              // the line above, stamped so a row can be read back
+              // afterwards without guessing. This is the ASKED person's
+              // zone (or 'UTC' where they have none), which is the one
+              // that dated local_date and therefore the one that governs
+              // when this row goes stale. No read path consumes it.
+              compose_tz: askedTimeZone,
             },
             scheduled_for: now.toISOString(),
             dedupe_key: dedupeKey,

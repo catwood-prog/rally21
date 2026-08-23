@@ -55,7 +55,11 @@ type OutboxRow = {
     // carry NAMES and ids only; their copy is composed here from fixed
     // templates, the friend_nudge shape (security spec S1, F4).
     | "ember_ask"
-    | "covered_notice";
+    | "covered_notice"
+    // CV3 (23 Aug) — the person's own half of Cat's 16 Aug ruling: one
+    // notice, to the at-risk person themselves, on the morning their run
+    // is decided. Composed by compose-nudges from cliff_window_for.
+    | "cliff_notice";
   payload: {
     subject?: string;
     html?: string;
@@ -245,6 +249,17 @@ const KIND_TO_PREF_COLUMN: Record<OutboxRow["kind"], keyof PrefRow> = {
   // is two lines here and one in unsubscribe/index.ts.
   ember_ask: "friend_nudge_enabled",
   covered_notice: "friend_nudge_enabled",
+  // CV3 — the person's OWN-PRACTICE channel, not the peer-to-peer one,
+  // and the distinction is the point rather than a detail. The ember ask
+  // above asks you to do something for a friend; this one is about your
+  // own run, on your own lock screen, and it IS your daily nudge that
+  // day (compose-nudges enqueues it inside the per-user loop gated by
+  // `.eq("notification_prefs.nudge_enabled", true)` and returns
+  // immediately afterwards). Somebody who switched off friend nudges to
+  // stop being poked about other people must still hear about their own
+  // glow; somebody who switched off their daily nudge has asked for
+  // silence and gets it.
+  cliff_notice: "nudge_enabled",
 };
 
 function localDateString(date: Date, timeZone: string): string {
@@ -745,7 +760,17 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (row.kind === "nudge_daily" || row.kind === "friend_nudge") {
+      // CV3 adds cliff_notice to this recheck deliberately. Its compose-
+      // time guard already refuses to enqueue for somebody who checked in
+      // this morning, but a row can sit here behind quiet hours or the
+      // 2-a-day cap while they go and do the very thing it is about —
+      // and on THIS morning that is the likeliest outcome of all, since
+      // the notice exists to cause it.
+      if (
+        row.kind === "nudge_daily" ||
+        row.kind === "friend_nudge" ||
+        row.kind === "cliff_notice"
+      ) {
         const localDate = localDateString(now, timeZone);
         const { count } = await admin
           .from("completions")

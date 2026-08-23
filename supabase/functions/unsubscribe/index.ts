@@ -47,6 +47,13 @@ const KIND_TO_PREF_COLUMN: Record<string, string> = {
   // sender consults is worse than no link at all.
   ember_ask: "friend_nudge_enabled",
   covered_notice: "friend_nudge_enabled",
+  // CV3 — mirrors send-notifications' `cliff_notice: "nudge_enabled"`.
+  // Not a taste call: compose-nudges enqueues it inside the per-user
+  // loop gated by `.eq("notification_prefs.nudge_enabled", true)` and it
+  // IS that person's daily nudge for the day. An unsubscribe link that
+  // turned off the peer-to-peer switch instead would silence a
+  // DIFFERENT category than the one that sent the email.
+  cliff_notice: "nudge_enabled",
 };
 
 async function signToken(secret: string, userId: string, kind: string): Promise<string> {
