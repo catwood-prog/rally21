@@ -879,9 +879,10 @@ export const STRINGS = {
   alarmReminderChannelName: 'Practice reminders',
 
   // ── AK1 (23 Aug, Cat's rulings 8 Aug) — THE PER-CIRCLE ALARM ────────
-  // **JOB 6: PROPOSED, NOT YET RULED. Shipping waits on Cat's nod.**
-  // Nothing below can reach a person before build 10 (AK1 is native and
-  // cannot ship OTA), so there is time to redline it.
+  // **JOB 6: RULED BY CAT, 24 Aug.** Approved as proposed with ONE change,
+  // made below: the alarm's own title lowercases. Every other line ships
+  // exactly as it was put to her, so an edit that improves a word here has
+  // to delete her ruling on purpose.
   //
   // THE COPY LAW INVERTS HERE, and this is the line a future session will
   // get wrong if it is not written down: AL1 above may NEVER say "alarm",
@@ -912,9 +913,19 @@ export const STRINGS = {
     "no alarm here yet. if you want one, it's yours to set — and yours to switch off.",
   /** The alarm's OWN text, on the lock screen / Dynamic Island / a paired
    * watch. Names the circle, because someone with three alarms needs to
-   * know which one is ringing. Title case matches alarmReminderTitle
-   * above, which is the house's existing shape for a notification title. */
-  circleAlarmTitle: (circleName: string) => `Time for ${circleName}`,
+   * know which one is ringing.
+   *
+   * LOWERCASE, ruled by Cat on 24 Aug against this session's proposal of
+   * "Time for ...". LC1 HOLDS EVEN ON THE SYSTEM SURFACE: an alarm Apple
+   * renders full-screen is still Rally21 speaking, so it speaks the way
+   * Rally21 speaks everywhere else. That deliberately DIVERGES from
+   * alarmReminderTitle above ('Your practice time'), which is AL1's older
+   * shape and is not a precedent this one follows.
+   *
+   * The circle NAME keeps whatever casing the person gave it — it is
+   * theirs, not ours, and lowercasing someone's "Morning Pages" would be
+   * the app correcting them. */
+  circleAlarmTitle: (circleName: string) => `time for ${circleName}`,
   /** The full-screen alarm's stop button. Warm, and not a verdict. */
   circleAlarmStopButton: 'got it',
   /** AK1 job 4 — AlarmKit's permission was denied or later revoked in
