@@ -66,6 +66,7 @@
           "mode": "production"
         }
       ],
+      "./modules/rally-alarm-kit/app.plugin.js",
       [
         "expo-build-properties",
         {

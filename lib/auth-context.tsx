@@ -6,6 +6,7 @@ import { createContext, PropsWithChildren, useContext, useEffect, useState } fro
 import { AppState, Platform } from 'react-native';
 
 import { syncDailyReminder } from './alarmReminder';
+import { resyncCircleAlarms } from './circleAlarm';
 import { getDeviceTimeZone } from './date';
 import { markSeenNow } from './notifications';
 import { getMyProfile } from './profile';
@@ -134,6 +135,28 @@ export function AuthProvider({ children }: PropsWithChildren) {
       // error — but silence for us is not.
       captureError(e, { op: 'syncDailyReminder', at: 'app-start' });
     });
+  }, [session?.user?.id]);
+
+  // AK1 job 3 — THE SELF-HEALING RE-ARM, and the reason the suppression
+  // design is safe at all. The full weekday set for every circle alarm is
+  // recomputed from scratch and re-armed on every app start, so a day
+  // dropped yesterday by a check-in comes back today, an alarm orphaned by
+  // a circle left while offline gets cancelled, and a reinstall recovers
+  // in full.
+  //
+  // NEVER PROMPTS, exactly like AL1's effect above: syncCircleAlarms reads
+  // the authorization state and refuses to schedule against anything but
+  // an already-granted permission (PN1's law). The ASK lives on the
+  // turn-a-circle's-alarm-on tap and nowhere else.
+  //
+  // Separate effect rather than a second await inside AL1's, so a failure
+  // in either feature cannot skip the other — they are independent by
+  // design and share no state.
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || !session?.user) return;
+    // resyncCircleAlarms is already FF1-shaped (it reports and never
+    // throws), so there is nothing to catch here.
+    void resyncCircleAlarms('app-start');
   }, [session?.user?.id]);
 
   // The social digest's suppression check depends on last_seen_at staying

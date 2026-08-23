@@ -1,4 +1,5 @@
 import { cancelTodaysReminder } from './alarmReminder';
+import { resyncCircleAlarms } from './circleAlarm';
 import { getMyRallyCount } from './journey';
 import { captureError } from './sentry';
 import { supabase } from './supabase';
@@ -236,6 +237,19 @@ export async function saveCompletion(params: {
     // listening, and nothing else would ever tell us it happened.
     captureError(e, { op: 'cancelTodaysReminder' });
   }
+
+  // AK1 job 3 — the SUPPRESSION trigger (Cat's ruling 2, 8 Aug): a
+  // checked-in day does not ring. AlarmKit cannot skip one occurrence, so
+  // this recomputes the whole weekday set and re-arms, which drops TODAY's
+  // weekday for the circles just completed and leaves every other day
+  // alone. Never cumulative — see lib/circleAlarm.ts's invariant, and the
+  // test that pins the perfect-adherence trap shut.
+  //
+  // Its own try/catch, separate from AL1's above: the two features are
+  // independent, and a failure in one must not skip the other. Awaited
+  // rather than fired-and-forgotten so a check-in and its alarm state are
+  // settled together, and reported rather than swallowed (FF1).
+  await resyncCircleAlarms('checkin');
 }
 
 /** A direct, targeted read of whether THIS circle's completion for

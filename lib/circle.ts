@@ -2,6 +2,7 @@ import { getLocalDateString } from './date';
 import { createRealtimeStatusGate, subscribeToAppWake } from './realtimeRecovery';
 import { isHttpUrl } from './resourceLink';
 import { isResting } from './resting';
+import { resyncCircleAlarms } from './circleAlarm';
 import { captureError } from './sentry';
 import { supabase } from './supabase';
 
@@ -352,6 +353,12 @@ export async function leaveCircle(circleId: string): Promise<void> {
     captureError(error, { rpc: 'leave_circle' });
     throw error;
   }
+  // AK1 job 3 — an alarm that outlives the membership it belongs to is a
+  // defect, not an edge case. leave_circle HARD-DELETES the row, so the
+  // alarm's id no longer resolves to anything and the reconcile pass
+  // cancels it. AFTER the throw, never before: the leave is the fact, the
+  // alarm is bookkeeping about it.
+  await resyncCircleAlarms('leave-circle');
 }
 
 /** Host control (public circles): the creator removes a member — their

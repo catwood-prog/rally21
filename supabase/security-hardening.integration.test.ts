@@ -303,6 +303,7 @@ describeIfConfigured('security hardening (S1)', () => {
       'return_from_away', // lib/away.ts, lib/checkin.ts
       'send_friend_nudge', // lib/wall.ts
       'set_card_flavor_muted', // lib/shareCards.ts
+      'set_circle_alarm', // lib/circleAlarm.ts
       'unlike_card', // lib/shareCards.ts
     ];
 

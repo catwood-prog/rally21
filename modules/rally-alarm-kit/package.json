@@ -1,0 +1,7 @@
+{
+  "name": "rally-alarm-kit",
+  "version": "1.0.0",
+  "description": "AK1 — Rally21's own thin AlarmKit binding (iOS 26+), weak-linked so the app's floor stays at 15.1.",
+  "main": "index.ts",
+  "private": true
+}

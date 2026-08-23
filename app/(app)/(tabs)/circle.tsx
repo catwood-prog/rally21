@@ -21,6 +21,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { ErrorSlip } from '@/components/ErrorSlip';
 import { MicTextInput } from '@/components/MicTextInput';
 import { CheckedInBadge } from '@/components/CheckedInBadge';
+import { CircleAlarmCard } from '@/components/CircleAlarmCard';
 import { LinkCard } from '@/components/LinkCard';
 import { MascotEntrance } from '@/components/MascotEntrance';
 import { MessageDialog } from '@/components/MessageDialog';
@@ -1798,6 +1799,21 @@ function YourCircle() {
         >
           <Text style={styles.addCircleLinkText}>{STRINGS.addCircleLink}</Text>
         </TouchableOpacity>
+      )}
+
+      {/* AK1 jobs 4/6/7 — the per-circle alarm, opt-in and default off.
+          Placed with the other things that are THIS person's business in
+          THIS circle (leaving is the next one down) rather than up with
+          the shared huddle, because the alarm is personal even though the
+          circle is not. The card fences ITSELF off — it returns null on
+          web, on Android and below iOS 26 — so there is no Platform gate
+          to keep in step here. */}
+      {session?.user && (
+        <CircleAlarmCard
+          userId={session.user.id}
+          circleId={circle.id}
+          circleName={circle.name}
+        />
       )}
 
       {isConfirmingLeave ? (

@@ -1,3 +1,4 @@
+import { resyncCircleAlarms } from './circleAlarm';
 import { supabase } from './supabase';
 
 // PA1 (Rally21-Personal-Arc-Decision-Memo.md §4, 27 July) — THE LADDER IS
@@ -168,12 +169,20 @@ export async function getMyLastCelebratedDay(circleId: string, userId: string): 
 export async function finishMyRally(circleId: string): Promise<void> {
   const { error } = await supabase.rpc('finish_my_rally', { p_circle_id: circleId });
   if (error) throw error;
+  // AK1 job 3 — a finished member is off the active roster, so their alarm
+  // for this circle stops. The row survives (that is the whole point of
+  // finish vs leave), so the planner skips it on finished_at and the
+  // reconcile pass cancels the alarm. resumeMyRally below re-arms it by
+  // the same route, which is why neither needs a bespoke cancel.
+  await resyncCircleAlarms('finish-my-rally');
 }
 
 /** PA2 — the road back (memo §8: "nulling it is the road back"). */
 export async function resumeMyRally(circleId: string): Promise<void> {
   const { error } = await supabase.rpc('resume_my_rally', { p_circle_id: circleId });
   if (error) throw error;
+  // The road back re-arms the alarm the finish cancelled, if it was on.
+  await resyncCircleAlarms('resume-my-rally');
 }
 
 /** Creator-only, and it ends the whole CIRCLE for everyone — deliberately

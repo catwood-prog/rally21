@@ -878,6 +878,57 @@ export const STRINGS = {
   alarmReminderBody: "you chose this moment, and it's here whenever you're ready.",
   alarmReminderChannelName: 'Practice reminders',
 
+  // ── AK1 (23 Aug, Cat's rulings 8 Aug) — THE PER-CIRCLE ALARM ────────
+  // **JOB 6: PROPOSED, NOT YET RULED. Shipping waits on Cat's nod.**
+  // Nothing below can reach a person before build 10 (AK1 is native and
+  // cannot ship OTA), so there is time to redline it.
+  //
+  // THE COPY LAW INVERTS HERE, and this is the line a future session will
+  // get wrong if it is not written down: AL1 above may NEVER say "alarm",
+  // because AL1 cannot ring through a silenced phone and the word would be
+  // a lie. AK1 IS an alarm — AlarmKit rings through Silent AND Focus at
+  // the Clock app's priority — so it is CALLED an alarm, plainly, here.
+  //
+  // TWO CONSTRAINTS Cat set on this copy:
+  //   1. The warmth laws hold even here. Nothing scolds, and nothing
+  //      implies a loss the person cannot recover from. The helper never
+  //      mentions streaks, misses or days lost.
+  //   2. An alarm that pierces Silent is the most aggressive surface in
+  //      the app, so THE OFF SWITCH MUST BE AS FINDABLE AS THE ON SWITCH.
+  //      That is why the control is one row with the state written on it
+  //      rather than a setting nested behind a disclosure, and why the
+  //      on-helper leads with what it will do TO you, not for you.
+  circleAlarmToggleLabel: 'alarm for this circle',
+  circleAlarmToggleHelperOff:
+    'a real alarm at a time you pick — it rings even on silent. off unless you turn it on.',
+  circleAlarmToggleHelperOn: (time: string) =>
+    `ringing at ${time}, and staying quiet on days you've already checked in.`,
+  /** The time-picker's own label, above the wheel. */
+  circleAlarmTimeLabel: 'ring at',
+  /** The empty state: this circle has no alarm, which is every circle
+   * until somebody opts in. Says what it would do and what it costs, and
+   * makes no claim about the person. */
+  circleAlarmEmptyState:
+    "no alarm here yet. if you want one, it's yours to set — and yours to switch off.",
+  /** The alarm's OWN text, on the lock screen / Dynamic Island / a paired
+   * watch. Names the circle, because someone with three alarms needs to
+   * know which one is ringing. Title case matches alarmReminderTitle
+   * above, which is the house's existing shape for a notification title. */
+  circleAlarmTitle: (circleName: string) => `Time for ${circleName}`,
+  /** The full-screen alarm's stop button. Warm, and not a verdict. */
+  circleAlarmStopButton: 'got it',
+  /** AK1 job 4 — AlarmKit's permission was denied or later revoked in
+   * Settings. The preference is fine; the phone is what is silent. Same
+   * deep-link shape as AL1's line and PN1's push row. */
+  circleAlarmPermissionDenied:
+    'alarms are off for Rally21 in iOS Settings, so this one cannot ring yet.',
+  /** AK1 job 7 — iOS refused to hold another alarm (maximumLimitReached).
+   * The cap is set by the device and Apple publishes no number, so this
+   * says what happened, blames nobody, and names the one thing that
+   * actually makes room. The toggle stays OFF behind it. */
+  circleAlarmRefusedLimit:
+    "your phone won't hold another alarm right now. switching one off in another circle makes room.",
+
   // RS2 (13 July, Rally21-Glow-Spec.md §9) — the away pause. Self-serve,
   // never advertised with absence math: circle-mates just see a calm
   // sleeping penguin at the huddle's edge, never "away for N days".

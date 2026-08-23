@@ -74,6 +74,12 @@ const RAISES_NOTHING_HUMAN: Record<string, string> = {
   unlike_card: "'not signed in' only",
   finish_my_rally: "'not authenticated' only",
   resume_my_rally: "'not authenticated' only",
+  // AK1 — its only raise is 'not a member of this circle', a backstop on
+  // the circle screen you are already standing in. The refusal a person
+  // ACTUALLY has to read here is AlarmKit's maximumLimitReached, which is
+  // a device-side throw with its own copy (job 7) and never reaches the
+  // server at all.
+  set_circle_alarm: "'not a member of this circle' backstop only",
   record_my_rally_cliff: "'not authenticated' only",
   mark_blueprint_pattern_surfaced: "'not authenticated' only",
   mark_wrapped_offered: "'not authenticated' only",
