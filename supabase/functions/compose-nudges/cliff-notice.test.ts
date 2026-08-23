@@ -177,12 +177,25 @@ describe("CV3 — Cat's ruled copy, 23 Aug (candidate C, verbatim)", () => {
 
     // LC1 — lowercase. No capital may appear except inside markup, and
     // except the PRODUCT NAME in the shipped open-Rally21 link line, which
-    // Cat ruled in verbatim on 23 Aug. That sentence is not ruled copy: it
-    // is the chrome every email in the app already ends on (the ember ask
-    // in send-notifications, nudge_daily in nudge-lines, compose-digest),
-    // and stripping tags leaves its LINK TEXT behind, capital R and all.
-    // The exemption is exactly one token wide on purpose — a capital
-    // anywhere in the ruled copy still fails this test.
+    // Cat ruled in verbatim on 23 Aug.
+    //
+    // THE EXEMPTION IS SANCTIONED (Cat, 23 Aug). The reasoning is kept
+    // HERE, beside the guard, rather than only in a commit message —
+    // this is where the next person will question it:
+    //   1. LC1 GOVERNS COPY, NOT THE PRODUCT'S NAME. The law was written
+    //      about the sentences the app says to a person. "Rally21" is
+    //      what the app is called, not something it says.
+    //   2. FIVE sibling templates already ship this exact line: the ember
+    //      ask (both CV2 spell arms), nudge_daily in nudge-lines, the
+    //      rest_rejoin email, and compose-digest. Failing it here would
+    //      have made this one email the odd one out rather than held a
+    //      line.
+    //   3. The narrowed guard was proven to STILL BITE BOTH WAYS before
+    //      it was accepted — a capital anywhere in the ruled copy still
+    //      fails this test, and the exemption is exactly one token wide
+    //      on purpose.
+    // Stripping tags leaves the link TEXT behind, capital R and all,
+    // which is why the substitution below is needed at all.
     const words = all.replace(/<[^>]+>/g, '').replace(/Rally21/g, 'rally21');
     expect(words).toBe(words.toLowerCase());
 
