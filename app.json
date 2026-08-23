@@ -13,6 +13,9 @@
       "bundleIdentifier": "uk.amsadvisory.rally21",
       "buildNumber": "1",
       "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.developer.usernotifications.time-sensitive": true
+      },
       "config": {
         "usesNonExemptEncryption": false
       }

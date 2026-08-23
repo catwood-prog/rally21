@@ -26,6 +26,8 @@ jest.mock('expo-notifications', () => ({
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 
+import { STRINGS } from '@/constants/strings';
+
 import {
   cancelTodaysReminder,
   REMINDER_DATA_TYPE,
@@ -194,5 +196,51 @@ describe('cancelTodaysReminder', () => {
     await cancelTodaysReminder(new Date(2026, 6, 15, 7, 30));
 
     expect(mocked.cancelScheduledNotificationAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('AL1 PHASE 2 (B10 job 2) — the time-sensitive entitlement', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mocked.getAllScheduledNotificationsAsync.mockResolvedValue([]);
+    mocked.getPermissionsAsync.mockResolvedValue({ status: 'granted' });
+  });
+
+  it('every scheduled slot asks for interruptionLevel timeSensitive', async () => {
+    await syncDailyReminder({ enabled: true, alarmTime: '07:30:00', now: new Date(2026, 6, 15, 6, 0) });
+
+    expect(mocked.scheduleNotificationAsync).toHaveBeenCalled();
+    // EVERY slot, not just the first: a window is armed in a loop, and a
+    // level set on only the first would break through Focus on day one and
+    // silently stop for the other twenty-nine.
+    for (const call of mocked.scheduleNotificationAsync.mock.calls) {
+      expect(call[0].content.interruptionLevel).toBe('timeSensitive');
+    }
+  });
+
+  it('the entitlement is DECLARED, not just requested', () => {
+    // The key on the notification does nothing on its own — iOS drops it
+    // unless the binary carries the matching entitlement. The two halves
+    // are one change, so the test that proves one proves the other or it
+    // proves nothing.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const appJson = require('../app.json');
+    expect(appJson.expo.ios.entitlements['com.apple.developer.usernotifications.time-sensitive']).toBe(
+      true
+    );
+  });
+
+  it('phase 2 does NOT make it an alarm, and the copy still never says so', () => {
+    // The entitlement breaks Focus, never the silent switch. The copy law
+    // therefore survives phase 2 unchanged — this is the guard that stops a
+    // future session "upgrading" the wording along with the capability.
+    const copy = [
+      STRINGS.alarmReminderTitle,
+      STRINGS.alarmReminderBody,
+      STRINGS.alarmToggleLabel,
+      STRINGS.alarmToggleHelperOff,
+      STRINGS.alarmReminderChannelName,
+    ].join(' ');
+    expect(copy.toLowerCase()).not.toContain('alarm');
   });
 });

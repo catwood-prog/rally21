@@ -20,11 +20,21 @@ import { supabase } from './supabase';
  * feature lives in compose-nudges (the HOLD, AL1 job 3), and it reads the
  * same two columns rather than talking to this file.
  *
- * NEVER CALLED AN ALARM in copy, because it cannot behave like one: only
- * Apple's Clock app rings through a silenced iPhone. This is a scheduled
- * local notification with sound. Breaking through Focus modes needs the
- * time-sensitive entitlement, which is a NATIVE change and therefore AL1
- * phase 2 / build 10 — deliberately not here.
+ * NEVER CALLED AN ALARM in copy, and PHASE 2 DOES NOT CHANGE THAT. Only
+ * Apple's Clock app — and, since AK1, AlarmKit — rings through a SILENCED
+ * iPhone. This is still a scheduled local notification with sound, and
+ * the word "alarm" would still be a promise it cannot keep.
+ *
+ * AL1 PHASE 2 LANDED WITH BUILD 10 (B10 job 2). The time-sensitive
+ * entitlement is declared in app.json's ios.entitlements, and every slot
+ * below is scheduled with interruptionLevel 'timeSensitive'. WHAT THAT
+ * BUYS, precisely: the reminder breaks through FOCUS MODES. WHAT IT DOES
+ * NOT BUY, and the distinction is the whole reason the copy law survives
+ * phase 2: it does NOT break the silent switch. A phone on silent stays
+ * silent. A future session that wants to say "alarm" because of this
+ * entitlement has misread what the entitlement does — the feature that
+ * genuinely rings through silent is AK1, which lives on different
+ * columns and is called an alarm for exactly that reason.
  *
  * WHY A ROLLING WINDOW OF ONE-SHOTS, and not the DAILY repeating trigger.
  * The daily trigger never lapses, which is its whole appeal, but neither
@@ -280,6 +290,13 @@ export async function syncDailyReminder(params: {
         title: STRINGS.alarmReminderTitle,
         body: STRINGS.alarmReminderBody,
         sound: 'default',
+        // AL1 PHASE 2 (B10 job 2) — breaks through Focus modes, and ONLY
+        // Focus. iOS ignores this key without the matching entitlement in
+        // app.json's ios.entitlements, so the two are one change and
+        // neither does anything alone. Android ignores it entirely — its
+        // equivalent is the channel importance ensureAndroidChannel
+        // already sets to HIGH.
+        interruptionLevel: 'timeSensitive' as const,
         data: { type: REMINDER_DATA_TYPE, localDate: slot.localDate },
       },
       trigger: {
