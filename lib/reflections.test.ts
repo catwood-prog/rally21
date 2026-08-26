@@ -22,6 +22,7 @@ import {
   hasUnrespondedDayObservation,
   Reflection,
   resolveQuestionPrompt,
+  saveObservationResponse,
 } from './reflections';
 import { isReflectionSubstantive } from './checkin';
 import { MyCircle } from './circle';
@@ -449,5 +450,67 @@ describe('hasUnrespondedDayObservation (D6 — Today’s footer link and the Map
     mockReflections(rows);
     responseRow = { response: 'confirmed' };
     await expect(hasUnrespondedDayObservation('user-1')).resolves.toBe(false);
+  });
+});
+
+describe('saveObservationResponse (OB1 — the write cannot append a second answer)', () => {
+  // The DB half of this lives in supabase/observation-responses.integration
+  // .test.ts, against the real constraint and the real RLS. This is the
+  // CLIENT half: that the statement leaving the app is an upsert keyed on
+  // the triple at all. Against HEAD before OB1 this was a bare `.insert()`,
+  // so both assertions below fail — `upsert` was never called, and there
+  // was no onConflict to read.
+
+  const params = {
+    userId: 'user-1',
+    type: 'time_of_day' as const,
+    direction: 'before_noon_higher' as const,
+    agreementCount: 9,
+    totalCount: 12,
+    response: 'confirmed' as const,
+  };
+
+  beforeEach(() => {
+    (supabase.from as jest.Mock).mockReset();
+  });
+
+  test('it UPSERTS on (user_id, pattern_type, direction) — never a plain insert', async () => {
+    const upsert = jest.fn().mockResolvedValue({ error: null });
+    const insert = jest.fn().mockResolvedValue({ error: null });
+    (supabase.from as jest.Mock).mockReturnValue({ upsert, insert });
+
+    await saveObservationResponse(params);
+
+    expect(insert).not.toHaveBeenCalled();
+    expect(upsert).toHaveBeenCalledTimes(1);
+    const [row, options] = upsert.mock.calls[0];
+    expect(options).toEqual({ onConflict: 'user_id,pattern_type,direction' });
+    expect(row).toEqual({
+      user_id: 'user-1',
+      pattern_type: 'time_of_day',
+      direction: 'before_noon_higher',
+      agreement_count: 9,
+      total_count: 12,
+      response: 'confirmed',
+    });
+  });
+
+  test('created_at is NOT in the payload — an update must not restamp when you first answered', async () => {
+    // supabase-js builds `do update set` from the payload's keys, so the
+    // only way created_at survives a changed answer is by being absent
+    // here. This is the assertion that keeps it absent.
+    const upsert = jest.fn().mockResolvedValue({ error: null });
+    (supabase.from as jest.Mock).mockReturnValue({ upsert });
+
+    await saveObservationResponse(params);
+
+    expect(Object.keys(upsert.mock.calls[0][0])).not.toContain('created_at');
+  });
+
+  test('a failed write still throws — the screen’s catch is what shows the person anything', async () => {
+    const upsert = jest.fn().mockResolvedValue({ error: new Error('nope') });
+    (supabase.from as jest.Mock).mockReturnValue({ upsert });
+
+    await expect(saveObservationResponse(params)).rejects.toThrow('nope');
   });
 });

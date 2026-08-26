@@ -359,6 +359,33 @@ export async function hasUnrespondedDayObservation(userId: string): Promise<bool
   return response === null;
 }
 
+/** OB1 — ONE row per (person, pattern_type, direction), and the LAST
+ * answer wins. BP1's guarantee, given to this table.
+ *
+ * This was a plain `.insert()` against a table that carried no unique
+ * constraint at all — the exact shape BP1 found in `blueprint_responses`
+ * on 16 Aug, where seven identical `confirmed` rows landed in eleven
+ * seconds. Nothing but reflection.tsx's `response === null ?` render
+ * guard has been stopping it here, and that guard is the one the private
+ * map lacked. It STAYS — belt and braces — but it is no longer the only
+ * thing holding the line: **the constraint is the guarantee.** A
+ * read-then-write in app code would lose exactly the race this is made
+ * of, two taps in flight at once with neither seeing the other's row.
+ *
+ * THE KEY IS THE TRIPLE, and it is the READER that says so.
+ * `getMyObservationResponse` filters on `user_id`, `pattern_type` AND
+ * `direction`, so it treats "before noon is your better half" and "after
+ * noon is" as two different claims to have answered — which they are.
+ * Keying on (user_id, pattern_type) alone would forbid a legitimate
+ * state: a person whose time-of-day pattern flips months later has
+ * genuinely answered two claims, and collapsing them would overwrite an
+ * answer the reader still goes looking for.
+ *
+ * `agreement_count`/`total_count` move with the answer, because they are
+ * the evidence the person was shown when they gave it. `created_at` is
+ * deliberately untouched by the update — it means "when you first
+ * answered this", the same meaning BP1 preserved.
+ */
 export async function saveObservationResponse(params: {
   userId: string;
   type: 'time_of_day' | 'weekday';
@@ -367,14 +394,17 @@ export async function saveObservationResponse(params: {
   totalCount: number;
   response: 'confirmed' | 'rejected';
 }): Promise<void> {
-  const { error } = await supabase.from('observation_responses').insert({
-    user_id: params.userId,
-    pattern_type: params.type,
-    direction: params.direction,
-    agreement_count: params.agreementCount,
-    total_count: params.totalCount,
-    response: params.response,
-  });
+  const { error } = await supabase.from('observation_responses').upsert(
+    {
+      user_id: params.userId,
+      pattern_type: params.type,
+      direction: params.direction,
+      agreement_count: params.agreementCount,
+      total_count: params.totalCount,
+      response: params.response,
+    },
+    { onConflict: 'user_id,pattern_type,direction' }
+  );
 
   if (error) throw error;
 }
