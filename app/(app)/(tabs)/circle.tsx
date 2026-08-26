@@ -45,10 +45,12 @@ import {
   getCircleMembers,
   getCirclePresence,
   getCoverableMembers,
+  isHostHandoverNotePending,
   isSoloCircle,
   leaveCircle,
   listMyCircles,
   MyCircle,
+  markHostHandoverNoteSeen,
   removeMemberFromCircle,
   myStateInCircle,
   resolveCircleSelection,
@@ -131,13 +133,24 @@ function YourCircle() {
   // GS1 — the Who's Here glow ride-along (7+ days only; server-floored).
   const [glowByUserId, setGlowByUserId] = useState<Map<string, number>>(new Map());
   // CV1 — memberId → their missed local day (yesterday), for members who
-  // are coverable RIGHT NOW (at embers, this circle's yesterday still open).
-  // The server owns the ember + timezone logic; the client only renders the
-  // pill and passes the date straight through to the cover write.
+  // are coverable RIGHT NOW. CV2 (21 Aug) widened eligibility to the FULL
+  // shelter window, spells 1-5: every morning a cover still resets the gap
+  // is a morning this screen offers one. The ASK — the ember nudge sent on
+  // someone else's behalf — is a separate policy on top, firing only at
+  // spell 2 and spell 5; nothing on this screen is gated on it.
+  // The server owns the window + timezone logic (ember_window_for); the
+  // client only renders the pill and passes the date straight through to
+  // the cover write.
   const [coverableByUserId, setCoverableByUserId] = useState<Map<string, string>>(new Map());
   const [wallPreview, setWallPreview] = useState<WallPreviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // AE1 — `error` is LOAD-ONLY: it means "this screen cannot be shown",
+  // and only `load()` writes it (the early return below reads it).
   const [error, setError] = useState<string | null>(null);
+  // AE1 — an ACTION that fails says so through this screen's own dialog
+  // and leaves the screen standing. Six catches used to write `error`
+  // instead, so every one of them was a full-screen slip.
+  const [actionError, setActionError] = useState<string | null>(null);
   // Non-empty only when there's no circleId param AND the user is in more
   // than one circle — the tab's own root: a card per circle, tap through.
   const [listCircles, setListCircles] = useState<MyCircle[]>([]);
@@ -184,6 +197,9 @@ function YourCircle() {
   const [linkDraft, setLinkDraft] = useState('');
   const [isSavingLink, setIsSavingLink] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
+  // AE1 job 3c — the one-time host-handover note, owed only to a member
+  // who arrived by transfer_circle_host (HT1). Server-held, per circle.
+  const [hostHandoverNotePending, setHostHandoverNotePending] = useState(false);
   const [isManagingMembers, setIsManagingMembers] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
@@ -299,6 +315,15 @@ function YourCircle() {
     // removes them from the wrong one.
     setRemovingMemberId(null);
     setIsManagingMembers(false);
+    // AE1 — `actionError` is new state of exactly the kind this block
+    // exists for: "could not remove — try again" is about the circle the
+    // action ran on, and inherited by a circle the person never ran it on
+    // it invites the retry on the wrong one. `error` is cleared by load()
+    // itself; this one has no such site, so it clears here.
+    setActionError(null);
+    // AE1 job 3c — per-CIRCLE, so a note owed on one circle must not greet
+    // the host of another. load() re-reads it for the circle being opened.
+    setHostHandoverNotePending(false);
   }, []);
 
   const load = useCallback(async () => {
@@ -340,7 +365,7 @@ function YourCircle() {
       const myCircle = selection.circle;
       setCircle(myCircle);
       if (myCircle) {
-        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay, myPairStreaks, myBlocks, mateGlows, myCirclesList, coverable, myCircleCap] =
+        const [circleMembers, circlePresence, preview, profile, lastCelebratedDay, myPairStreaks, myBlocks, mateGlows, myCirclesList, coverable, myCircleCap, handoverPending] =
           await Promise.all([
             getCircleMembers(myCircle.id),
             getCirclePresence(myCircle.id),
@@ -385,6 +410,12 @@ function YourCircle() {
             // getMyCircleCap swallows its own error and returns
             // MAX_CIRCLES, so it can never reach the catch below.
             getMyCircleCap(),
+            // AE1 job 3c — whether this member is owed the one-time
+            // host-handover note here. A soft read: the note is a warm
+            // announcement, so a failed fetch means no note this visit
+            // (the flag survives on the server, so it is deferred rather
+            // than lost) and never an error over a working screen.
+            isHostHandoverNotePending(myCircle.id, session.user.id).catch(() => false),
           ]);
         setHasOtherCircles(myCirclesList === null ? null : myCirclesList.length > 1);
         // CR2 job 1 — the same read `hasOtherCircles` is derived from, kept
@@ -392,6 +423,7 @@ function YourCircle() {
         // not enough to decide "already at the cap".
         setMyCircleCount(myCirclesList === null ? null : myCirclesList.length);
         setCircleCap(myCircleCap);
+        setHostHandoverNotePending(handoverPending);
         setMembers(circleMembers);
         setPresence(circlePresence);
         setPresenceLoaded(true);
@@ -824,8 +856,11 @@ function YourCircle() {
   // words just move to the accessibility labels.
   const useCompactGesturePills = shownMembers.length > 3;
   const overflowCount = orderedMembers.length - shownMembers.length;
-  // CV1 — a member is coverable only when the server says so (at embers,
-  // this circle's yesterday still open), not merely "not checked in today".
+  // CV1 — a member is coverable only when the server says so, not merely
+  // "not checked in today": ember_window_for wants this circle's yesterday
+  // still open for them AND their spell inside the shelter window (1-5
+  // since CV2, 21 Aug). The two-moment ask, spell 2 and spell 5, is the
+  // nudge's policy and does not narrow the pill.
   const hasCoverableMember = shownMembers.some(
     (member) => member.userId !== session?.user?.id && coverableByUserId.has(member.userId)
   );
@@ -835,8 +870,23 @@ function YourCircle() {
   // EC1 — everything about the circle (name, time, link, the practice
   // itself) is edited on the dedicated edit screen; the old inline
   // rename lived here until 16 July.
-  const openEditCircle = () =>
+  // AE1 job 3c — the note is met ONCE, and either way of meeting it is the
+  // same single flip: dismissed outright, or answered by the first host
+  // action taken from the card it sits on. A failed flip is low-stakes (the
+  // note may greet them once more), so it never speaks — same contract as
+  // the cover hint's mark-seen above.
+  const dismissHostHandoverNote = () => {
+    if (!hostHandoverNotePending) return;
+    setHostHandoverNotePending(false);
+    markHostHandoverNoteSeen(circle.id).catch(() => {
+      // low-stakes — the note just might show again next time
+    });
+  };
+
+  const openEditCircle = () => {
+    dismissHostHandoverNote();
     router.push({ pathname: '/edit-circle', params: { circleId: circle.id } });
+  };
 
   const startEditingLink = () => {
     setLinkDraft(circle.resourceUrl ?? '');
@@ -914,13 +964,14 @@ function YourCircle() {
   };
 
   const handleToggleClosedToJoins = async () => {
+    dismissHostHandoverNote();
     setIsTogglingClosed(true);
     try {
       const next = !circle.closedToJoins;
       await setCircleClosedToJoins(circle.id, next);
       setCircle({ ...circle, closedToJoins: next });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not update — try again');
+      setActionError(e instanceof Error ? e.message : 'could not update — try again');
     } finally {
       setIsTogglingClosed(false);
     }
@@ -933,7 +984,7 @@ function YourCircle() {
       setCircle({ ...circle, completedAt: new Date().toISOString() });
       setIsConfirmingComplete(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not complete this circle — try again');
+      setActionError(e instanceof Error ? e.message : 'could not complete this circle — try again');
     } finally {
       setIsCompleting(false);
     }
@@ -946,7 +997,7 @@ function YourCircle() {
       setMembers(members.filter((m) => m.userId !== memberId));
       setRemovingMemberId(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not remove — try again');
+      setActionError(e instanceof Error ? e.message : 'could not remove — try again');
     } finally {
       setIsRemovingMember(false);
     }
@@ -1023,7 +1074,7 @@ function YourCircle() {
       closeMemberActions();
       setShowMemberReportedNotice(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not send that report — try again');
+      setActionError(e instanceof Error ? e.message : 'could not send that report — try again');
     } finally {
       setIsSubmittingMemberAction(false);
     }
@@ -1036,7 +1087,7 @@ function YourCircle() {
       setBlockedIds((prev) => new Set(prev).add(memberId));
       closeMemberActions();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not block — try again');
+      setActionError(e instanceof Error ? e.message : 'could not block — try again');
     } finally {
       setIsSubmittingMemberAction(false);
     }
@@ -1052,7 +1103,7 @@ function YourCircle() {
         return next;
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'could not unblock — try again');
+      setActionError(e instanceof Error ? e.message : 'could not unblock — try again');
     } finally {
       setIsSubmittingMemberAction(false);
     }
@@ -1139,7 +1190,12 @@ function YourCircle() {
         {headcountLine(orderedMembers, inTodayUserIds)}
       </Text>
 
-      {isEditingLink ? (
+      {/* AE1 job 3 — `isCreator` on the render branch as well as on both
+          entry points. The circles UPDATE policy reads `created_by =
+          auth.uid()` in USING and WITH CHECK, so a non-creator's save is
+          refused by the server whatever renders; this is belt and braces
+          against a future state leak, not a live hole. */}
+      {isEditingLink && isCreator ? (
         // OD1 job 4b — the one expander HIGH on this screen (just under
         // the header), so the pill has never covered it. Wired anyway:
         // the treatment is the class's, not this card's, and it costs
@@ -1606,6 +1662,22 @@ function YourCircle() {
         <View style={styles.hostControlsCard}>
           <Text style={styles.sectionLabel}>host controls</Text>
 
+          {/* AE1 job 3c — HT1 made a creator's leave hand the circle on with
+              no prompt and no ceremony, which is Cat's ruling and stands.
+              The controls simply appearing is still an unannounced
+              responsibility, though, so the successor meets them once: what
+              the card now lets them do, said warmly, and never a word about
+              what the person who left was carrying. Shown only to someone
+              transfer_circle_host actually handed this circle to. */}
+          {hostHandoverNotePending && (
+            <View style={styles.hostHandoverNote}>
+              <Text style={styles.hostHandoverNoteText}>{STRINGS.hostHandoverNote}</Text>
+              <TouchableOpacity onPress={dismissHostHandoverNote} hitSlop={8}>
+                <Text style={styles.hostHandoverNoteDismiss}>{STRINGS.gotItCta}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* EC1 — every host can edit what they created; the toggle and
               member management below stay public-circle-only. */}
           <TouchableOpacity style={styles.hostEditRow} onPress={openEditCircle}>
@@ -1637,7 +1709,12 @@ function YourCircle() {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => setIsManagingMembers(!isManagingMembers)}>
+              <TouchableOpacity
+                onPress={() => {
+                  dismissHostHandoverNote();
+                  setIsManagingMembers(!isManagingMembers);
+                }}
+              >
                 <Text style={styles.hostManageMembersLink}>
                   {isManagingMembers ? STRINGS.circleHideMembersLink : STRINGS.circleManageMembersLink}
                 </Text>
@@ -1871,7 +1948,17 @@ function YourCircle() {
         message={gestureNotice ?? ''}
         onDismiss={() => setGestureNotice(null)}
       />
-      <MessageDialog visible={!!error} title="hmm" message={error ?? ''} onDismiss={() => setError(null)} />
+      {/* AE1 — the dialog this file has carried since MOD1 and never once
+          rendered: `visible={!!error}` sat BELOW the `if (!circle || error)`
+          early return, so an error that could open it had already replaced
+          the screen. It reads `actionError` now, which the early return
+          does not consult, and it is the one render site for all six. */}
+      <MessageDialog
+        visible={!!actionError}
+        title="hmm"
+        message={actionError ?? ''}
+        onDismiss={() => setActionError(null)}
+      />
       {/* WB1 job 3 — the one-tap check-in has no screen of its own to fail
           on, so its failure is said out loud here, exactly as Today says
           it. Same dialog treatment as this screen's other three. */}
@@ -2442,6 +2529,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.ink,
+  },
+  // AE1 job 3c — greenSoft is the palette's "unlocked hint" surface (see
+  // constants/theme.ts), and greenText measures 4.63:1 on it, so the
+  // dismiss link clears AA where colors.green would not. The note sits
+  // INSIDE the host-controls card rather than above it, because what it
+  // is announcing is this card.
+  hostHandoverNote: {
+    backgroundColor: colors.greenSoft,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  hostHandoverNoteText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.ink,
+  },
+  hostHandoverNoteDismiss: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.greenText,
+    marginTop: 8,
   },
   hostToggleHelper: {
     fontSize: 11,

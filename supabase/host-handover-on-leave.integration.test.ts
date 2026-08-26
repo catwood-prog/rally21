@@ -96,6 +96,20 @@ describeIfConfigured('a creator leaving hands the circle on (HT1)', () => {
     await client.query('select leave_circle($1)', [circleId]);
   }
 
+  /** AE1 — whose membership rows in this circle are still owed the
+   * one-time host-handover note. Read elevated and ordered, so the
+   * assertions can name the person rather than a count. */
+  async function pendingFor(circleId: string): Promise<string[]> {
+    await elevated();
+    const { rows } = await client.query<{ user_id: string }>(
+      `select user_id from public.memberships
+        where circle_id = $1 and host_handover_note_pending
+        order by joined_at asc, user_id asc`,
+      [circleId]
+    );
+    return rows.map((r) => r.user_id);
+  }
+
   async function readCircle(circleId: string) {
     await elevated();
     const { rows } = await client.query(
@@ -235,6 +249,82 @@ describeIfConfigured('a creator leaving hands the circle on (HT1)', () => {
     expect(after.created_by).toBe(earliest);
     expect(after.created_by).not.toBe(latest);
     expect(after.is_active).toBe(true);
+  });
+
+  /* ── AE1 job 3c (26 Aug) — the successor MEETS the controls ──
+   *
+   * HT1's silence stands: no prompt, no ceremony, the controls simply
+   * appear. What AE1 adds is that they are introduced once when they do.
+   * The flag is raised by `transfer_circle_host` itself, which is what
+   * makes the note mean "you arrived by transfer" rather than merely
+   * "you are the host" — so it must be the transfer that sets it, and it
+   * must reach BOTH exits from the one shared rule HT1 extracted.
+   *
+   * All four FAIL against HEAD: the column does not exist there.
+   */
+  test('AE1 — the successor is owed the note, and nobody else in the circle is', async () => {
+    const creator = await createFakeUser();
+    const earliest = await createFakeUser();
+    const latest = await createFakeUser();
+    const circleId = await seedCircle(creator, [
+      { userId: latest, joinedDaysAgo: 1 },
+      { userId: earliest, joinedDaysAgo: 20 },
+    ]);
+
+    await elevated();
+    const before = await pendingFor(circleId);
+    // Nobody is owed anything before a transfer — including the creator,
+    // who is never owed it at all.
+    expect(before).toEqual([]);
+
+    await leaveAs(creator, circleId);
+
+    expect(await pendingFor(circleId)).toEqual([earliest]);
+  });
+
+  test('AE1 — account deletion hands the note on too, from the same shared rule', async () => {
+    const creator = await createFakeUser();
+    const successor = await createFakeUser();
+    const circleId = await seedCircle(creator, [{ userId: successor, joinedDaysAgo: 4 }]);
+
+    await elevated();
+    await client.query('select delete_account_prep($1)', [creator]);
+
+    expect(await pendingFor(circleId)).toEqual([successor]);
+  });
+
+  test('AE1 — the note is met once: the RPC lowers the flag for the caller only', async () => {
+    const creator = await createFakeUser();
+    const successor = await createFakeUser();
+    const bystander = await createFakeUser();
+    const circleId = await seedCircle(creator, [
+      { userId: successor, joinedDaysAgo: 20 },
+      { userId: bystander, joinedDaysAgo: 1 },
+    ]);
+    await leaveAs(creator, circleId);
+    expect(await pendingFor(circleId)).toEqual([successor]);
+
+    // A bystander calling it cannot clear someone else's note: the RPC's
+    // WHERE is `user_id = auth.uid()`, so their call matches nothing.
+    await actAs(bystander);
+    await client.query('select mark_host_handover_note_seen($1)', [circleId]);
+    expect(await pendingFor(circleId)).toEqual([successor]);
+
+    await actAs(successor);
+    await client.query('select mark_host_handover_note_seen($1)', [circleId]);
+    expect(await pendingFor(circleId)).toEqual([]);
+  });
+
+  test('AE1 — a solo creator leaving owes nobody a note (there is no successor)', async () => {
+    // The negative control, and the one that keeps the flag honest: the
+    // solo leave deactivates and transfers nothing, so a blanket "raise the
+    // flag on leave" would show up here as a note owed to a departed member.
+    const creator = await createFakeUser();
+    const circleId = await seedCircle(creator);
+
+    await leaveAs(creator, circleId);
+
+    expect(await pendingFor(circleId)).toEqual([]);
   });
 
   // The mirror rule, stated as one test: the two exits must agree about the

@@ -294,6 +294,7 @@ describeIfConfigured('security hardening (S1)', () => {
       'list_public_circles', // lib/circle-setup.ts
       'mark_blueprint_pattern_surfaced', // lib/blueprint.ts
       'mark_celebration_seen', // lib/journey.ts
+      'mark_host_handover_note_seen', // lib/circle.ts (AE1)
       'mark_voice_unlocked_hint_seen', // lib/circle.ts
       'mark_wall_seen', // lib/warmth.ts
       'record_card_event', // lib/shareCards.ts

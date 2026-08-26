@@ -411,6 +411,35 @@ export async function markVoiceUnlockedHintSeen(circleId: string): Promise<void>
   }
 }
 
+/** AE1 (26 Aug) — whether this member is owed the one-time host-handover
+ * note on this circle's host-controls card. True only from the moment
+ * `transfer_circle_host` handed them the circle (HT1's rule, one home, both
+ * exits) until they meet the note; a creator who made their own circle is
+ * never owed it. Scoped to one membership row deliberately: nobody needs to
+ * know whether anyone ELSE has met their note. */
+export async function isHostHandoverNotePending(circleId: string, userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('memberships')
+    .select('host_handover_note_pending')
+    .eq('circle_id', circleId)
+    .eq('user_id', userId)
+    .maybeSingle<{ host_handover_note_pending: boolean }>();
+  if (error) throw error;
+  return data?.host_handover_note_pending ?? false;
+}
+
+/** Routed through a SECURITY DEFINER RPC for the same reason
+ * `markVoiceUnlockedHintSeen` is: memberships has no general self-UPDATE
+ * RLS policy, since memberships.role includes an 'owner' value and an open
+ * policy would let a member self-promote. */
+export async function markHostHandoverNoteSeen(circleId: string): Promise<void> {
+  const { error } = await supabase.rpc('mark_host_handover_note_seen', { p_circle_id: circleId });
+  if (error) {
+    captureError(error, { rpc: 'mark_host_handover_note_seen' });
+    throw error;
+  }
+}
+
 export async function getCircleMembers(circleId: string): Promise<CircleMember[]> {
   const { data, error } = await supabase
     .from('memberships')

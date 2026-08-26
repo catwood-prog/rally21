@@ -1036,6 +1036,12 @@ export const STRINGS = {
   editCirclePracticeHelper: 'what your circle does each day',
   editCirclePracticeDurationPlaceholder: 'duration in minutes (optional)',
   editCircleSaveCta: 'save changes',
+  // AE1 job 3c — the one-time note a successor meets on the host-controls
+  // card after transfer_circle_host handed them the circle. RULED BY CAT,
+  // 26 Aug (candidate B of three). It says what the card now lets them do
+  // and never a word about what the person who left was carrying.
+  hostHandoverNote:
+    "you're the host of this circle now — everything about it lives here: the name, the time of day, the link, the practice.",
   hostEditCircleLabel: 'edit circle',
   hostEditCircleHelper: 'name, time of day, link, or the practice itself',
   // PI1 — practice instructions: an optional routine + link, tucked
