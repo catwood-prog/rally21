@@ -1,9 +1,13 @@
 /**
  * HD1 job 2 (3 Aug) — run guards for the DB-bound suites.
  *
- * SCOPE: the suites matching `supabase/*.integration.test.ts` — 19 of them
- * as of 23 Aug (HT1 added the nineteenth; read 14 on 10 Aug and 17 while
- * there were 18, both stale silently). Recount with
+ * SCOPE: the suites matching `supabase/*.integration.test.ts` — 21 of them
+ * as of 27 Aug, RE-DERIVED by GR1 from the glob itself. The count in this
+ * line has now been stale four times running (14 on 10 Aug, 17 while there
+ * were 18, and "19 as of 23 Aug" — which was already wrong the day it was
+ * written: HT1's addaafb added the nineteenth and CV3's de87202 added the
+ * twentieth the SAME 23 Aug; OB1's ecfb941 added the twenty-first on
+ * 27 Aug). Do not trust this number, DERIVE it:
  * `ls supabase/*.integration.test.ts | wc -l`; that glob is the whole
  * population, no integration suite lives elsewhere in the repo.
  *
@@ -16,7 +20,7 @@
  *
  *   lock_timeout                        5s
  *   statement_timeout                   30s
- *   idle_in_transaction_session_timeout 60s
+ *   idle_in_transaction_session_timeout 300s
  *
  * WHY THIS IS A PROTOTYPE PATCH AND NOT A CONNECTION STRING. The obvious
  * home for these is libpq's `options` startup parameter on the URL. That
@@ -48,7 +52,42 @@ const liveClients = new Set();
 const GUARDS = [
   "set lock_timeout = '5s'",
   "set statement_timeout = '30s'",
-  "set idle_in_transaction_session_timeout = '60s'",
+  // RAISED 60s -> 300s (Cat's ruling, 26 Aug, from RE3's diagnosis; landed
+  // by GR1, 27 Aug). The 60s ceiling was OURS, not the pooler's: for eleven
+  // days the DB suites' "idle-in-transaction" FATALs were read as
+  // Supavisor's doing, because the FATAL names `application_name:
+  // Supavisor` and the pooler is what the connection goes through. It was
+  // this line all along — the database's own default is 0, and the harness
+  // is what SET a value.
+  //
+  // READ THE UNIT BEFORE CHANGING THIS NUMBER. It bounds the IDLE GAP —
+  // how long a session sits inside an OPEN transaction between statements,
+  // a clock Postgres resets on every statement. It is NOT a suite's total
+  // runtime and NOT a test's. A busy suite round-tripping continuously
+  // never approaches it however long it runs: measured 27 Aug on the first
+  // run after this raise, re-ask-cycle took 361.8s and first-ask 358.9s,
+  // both comfortably over this value, both green, because neither ever sat
+  // still for five minutes.
+  //
+  // WHAT 60s ACTUALLY KILLED WAS NEIGHBOURS, and the unit above is why.
+  // Jest runs these suites in PARALLEL (no maxWorkers set, so cores-1 = 7
+  // here; measured on that same run, 1525.9s of suite time inside 362.3s
+  // of wall clock, ~4.2x). Every worker holds its OWN connection inside
+  // its OWN transaction. So while one long-but-legitimate test runs, the
+  // other workers' connections are sitting idle mid-transaction, doing
+  // nothing wrong — and at 60s the database shot them. One slow test
+  // therefore reported as a spray of unrelated reds in other files.
+  // 300s is exactly RE1's PER-TEST jest ceiling for the DB suites
+  // (jest-pg-isolation.js's `jest.setTimeout(300000)` — per test, not per
+  // suite), which is the longest a single legitimate test is allowed to
+  // take, and therefore the longest a well-behaved neighbour can be forced
+  // to idle. Matching the two is the point of the number.
+  //
+  // A genuinely frozen session still caps its hold on live tables at five
+  // minutes — accepted at this cohort size, and these suites roll back and
+  // commit nothing, so the guard is against a wedge sitting on production
+  // tables, not against corruption.
+  "set idle_in_transaction_session_timeout = '300s'",
 ];
 
 /**

@@ -3,12 +3,20 @@
  *
  * SCOPE OF THIS FILE'S COUNT: the suites matching
  * `supabase/*.integration.test.ts`, which is the whole population — no
- * integration suite lives anywhere else in the repo. There are 19
- * (recounted 23 Aug, HT1, which added the nineteenth; the number read 14
- * on 10 Aug and had gone stale silently, then read 17 while there were
- * 18 — a section that adds a suite updates this line in the same change).
- * Recount with `ls supabase/*.integration.test.ts | wc -l` rather than
- * trusting the number written here.
+ * integration suite lives anywhere else in the repo. There are 21
+ * (re-derived from the glob 27 Aug by GR1). The number has gone stale
+ * every time it has been written — 14 on 10 Aug, 17 while there were 18,
+ * and 19 as of 23 Aug, which was wrong the same day (HT1's addaafb added
+ * the nineteenth and CV3's de87202 the twentieth on 23 Aug; OB1's ecfb941
+ * added the twenty-first on 27 Aug). A section that adds a suite is
+ * supposed to update this line in the same change, and four misses say
+ * that convention does not hold on its own. Recount with
+ * `ls supabase/*.integration.test.ts | wc -l` rather than trusting the
+ * number written here — INCLUDING the copy baked into the banner below,
+ * which is what a human actually reads. GR1 left both as literals rather
+ * than deriving the count at runtime, because that is a behaviour change
+ * in a globalSetup path and was outside its fence; deriving it is the
+ * standing recommendation.
  *
  * Those suites are the only tests
  * of the security conventions (function grants, RLS, the anon EXECUTE
@@ -39,7 +47,7 @@ function banner(where) {
   const lines = [
     '',
     RULE,
-    '  !!  SUPABASE_DB_URL IS NOT SET — 19 INTEGRATION SUITES DID NOT RUN',
+    '  !!  SUPABASE_DB_URL IS NOT SET — 21 INTEGRATION SUITES DID NOT RUN',
     RULE,
     '  Skipped: every supabase/*.integration.test.ts suite. These are the',
     '  ONLY tests of the RLS policies, the function grants and the anon',

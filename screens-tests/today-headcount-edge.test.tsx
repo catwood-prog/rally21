@@ -29,6 +29,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { act, create, ReactTestRenderer, ReactTestInstance } from 'react-test-renderer';
 
 import { Avatar } from '@/components/Avatar';
+import type { MyCircle } from '@/lib/circle';
 import { captureError } from '@/lib/sentry';
 
 const RUSS = '8174d14d-01d4-4371-8b3e-c0647ce2f23f';
@@ -58,7 +59,18 @@ const mockProfile = {
   alarm_time: null,
 };
 
-const mockCircles = [
+// GR1 (27 Aug): annotated against the REAL domain type rather than left to
+// structural inference. Inferred from this literal alone, `durationMinutes:
+// 10` narrows to `number`, and `typeof mockCircles` then types the whole
+// scenario — which made `bedtimeCircles`' honest `durationMinutes: null`
+// unassignable and put a red in `tsc`. The null was never the liar: a
+// circle with no dose is an ordinary circle (`circles.duration_minutes` is
+// a nullable integer, `MyCircle.durationMinutes` is `number | null`,
+// `listMyCircles` coalesces `?? null`, and every consumer truthiness-guards
+// it — today.tsx:1323/1591, edit-circle.tsx:77, my-practices.tsx:189).
+// "Read before bed" really has no dose; that is why it was photographed.
+// MyCircle[] also makes this fixture fail honestly if the domain type moves.
+const mockCircles: MyCircle[] = [
   {
     id: CIRCLE,
     name: 'Stretching/Yoga moves',

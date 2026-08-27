@@ -83,8 +83,19 @@ if (IS_DB_SUITE) installGuards();
  * it. THAT CASCADE IS NOT FIXED HERE, only made much harder to reach: a
  * DB-bound test that genuinely times out will still take its neighbour with
  * it. The guards in jest-pg-guards.js still bound the pathological cases
- * (statement_timeout 30s, idle_in_transaction 60s), so a true hang is caught
- * there rather than by this ceiling.
+ * (statement_timeout 30s, idle_in_transaction_session_timeout 300s since
+ * GR1, 27 Aug — read that file's comment for why it was raised from 60s).
+ * THE IDLE GUARD AND THIS CEILING ARE NOW THE SAME NUMBER, and that is
+ * deliberate rather than a collision: they measure different things, so
+ * neither pre-empts the other. This ceiling is per-TEST wall clock; the
+ * idle guard bounds how long a connection sits inside an open transaction
+ * between statements. Because jest runs these suites in parallel, a
+ * worker idling mid-transaction while some OTHER worker's long test runs
+ * is the common case — so setting the idle bound to exactly this ceiling
+ * says "a neighbour may idle for as long as the longest test we permit",
+ * which is what stops the idle guard killing innocent connections.
+ * statement_timeout's 30s remains the guard that catches a runaway
+ * single statement first.
  */
 if (IS_DB_SUITE) {
   jest.setTimeout(300000);
