@@ -39,6 +39,11 @@ describeIfConfigured('cover a friend — RLS on completions (CV1 next-day rescue
   let TODAY: string;
   let YESTERDAY: string;
   let TWO_DAYS_AGO: string;
+  // CV4 — the missed day's own month, which is the month the shelter
+  // counter resets on. Derived at run time, never hardcoded: the flag has
+  // to be right on the 1st of a month as much as on the 26th.
+  let MONTH_START: string;
+  let DAY_OF_MONTH: number;
 
   async function elevated() {
     await client.query('reset role');
@@ -125,6 +130,14 @@ describeIfConfigured('cover a friend — RLS on completions (CV1 next-day rescue
     TODAY = dates[0].today;
     YESTERDAY = dates[0].yesterday;
     TWO_DAYS_AGO = dates[0].two_days_ago;
+
+    const { rows: month } = await client.query(
+      `select date_trunc('month', $1::date)::date::text as month_start,
+              extract(day from $1::date)::int as day_of_month`,
+      [YESTERDAY]
+    );
+    MONTH_START = month[0].month_start;
+    DAY_OF_MONTH = month[0].day_of_month;
   });
 
   afterAll(async () => {
@@ -259,5 +272,134 @@ describeIfConfigured('cover a friend — RLS on completions (CV1 next-day rescue
       [circleId, covered]
     );
     expect(personalHistory).toHaveLength(0);
+  });
+
+  // ── CV4 (27 Aug) — the cover pill carries whether the cover will hold ──
+  //
+  // THE ORACLE IS glow_day_states ITSELF, and that is the whole design of
+  // these two tests. `cover_will_hold` is a PREDICTION about what the live
+  // shelter rule will do with a row that does not exist yet, so the only
+  // assertion worth making is that the prediction and the outcome agree:
+  // read the flag, write the cover, ask glow_day_states what actually
+  // happened. A test that merely re-derived `holds < capacity` in
+  // TypeScript would be a third copy of the rule, agreeing with itself.
+
+  /** Reads the flag the cover pill would carry for this member. */
+  async function coverableFlag(
+    covererId: string,
+    circleId: string,
+    memberId: string
+  ): Promise<boolean | undefined> {
+    await actAs(covererId);
+    const { rows } = await client.query(
+      'select user_id, cover_will_hold from public.get_coverable_members($1)',
+      [circleId]
+    );
+    return rows.find((r) => r.user_id === memberId)?.cover_will_hold;
+  }
+
+  /** What the shelter rule actually did with the covered day. */
+  async function heldByOn(userId: string, localDate: string): Promise<string | null> {
+    await elevated();
+    const { rows } = await client.query(
+      'select held_by from public.glow_day_states($1, $2::date) where d = $2::date',
+      [userId, localDate]
+    );
+    return rows[0]?.held_by ?? null;
+  }
+
+  test('CV4: within capacity — the flag says it will hold, and it does', async () => {
+    const coverer = await createFakeUser();
+    const covered = await createFakeUser();
+    const circleId = await seedCircle(coverer, [covered]);
+    await selfCheckin(covered, circleId, TWO_DAYS_AGO);
+
+    // The offer is there, and it promises a real hold.
+    expect(await coverableFlag(coverer, circleId, covered)).toBe(true);
+
+    expect((await cover(coverer, covered, circleId, YESTERDAY)).ok).toBe(true);
+    expect(await heldByOn(covered, YESTERDAY)).toBe('cover');
+  });
+
+  test("CV4: past capacity — the offer STAYS (Cat's Option B) and the flag stops promising", async () => {
+    const coverer = await createFakeUser();
+    const covered = await createFakeUser();
+    const circleId = await seedCircle(coverer, [covered]);
+
+    if (DAY_OF_MONTH < 3) {
+      // THE FIXTURE CANNOT EXIST ON THE 1st OR 2nd, and that is a fact
+      // about the rule rather than a gap in the test: the shelter counter
+      // resets with the month, so a missed day that early has no earlier
+      // day in its own month to have spent anything. The complementary
+      // truth is what gets asserted instead — a fresh month restores
+      // capacity, and last month's spent hold does not bleed across.
+      await elevated();
+      await client.query(
+        "insert into public.completions (circle_id, user_id, local_date, kind, covered_by) values ($1, $2, ($3::date - 1), 'covered', $4)",
+        [circleId, covered, MONTH_START, coverer]
+      );
+      await selfCheckin(covered, circleId, TWO_DAYS_AGO);
+      expect(await coverableFlag(coverer, circleId, covered)).toBe(true);
+      expect((await cover(coverer, covered, circleId, YESTERDAY)).ok).toBe(true);
+      expect(await heldByOn(covered, YESTERDAY)).toBe('cover');
+      return;
+    }
+
+    // One hold already spent earlier in the SAME month (seeded elevated —
+    // RLS only ever allows a cover on yesterday, which is the point).
+    await elevated();
+    await client.query(
+      "insert into public.completions (circle_id, user_id, local_date, kind, covered_by) values ($1, $2, $3::date, 'covered', $4)",
+      [circleId, covered, MONTH_START, coverer]
+    );
+    await selfCheckin(covered, circleId, TWO_DAYS_AGO);
+    // CONTROL: the spent hold really is a hold. Without this, a fixture
+    // that quietly stopped registering would make the assertion below
+    // vacuously green — the exact class CV2 found seven of.
+    expect(await heldByOn(covered, MONTH_START)).toBe('cover');
+
+    // ELIGIBILITY IS UNCHANGED: they are still offered, still coverable.
+    expect(await coverableFlag(coverer, circleId, covered)).toBe(false);
+    expect((await cover(coverer, covered, circleId, YESTERDAY)).ok).toBe(true);
+
+    // And the flag told the truth: the cover landed, notified, renders as
+    // covered — and held nothing.
+    expect(await heldByOn(covered, YESTERDAY)).not.toBe('cover');
+  });
+
+  test('CV4 job 3(d): the eligibility functions are byte-for-byte unchanged', async () => {
+    await elevated();
+    const { rows } = await client.query(
+      `select p.proname, md5(p.prosrc) as src_md5
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public'
+          and p.proname in ('ember_window_for', 'find_open_ember_windows')
+        order by p.proname`
+    );
+    // Read from pg_proc at 9c20d4e, BEFORE CV4's migration ran. Cat's
+    // ruling keeps the offer wide, so the two functions that decide who is
+    // offered a cover must be exactly as they were — this pins that rather
+    // than trusting the diff.
+    expect(rows).toEqual([
+      { proname: 'ember_window_for', src_md5: '7dfbcb3439d8e9cff051d6d03942a1b9' },
+      { proname: 'find_open_ember_windows', src_md5: '17249383434c1b583f82f3aa4b937269' },
+    ]);
+  });
+
+  test('CV4: the rebuilt get_coverable_members is not executable by anon or public', async () => {
+    await elevated();
+    // A drop-and-create re-opens the door S1 exists to keep shut: Postgres
+    // grants EXECUTE to PUBLIC on every new function, and anon inherits it
+    // through PUBLIC membership. The migration revokes explicitly; this
+    // reads the ACL back rather than trusting that it did.
+    const { rows } = await client.query(
+      `select coalesce(has_function_privilege('anon', p.oid, 'EXECUTE'), false) as anon_exec,
+              coalesce(has_function_privilege('authenticated', p.oid, 'EXECUTE'), false) as auth_exec
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'get_coverable_members'`
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].anon_exec).toBe(false);
+    expect(rows[0].auth_exec).toBe(true);
   });
 });

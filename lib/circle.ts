@@ -637,6 +637,21 @@ export async function coverMember(
   if (error) throw error;
 }
 
+/** CV4 — what the cover pill knows about one coverable member: the day a
+ * cover would rescue, and whether it would actually hold that day. */
+export type CoverableMember = {
+  /** The covered member's missed day — their local yesterday. */
+  missedDate: string;
+  /** CV4 (Cat's ruling, 23 Aug — Option B). FALSE means the server has
+   * MEASURED that this person is past their monthly cover capacity, so a
+   * cover here writes, notifies and renders held while holding nothing.
+   * Eligibility is deliberately unchanged by it: the offer stays wide and
+   * the gesture still lands; this only lets the screen say so first.
+   * TRUE is also what an unknown returns, so silence — never a claim — is
+   * what a read that cannot decide produces. */
+  willHold: boolean;
+};
+
 /** CV1 (23 July) — who in this circle can be covered for their missed day
  * RIGHT NOW: a member whose personal glow is at embers and who has no
  * completion in this circle for their own local yesterday (away members
@@ -644,12 +659,62 @@ export async function coverMember(
  * memberId → the missed local_date (their yesterday), which the caller
  * passes straight to coverMember so the covered row lands on the rescued
  * day. The server owns the ember + timezone logic (get_coverable_members),
- * so there is one definition, not a client re-derivation. */
-export async function getCoverableMembers(circleId: string): Promise<Map<string, string>> {
+ * so there is one definition, not a client re-derivation.
+ *
+ * CV4 (27 Aug) — the same read now also carries `willHold`. It rides HERE
+ * rather than on a read the cover screen makes for itself so that the
+ * honesty line is on screen at FIRST PAINT: a read that resolves after the
+ * screen would have to gate the CTA to be honest, and gating the CTA
+ * changes the plain within-capacity flow, which job 3(c) requires
+ * unchanged. */
+export async function getCoverableMembers(circleId: string): Promise<Map<string, CoverableMember>> {
   const { data, error } = await supabase.rpc('get_coverable_members', { p_circle_id: circleId });
   if (error) throw error;
-  const rows = (data ?? []) as { user_id: string; missed_local_date: string }[];
-  return new Map(rows.map((r) => [r.user_id, r.missed_local_date]));
+  const rows = (data ?? []) as {
+    user_id: string;
+    missed_local_date: string;
+    cover_will_hold?: boolean | null;
+  }[];
+  return new Map(
+    rows.map((r) => [
+      r.user_id,
+      // A server that has not taken this migration, or a null, reads as
+      // TRUE — the screen then says nothing, which is exactly today's
+      // behaviour. The line only ever appears on a measured negative.
+      { missedDate: r.missed_local_date, willHold: r.cover_will_hold !== false },
+    ])
+  );
+}
+
+/** CV4 job 1 — is there a completion for this exact (circle, member, day)?
+ *
+ * THE ONE THING THAT MAKES THE 42501 BRANCH HONEST. The completions INSERT
+ * policy ends with `NOT EXISTS (select 1 from completions c2 where ...)`,
+ * so the ordinary "someone already covered them" case — a cover pill that
+ * went stale while the screen was open — is refused by RLS as 42501, not
+ * as the unique violation. But 42501 on that insert also means a dozen
+ * other things (not a member any more, the covered person's local
+ * yesterday rolled over, a self-cover), and Cat's sentence would be a
+ * FALSE claim in every one of them. So the sentence is only shown after
+ * this read confirms a row really is there.
+ *
+ * `circle members can read completions` (RLS, `is_member_of_circle`) is
+ * what makes this readable by the coverer. It is a display decision only —
+ * nothing here authorises a write. */
+export async function hasCompletionFor(
+  circleId: string,
+  userId: string,
+  localDate: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('completions')
+    .select('id')
+    .eq('circle_id', circleId)
+    .eq('user_id', userId)
+    .eq('local_date', localDate)
+    .limit(1);
+  if (error) throw error;
+  return (data ?? []).length > 0;
 }
 
 let presenceChannelSeq = 0;

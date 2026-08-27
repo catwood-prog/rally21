@@ -679,6 +679,50 @@ export const STRINGS = {
   waveCta: (name: string) => `wave hello to ${name}`,
   waveCapReachedError: "you've sent a lot of waves today — give it a little rest and try again tomorrow 🧡",
   waveOptedOutError: (name: string) => `${name} isn't taking waves right now`,
+  // CV4 — CAT'S WORDS, VERBATIM (ruled 23 Aug, capitalisation and
+  // punctuation ruled 27 Aug). Shown when the cover write is refused
+  // because someone in the circle already covered this person for this
+  // day — either the race's loser (23505 on
+  // completions_circle_id_user_id_local_date_key) or, far more often,
+  // the stale-pill case, which the INSERT policy's own NOT EXISTS clause
+  // refuses as 42501 and cover.tsx only claims after re-reading that a
+  // completion really is there.
+  //
+  // THREE THINGS ARE RULED AND NONE OF THEM ARE TYPOS. "whatsapp" keeps
+  // Cat's lowercase — the Rally21-capital exemption rested on LC1
+  // governing what the app SAYS rather than what things are CALLED, plus
+  // five sibling templates, and neither covers a third party's trademark
+  // with no sibling here. The plain hyphen is hers too, against the
+  // app's usual em-dash. Part of the reason for both: this sentence is
+  // verify #4's greppable discriminator in the shipped bundle, and
+  // Hermes stores non-ASCII as UTF-16-LE — pure ASCII is the only form a
+  // plain `grep -a` can find.
+  coverAlreadyCoveredError:
+    'one of your circle just covered them already - send them a wave here or even better, send them a whatsapp to let them know you are thinking of them',
+  // The same sentence minus the wave clause, for when the wave is NOT
+  // reachable — FF2's conservative ruling hides the wave option whenever
+  // this person has waves off, and "send them a wave here" would then be
+  // pointing at nothing. Cat's words again, verbatim.
+  coverAlreadyCoveredNoWaveError:
+    'one of your circle just covered them already - send them a whatsapp to let them know you are thinking of them',
+  // CV4 job 2 — CAT'S WORDS, VERBATIM (ruled 27 Aug). The honesty line
+  // at the tap, shown only when the server has MEASURED that this cover
+  // is past the covered person's monthly capacity and so will not hold
+  // their day (get_coverable_members.cover_will_hold = false).
+  //
+  // WHAT IT DELIBERATELY DOES NOT SAY. Not a word about a pebble: past
+  // capacity the day falls through to the pebble branch, which shelters
+  // only if their nest has one and the gap is still within five days —
+  // so "a pebble is holding their place" can be false. Not a word about
+  // the note either: completions_enqueue_covered_notice does fire, but
+  // its dedupe_key is not circle-scoped, so a second circle's cover on
+  // the same day is silently deduped. What is left is what is certainly
+  // true, which is the whole point of the line.
+  //
+  // THE EM DASH IS RULED AND IT IS NOT ASCII: this string is UTF-16-LE
+  // in the Hermes bundle, so it is NOT the artifact discriminator —
+  // coverAlreadyCoveredError is.
+  coverWontHoldNote: 'this won\'t change their glow that day — it just says you noticed 🧡',
   // HW1 — the heart's warm outcomes, mirroring the wave's patterns
   // above. A gesture never fails socially; every designed rejection
   // maps to warm copy.

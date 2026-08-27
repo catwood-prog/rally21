@@ -45,6 +45,7 @@ import {
   getCircleMembers,
   getCirclePresence,
   getCoverableMembers,
+  type CoverableMember,
   isHostHandoverNotePending,
   isSoloCircle,
   leaveCircle,
@@ -141,7 +142,7 @@ function YourCircle() {
   // The server owns the window + timezone logic (ember_window_for); the
   // client only renders the pill and passes the date straight through to
   // the cover write.
-  const [coverableByUserId, setCoverableByUserId] = useState<Map<string, string>>(new Map());
+  const [coverableByUserId, setCoverableByUserId] = useState<Map<string, CoverableMember>>(new Map());
   const [wallPreview, setWallPreview] = useState<WallPreviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   // AE1 — `error` is LOAD-ONLY: it means "this screen cannot be shown",
@@ -401,7 +402,7 @@ function YourCircle() {
             // CV1: who can be covered for yesterday right now (server owns
             // the ember + timezone rule). A failed fetch just means no cover
             // pills this visit, never an error.
-            getCoverableMembers(myCircle.id).catch(() => new Map<string, string>()),
+            getCoverableMembers(myCircle.id).catch(() => new Map<string, CoverableMember>()),
             // CR2 job 1 — the REAL cap on this path too, riding the round
             // this screen already makes. The list branch has read it since
             // CR1; this branch was still holding the MAX_CIRCLES
@@ -1472,7 +1473,16 @@ function YourCircle() {
                             myName,
                             // CV1 — the covered member's missed day (their
                             // local yesterday); the cover write lands here.
-                            missedDate: coverableByUserId.get(member.userId)!,
+                            missedDate: coverableByUserId.get(member.userId)!.missedDate,
+                            // CV4 — and whether that cover will actually
+                            // hold the day. Carried from the pill's own
+                            // read so the cover screen can be honest at
+                            // FIRST PAINT rather than after a read of its
+                            // own; it composes one line of copy and
+                            // authorises nothing.
+                            coverWillHold: String(
+                              coverableByUserId.get(member.userId)!.willHold
+                            ),
                           },
                         })
                       }

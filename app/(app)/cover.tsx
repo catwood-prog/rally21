@@ -21,7 +21,7 @@ import { FONT_HEADER } from '@/constants/fonts';
 import { STRINGS } from '@/constants/strings';
 import { cardShadow, colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { coverMember } from '@/lib/circle';
+import { coverMember, hasCompletionFor } from '@/lib/circle';
 import { getLocalDateString } from '@/lib/date';
 import { getMyGlow, giftPebble } from '@/lib/glow';
 import { captureError } from '@/lib/sentry';
@@ -46,7 +46,16 @@ export default function CoverAFriend() {
   // (Cat is reworking it separately); this is just the safe-area inset.
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
-  const { circleId, memberId, memberName, memberAvatarUrl, myName, alreadyCheckedIn, missedDate } = useLocalSearchParams<{
+  const {
+    circleId,
+    memberId,
+    memberName,
+    memberAvatarUrl,
+    myName,
+    alreadyCheckedIn,
+    missedDate,
+    coverWillHold,
+  } = useLocalSearchParams<{
     circleId: string;
     memberId: string;
     memberName?: string;
@@ -56,6 +65,9 @@ export default function CoverAFriend() {
     // CV1 — the covered member's missed day (their local yesterday), passed
     // from the who's-here cover pill (getCoverableMembers owns the date).
     missedDate?: string;
+    // CV4 — 'false' when the server has MEASURED that this cover is past
+    // the covered person's monthly capacity. Same read, same pill.
+    coverWillHold?: string;
   }>();
   const name = memberName || 'your circle-mate';
   const covererName = myName || 'someone in your circle';
@@ -63,6 +75,12 @@ export default function CoverAFriend() {
   // — covering a day that's already done makes no sense (and RLS would
   // reject it), so this is wave-only from the start, not just the default.
   const isWaveOnly = alreadyCheckedIn === 'true';
+  // CV4 job 2 — ONLY an explicit 'false' speaks. A missing param (an older
+  // circle screen still in memory), a null from the server, or any read
+  // that could not decide all leave this false, and the screen says
+  // nothing — which is exactly what it did before this section. The
+  // honesty line appears on a measured negative and on nothing else.
+  const coverWontHold = coverWillHold === 'false';
 
   const [mode, setMode] = useState<Mode>(isWaveOnly ? 'wave' : 'cover');
   // FF2 — CAT'S RULING, 28 July: conservative. The wave option is revealed
@@ -163,6 +181,71 @@ export default function CoverAFriend() {
         goBackToCircle();
       }
     } catch (e) {
+      // CV4 job 1 — CAT'S SENTENCE, and the two codes that earn it.
+      //
+      // 23505 IS THE RARE ONE. It is the unique violation on
+      // `completions_circle_id_user_id_local_date_key`, which can only
+      // happen in a TRUE race: two covers in flight at once, neither
+      // seeing the other's uncommitted row through the policy's own
+      // subquery, the index catching the loser at commit. Milliseconds
+      // wide. The duplicate is certain by definition, so it needs no
+      // second look.
+      //
+      // 42501 IS THE EVERYDAY ONE, and it is why this branch exists at
+      // all. The completions INSERT policy ends with
+      // `NOT EXISTS (select 1 from completions c2 where ...)`, so an
+      // ordinary stale cover pill is refused by RLS before the unique
+      // index is ever consulted — measured against the live DB, two
+      // coverers in sequence: 42501, not 23505. Built to the 23505 alone,
+      // Cat's ruling would have shipped into a branch nobody would ever
+      // reach while the common case kept saying "something went wrong".
+      //
+      // BUT 42501 IS NOT A SENTENCE ON ITS OWN. The same code covers a
+      // wrong date (their local yesterday rolled over while the screen
+      // sat open), a membership that ended, a self-cover — and Cat's
+      // words would be a false claim in every one. So this only speaks
+      // after re-reading that a completion really is sitting on that
+      // triple. A re-read that fails claims nothing and falls through.
+      //
+      // `missedDate` MUST BE PRESENT FOR THE RE-READ TO MEAN ANYTHING.
+      // Without the param the write above falls back to TODAY, which RLS
+      // refuses as 42501 for being the wrong day entirely — and re-reading
+      // TODAY's completions would then find the member's own check-in and
+      // announce that somebody covered them. The triple has to be the one
+      // a cover would really have landed on, or there is no claim to make.
+      const code = e && typeof e === 'object' ? (e as { code?: unknown }).code : undefined;
+      if (mode === 'cover' && (code === '23505' || (code === '42501' && missedDate))) {
+        let alreadyCovered = code === '23505';
+        if (!alreadyCovered) {
+          try {
+            alreadyCovered = await hasCompletionFor(circleId, memberId, missedDate!);
+          } catch (readError) {
+            captureError(readError, { screen: 'cover', op: 'hasCompletionFor' });
+            alreadyCovered = false;
+          }
+        }
+        if (alreadyCovered) {
+          // "send them a wave HERE" is load-bearing (Cat's word), so the
+          // wave is left one tap away rather than merely mentioned: the
+          // screen behind the dialog switches to wave mode with its CTA
+          // already primed, using the wave this screen has always had —
+          // no new gesture plumbing.
+          //
+          // WHEN THIS PERSON HAS WAVES OFF, FF2's conservative ruling has
+          // hidden the wave option entirely and "send them a wave here"
+          // would point at nothing. Cat ruled that case to her same
+          // sentence with the wave clause dropped, so the copy never
+          // offers a gesture that isn't there.
+          if (nudgeAllowed) {
+            setMode('wave');
+            setError(STRINGS.coverAlreadyCoveredError);
+          } else {
+            setError(STRINGS.coverAlreadyCoveredNoWaveError);
+          }
+          setIsSaving(false);
+          return;
+        }
+      }
       // "nudges disabled" can only reach here via a race (opted out
       // between load and submit) since the option is hidden client-side
       // whenever we already know it's off — same warm mapping either way.
@@ -267,6 +350,14 @@ export default function CoverAFriend() {
         </View>
       </View>
 
+      {/* CV4 job 2 — the honesty line, placed at the decision point: the
+        * last thing read before the tap commits. Warm, promising nothing,
+        * and never blaming the covered person for spent capacity. It only
+        * renders on a measured negative, and only for a cover — a wave or
+        * a pebble is untouched by shelter capacity. */}
+      {mode === 'cover' && coverWontHold && (
+        <Text style={styles.wontHoldNote}>{STRINGS.coverWontHoldNote}</Text>
+      )}
       <TouchableOpacity style={styles.cta} onPress={handleSubmit} disabled={isSaving}>
         {isSaving ? (
           <ActivityIndicator color={colors.ink} />
@@ -367,6 +458,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: colors.onFill,
+  },
+  wontHoldNote: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: colors.mutedStrong,
+    textAlign: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 4,
   },
   cta: {
     backgroundColor: colors.green,
