@@ -1,8 +1,9 @@
 /**
  * HD1 job 2 (3 Aug) — run guards for the DB-bound suites.
  *
- * SCOPE: the suites matching `supabase/*.integration.test.ts` — 21 of them
- * as of 27 Aug, RE-DERIVED by GR1 from the glob itself. The count in this
+ * SCOPE: the suites matching `supabase/*.integration.test.ts` — 22 of them
+ * as of 27 Aug, RE-DERIVED from the glob itself (GR1 made it 21 that
+ * morning; HT2's account-deletion-archive suite is the twenty-second). The count in this
  * line has now been stale four times running (14 on 10 Aug, 17 while there
  * were 18, and "19 as of 23 Aug" — which was already wrong the day it was
  * written: HT1's addaafb added the nineteenth and CV3's de87202 added the

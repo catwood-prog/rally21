@@ -3,8 +3,9 @@
  *
  * SCOPE OF THIS FILE'S COUNT: the suites matching
  * `supabase/*.integration.test.ts`, which is the whole population — no
- * integration suite lives anywhere else in the repo. There are 21
- * (re-derived from the glob 27 Aug by GR1). The number has gone stale
+ * integration suite lives anywhere else in the repo. There are 22
+ * (re-derived from the glob 27 Aug by HT2, which added the
+ * twenty-second). The number has gone stale
  * every time it has been written — 14 on 10 Aug, 17 while there were 18,
  * and 19 as of 23 Aug, which was wrong the same day (HT1's addaafb added
  * the nineteenth and CV3's de87202 the twentieth on 23 Aug; OB1's ecfb941
@@ -47,7 +48,7 @@ function banner(where) {
   const lines = [
     '',
     RULE,
-    '  !!  SUPABASE_DB_URL IS NOT SET — 21 INTEGRATION SUITES DID NOT RUN',
+    '  !!  SUPABASE_DB_URL IS NOT SET — 22 INTEGRATION SUITES DID NOT RUN',
     RULE,
     '  Skipped: every supabase/*.integration.test.ts suite. These are the',
     '  ONLY tests of the RLS policies, the function grants and the anon',
@@ -84,7 +85,7 @@ function guard(phase) {
   if (process.env.CI_REQUIRE_DB === '1') {
     if (phase === 'setup') {
       throw new Error(
-        'CI_REQUIRE_DB=1 but SUPABASE_DB_URL is not set — the 19 ' +
+        'CI_REQUIRE_DB=1 but SUPABASE_DB_URL is not set — the 22 ' +
           'supabase/*.integration.test.ts suites (RLS, function grants, ' +
           'anon EXECUTE) would silently skip. Refusing to run a test pass ' +
           'that cannot see the database.'
